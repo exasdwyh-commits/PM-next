@@ -1,0 +1,42 @@
+# Node dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Next.js build output
+.next/
+out/
+
+# Production
+build/
+dist/
+
+# Environment files
+.env*.local
+.env
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Database & local runtime files
+.pgdata*
+.tmp-pg/
+*.log
+
+# OS metadata
+.DS_Store
+*.pem
+
+# 构建产物（.next-verify 为本地验收构建目录，可达 150M+，禁止入库）
+.next-verify/
+tsconfig.tsbuildinfo
+
+# 本地运行期数据（上传目录 / 迁移前备份）
+.uploads/
+prisma/_backups/
+
+# 交付产物（PDF/PNG 汇总，体积大且可重生成，由 outputs/ 单独管理）
+/outputs/

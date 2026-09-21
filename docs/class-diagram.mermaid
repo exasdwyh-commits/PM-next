@@ -1,0 +1,143 @@
+classDiagram
+    class DesignTokens {
+        <<:root>>
+        +--bg: #F6F9FD
+        +--surface: #FFFFFF
+        +--ink: #0D1B3E
+        +--ink-2: #44536D
+        +--ink-muted: #65738D
+        +--ink-faint: #93A0B5
+        +--line: #E5EBF3
+        +--accent: #2F6DF6
+        +--ok / --warn / --block
+        +--radius: 14px
+        +--sidebar: 228px
+        +--topbar: 68px
+    }
+
+    class StepTrack {
+        +steps: StepItem[]
+        +ariaLabel?: string
+        +className?: string
+        +render() ReactNode
+    }
+    class StepItem {
+        +key: string
+        +label: string
+        +state: "done"|"current"|"pending"|"unknown"
+        +note?: string
+    }
+
+    class GateLine {
+        +gates: GateNode[]
+        +ariaLabel?: string
+        +className?: string
+        +render() ReactNode
+    }
+    class GateNode {
+        +key: "G1"|"G2"|"G3"
+        +label: string
+        +state: "passed"|"pending"|"blocked"|"not-created"
+        +source: "decision-packet"|"launch-plan"|"none"
+        +detail?: string
+        +refId?: string|null
+    }
+
+    class ProgressRing {
+        +value: number|null
+        +label?: string
+        +caption?: string
+        +tone?: VizTone
+        +size?: number
+        +render() ReactNode
+    }
+
+    class BubbleChart {
+        +data: BubbleDatum[]
+        +xLabel: string
+        +yLabel: string
+        +source: "verified-real"|"demo"|"none"
+        +height?: number
+        +render() ReactNode
+    }
+    class BubbleDatum {
+        +id: string
+        +label: string
+        +x: number
+        +y: number
+        +weight?: number
+        +tone?: VizTone
+    }
+
+    class Timeline {
+        +items: TimelineItem[]
+        +emptyText?: string
+        +ariaLabel?: string
+        +render() ReactNode
+    }
+    class TimelineItem {
+        +id: string
+        +at: DateInput
+        +title: string
+        +body?: string
+        +tone?: VizTone
+        +actor?: string
+        +refId?: string|null
+    }
+
+    class AxisResolution {
+        <<function>>
+        +resolveAxis(point, axis) AxisResult
+    }
+    class AxisResult {
+        +ok: boolean
+        +value?: number
+        +reason?: "no-source"|"unverified"|"demo"
+    }
+
+    StepTrack o-- StepItem
+    GateLine o-- GateNode
+    BubbleChart o-- BubbleDatum
+    Timeline o-- TimelineItem
+    BubbleChart ..> AxisResolution
+    AxisResolution --> AxisResult
+    ProgressRing ..> DesignTokens
+    StepTrack ..> DesignTokens
+    GateLine ..> DesignTokens
+    Timeline ..> DesignTokens
+
+    class DecisionPacket {
+        +gate: GateType
+        +status: DecisionPacketStatus
+    }
+    class GateType {
+        <<enum>>
+        RESEARCH_SAMPLING_GATE
+        PRODUCTION_GATE
+    }
+    class LaunchPlan {
+        +approvedAt: DateTime
+        +actualLaunchedAt: DateTime
+    }
+    class LaunchGate {
+        +ready: boolean
+        +checks: LaunchGateCheck[]
+        +blockers: string[]
+        +summary: string
+    }
+    class SignalItem {
+        +valueTier: string
+        +valueReason: string
+        +importance: int
+    }
+    class AnalysisDimension {
+        +dimension: AnalysisDimensionKey
+        +score: int
+    }
+
+    DecisionPacket --> GateType
+    GateNode ..> DecisionPacket : G1/G2 判据
+    GateNode ..> LaunchPlan : G3 判据
+    LaunchPlan ..> LaunchGate : evaluateGate()
+    BubbleChart ..> SignalItem : 价值轴(可能为空)
+    BubbleChart ..> AnalysisDimension : 匹配度轴(跨实体,当前未映射)

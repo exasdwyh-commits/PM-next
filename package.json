@@ -1,0 +1,63 @@
+{
+  "name": "hermes-next",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3100",
+    "build": "next build",
+    "start": "next start -p 3100",
+    "lint": "eslint .",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push",
+    "prisma:migrate": "prisma migrate dev",
+    "test:db": "tsx scripts/run-test.ts tests/db-transaction-verification.ts",
+    "test:acceptance": "tsx scripts/run-test.ts tests/acceptance-a01-a12.test.ts",
+    "test:r1": "tsx scripts/run-test.ts tests/acceptance-b01-r1.test.ts",
+    "test:p1": "tsx scripts/run-test.ts tests/acceptance-p1.test.ts",
+    "test:r2": "tsx scripts/run-test.ts tests/review-r2-probes.ts",
+    "test:r3": "tsx scripts/run-test.ts tests/review-r3-probes.ts",
+    "test:revision": "tsx scripts/run-test.ts tests/regression-revision-consistency.ts",
+    "test:partial": "tsx scripts/run-test.ts tests/regression-partial-revision.ts",
+    "test:http": "bash scripts/acc-server.sh --port 3200 3201 tests/acceptance-b01-http.ts",
+    "test:http-errors": "bash scripts/acc-server.sh --port 3202 3203 tests/acceptance-http-errors.ts",
+    "test:ui": "bash scripts/acc-server.sh --port 3204 3205 tests/ui-b01-evidence.ts",
+    "test:ui-feedback": "bash scripts/acc-server.sh --port 3206 3207 tests/ui-feedback-layer.ts",
+    "test:evidence": "tsx scripts/run-test.ts tests/regression-evidence-structure.ts",
+    "test:opportunity": "tsx scripts/run-test.ts tests/regression-opportunity.ts",
+    "test:blueprint": "tsx scripts/run-test.ts tests/acceptance-blueprint-journey.test.ts",
+    "test:product-center": "bash scripts/acc-server.sh --port 3208 3209 tests/acceptance-product-center.test.ts",
+    "test:science": "bash scripts/acc-server.sh --port 3210 3211 tests/acceptance-science-evidence.test.ts",
+    "test:llm-e2e": "LLM_E2E_API_PORT=3212 MOCK_LLM_PORT=3213 bash scripts/acc-llm-e2e.sh",
+    "test:authz": "bash scripts/acc-server.sh --port 3214 3215 tests/acceptance-authz-matrix.test.ts",
+    "test:api-errors": "tsx scripts/run-test.ts tests/api-error-mapping.test.ts",
+    "test:signal": "tsx scripts/run-test.ts tests/regression-signal.ts",
+    "test:critical": "npm run test:product-center && npm run test:authz && npm run test:science && npm run test:llm-e2e",
+    "db:seed": "tsx prisma/seed.ts",
+    "user:create": "tsx scripts/create-user.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.4.1",
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.70.0",
+    "@typescript-eslint/parser": "^8.70.0",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^15.5.25",
+    "playwright": "^1.63.0",
+    "postcss": "^8.4.49",
+    "prisma": "^6.4.1",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

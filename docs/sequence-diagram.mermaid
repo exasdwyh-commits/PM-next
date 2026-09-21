@@ -1,0 +1,38 @@
+sequenceDiagram
+    autonumber
+    participant P as page.tsx (Server)
+    participant M as modules/* (只读取数)
+    participant C as *-client.tsx (Client)
+    participant V as components/viz.tsx (无 use client)
+    participant D as shared/datetime.ts & status-labels.ts
+
+    Note over P,M: 页面渲染 —— 服务端取数并做三态判定
+
+    P->>M: 读取 product / project / decisionPackets / launchPlan / signals
+    M-->>P: 原始数据（不虚构、不补造）
+    P->>P: resolveGateNodes()  G1/G2<-DecisionPacket, G3<-LaunchPlan
+    P->>P: resolveBubbleAxes() 价值轴/匹配度轴判定 live|demo|unavailable
+    P->>P: buildTimeline() 审计/决策事件
+    P->>C: 以 JSON props 传入
+    P->>V: 直接 SSR 渲染（无客户端边界）
+    C->>V: <StepTrack/> <GateLine/> <ProgressRing/> <BubbleChart/> <Timeline/>
+    V->>D: labelOf() 枚举中文化；fmtDateTime() 固定 Asia/Shanghai
+    D-->>V: 稳定文本（跨环境逐字一致）
+
+    alt 门槛线无来源（source=none / not-created）
+        V-->>C: 空心点 + 「未建档」；不显示任何通过状态/数字
+    else G3 走 LaunchPlan
+        V-->>C: evaluateGate() 的 ready/blockers 如实呈现（获准≠已上市）
+    end
+
+    alt 气泡图无来源（data 为空 或 source!=verified-real）
+        V-->>C: 坐标框 + 居中「未建档 / 待补证」；.bubble-dot 计数=0
+    else 有真实来源
+        V-->>C: 正常绘制气泡点
+    end
+
+    alt prefers-reduced-motion: reduce
+        V-->>C: 零动画、静止可读（ProgressRing 本就无动画）
+    end
+
+    Note over V: 空数据 -> Empty 态；加载中 -> Thinking 态（两者不混用）

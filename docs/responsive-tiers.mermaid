@@ -1,0 +1,24 @@
+%% 小屏电脑自适应 · 分档（增量 A · rev2，2026-09-17）
+%% 与 docs/class-diagram.mermaid、docs/sequence-diagram.mermaid 同风格。
+%% rev2：取消抽屉（NavDrawer）—— ≤860 拍板 P0 保留 82px rail + aria-label。
+
+graph TD
+    BASE["A 宽桌面 ≥1281<br/>侧栏228 · 顶栏68 · project-row 7列 · content pad 32"]
+    B["B 紧凑笔记本 ≤1280<br/>仅密度：content pad 32→24；结构不变"]
+    C["C 小屏笔记本 ≤1180<br/>侧栏 → 82px 图标栏 rail"]
+    D["D 小屏/高缩放 ≤1100<br/>project-row 两行带标签；不可丢 #4负责人 / #7阻塞"]
+    E["E 窄屏 ≤860<br/>侧栏保留 82px rail（P0，修导航可达）+ 单列堆叠 + 步进折行 + 气泡 280"]
+    F["F 手机 ≤520<br/>满宽模态 + 点击区 ≥24px（全档生效）"]
+
+    BASE --> B --> C --> D --> E --> F
+
+    SHELL["AppShell (server · 无 use client)"]
+    NAV["hermes-nav-item<br/>aria-label = label（补回可访问名）"]
+    ROWS["project-row<br/>data-label 行内标签"]
+    VIZ["viz：StepTrack 折行 / BubbleChart 降高（无来源不画点）"]
+
+    SHELL --> NAV
+    SHELL --> ROWS
+    SHELL --> VIZ
+    NAV -->|"≤860 保留 82px rail（非抽屉）"| E
+    ROWS -->|"≤1100 两行 / ≤860 单列，阻塞列不可丢"| D

@@ -1,0 +1,959 @@
+@import "./theme/quiet-enterprise.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 兼容别名：只保留指向【不同】令牌的别名。
+   ⚠️ 严禁 `--x:var(--x)` 这种同名自引用——CSS 自定义属性会构成循环依赖，
+   在计算值阶段整体失效（computed 值为空串），var(--x) 回落 initial/inherit。
+   --ink / --line 已由 theme/quiet-enterprise.css 的 :root 正确定义，此处不得再声明。 */
+:root { --muted:var(--ink-muted); --paper:var(--bg); --teal:var(--accent); --copper:var(--warn-ink); --green:var(--ok); }
+* { box-sizing:border-box; }
+body { margin:0; line-height:1.6; color:var(--ink); background:var(--bg); font-family:var(--font-body); }
+button,input,textarea,select { font:inherit; }
+button,a { -webkit-tap-highlight-color:transparent; }
+.hermes-shell { min-height:100vh; display:flex; position:relative; background:var(--bg); }
+/* 页面氛围（rev4 · 前端专家铁律「绝不用纯白/纯灰平铺背景」）：
+   两层极淡径向光晕铺在内容之下，让白色卡片「浮」在有色氛围上，而不是贴在死白底上。 */
+.hermes-shell::before { content:""; position:fixed; inset:0; z-index:0; pointer-events:none; background:radial-gradient(1100px 540px at 14% -8%,var(--ambient-1),transparent 62%),radial-gradient(880px 460px at 98% 6%,var(--ambient-2),transparent 58%); }
+
+/* 侧栏改用墨蓝底（rev4）：与内容区的浅色形成经典 SaaS 主从关系，
+   也让侧栏上的品牌字标与图标成为真正的视觉锚点，而不是一片白里的小灰字。 */
+.hermes-sidebar { width:var(--sidebar); min-height:100vh; padding:20px 14px 18px; color:var(--on-dark); background:var(--navy); border-right:0; position:relative; z-index:1; display:flex; flex-direction:column; box-shadow:var(--shadow-card); }
+.hermes-brand { text-align:center; padding:0 0 26px; border-bottom:1px solid var(--on-dark-line); }
+.hermes-monogram { font:58px/1 Georgia,serif; color:var(--on-dark); letter-spacing:-6px; margin-right:6px; }
+.hermes-wordmark { font:16px/1 Georgia,serif; color:var(--on-dark); letter-spacing:3px; margin-top:5px; }.hermes-submark { color:var(--on-dark-3); font-size:12px; letter-spacing:2px; margin-top:7px; }
+.hermes-nav { display:grid; gap:5px; padding-top:28px; }.hermes-nav-item { min-height:48px; display:flex; align-items:center; gap:12px; padding:0 14px; color:var(--on-dark-2); text-decoration:none; font-size:15px; border:1px solid transparent; border-radius:9px; position:relative; transition:color .2s ease,background .2s ease,border-color .2s ease; }.hermes-nav-item:hover { color:var(--on-dark); background:var(--on-dark-hover); border-color:var(--on-dark-line); }.hermes-nav-item.is-active { color:var(--on-dark); background:var(--accent-wash); border-color:var(--accent-line); }
+.hermes-nav-item:focus-visible { outline:none; border-color:var(--on-dark); box-shadow:0 0 0 3px var(--on-dark-hover); }.hermes-nav-item.is-active i { position:absolute; left:-13px; width:3px; height:30px; background:var(--accent); border-radius:0 4px 4px 0; box-shadow:0 0 12px var(--accent-line); }
+.hermes-sidebar-bottom { margin-top:auto; display:flex; gap:9px; align-items:center; padding:14px 10px; border-top:1px solid var(--on-dark-line); font-size:13px; }.hermes-sidebar-bottom strong,.hermes-sidebar-bottom span,.hermes-profile strong,.hermes-profile span { display:block; }.hermes-sidebar-bottom strong,.hermes-profile strong { color:var(--on-dark); }.hermes-sidebar-bottom span,.hermes-profile span { color:var(--on-dark-3); margin-top:4px; font-size:12px; }.hermes-status-dot { width:12px; height:12px; border-radius:50%; background:var(--ok); box-shadow:0 0 0 5px var(--ok-line),0 0 18px var(--ok); }.hermes-profile { display:flex; gap:10px; align-items:center; padding:15px 8px 0; }.hermes-avatar { display:grid; place-items:center; border-radius:50%; color:var(--navy); background:linear-gradient(145deg,var(--accent-bg),var(--accent-ring)); }.hermes-avatar { width:34px; height:34px; font-size:15px; font-weight:600; }.profile-chevron { margin-left:auto; font-size:22px!important; color:var(--on-dark-3)!important; }
+.hermes-content { width:calc(100% - var(--sidebar)); max-width:1480px; margin:0 auto; padding:20px 32px 48px; position:relative; z-index:1; }/* 卡片：毛玻璃 + **可见**发丝线 + 一级阴影（rev4 恢复纵深）。
+   注意两者都要：只给毛玻璃没有边界 → 卡片在浅底上「糊」在一起；
+   只给边界没有玻璃感 → 回到平铺的死白。 */
+.hermes-glass { background:linear-gradient(150deg,var(--surface-glass),var(--surface)); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow-hair); backdrop-filter:blur(14px) saturate(120%); -webkit-backdrop-filter:blur(14px) saturate(120%); }
+.hermes-topbar { height:var(--topbar); padding:8px 16px 8px 20px; border-radius:0; position:sticky; top:0; z-index:20; display:flex; align-items:center; justify-content:space-between; background:var(--surface-glass); border-bottom:1px solid var(--line); backdrop-filter:blur(14px) saturate(125%); -webkit-backdrop-filter:blur(14px) saturate(125%); }.hermes-search { display:flex; align-items:center; gap:9px; color:var(--ink-muted); }.hermes-search { width:min(500px,52%); background:var(--surface-wash); border:1px solid var(--line); border-radius:8px; padding:8px 10px; }.hermes-search input { width:100%; border:0; outline:0; background:transparent; color:var(--ink); font-size:14.5px; }.hermes-search kbd { border:1px solid var(--line-strong); border-radius:5px; padding:2px 5px; color:var(--ink-faint); font-size:13px; }.hermes-top-actions { display:flex; align-items:center; gap:15px; color:var(--ink-2); }.top-divider { height:23px; border-left:1px solid var(--line); }
+.hermes-page-heading { padding:30px 4px 20px; display:flex; align-items:flex-end; justify-content:space-between; gap:20px; border-bottom:1px solid var(--line); margin-bottom:18px; }.eyebrow { color:var(--ink-faint); font-size:12px; font-weight:600; letter-spacing:2px; }.hermes-page-heading h1 { margin:5px 0 4px; font:46px/1 var(--font-title); letter-spacing:-2px; }.hermes-page-heading p:last-child { margin:0; color:var(--ink-2); font-size:15px; }.hermes-primary-btn,.hermes-outline-btn { border-radius:8px; padding:11px 18px; display:inline-flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; text-decoration:none; font-size:14.5px; font-weight:600; transition:.25s ease; }.hermes-primary-btn { color:var(--surface); border:1px solid var(--accent-ring); background:var(--accent-hover); box-shadow:0 8px 20px var(--shadow-accent); }.hermes-primary-btn:hover { background:var(--accent); box-shadow:0 8px 24px var(--shadow-accent); transform:translateY(-1px); }.hermes-outline-btn { color:var(--accent-hover); border:1px solid var(--accent-line); background:var(--surface-wash); }
+.health-score i { display:inline-block; width:10px; height:10px; margin-right:7px; border-radius:50%; background:var(--ok); box-shadow:0 0 9px var(--ok-line); }.muted-line { color:var(--ink-faint); font-size:13px; }
+.project-table-head,.project-row { display:grid; grid-template-columns:minmax(200px,2.4fr) 104px 84px minmax(104px,1fr) 116px 60px 88px; gap:10px; align-items:center; font-size:14.5px; }.project-table-head { padding:10px 20px; color:var(--ink-faint); font-size:13px; }.project-row { min-height:68px; padding:10px 20px; color:var(--ink); text-decoration:none; border-top:1px solid var(--line-soft); transition:.25s ease; }.project-row:hover,.project-row.is-selected { background:linear-gradient(90deg,var(--accent-wash),var(--surface-faint)); }.project-name { min-width:0; display:grid; grid-template-columns:34px 1fr; gap:2px 10px; align-items:center; }.project-name strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14.5px; }.project-name small { grid-column:2; color:var(--ink-faint); font-size:13px; margin-top:4px; }.project-mark { grid-row:1 / span 2; display:grid; place-items:center; width:34px; height:34px; border-radius:var(--radius-xs); background:var(--accent-bg); color:var(--accent-hover); font-family:var(--font-title); font-size:15px; font-weight:600; }.stage-badge { display:inline-block; padding:5px 7px; color:var(--accent); background:var(--accent-bg); border-radius:4px; font-size:13px; white-space:nowrap; }.health-score { font-size:14.5px; font-weight:600; }.updated { display:flex; gap:5px; align-items:center; color:var(--ink-faint); font-size:13px; }
+.hermes-modal-backdrop { position:fixed; inset:0; z-index:10; display:grid; place-items:center; padding:20px; background:var(--overlay); backdrop-filter:blur(10px); }.hermes-modal { width:min(560px,92vw); position:relative; padding:28px; border-radius:16px; }.hermes-modal h3 { margin:8px 0 5px; font:28px var(--font-title); }.hermes-modal > p { margin:0 0 20px; color:var(--ink-muted); font-size:14.5px; }.modal-close { position:absolute; top:12px; right:12px; width:28px; height:28px; display:grid; place-items:center; border:0; background:transparent; color:var(--ink-muted); cursor:pointer; border-radius:6px; transition:.2s ease; }.modal-close:hover { background:var(--surface-wash); color:var(--ink); }.hermes-modal form { display:grid; gap:14px; }.hermes-modal label { display:grid; gap:7px; color:var(--ink-2); font-size:14px; font-weight:600; }.hermes-modal input,.hermes-modal textarea,.hermes-modal select { width:100%; padding:10px 11px; border:1px solid var(--line-field); border-radius:7px; outline:0; color:var(--ink); background:var(--surface-wash); font-size:14.5px; }.hermes-modal input:focus,.hermes-modal textarea:focus,.hermes-modal select:focus { border-color:var(--accent-ring); box-shadow:0 0 0 3px var(--accent-ring); }
+
+@media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }
+
+/* ==========================================================================
+   设计系统扩展层（2026-09-13）
+   目的：让全部内页与首页共用同一套 paper/teal/毛玻璃语言。
+   以下仅新增原子类，不修改上方任何既有 hermes-* 规则。
+   ========================================================================== */
+
+/* 页面纵向节奏：由页面用 .hermes-stack 显式声明，
+   不写成 .hermes-content > * + * 以免改变首页既有间距 */
+.hermes-stack { display:grid; gap:14px; align-content:start; }
+.hermes-note { color:var(--ink-muted); font-size:14.5px; margin:0; }
+.hermes-note.is-alert { color:var(--block-ink); }
+/* 点击区 ≥24×24 —— **全档生效**（R3 证明 1440 亦违规，故不放窄屏媒体查询里）。
+   用 min-height + 内边距扩展命中区，尽量不改变文字行高与视觉密度。 */
+.hermes-link { color:var(--accent-hover); font-weight:600; text-decoration:none; transition:.2s ease; display:inline-flex; align-items:center; min-height:24px; padding:4px 2px; }
+.hermes-link:hover { color:var(--accent-hover); text-decoration:underline; }
+/* 行标题命中区再放宽（/organization 行标题实测高 15px） */
+.hermes-row-head .hermes-link.hermes-row-title { min-height:28px; display:inline-flex; align-items:center; }
+
+/* 面板（毛玻璃 + 内边距） */
+.hermes-panel { border-radius:var(--radius); padding:20px 22px; }
+/* 面板头：图标块 + 标题。图标块让每个区块有可扫读的锚点，不再是一行裸标题。 */
+.hermes-panel-heading { display:flex; align-items:center; gap:13px; min-width:0; }
+.hermes-panel-icon { flex:0 0 auto; display:grid; place-items:center; width:34px; height:34px; border-radius:var(--radius-sm); background:var(--accent-bg); color:var(--accent-hover); }
+.hermes-panel-head { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:14px; flex-wrap:wrap; }
+.hermes-panel-head.is-stacked { flex-direction:column; align-items:stretch; gap:10px; }
+.hermes-panel-title { font:23px/1.25 var(--font-title); color:var(--ink); margin:0; }
+.hermes-panel-title small { color:var(--ink-faint); font:14.5px var(--font-body); margin-left:5px; }
+.hermes-panel-sub { color:var(--ink-muted); font-size:14.5px; margin:5px 0 0; }
+.hermes-section-label { display:block; color:var(--ink-faint); font-size:12px; font-weight:600; letter-spacing:2px; text-transform:uppercase; }
+.hermes-subheading { font-size:14.5px; font-weight:600; color:var(--ink); margin:0 0 8px; }
+.hermes-divider { height:1px; border:0; background:var(--line); margin:14px 0; }
+
+/* 统计卡 */
+.hermes-stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(148px,1fr)); gap:12px; }
+.hermes-stat { border-radius:12px; padding:15px 17px; }
+.hermes-stat > span { display:block; color:var(--ink-muted); font-size:13px; }
+.hermes-stat > strong { display:block; margin-top:5px; font:26px/1.1 var(--font-title); color:var(--ink); }
+.hermes-stat > small { display:block; margin-top:5px; color:var(--ink-faint); font-size:13px; }
+.hermes-stat.is-alert > strong { color:var(--block-ink); }
+.hermes-stat.is-good > strong { color:var(--ok); }
+
+/* 徽章 */
+.hermes-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 8px; border:1px solid transparent; border-radius:5px; font-size:13px; font-weight:600; white-space:nowrap; }
+.hermes-badge.is-ok { color:var(--ok-ink); background:var(--ok-bg); border-color:var(--ok-line); }
+.hermes-badge.is-warn { color:var(--warn-ink); background:var(--warn-bg); border-color:var(--warn-line); }
+.hermes-badge.is-danger { color:var(--block-ink); background:var(--block-bg); border-color:var(--block-line); }
+.hermes-badge.is-info { color:var(--accent-hover); background:var(--accent-bg); border-color:var(--accent-line); }
+.hermes-badge.is-neutral { color:var(--neutral-ink); background:var(--neutral-bg); border-color:var(--neutral-line); }
+.hermes-badge.is-brand { color:var(--surface); background:var(--accent-hover); border-color:var(--accent-ring); }
+.hermes-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border-radius:4px; font-size:13px; color:var(--accent); background:var(--accent-bg); }
+
+/* 按钮补充 */
+.hermes-ghost-btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:9px 12px; border:1px solid transparent; border-radius:8px; background:transparent; color:var(--accent-hover); font-size:14px; font-weight:600; cursor:pointer; transition:.25s ease; }
+.hermes-ghost-btn:hover { background:var(--accent-wash); border-color:var(--accent-line); }
+.hermes-danger-btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:9px 13px; border:1px solid var(--block-line); border-radius:8px; background:var(--block-bg); color:var(--block-ink); font-size:14px; font-weight:600; cursor:pointer; transition:.25s ease; }
+.hermes-danger-btn:hover { border-color:var(--block); background:var(--block-bg); box-shadow:0 4px 14px var(--shadow-block); }
+.hermes-primary-btn:disabled,.hermes-outline-btn:disabled,.hermes-ghost-btn:disabled,.hermes-danger-btn:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+.hermes-btn-sm { padding:6px 10px!important; font-size:13px!important; }
+
+/* 顶栏身份切换 */
+.hermes-topbar-title { display:flex; align-items:center; gap:10px; }
+.hermes-topbar-title strong { font:19px var(--font-title); color:var(--ink); letter-spacing:0; }
+.hermes-topbar-title .eyebrow { margin:0; }
+.hermes-identity { display:flex; align-items:center; gap:7px; font-size:14px; color:var(--ink-2); }
+.hermes-identity select { padding:5px 8px; border:1px solid var(--line-field); border-radius:6px; background:var(--surface-wash); color:var(--ink); font-size:14px; }
+
+/* 表单 */
+.hermes-label { display:grid; gap:6px; color:var(--ink-2); font-size:14px; font-weight:600; }
+.hermes-input,.hermes-select,.hermes-textarea { width:100%; padding:9px 11px; border:1px solid var(--line-field); border-radius:7px; outline:0; color:var(--ink); background:var(--surface-wash); font-size:14.5px; }
+.hermes-textarea { min-height:64px; resize:vertical; }
+.hermes-input:focus,.hermes-select:focus,.hermes-textarea:focus { border-color:var(--accent-ring); box-shadow:0 0 0 3px var(--accent-ring); }
+.hermes-select { appearance:none; padding-right:28px; background-image:linear-gradient(45deg,transparent 50%,var(--ink-muted) 50%),linear-gradient(135deg,var(--ink-muted) 50%,transparent 50%); background-position:calc(100% - 15px) 50%,calc(100% - 10px) 50%; background-size:5px 5px,5px 5px; background-repeat:no-repeat; }
+.hermes-form-grid { display:grid; gap:14px; }
+.hermes-inline { display:flex; align-items:center; gap:9px; flex-wrap:wrap; min-height:24px; }
+/* 采纳复选框本体原为 13×13 < 24：本体直接放到 24px，使「点击区 ≥24×24」对本体自身即成立
+   （走查探针按控件本体度量；外层 <label class="hermes-inline"> 另行提供 ≥24 命中区，H2 按最近 label 度量） */
+.hermes-inline > input[type="checkbox"],.hermes-inline > input[type="radio"] { width:24px; height:24px; flex:0 0 auto; }
+.hermes-inline-end { display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
+
+/* 提示条 */
+.hermes-banner { padding:11px 13px; border:1px solid transparent; border-radius:8px; font-size:14px; }
+.hermes-banner.is-ok { color:var(--ok-ink); background:var(--ok-bg); border-color:var(--ok-line); }
+.hermes-banner.is-danger { color:var(--block-ink); background:var(--block-bg); border-color:var(--block-line); }
+.hermes-banner.is-info { color:var(--accent-hover); background:var(--accent-bg); border-color:var(--accent-line); }
+
+/* 列表行 */
+.hermes-list { display:grid; gap:9px; }
+.hermes-row { padding:13px 15px; border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--surface); box-shadow:var(--shadow-hair); transition:border-color .22s ease,box-shadow .22s ease,transform .22s ease; }
+.hermes-row:hover { border-color:var(--accent-line); box-shadow:var(--shadow-card); transform:translateY(-1px); }
+.hermes-row.is-flat { background:var(--surface-2); box-shadow:none; }
+.hermes-row-head { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+/* 行首字母块：列表可扫读的锚点（产品列表 / 项目列表 / 首页推进行共用同一形态） */
+.hermes-row-mark { flex:0 0 auto; display:grid; place-items:center; width:32px; height:32px; border-radius:var(--radius-xs); background:var(--accent-bg); color:var(--accent-hover); font-family:var(--font-title); font-size:15px; font-weight:600; }
+.hermes-row-title { font-size:15px; font-weight:600; color:var(--ink); }
+/* 元信息行：多个 <span> 之间自动补「·」分隔符。
+   此前没有分隔，几个 span 会直接粘连（页面上出现过「…负责人: 张负责 (研发PM)2 任务…」）。 */
+.hermes-row-meta { display:flex; flex-wrap:wrap; align-items:center; gap:3px 0; color:var(--ink-muted); font-size:13.5px; }
+.hermes-row-meta > span + span::before { content:"·"; margin:0 9px; color:var(--ink-faint); }
+.hermes-row-body { margin-top:7px; color:var(--ink-2); font-size:15px; line-height:1.65; }
+.hermes-empty { padding:34px 20px; border:1px dashed var(--line); border-radius:10px; background:var(--surface-faint); color:var(--ink-faint); font-size:14.5px; text-align:center; }
+/* 空态三件套（移植自老版 EmptyState）：标题说清「为什么空」，动作给出「下一步」 */
+.hermes-empty-title { margin:0 0 6px; color:var(--ink-2); font-size:15px; font-weight:600; }
+.hermes-empty-action { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:8px; margin-top:14px; }
+
+/* 表格 */
+.hermes-table { width:100%; border-collapse:collapse; }
+.hermes-table th { padding:9px 10px; border-bottom:1px solid var(--line); color:var(--ink-faint); font-size:13px; font-weight:600; text-align:left; }
+.hermes-table td { padding:11px 10px; border-bottom:1px solid var(--line-soft); color:var(--ink); font-size:14px; }
+.hermes-table tbody tr:last-child td { border-bottom:0; }
+.hermes-table tbody tr:hover { background:linear-gradient(90deg,var(--accent-wash),var(--surface-faint)); }
+.hermes-table tbody tr.is-sum td { font-weight:600; background:var(--accent-wash); }
+.hermes-mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; color:var(--ink-muted); }
+
+/* 时间线 */
+.hermes-timeline { position:relative; display:grid; gap:15px; margin:0 0 0 6px; padding-left:18px; border-left:1px solid var(--line); list-style:none; }
+.hermes-timeline > li { position:relative; }
+.hermes-timeline > li::before { content:""; position:absolute; left:-23px; top:5px; width:9px; height:9px; border-radius:50%; background:var(--accent-ring); box-shadow:0 0 0 4px var(--accent-line); }
+
+/* 进度条 */
+.hermes-progress { height:8px; border-radius:99px; background:var(--line-soft); overflow:hidden; }
+.hermes-progress > i { display:block; height:100%; border-radius:99px; background:linear-gradient(90deg,var(--accent),var(--accent-ring)); }
+
+/* 键值对 */
+.hermes-kv { display:grid; grid-template-columns:auto 1fr; gap:6px 14px; margin:0; font-size:14px; }
+.hermes-kv dt { color:var(--ink-faint); }
+.hermes-kv dd { margin:0; color:var(--ink); }
+
+/* 模态框补充（沿用既有 .hermes-modal 外观） */
+.hermes-modal.is-wide { width:min(620px,100%); max-height:88vh; overflow-y:auto; }
+.hermes-modal .hermes-form-grid { margin-top:4px; }
+.hermes-modal-actions { display:flex; justify-content:flex-end; gap:8px; padding-top:6px; }
+
+/* 标签页 */
+/* 页签：分段控件（选中项浮起成白卡），比「一框内蓝底按钮」更像成熟产品的导航 */
+.hermes-tabs { display:flex; gap:4px; flex-wrap:wrap; padding:5px; border-radius:var(--radius-sm); background:var(--surface-2); border:1px solid var(--line); }
+.hermes-tabs button { padding:8px 14px; border:1px solid transparent; border-radius:var(--radius-xs); background:transparent; color:var(--ink-muted); font-size:14px; font-weight:600; cursor:pointer; transition:color .2s ease,background .2s ease,box-shadow .2s ease; }
+.hermes-tabs button:hover { color:var(--ink); background:var(--surface-wash); }
+.hermes-tabs button.is-active { color:var(--accent-hover); background:var(--surface); border-color:var(--line); box-shadow:var(--shadow-hair); }
+
+/* 独立入口页（登录）：同一纸感背景，但不挂全局侧栏（未登录态挂导航在语义上不成立） */
+.hermes-login { min-height:100vh; display:grid; place-items:center; padding:24px; position:relative; background:var(--bg); }
+
+.hermes-login-card { width:min(392px,100%); position:relative; z-index:1; padding:30px 28px; border-radius:16px; }
+.hermes-login-brand { text-align:center; padding-bottom:18px; border-bottom:1px solid var(--line); margin-bottom:20px; }
+.hermes-login-brand .hermes-monogram { font:46px/1 Georgia,serif; color:var(--navy); letter-spacing:-4px; }
+.hermes-login-brand .hermes-wordmark { font:14px/1 Georgia,serif; letter-spacing:4px; margin-top:6px; color:var(--ink); }
+.hermes-login-brand .hermes-submark { margin-top:6px; color:var(--ink-faint); font-size:12px; letter-spacing:2px; }
+.hermes-login-card h1 { margin:0 0 5px; font:24px var(--font-title); color:var(--ink); }
+.hermes-login-card .hermes-form-grid { margin-top:18px; }
+.hermes-primary-btn.is-block { width:100%; }
+
+/* 侧栏导航分组（蓝图 §3：五入口为主，其余归入「更多」）—— 深色侧栏上改用在深色上的前景色 */
+.hermes-nav-divider { display:flex; align-items:center; gap:8px; margin:14px 6px 6px; }
+.hermes-nav-divider::after { content:""; flex:1; height:1px; background:var(--on-dark-line); }
+.hermes-nav-divider span { font-size:12px; letter-spacing:1.6px; text-transform:uppercase; color:var(--on-dark-3); }
+.hermes-nav-more > summary.hermes-nav-divider::before { border-left-color:var(--on-dark-3); border-bottom-color:var(--on-dark-3); }
+.hermes-nav-footer { border-top-color:var(--on-dark-line); }
+.hermes-nav-item.is-compact { min-height:36px; font-size:14.5px; padding:0 12px; opacity:.82; }
+.hermes-nav-item.is-compact:hover,.hermes-nav-item.is-compact.is-active { opacity:1; }
+.hermes-nav-item.is-compact.is-active i { height:22px; }
+
+/* 「更多」分组：默认收起（不占每日导航），点击展开；当前页在其中时自动展开 */
+.hermes-nav-more > summary.hermes-nav-divider { cursor:pointer; list-style:none; }
+.hermes-nav-more > summary.hermes-nav-divider::-webkit-details-marker { display:none; }
+.hermes-nav-more > summary.hermes-nav-divider::before { content:""; width:6px; height:6px; border-left:1.5px solid var(--ink-faint); border-bottom:1.5px solid var(--ink-faint); transform:rotate(-45deg); transition:transform .2s ease; }
+.hermes-nav-more[open] > summary.hermes-nav-divider::before { transform:rotate(45deg); }
+.hermes-nav-footer { margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
+
+/* 侧栏底部真实运行状态：tone 由服务端传入，未接模型时为 warn/neutral，绝不显示「在线」 */
+.hermes-status-dot.is-ok { background:var(--ok); box-shadow:0 0 0 5px var(--ok-line),0 0 18px var(--ok); }
+.hermes-status-dot.is-warn { background:var(--warn); box-shadow:0 0 0 5px var(--warn-line); }
+.hermes-status-dot.is-neutral { background:var(--neutral-ink); box-shadow:0 0 0 5px var(--neutral-line); }
+
+/* 工作总览（蓝图 §3）：聚合口径必须可见，避免把示例数据误读成实况 */
+.hermes-overview-meta { display:flex; flex-wrap:wrap; gap:6px 18px; margin:2px 0 14px; font-size:14px; color:var(--ink-muted); }
+.hermes-overview-meta span { display:inline-flex; align-items:center; gap:5px; }
+.hermes-overview-stats { margin-bottom:14px; }
+.hermes-overview-grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); align-items:start; }
+/* 3 列栅格里的第 4 块会独占第二行左侧、右边空出 2/3 —— 让这类长内容横跨整行。 */
+.hermes-overview-grid > .is-span-all { grid-column:1 / -1; }
+/* 横跨整行后的长列表改双列，避免变成一条又长又窄的流水 */
+.hermes-list.is-2col { grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr)); }
+
+/* 产品阶段看板（蓝图 §3「产品开发」入口） */
+.hermes-board { display:grid; grid-template-columns:repeat(7,minmax(140px,1fr)); gap:10px; overflow-x:auto; padding-bottom:4px; }
+.hermes-board-col { display:grid; gap:8px; align-content:start; }
+.hermes-board-col-head { display:flex; align-items:baseline; justify-content:space-between; padding:0 2px 6px; border-bottom:1px solid var(--line); }
+.hermes-board-col-head span { font-size:14px; color:var(--ink-faint); }
+.hermes-board-col-head strong { font:16px/1 var(--font-title); color:var(--ink-faint); }
+.hermes-board-empty { font-size:14px; color:var(--ink-faint); padding:8px 2px; }
+.hermes-board-card { display:grid; gap:3px; padding:10px; border:1px solid var(--line); border-radius:10px; background:var(--surface-wash); text-decoration:none; color:inherit; transition:.2s ease; }
+.hermes-board-card:hover { border-color:var(--accent-line); transform:translateY(-1px); }
+.hermes-board-card strong { font-size:14.5px; color:var(--ink); }
+.hermes-board-card small { font-size:13px; color:var(--ink-faint); }
+.hermes-board-card-meta { display:flex; align-items:center; justify-content:space-between; font-size:13px; color:var(--ink-muted); margin-top:2px; }
+
+/* 内联紧凑控件（列表筛选区） */
+.hermes-search.is-compact { min-height:32px; padding:0 9px; font-size:14.5px; }
+.hermes-search.is-compact input { font-size:14.5px; width:150px; }
+.hermes-select.is-compact { min-height:32px; font-size:14.5px; padding:0 8px; }
+
+/* 选填项折叠区：首屏只要求必填五项，降低入库门槛（蓝图 §4.2） */
+.hermes-details { border:1px dashed var(--line); border-radius:10px; padding:10px 12px; }
+.hermes-details > summary { cursor:pointer; font-size:14.5px; color:var(--accent-hover); list-style:none; }
+.hermes-details > summary::-webkit-details-marker { display:none; }
+.hermes-details > summary::before { content:"＋ "; }
+.hermes-details[open] > summary::before { content:"－ "; }
+.hermes-details .hermes-form-grid { margin-top:10px; }
+
+/* 产品分析：权重可见 + 维度四段（依据/假设/缺口/建议/证据） */
+/* 维度总览：六维 ScoreBar 的 2 列网格（老版 ScoreSummary 的「维度表现」布局）。
+   2 列而非 auto-fit：维度名 + 分值 + 条 + 权重注脚的内容宽度固定，
+   列数一变就会出现「条很长 / 注脚换行」的不齐整。 */
+.hermes-score-grid { display:grid; gap:14px 24px; grid-template-columns:repeat(2,minmax(0,1fr)); margin-bottom:18px; }
+/* 带标签的明细格（维度明细 5 格 / 证据主张 2 格）。
+   3 列而不是 5 列：5 格内容在 ~1104px 容器里用 210px 会挤成 5 条窄栏，
+   长句（如「代码计算：价格 39.9 − 目标成本 18 → 毛利 54.9%」）要折 5 行。
+   300px → 3 列（5 格排成 3+2，不留孤格），窄屏自动退到 2 列 / 1 列。 */
+.hermes-dim-body { display:grid; gap:8px 20px; grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr)); margin-top:10px; }
+.hermes-dim-body p { margin:3px 0 0; font-size:14.5px; color:var(--ink-2); line-height:1.65; }
+
+/* 提示条告警态（未接入 / 能力边界 / 暂评等如实标注） */
+.hermes-banner.is-warn { color:var(--warn-ink); background:var(--warn-bg); border-color:var(--warn-line); }
+
+/* 选中态（会话列表等） */
+.hermes-row.is-selected { border-color:var(--accent-line); background:var(--accent-wash); }
+
+/* 顾问台：两栏（会话列表 + 对话区） */
+.hermes-advisor { display:grid; gap:14px; grid-template-columns:minmax(260px,320px) 1fr; align-items:start; }
+.hermes-advisor-empty { padding:6px 0; }
+.hermes-chat { display:grid; gap:12px; margin-bottom:14px; }
+.hermes-chat-msg { padding:11px 13px; border:1px solid var(--line); border-radius:11px; background:var(--surface-wash); }
+.hermes-chat-msg.is-user { background:var(--accent-bg); border-color:var(--accent-line); }
+.hermes-chat-role { font-size:13px; letter-spacing:1.2px; text-transform:uppercase; color:var(--ink-muted); margin-bottom:5px; }
+.hermes-chat-body { font-size:15px; color:var(--ink); line-height:1.75; }
+.hermes-chat-cites { display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; }
+.hermes-chat-suggest { display:grid; gap:7px; margin:0 0 14px; padding-top:11px; border-top:1px dashed var(--line); }
+.hermes-chat-suggest-label { font-size:13px; letter-spacing:1.2px; text-transform:uppercase; color:var(--ink-muted); }
+.hermes-chat-composer { display:grid; gap:9px; grid-template-columns:1fr auto; align-items:end; border-top:1px solid var(--line); padding-top:12px; }
+.hermes-chat-composer .hermes-primary-btn { min-height:38px; }
+
+/* ==========================================================================
+   分层信息设计（2026-09-15）：以连续短段落为主体，减少卡片套壳。
+   标题、留白与细分隔形成章节；正文 15–16px、行高 1.6–1.8；
+   仅立即处理的事项用醒目色，一般缺资料不满屏红黄。
+   ========================================================================== */
+
+.hermes-brief-page { max-width:1040px; padding:20px 22px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); box-shadow:var(--shadow-hair); }
+
+.hermes-brief-section-title { font:23px/1.3 var(--font-title); color:var(--ink); margin:0; }
+.hermes-brief-section-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.hermes-brief-section-hint { color:var(--ink-faint); font-size:14.5px; }
+
+.hermes-brief-divider { border:0; border-top:1px solid var(--line); margin:18px 0; }
+
+/* 「现在的情况」：连续短段落，不用卡片 */
+.hermes-brief-paragraphs { display: grid; gap: 10px; margin-top: 12px; }
+.hermes-brief-para { margin: 0; font-size: 16px; line-height: 1.75; color: var(--ink-2); }
+.hermes-brief-para.is-degraded { color: var(--warn-ink); }
+
+/* 「为什么是现在」标签：产品详情页仍在用（驾驶舱改版后仅存这一条） */
+.hermes-brief-why-label { display: inline-block; margin-right: 8px; padding: 1px 7px; border-radius: 4px; background: var(--accent-wash); color: var(--accent-hover); font-size:14px; font-weight:600; }
+
+/* 产品页三段主题：段落优先，细分隔成章 */
+/* 主题区从「发丝线分隔的文档段落」改成**卡片网格**：
+   三段主题（产品方向 / 验证进展 / 上市安排）并排成三张卡，右侧不再空出一大片白。
+   `min(320px,100%)` 是必须的：直接写 320px 会在 390px 视口下把文档撑出横向滚动条。 */
+.hermes-themes { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr)); }
+.hermes-theme-section { display:flex; flex-direction:column; gap:8px; padding:18px 20px 16px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); box-shadow:var(--shadow-hair); transition:border-color .22s ease,box-shadow .22s ease,transform .22s ease; }
+.hermes-theme-section:hover { border-color:var(--accent-line); box-shadow:var(--shadow-card); transform:translateY(-1px); }
+.hermes-theme-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:2px; }
+.hermes-theme-title { font:22px/1.3 var(--font-title); color:var(--ink); margin:0; }
+.hermes-theme-conclusion { margin:0; font-size:16px; line-height:1.7; color:var(--ink); }
+.hermes-theme-detail { display:grid; gap:4px; }
+.hermes-theme-detail p { margin:0; font-size:15.5px; line-height:1.7; color:var(--ink-2); }
+.hermes-theme-detail-p { margin:0; font-size:15.5px; line-height:1.7; color:var(--ink-2); }
+/* 卡片底部的「展开详情」贴到卡底，同一行的卡片按钮对齐 */
+.hermes-theme-section .hermes-ghost-btn { margin-top:auto; align-self:flex-start; }
+
+/* 紧凑头部：次级信息弱化 */
+.hermes-header-secondary { color: var(--ink-faint) !important; font-size:15.5px !important; }
+
+/* ==========================================================================
+   分层信息设计 · 视觉降权补丁（2026-09-15 整体优化）
+   - 降低大标题与无意义统计数字的视觉权重；
+   - 长正文按中文实际渲染校准：15px 左右、行高 1.7；
+   - 顾问对话是连续阅读文本，不使用 13px 小字。
+   ========================================================================== */
+.hermes-page-heading h1 { font-size: 42px; }
+.hermes-stat > strong { font-size: 22px; }
+.hermes-chat-body { font-size:15px; line-height: 1.7; }
+
+/* ==========================================================================
+   交互反馈层（2026-09-16，2026-09-17 修订）
+   目的：为「等待 / 加载 / 出错 / 找不到」四种瞬时状态提供统一、可信的可视反馈。
+   - 秘塔式思考动画（Thinking 原语）；
+   - 顶部导航进度条（纯客户端 NavProgress，见 components/nav-progress.tsx）；
+   - 无侧栏的独立整页提示（error.tsx / not-found.tsx）。
+   仍为**追加式**：仅新增原子类，不修改上方任何既有 hermes-* 规则。
+
+   修订说明：原「全站路由级加载骨架（loading.tsx）」方案已**撤销**——给路由段落
+   加 loading.tsx 会让该段改走流式渲染，导致 notFound() 改不了 404 状态码、
+   redirect("/login") 落在 hydrate 之后（详见 nav-progress.tsx 顶部注释）。
+   对应的 .hermes-skeleton / .hermes-skel-* / @keyframes hermes-skel-sweep 已一并删除。
+   ========================================================================== */
+
+/* —— 思考动画（秘塔式）：容器 + 三个错峰圆点 + 扫光标签 —— */
+.hermes-thinking { display:inline-flex; align-items:center; gap:10px; }
+.hermes-thinking-dots { display:inline-flex; align-items:center; gap:4px; }
+.hermes-thinking-dots i {
+  width:6px; height:6px; border-radius:50%;
+  background:linear-gradient(135deg,var(--accent-hover),var(--accent-ring));
+  opacity:.35; transform:scale(.8);
+  animation:hermes-think-dot 1.2s ease-in-out infinite;
+}
+.hermes-thinking-dots i:nth-child(1) { animation-delay:0ms; }
+.hermes-thinking-dots i:nth-child(2) { animation-delay:160ms; }
+.hermes-thinking-dots i:nth-child(3) { animation-delay:320ms; }
+@keyframes hermes-think-dot {
+  0%,60%,100% { transform:translateY(0) scale(.8); opacity:.35; }
+  30% { transform:translateY(-3px) scale(1); opacity:1; }
+}
+/* 扫光标签的降级可读性保证（本任务最容易翻车处）：
+   background-clip:text 需配 color:transparent，一旦第 29 行的降动画守卫把
+   animation-duration 压成 .01ms，渐变会冻结在某一帧；因此这里做**双重兜底**：
+   ① 渐变两端均取深 teal（var(--accent-hover) ~ var(--accent-ring)），任一帧都满足阅读对比度，
+      不用接近 --paper 的浅色当端点；
+   ② 在 prefers-reduced-motion 下直接回退为不透明纯色，完全绕开渐变着色。 */
+.hermes-thinking-label {
+  font-size:15px; font-weight:600; letter-spacing:.3px;
+  color:var(--accent-hover);
+  background:linear-gradient(90deg,var(--accent-hover),var(--accent-ring),var(--accent-hover));
+  background-size:200% 100%;
+  -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent;
+  animation:hermes-think-sweep 1.8s ease-in-out infinite;
+}
+@keyframes hermes-think-sweep {
+  0% { background-position:150% 0; }
+  100% { background-position:-50% 0; }
+}
+
+/* —— 顶部导航进度条：不确定（indeterminate）扫过，teal 配色 —— */
+.hermes-nav-progress {
+  position:fixed; top:0; left:0; right:0; height:2px; z-index:60;
+  pointer-events:none; overflow:hidden;
+  background:var(--accent-wash);
+}
+.hermes-nav-progress > i {
+  display:block; height:100%; width:38%; border-radius:2px;
+  background:linear-gradient(90deg,var(--accent-hover),var(--accent-ring));
+  animation:hermes-nav-sweep 1.1s ease-in-out infinite;
+}
+@keyframes hermes-nav-sweep {
+  0% { transform:translateX(-100%); }
+  100% { transform:translateX(340%); }
+}
+/* 降动画下的静态可见替代：默认不显示，仅在 reduce 时出现（见文件末尾 @media）。 */
+.hermes-nav-progress-note { display:none; }
+
+/* —— 读屏专用（视觉隐藏、读屏可见，标准 clip 写法） —— */
+.hermes-sr-only {
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0 0 0 0); clip-path:inset(50%);
+  white-space:nowrap; border:0;
+}
+
+/* —— 无侧栏的独立整页提示（错误 / 404）：居中毛玻璃卡片 —— */
+.hermes-center-page { flex:1; min-height:100vh; display:grid; place-items:center; padding:40px 20px; position:relative; z-index:1; }
+.hermes-center-card { width:min(540px,100%); text-align:center; padding:34px 30px; }
+.hermes-center-card h2 { margin:10px 0 6px; font:30px var(--font-title); color:var(--ink); }
+.hermes-center-actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:20px; }
+
+/* —— 降动画兜底 —— */
+@media (prefers-reduced-motion: reduce) {
+  /* 思考标签：渐变扫光会被冻结，回退为不透明纯色，保证可读。 */
+  .hermes-thinking-label {
+    background:none;
+    -webkit-text-fill-color:var(--accent-hover);
+    color:var(--accent-hover);
+  }
+  /* 顶部导航进度条：不确定进度条被冻结在半途会被误读成「卡住的进度」，
+     比没有更糟——故直接隐藏动画条，改示**不依赖动画**的静态提示。 */
+  .hermes-nav-progress { display:none; }
+  .hermes-nav-progress-note {
+    display:inline-block; position:fixed; top:10px; left:50%; transform:translateX(-50%);
+    z-index:60; pointer-events:none;
+    padding:4px 12px; border-radius:999px;
+    font-size:14.5px; font-weight:600; color:var(--accent-hover);
+    background:var(--surface-glass);
+    border:1px solid var(--accent-line);
+    box-shadow:0 6px 18px var(--shadow-soft);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   窄屏（手机）收敛 —— 2026-09-17 全流程走查补齐
+   此前断点只有 1100 / 800 两档，390px 手机直接继承 800px 布局：
+   顶栏定高 56px 且不换行，标题与身份切换器挤在一起换行叠字；
+   标题 36px 在窄屏占比过大。这里补一档手机断点。
+   --------------------------------------------------------------------------- */
+
+/* ==========================================================================
+   四组机制可视化原语（2026-09-17 · Quiet Enterprise）
+   StepTrack / GateLine / ProgressRing / BubbleChart / Timeline
+   —— 纯展示（服务端可渲染），无入场动画；降动画下保持静止可读。
+   ========================================================================== */
+
+/* —— 通用：来源说明 / 未建档注记 —— */
+.viz-source-note { margin:8px 0 0; color:var(--ink-faint); font-size:14px; }
+.viz-unrecorded { color:var(--ink-muted); font-size:14px; }
+
+/* —— StepTrack 阶段步进条 —— */
+.viz-steps { display:flex; align-items:flex-start; gap:0; margin:6px 0 4px; }
+.viz-step { display:flex; align-items:center; flex:1; min-width:0; }
+.viz-step:last-child { flex:0 0 auto; }
+.viz-step i { width:10px; height:10px; border-radius:50%; flex:none; background:var(--neutral-line); border:2px solid var(--surface); box-shadow:0 0 0 1px var(--neutral-line); }
+.viz-step.is-done i,.viz-step.is-current i { background:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+.viz-step.is-current i { box-shadow:0 0 0 3px var(--accent-wash); }
+.viz-step.is-unknown i { background:var(--surface); border-color:var(--line-strong); box-shadow:0 0 0 1px var(--line-strong); }
+.viz-step::after { content:""; height:2px; flex:1; margin:0 2px; background:var(--line-strong); }
+.viz-step.is-done::after { background:var(--accent); }
+.viz-step:last-child::after { display:none; }
+.viz-step-body { display:grid; gap:2px; padding-left:8px; min-width:0; }
+.viz-step-label { font-size:14.5px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.viz-step.is-pending .viz-step-label,.viz-step.is-unknown .viz-step-label { color:var(--ink-faint); }
+.viz-step-note { font-size:13px; color:var(--ink-faint); }
+.viz-steps[data-empty="true"] + .viz-source-note { color:var(--ink-faint); }
+
+/* —— GateLine 门槛线（两套放行机制并列，如实标注来源） —— */
+.viz-gate-line { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin:16px 0; }
+.viz-gate-row { display:flex; align-items:center; flex:1; min-width:0; }
+.viz-gate-row:last-child { flex:0 0 auto; }
+.viz-gate { display:flex; flex-direction:column; align-items:center; gap:6px; min-width:110px; text-align:center; }
+.viz-gate .circle { width:14px; height:14px; border-radius:50%; background:var(--surface); border:2px solid var(--line-field); z-index:2; }
+.viz-gate[data-state="passed"] .circle { background:var(--ok); border-color:var(--ok); }
+.viz-gate[data-state="pending"] .circle { background:var(--warn-bg); border-color:var(--warn); }
+.viz-gate[data-state="blocked"] .circle { background:var(--block); border-color:var(--block); }
+.viz-gate[data-state="not-created"] .circle { background:var(--surface); border:2px dashed var(--ink-faint); }
+.viz-gate-seg { height:2px; flex:1; align-self:center; background:var(--line-strong); margin:0 4px; }
+.viz-gate-seg.is-done { background:var(--ok); }
+.viz-gate-key { font:14.5px var(--font-title); color:var(--ink); }
+.viz-gate-label { font-size:14px; color:var(--ink-2); }
+.viz-gate-state { font-size:13px; font-weight:600; color:var(--ink-muted); }
+.viz-gate[data-state="passed"] .viz-gate-state { color:var(--ok-ink); }
+.viz-gate[data-state="blocked"] .viz-gate-state { color:var(--block-ink); }
+.viz-gate[data-state="pending"] .viz-gate-state { color:var(--warn-ink); }
+.viz-gate-source { font-size:12px; color:var(--ink-faint); }
+.viz-gate-detail { font-size:13px; color:var(--ink-muted); max-width:180px; }
+
+/* —— ScoreBar 维度条（移植自老版 ScoreSummary；无依据不画条、不给 0） —— */
+.viz-scorebar { display:grid; gap:5px; }
+.viz-scorebar-head { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+.viz-scorebar-label { color:var(--ink-2); font-size:14px; }
+.viz-scorebar-value { color:var(--ink); font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; }
+.viz-scorebar[data-empty="true"] .viz-scorebar-value { color:var(--ink-faint); font-weight:500; }
+.viz-scorebar-track { height:6px; border-radius:999px; background:var(--line); overflow:hidden; }
+/* 无依据：轨道改虚线、不填充 —— 明确是「还没记录」，而不是「0 分」 */
+.viz-scorebar[data-empty="true"] .viz-scorebar-track { background:transparent; border:1px dashed var(--line-strong); }
+.viz-scorebar-track i { display:block; height:100%; border-radius:999px; background:var(--accent); }
+.viz-scorebar[data-tone="ok"] .viz-scorebar-track i { background:var(--ok); }
+.viz-scorebar[data-tone="warn"] .viz-scorebar-track i { background:var(--warn); }
+.viz-scorebar[data-tone="block"] .viz-scorebar-track i { background:var(--block); }
+.viz-scorebar-note { color:var(--ink-faint); font-size:12.5px; }
+
+/* —— ProgressRing 环形进度（静态 conic-gradient，不加动画） —— */
+.progress-ring { --p:0; width:126px; height:126px; border-radius:50%; position:relative; display:grid; place-items:center; margin:8px auto; background:conic-gradient(var(--accent) calc(var(--p) * 1%),var(--neutral-bg) 0); }
+.progress-ring[data-tone="ok"] { background:conic-gradient(var(--ok) calc(var(--p) * 1%),var(--neutral-bg) 0); }
+.progress-ring[data-tone="warn"] { background:conic-gradient(var(--warn) calc(var(--p) * 1%),var(--neutral-bg) 0); }
+.progress-ring[data-tone="block"] { background:conic-gradient(var(--block) calc(var(--p) * 1%),var(--neutral-bg) 0); }
+.progress-ring[data-empty="true"] { background:var(--neutral-bg); }
+.progress-ring::before { content:""; position:absolute; width:92px; height:92px; border-radius:50%; background:var(--surface); }
+.progress-ring-body { position:relative; text-align:center; }
+.progress-ring-value { font-size:23px; font-weight:600; color:var(--ink); }
+.progress-ring-caption { display:block; font-size:14px; color:var(--ink-muted); font-weight:500; }
+/* 比率文本（如「0/12 已核实」）：环心收窄字号并允许换行，避免溢出内环 */
+.progress-ring[data-display="ratio"] .progress-ring-value { display:block; max-width:84px; margin:0 auto; font-size:14.5px; line-height:1.18; word-break:break-word; }
+
+/* —— 证据核实环（product-overview 验证页签）：环 + 结论并排 —— */
+.hermes-evidence-ring { display:flex; gap:20px; align-items:center; flex-wrap:wrap; margin-top:12px; }
+.hermes-evidence-ring .progress-ring { margin:4px 0; flex:0 0 auto; }
+/* 环右侧的说明区：结论 + 口径小字。原来把长口径塞进环心 caption，会溢出圆外压住环线。 */
+.hermes-evidence-ring-copy { flex:1; min-width:240px; display:grid; gap:6px; align-content:center; }
+.hermes-evidence-ring-copy .hermes-theme-conclusion { margin:0; }
+
+/* —— BubbleChart 机会气泡图 —— */
+.bubble-chart { position:relative; height:340px; margin:14px 12px 30px 34px; border-left:1px solid var(--line-strong); border-bottom:1px solid var(--line-strong); background:linear-gradient(var(--surface-2) 1px,transparent 1px),linear-gradient(90deg,var(--surface-2) 1px,transparent 1px); background-size:25% 25%; overflow:hidden; }
+.bubble-plot { position:absolute; inset:0; }
+.bubble-dot { position:absolute; width:44px; height:44px; border-radius:50%; transform:translate(-50%,50%); background:var(--accent-wash); border:1px solid var(--accent-line); display:grid; place-items:center; font-size:14px; color:var(--accent-hover); }
+.bubble-dot[data-tone="ok"] { background:var(--ok-bg); border-color:var(--ok); color:var(--ok-ink); }
+.bubble-dot[data-tone="warn"] { background:var(--warn-bg); border-color:var(--warn); color:var(--warn-ink); }
+.bubble-dot[data-tone="block"] { background:var(--block-bg); border-color:var(--block); color:var(--block-ink); }
+.bubble-empty { position:absolute; inset:0; display:grid; place-items:center; text-align:center; color:var(--ink-muted); font-size:14.5px; padding:0 24px; }
+.bubble-axis-y { position:absolute; left:-28px; top:50%; transform:rotate(-90deg) translateX(50%); transform-origin:left top; font-size:14px; color:var(--ink-muted); white-space:nowrap; }
+.bubble-axis-x { position:absolute; bottom:-24px; left:50%; transform:translateX(-50%); font-size:14px; color:var(--ink-muted); white-space:nowrap; }
+.bubble-warn { margin:0 0 10px; padding:8px 11px; border:1px solid var(--warn-line); border-radius:8px; background:var(--warn-bg); color:var(--warn-ink); font-size:14px; }
+.bubble-scroll { overflow-x:auto; }
+
+/* —— Timeline 决策 / 审计时间线 —— */
+.viz-timeline { position:relative; display:grid; gap:15px; margin:0 0 0 6px; padding-left:18px; border-left:1px solid var(--line); list-style:none; }
+.viz-timeline > li { position:relative; }
+.viz-timeline > li::before { content:""; position:absolute; left:-23px; top:5px; width:9px; height:9px; border-radius:50%; background:var(--accent-ring); box-shadow:0 0 0 4px var(--accent-wash); }
+.viz-timeline > li[data-tone="ok"]::before { background:var(--ok); box-shadow:0 0 0 4px var(--ok-bg); }
+.viz-timeline > li[data-tone="warn"]::before { background:var(--warn); box-shadow:0 0 0 4px var(--warn-bg); }
+.viz-timeline > li[data-tone="block"]::before { background:var(--block); box-shadow:0 0 0 4px var(--block-bg); }
+.viz-tl-at { font-size:14px; color:var(--ink-faint); }
+.viz-tl-title { font-size:15px; color:var(--ink); margin:3px 0; }
+.viz-tl-body { font-size:14.5px; color:var(--ink-muted); line-height:1.6; }
+.viz-tl-actor { font-size:13px; color:var(--ink-faint); }
+
+/* 降动画：viz 无入场动画，仅收紧可能存在的过渡，保持静止可读 */
+@media (prefers-reduced-motion: reduce) {
+  .viz-step i,.viz-step::after,.progress-ring,.bubble-dot { transition:none !important; animation:none !important; }
+}
+
+/* ==========================================================================
+   驾驶舱（首页 · 产品中心驾驶舱）
+   结构对齐 hermes-frontend-v2：品牌带 → KPI 行 → 主区（决策板 / 产品推进 /
+   市场机会 / 最新信号）+ 侧栏（今日重点 / 最近完成）。
+   全部色值走 quiet-enterprise 令牌，零内联色值（颜色收敛守卫可复算）。
+   ========================================================================== */
+
+/* —— 品牌带 ——
+   压缩到 132px（原 168px，首屏大半被这块留白吃掉）+ 极淡的强调色渐变，
+   让它在浅底上「有内容」而不是一片空白。 */
+.hermes-hero { position:relative; overflow:hidden; display:flex; align-items:center; min-height:132px; padding:22px 28px; margin-bottom:16px; border:1px solid var(--line); border-radius:var(--radius); background:linear-gradient(112deg,var(--surface) 34%,var(--accent-bg) 100%); box-shadow:var(--shadow-hair); }
+.hermes-hero-copy { position:relative; z-index:2; max-width:640px; }
+.hermes-hero-eyebrow { color:var(--ink-muted); font-size:var(--text-sm); }
+.hermes-hero-mark { margin:6px 0 7px; font-family:var(--font-title); font-size:38px; line-height:1; letter-spacing:-.5px; color:var(--ink); }
+.hermes-hero-tagline { margin:0 0 8px; font-family:var(--font-title); font-size:24px; line-height:var(--lh-tight); color:var(--ink); }
+.hermes-hero-intro { margin:0; color:var(--ink-2); font-size:15px; line-height:var(--lh-body); }
+.hermes-hero-quote { position:absolute; right:34px; top:40px; z-index:2; color:var(--ink-muted); font-family:var(--font-title); font-size:15px; font-style:italic; line-height:1.55; text-align:right; }
+.hermes-hero-art { position:absolute; inset:0; z-index:1; pointer-events:none; }
+.hermes-hero-ridge { width:100%; height:100%; display:block; }
+.hermes-hero-ridge-fill { fill:var(--accent-wash); }
+.hermes-hero-ridge-line { fill:none; stroke:var(--accent-line); stroke-width:1.5; }
+.hermes-hero-ridge-near { fill:var(--accent-bg); }
+.hermes-hero-veil { position:absolute; inset:0; z-index:1; pointer-events:none; background:linear-gradient(90deg,var(--surface) 0%,var(--surface-glass) 34%,transparent 76%); }
+
+/* —— KPI 行 —— */
+/* KPI 行：6 张独立指标卡（此前是一个带内部分隔线的长条盒子，读起来像表格行）。
+   每张卡顶部一条强调线 + 大数字，鼠标悬停抬升 —— 这是办公 SaaS 最常见的首屏形态。 */
+.hermes-kpi-row { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:12px; margin-bottom:16px; }
+.hermes-kpi { position:relative; overflow:hidden; padding:17px 18px 15px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); box-shadow:var(--shadow-hair); transition:box-shadow .25s ease,transform .25s ease,border-color .25s ease; }
+.hermes-kpi::before { content:""; position:absolute; inset:0 0 auto; height:3px; background:var(--accent); }
+.hermes-kpi:hover { border-color:var(--accent-line); box-shadow:var(--shadow-card); transform:translateY(-1px); }
+.hermes-kpi strong { display:block; font-family:var(--font-title); font-size:30px; line-height:1.05; color:var(--ink); font-variant-numeric:tabular-nums; }
+.hermes-kpi span { display:block; margin-top:9px; color:var(--ink-2); font-size:var(--text-md); font-weight:600; }
+.hermes-kpi small { display:block; margin-top:5px; color:var(--ink-faint); font-size:var(--text-sm); line-height:1.5; }
+.hermes-kpi.is-alert::before { background:var(--block); }
+.hermes-kpi.is-alert strong { color:var(--block); }
+.hermes-kpi.is-good::before { background:var(--ok); }
+.hermes-kpi.is-good strong { color:var(--ok); }
+.hermes-kpi.is-primary { background:var(--navy); border-color:var(--navy); }
+.hermes-kpi.is-primary strong { color:var(--on-dark); }
+.hermes-kpi.is-primary span { color:var(--on-dark-2); }
+.hermes-kpi.is-primary small { color:var(--on-dark-3); }
+.hermes-kpi.is-primary::before { background:var(--accent); }
+.hermes-kpi.is-decision { border-color:var(--block-line); background:var(--block-bg); }
+.hermes-kpi.is-decision::before { height:4px; background:var(--block); }
+.hermes-kpi.is-decision strong { color:var(--block-ink); }
+
+/* —— 阶段分布细带（全宽，承接旧版「产品阶段推进」） —— */
+.hermes-stage-band { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:20px; margin-bottom:16px; padding:14px 18px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); }
+.hermes-stage-band-label { color:var(--ink-muted); font-size:var(--text-base); white-space:nowrap; }
+
+/* —— 主栅格：2/3 主区 + 1/3 侧栏 —— */
+.hermes-cockpit { display:grid; grid-template-columns:minmax(0,1.62fr) minmax(296px,.62fr); gap:16px; align-items:start; }
+.hermes-cockpit-main,.hermes-cockpit-side { display:grid; gap:16px; min-width:0; }
+.hermes-cockpit-pair { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+
+/* —— 决策板（需要你决定 · 首件） —— */
+.hermes-decision-board { padding:18px 20px; border:1px solid var(--block-line); border-radius:var(--radius); background:var(--block-bg); box-shadow:var(--shadow-hair); }
+.hermes-decision-top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; color:var(--block-ink); font-size:var(--text-base); font-weight:600; }
+.hermes-decision-body { display:grid; grid-template-columns:64px minmax(0,1fr); gap:16px; }
+.hermes-decision-num { font-family:var(--font-title); font-size:42px; font-weight:300; line-height:1; color:var(--block); }
+.hermes-decision-name { margin:2px 0 6px; font-family:var(--font-title); font-size:19px; line-height:var(--lh-tight); color:var(--ink); }
+.hermes-decision-sum { margin:0; color:var(--ink-muted); font-size:var(--text-md); line-height:var(--lh-body); }
+.hermes-decision-cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin:16px 0 14px; }
+.hermes-decision-col { padding-right:14px; border-right:1px solid var(--line); min-width:0; }
+.hermes-decision-col:last-child { padding-right:0; border-right:0; }
+.hermes-decision-col b { display:block; margin-bottom:6px; font-size:var(--text-sm); color:var(--ink); }
+.hermes-decision-col p { margin:0; color:var(--ink-muted); font-size:var(--text-base); line-height:var(--lh-body); }
+.hermes-decision-foot { display:flex; align-items:center; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
+
+/* —— 状态药丸 —— */
+.hermes-pill { display:inline-flex; align-items:center; gap:5px; padding:4px 9px; border-radius:999px; font-size:var(--text-sm); font-weight:600; white-space:nowrap; }
+.hermes-pill.is-neutral { color:var(--neutral-ink); background:var(--neutral-bg); }
+.hermes-pill.is-info { color:var(--accent-hover); background:var(--accent-bg); }
+.hermes-pill.is-ok { color:var(--ok-ink); background:var(--ok-bg); }
+.hermes-pill.is-warn { color:var(--warn-ink); background:var(--warn-bg); }
+.hermes-pill.is-danger { color:var(--block-ink); background:var(--block-bg); }
+
+/* —— 缩略图 + 推进行 ——
+   缩略图改为「首字母块」：产品没有图片资源，此前的灰渐变方块在列表里看起来像加载失败的图。
+   首字母块是 SaaS 列表的常规做法，既占位又携带信息。 */
+.hermes-thumb { flex:0 0 auto; display:grid; place-items:center; width:40px; height:40px; border-radius:var(--radius-sm); border:1px solid var(--accent-line); background:var(--accent-bg); color:var(--accent-hover); font-family:var(--font-title); font-size:17px; font-weight:600; line-height:1; }
+.hermes-progress-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px; padding:10px; margin:0 -10px; border-radius:var(--radius-sm); border-bottom:0; transition:background .2s ease; }
+.hermes-progress-row:hover { background:var(--surface-soft); }
+.hermes-progress-main { display:flex; align-items:center; gap:11px; min-width:0; }
+.hermes-progress-text { min-width:0; }
+.hermes-progress-name { display:block; font-size:var(--text-lg); font-weight:600; color:var(--ink); }
+.hermes-progress-sub { display:block; margin-top:3px; color:var(--ink-muted); font-size:var(--text-base); }
+
+/* —— 侧栏动态行 —— */
+.hermes-feed-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:10px; padding:10px; margin:0 -10px; border-radius:var(--radius-sm); border-bottom:0; transition:background .2s ease; }
+.hermes-feed-row:hover { background:var(--surface-soft); }
+.hermes-feed-title { display:block; font-size:var(--text-md); font-weight:600; line-height:var(--lh-snug); color:var(--ink); }
+.hermes-feed-sub { display:block; margin-top:4px; color:var(--ink-muted); font-size:var(--text-base); }
+.hermes-feed-done { display:flex; align-items:flex-start; gap:9px; min-width:0; }
+.hermes-feed-done > span:last-child { min-width:0; }
+.hermes-feed-check { flex:0 0 auto; margin-top:2px; color:var(--ok); }
+
+/* ==========================================================================
+   AI 交互层（2026-09-19 rev2）
+   上一版把「运行口径」摊成一行灰字、把「纠错路径」做成第三个虚线折叠框，
+   结果是**调试面板的观感**而不是设计过的界面。rev2 按一条主线重新组合：
+   一句话结论 → 建议动作 → 依据带 → 动作条 →（按需展开的）纠错区。
+   约束不变：步骤不画百分比、依据不补默认值、纠错不做「一键改分」。
+   ========================================================================== */
+
+/* —— 思考态 + 步骤说明（步骤是「会做什么」的如实说明，不是完成进度） —— */
+.hermes-thinking-block { display:grid; gap:8px; margin-top:12px; }
+.hermes-thinking-steps { display:grid; gap:5px; }
+.hermes-thinking-steps-label { color:var(--ink-faint); font-size:12px; font-weight:600; letter-spacing:2px; text-transform:uppercase; }
+.hermes-thinking-steps ol { display:grid; gap:4px; margin:0; padding-left:20px; }
+.hermes-thinking-steps li { color:var(--ink-2); font-size:14.5px; line-height:1.6; }
+
+/* —— 判断卡：主结论（整张卡里唯一被强调的一句） —— */
+.hermes-ai-lead { margin:0; font-size:17.5px; line-height:1.65; color:var(--ink); }
+
+/* —— 依据带：把「这条结论怎么来的」收成一条，而不是散落的灰字元信息 —— */
+.hermes-ai-rail { display:flex; flex-wrap:wrap; align-items:center; gap:5px 0; margin-top:14px; padding:8px 12px; border:1px solid var(--line); border-radius:9px; background:var(--bg); color:var(--ink-muted); font-size:13.5px; }
+.hermes-ai-rail-k { margin-right:8px; color:var(--ink-faint); font-weight:600; }
+.hermes-ai-rail-v { margin-right:10px; color:var(--ink-2); font-weight:600; }
+.hermes-ai-rail > * + *::before { content:"·"; margin-right:10px; color:var(--ink-faint); }
+.hermes-ai-rail > .hermes-ai-rail-v::before,
+.hermes-ai-rail > .hermes-ai-rail-link::before { content:none; }
+.hermes-ai-rail-link { margin-left:auto; display:inline-flex; align-items:center; gap:4px; min-height:24px; padding:0 2px; border:0; background:transparent; color:var(--accent-hover); font-size:13.5px; font-weight:600; cursor:pointer; }
+.hermes-ai-rail-link:hover { text-decoration:underline; }
+
+/* —— 动作条：主按钮在前，其余为次要入口 —— */
+.hermes-ai-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid var(--line); }
+
+/* —— 纠错区：只在主动点「结论有误？」后展开，不占常态版面 —— */
+.hermes-ai-fix { display:grid; gap:9px; margin-top:12px; padding:12px 13px; border:1px solid var(--line); border-radius:9px; background:var(--bg); }
+
+/* —— 修订闭环的提交区：用一条发丝线把「选择」与「填理由 / 提交」分开，
+      勾完紧接着就能看到选择摘要与提交按钮，不用跨过长列表去找。 —— */
+.hermes-rev-foot { display:grid; gap:14px; margin-top:16px; padding-top:14px; border-top:1px solid var(--line); }
+
+/* —— 修订项的明细（缺口 / 建议 / 影响 / 代价）：用 2×2 而不是 4 列或 3 列。
+      4 列时每格太窄、文字疯狂折行；3 列时第 4 格落单、独占一行反而更高。 —— */
+.hermes-rev-detail { display:grid; gap:8px 20px; grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr)); margin-top:10px; }
+.hermes-rev-detail p { margin:3px 0 0; font-size:14.5px; color:var(--ink-2); line-height:1.65; }
+
+/* ==========================================================================
+   响应式阶梯（2026-09-18 · §10 rev2）
+   ⚠️ 全部 max-width，窄档覆盖宽档 —— 声明顺序必须由宽到窄：
+      1280 → 1180 → 1100 → 960 → 900 → 860 → 800 → 520
+   历史缺陷：旧序为 1180 → 860 → 1100 → 800…，860 写在 1100 之前 → E 档被 D 档覆盖。
+   ========================================================================== */
+
+/* B · ≤1280 紧凑笔记本：仅密度收紧（结构不变） */
+@media (max-width:1280px) {
+  .hermes-content { padding:20px 24px 48px; }
+  .hermes-cockpit { grid-template-columns:minmax(0,1.5fr) minmax(272px,.62fr); }
+  .hermes-topbar { padding:8px 12px 8px 16px; }
+}
+
+/* C · ≤1180 小屏笔记本：侧栏 → 82px rail（导航文字隐藏；可访问名由 aria-label 补回） */
+@media (max-width:1180px) {
+  .hermes-sidebar { width:var(--sidebar-rail); padding:18px 8px; }
+  .hermes-brand .hermes-wordmark,.hermes-brand .hermes-submark,.hermes-nav-item span,.hermes-sidebar-bottom div:last-child,.hermes-profile div:nth-child(2),.profile-chevron,.hermes-nav-divider span { display:none; }
+  .hermes-monogram { font-size:40px; }
+  .hermes-nav-item { justify-content:center; padding:0; }
+  .hermes-nav-item.is-active i { left:-8px; }
+  /* 驾驶舱：中等宽度下侧栏落到主区下方，避免右栏被压成窄条 */
+  .hermes-cockpit { grid-template-columns:minmax(0,1fr); }
+  .hermes-kpi-row { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .hermes-content { width:calc(100% - var(--sidebar-rail)); }
+}
+
+/* D · ≤1100 小屏/高缩放（1280@125% / 1024 屏）：不再丢列 —— 表头隐藏，行内 data-label 带标签两行
+   「负责人」「阻塞」不得隐藏（阻塞是风险信号，抹掉即违反证据契约） */
+@media (max-width:1100px) { .project-table-head { display:none; } .project-row { display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px; padding:12px 16px; min-height:0; } .project-row > *:nth-child(1) { flex:1 1 100%; } .project-row > *:nth-child(n+2) { flex:0 0 auto; } .project-row > *:nth-child(n+2)::before { content:attr(data-label); color:var(--ink-faint); font-size:13px; margin-right:4px; } }
+
+/* ≤960 工作总览网格单列 */
+@media (max-width:960px) {
+  .hermes-overview-grid { grid-template-columns:1fr; }
+}
+
+/* ≤900 顾问台单列 */
+@media (max-width:900px) {
+  .hermes-advisor { grid-template-columns:1fr; }
+  .hermes-chat-composer { grid-template-columns:1fr; }
+}
+
+/* E · ≤860 窄屏：P0 保留 82px rail（修导航可达，不做抽屉）+ project-row 单列 + 步进折行 + 气泡降高 + 模态宽度 */
+@media (max-width:860px) { .hermes-sidebar { display:flex; width:var(--sidebar-rail); padding:18px 8px; } .hermes-content { width:calc(100% - var(--sidebar-rail)); padding:16px 14px 40px; } .hermes-topbar { position:static; } .project-row { flex-direction:column; align-items:stretch; gap:4px; } .project-row > *:nth-child(1) { flex:none; } .viz-steps { flex-wrap:wrap; gap:6px 12px; } .viz-step { flex:0 0 auto; } .viz-step::after { display:none; } .viz-step-label { white-space:normal; overflow:visible; text-overflow:clip; } .bubble-chart { height:280px; margin-left:26px; } .progress-ring { width:112px; height:112px; } .progress-ring::before { width:80px; height:80px; } .viz-gate-line { flex-wrap:wrap; } .viz-gate-seg { display:none; } .hermes-panel { overflow-x:auto; }  .hermes-hero { padding:22px 18px; } .hermes-hero-quote { display:none; } .hermes-kpi-row { grid-template-columns:repeat(2,minmax(0,1fr)); } .hermes-decision-body { grid-template-columns:minmax(0,1fr); gap:8px; } .hermes-decision-num { font-size:34px; } .hermes-decision-cols { grid-template-columns:minmax(0,1fr); gap:10px; } .hermes-decision-col { padding-right:0; padding-bottom:10px; border-right:0; border-bottom:1px solid var(--line); } .hermes-decision-col:last-child { padding-bottom:0; border-bottom:0; } .hermes-cockpit-pair { grid-template-columns:minmax(0,1fr); } .hermes-stage-band { grid-template-columns:minmax(0,1fr); gap:10px; } .hermes-table { min-width:520px; } .hermes-score-grid { grid-template-columns:minmax(0,1fr); } }
+
+/* F · ≤800 收窄（密度 + 顶栏自适应换行） */
+@media (max-width:800px) { .hermes-brand .hermes-wordmark,.hermes-brand .hermes-submark,.hermes-nav-item span,.hermes-sidebar-bottom div:last-child,.hermes-profile div:nth-child(2),.profile-chevron { display:none; }.hermes-monogram { font-size:42px; }.hermes-nav-item { justify-content:center; padding:0; }.hermes-nav-item.is-active i { left:-8px; }.hermes-page-heading { padding:25px 8px 17px; }.hermes-page-heading h1 { font-size:36px; }.hermes-topbar { padding-left:10px; }.hermes-search { width:57%; } .hermes-content { padding:14px; } .hermes-panel { padding:15px 14px; } .hermes-stat-grid { grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); } .hermes-tabs { overflow-x:auto; } /* 顶栏改为自适应高度 + 允许换行：定高容器里放不下的内容会互相压叠 */ .hermes-topbar { height:auto; min-height:52px; flex-wrap:wrap; gap:8px; } }
+
+/* F · ≤520 手机（含气泡图 240） */
+@media (max-width:520px) {
+  .hermes-topbar { padding:8px 10px 8px 12px; }
+  .hermes-topbar-title { gap:6px; min-width:0; }
+  /* 「HERMES · 工作总览」在窄屏无信息量，让位给页面标题 */
+  .hermes-topbar-title .eyebrow { display:none; }
+  .hermes-topbar-title strong { font-size:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .hermes-identity { min-width:0; }
+  /* 「当前身份（开发态）」说明文字收起，保留选择器本身，功能不丢 */
+  .hermes-identity > span { display:none; }
+  .hermes-identity select { max-width:118px; }
+  .hermes-content { padding:12px 10px 40px; }
+  .hermes-page-heading { padding:18px 4px 14px; }
+  .hermes-page-heading h1 { font-size:25px; }
+  /* 页头在手机断点允许换行并允许子项收缩：
+     标题里的长编码 token（如项目名中的运行标记 `ovf…_UI`）不可断行，且页头是
+     不换行的 flex 行，右侧操作按钮会被挤出视口（390px 实测溢出 9–23px，随标题长度浮动）。
+     这里让页头换行 + 子项可收缩 + 长 token 可断，而不是用 overflow-x:hidden 掩盖溢出。 */
+  .hermes-page-heading { flex-wrap:wrap; align-items:flex-start; gap:10px; }
+  .hermes-page-heading > * { min-width:0; }
+  .hermes-page-heading h1 { overflow-wrap:anywhere; }
+  .hermes-modal { padding:20px 18px; }
+  .hermes-center-card { padding:24px 18px; }
+  .hermes-kpi-row { grid-template-columns:minmax(0,1fr); }
+  .hermes-center-card h2 { font-size:23px; }
+  .bubble-chart { height:240px; }
+}
+
+
+/* ========== 挑战报告卡片（Challenge Report） ========== */
+.hermes-challenge-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-wash);
+  padding: 16px;
+  margin: 12px 0;
+}
+.hermes-challenge-card.is-critical {
+  border-color: var(--block-line);
+  background: var(--block-bg);
+}
+.hermes-challenge-card.is-high {
+  border-color: var(--warn-line);
+  background: var(--warn-bg);
+}
+.hermes-challenge-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.hermes-challenge-header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.hermes-challenge-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.hermes-challenge-sub {
+  font-size: 11px;
+  color: var(--ink-muted);
+  margin-top: 2px;
+}
+.hermes-challenge-badges {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.hermes-challenge-triggers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--line);
+}
+.hermes-challenge-body {
+  display: grid;
+  gap: 14px;
+}
+.hermes-challenge-section {
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.hermes-challenge-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.hermes-challenge-section-title.is-danger { color: var(--block-ink); }
+.hermes-challenge-section-title.is-warn { color: var(--warn-ink); }
+.hermes-challenge-section-title.is-ok { color: var(--ok-ink); }
+.hermes-challenge-count {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  background: var(--surface);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.hermes-challenge-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.7;
+}
+.hermes-challenge-list li {
+  margin-bottom: 6px;
+}
+.hermes-challenge-mvp {
+  margin-top: 14px;
+  padding: 12px;
+  background: var(--accent-bg);
+  border-radius: 8px;
+  border: 1px solid var(--accent-line);
+}
+.hermes-challenge-mvp-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.hermes-challenge-mvp-content {
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.6;
+}
+.hermes-chip.is-active { background:var(--accent); color:var(--surface); border-color:var(--accent-ring); font-weight:700; }
+.hermes-chip.is-active:hover { background:var(--accent-hover); }
+.hermes-chip.is-outline {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink-muted);
+}
+.hermes-chip.is-ok { background: var(--ok-bg); color: var(--ok-ink); }
+.hermes-chip.is-warn { background: var(--warn-bg); color: var(--warn-ink); }
+.hermes-chip.is-danger { background: var(--block-bg); color: var(--block-ink); }
+
+/* 挑战按钮 */
+.hermes-challenge-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.hermes-challenge-scope {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  font-size: 11px;
+  color: var(--ink-muted);
+  line-height: 1.5;
+}
+.hermes-challenge-btn:hover {
+  border-color: var(--accent-line);
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+.hermes-challenge-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   记忆点层（2026-09-19）
+   给全站列表一个统一、可扫视的身份语言：语义色条 + 数字锚点 + 中文标题字距。
+   色值一律走令牌，不引入裸 hex/rgba（颜色收敛守卫会因此变红）。
+   ========================================================================== */
+
+/* 1) 数字锚点：驾驶舱 KPI 值与决策序号是最先被扫到的数字，统一等宽避免跳动。
+      注：旧的「列表左侧语义色条」（.hermes-brief-decision / .hermes-brief-theme-row）
+      在 2026-09-19 驾驶舱改版中由「逐行状态药丸 + 决策板语义边框」取代，故不再保留色条规则。 */
+.hermes-kpi strong,
+.hermes-decision-num,
+.hermes-stat > strong,
+.hermes-board-col-head strong,
+.health-score,
+.progress-ring-value { font-variant-numeric: tabular-nums; }
+
+/* 2) 中文标题不用负字距 —— 负字距是为拉丁大字设计的，中文字会被挤在一起 */
+.hermes-page-heading h1 { letter-spacing: -0.01em; }
+.hermes-panel-title,
+.hermes-brief-section-title,
+.hermes-theme-title,
+.hermes-center-card h2,
+.hermes-modal h3 { letter-spacing: 0; }

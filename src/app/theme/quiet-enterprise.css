@@ -1,0 +1,167 @@
+/* ==========================================================================
+   Quiet Enterprise 设计令牌层（2026-09-17）
+   唯一色值事实来源。globals.css 只允许引用 var(--token)，不得内联 hex/rgba，
+   以便「颜色收敛」断言（globals.css 去注释后 unique hex/rgba = 0）可复算。
+
+   迁移策略：in-place 令牌化。类名/选择器/属性名一律不动，只替换 `:` 右侧的值。
+   回退路径：`<html data-palette="paper">` 一行即可切回旧的 paper/teal 视觉
+   （见文件末尾 [data-palette="paper"] 覆盖块）。
+   ========================================================================== */
+
+:root {
+  /* —— 面 surface —— */
+  --bg:            #F6F9FD;  /* 冷灰底（替代 paper #eeece5） */
+  --surface:       #FFFFFF;
+  --surface-2:     #F9FBFE;
+  --surface-soft:  #F5F8FD;  /* hover / 次级行 */
+  --surface-glass: rgba(255, 255, 255, .92); /* 顶栏毛玻璃 / 高不透面 */
+  --surface-wash:  rgba(255, 255, 255, .55); /* 半透卡片底 */
+  --surface-faint: rgba(255, 255, 255, .34); /* 更弱行底 */
+
+  /* —— 墨 ink（文字四级） —— */
+  --ink:        #0D1B3E;
+  --ink-2:      #44536D;
+  --ink-muted:  #65738D;
+  --ink-faint:  #93A0B5;
+
+  /* —— 线 line —— */
+  --line:        #E5EBF3;
+  --line-soft:   rgba(36, 66, 74, .08);
+  --line-strong: #D6E0ED;
+  --line-field:  #C7D4E4;
+
+  /* —— 强调 accent（替代全部 teal/cyan） —— */
+  --accent:       #2F6DF6;
+  --accent-hover: #245CD8;
+  --accent-bg:    #EAF2FF;
+  --accent-ring:  #9DB8F3;
+  --accent-line:  rgba(47, 109, 246, .34);
+  --accent-wash:  rgba(47, 109, 246, .08);
+  --navy:         #0B1B3B;
+
+  /* —— 状态语义 ok / warn / block / neutral —— */
+  --ok:       #22A06B;  --ok-ink:    #18794E;  --ok-bg:    #EAF8F2;  --ok-line:    #BFE5D4;
+  --warn:     #F59E42;  --warn-ink:  #8C5A10;  --warn-bg:  #FFF4E7;  --warn-line:  #F2D5A6;
+  --block:    #EF5C5C;  --block-ink: #B42318;  --block-bg: #FFF1F1;  --block-line: #F3C6C2;
+  --neutral-ink: #68768D; --neutral-bg: #F0F3F7; --neutral-line: #E1E6EE;
+
+  /* —— 遮罩与阴影 —— */
+  --overlay:      rgba(9, 24, 51, .46);
+  --shadow-accent: rgba(47, 109, 246, .24);
+  --shadow-block:  rgba(180, 35, 24, .12);   /* block 色的投影变体（danger 按钮 hover） */
+
+  /* —— 几何 —— */
+  --radius:      14px;
+  --radius-sm:   10px;
+  --radius-xs:   9px;
+  --shadow:      0 10px 30px rgba(34, 62, 103, .06);
+  --shadow-soft: 0 4px 16px rgba(34, 62, 103, .05);
+  /* —— 深度阶梯（2026-09-19 rev3）——
+     此前卡片几乎无可见边界（border 用了半透明白、shadow 只有 6% 不透明度），
+     整页是平的，读起来像打印稿。这里给三级阴影：默认 hair、悬停 card、浮层 lift。 */
+  --shadow-hair: 0 1px 2px rgba(23, 43, 77, .05);
+  --shadow-card: 0 10px 26px -14px rgba(23, 43, 77, .22);
+  --shadow-lift: 0 20px 44px -20px rgba(23, 43, 77, .30);
+  --sidebar:     228px;
+  --sidebar-rail: 82px;
+  --topbar:      68px;
+
+  /* —— 深色侧栏上的前景色（rev4 · 前端专家铁律「绝不用纯白平铺背景」）——
+     侧栏改用墨蓝底，其上的文字/图标/分隔线需要一套「在深色上」的前景色令牌。 */
+  --on-dark:      #FFFFFF;
+  --on-dark-2:    rgba(255, 255, 255, .76);
+  --on-dark-3:    rgba(255, 255, 255, .52);
+  --on-dark-line: rgba(255, 255, 255, .14);
+  --on-dark-hover: rgba(255, 255, 255, .09);
+  /* 页面底氛围：两层极淡径向光晕，避免纯色平铺 */
+  --ambient-1: rgba(47, 109, 246, .10);
+  --ambient-2: rgba(34, 160, 107, .07);
+
+  /* —— 排版：字体栈（2026-09-19 rev4 · 前端专家铁律「弃用 Inter，选用有辨识度的字体」）——
+     ① 正文字体**移除 Inter**：Inter 是专家点名的「通用字体」，且中文环境下它只覆盖拉丁字形，
+        中英混排会出现两套骨架。改为中文优先的系统无衬线栈。
+     ② 标题改用**中文衬线栈（宋体系）**：这是本产品的排版主张 —— 编辑式、权威感。
+        零外部依赖（全部系统字体）；拉丁与数字回退 Georgia，与品牌 monogram/wordmark 同源。
+        ⚠️ 教训：曾经「标题用 Georgia」是因为 Georgia 无中文字形而**意外**回退宋体，
+        当时被当成 bug 修掉；现在把宋体作为**刻意的设计选择**写进字体栈。 */
+  --font-title: "Songti SC", "STSong", "Source Han Serif SC", "Noto Serif SC",
+                Georgia, "Times New Roman", serif;
+  --font-body:  "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+                -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* —— 排版：字号阶梯（rev4 整体上调；正文基准 15px，接近专家要求的 16px 起）——
+     2 倍以上的层级跳跃由页面标题（38px）/ 区块标题（22px）/ 正文（15px）共同构成。 */
+  --text-xs:   11.5px; /* 微型全大写标签 */
+  --text-sm:   12.5px; /* 元信息 / 表头 / 徽章 */
+  --text-base: 13.5px; /* 次要正文 / 按钮 / 输入 */
+  --text-md:   15px;   /* 正文 / 行标题（基准） */
+  --text-lg:   16px;   /* 强调正文 */
+  --text-xl:   18px;   /* 卡片标题 */
+
+  /* —— 排版：行高 —— */
+  --lh-tight: 1.35;    /* 标题 */
+  --lh-snug:  1.5;     /* 紧凑正文 */
+  --lh-body:  1.6;     /* 正文兜底 */
+  --lh-loose: 1.75;    /* 长段落 */
+
+  /* —— 记忆点：列表卡片的语义色条 —— */
+  --rail-w:    3px;    /* 普通条目 */
+  --rail-w-lg: 4px;    /* 强调条目（首项决策） */
+
+  /* —— 兼容别名：旧变量名保留，任何遗漏的旧引用不炸 —— */
+  --paper:  var(--bg);
+  --teal:   var(--accent);
+  --copper: var(--warn-ink);
+  --green:  var(--ok);
+  --muted:  var(--ink-muted);
+}
+
+/* ==========================================================================
+   回退开关：[data-palette="paper"] 覆盖块 —— 旧 paper/teal 值。
+   在 layout.tsx 的 <html> 上加 data-palette="paper" 即可切回旧视觉对比走查。
+   ========================================================================== */
+[data-palette="paper"] {
+  --bg:            #eeece5;
+  --surface:       #fbfaf7;
+  --surface-2:     #f6f5f0;
+  --surface-soft:  #f4f3ee;
+  --surface-glass: rgba(255, 255, 255, .72);
+  --surface-wash:  rgba(255, 255, 255, .55);
+  --surface-faint: rgba(255, 255, 255, .34);
+
+  --ink:        #0d1b29;
+  --ink-2:      #4d5c61;
+  --ink-muted:  #7d898e;
+  --ink-faint:  #8a9698;
+
+  --line:        rgba(39, 61, 72, .13);
+  --line-soft:   rgba(36, 66, 74, .08);
+  --line-strong: #d8dedf;
+  --line-field:  rgba(30, 67, 78, .16);
+
+  --accent:       #075b72;
+  --accent-hover: #0a5068;
+  --accent-bg:    #e4f5fa;
+  --accent-ring:  #2aaac4;
+  --accent-line:  rgba(7, 91, 114, .25);
+  --accent-wash:  rgba(7, 91, 114, .07);
+  --navy:         #0a171d;
+
+  --ok:       #0c9b78;  --ok-ink:    #0c7a5f;  --ok-bg:    #e8f8f2;  --ok-line:    #bfe8dc;
+  --warn:     #bd8154;  --warn-ink:  #8a6320;  --warn-bg:  #fdf3e3;  --warn-line:  #f0dcb6;
+  --block:    #d94b4b;  --block-ink: #9e4636;  --block-bg: #fff0eb;  --block-line: #e7b5a8;
+  --neutral-ink: #5d6a70; --neutral-bg: #eceeeb; --neutral-line: #dbe0dd;
+
+  --overlay:      rgba(5, 20, 28, .46);
+  --shadow-accent: rgba(5, 91, 119, .24);
+  --shadow-block:  rgba(217, 75, 75, .12);
+
+  /* 深色侧栏前景色 + 页面氛围（paper 调色板下同样需要，否则切回旧视觉会露出冷蓝光晕） */
+  --on-dark:      #ffffff;
+  --on-dark-2:    rgba(255, 255, 255, .76);
+  --on-dark-3:    rgba(255, 255, 255, .52);
+  --on-dark-line: rgba(255, 255, 255, .14);
+  --on-dark-hover: rgba(255, 255, 255, .09);
+  --ambient-1: rgba(7, 91, 114, .10);
+  --ambient-2: rgba(12, 155, 120, .07);
+}

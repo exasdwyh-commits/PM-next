@@ -1,0 +1,1469 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------------------
+// 1. Identity & Access Control
+// -------------------------------------------------------------
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  code      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users    User[]
+  members  OrganizationMember[]
+  projects Project[]
+  products Product[]
+
+  // 产品开发工作台与 AI 顾问（蓝图 §7，2026-09-13）
+  analysisRuns     AnalysisRun[]
+  conversations    Conversation[]
+  agentRuns        AgentRun[]
+  actionProposals  ActionProposal[]
+  knowledgeSources KnowledgeSource[]
+  knowledgeDocs    KnowledgeDocument[]
+  knowledgeChunks  KnowledgeChunk[]
+  knowledgeSyncs   KnowledgeSyncRun[]
+  companyFacts     CompanyFact[]
+  launchPlans      LaunchPlan[]
+  launchMilestones LaunchMilestone[]
+  artifacts        Artifact[]
+}
+
+/**
+ * 组织级成员角色（PC-0 Final Security Patch，2026-09-16）
+ *
+ * 只表达「在公司里的身份」，**不做人事系统**：没有部门、岗位、汇报线、职位等级。
+ * 与 `Role`（项目角色：OWNER / DECISION_MAKER / FEEDBACK_PROVIDER / VIEWER）严格分离：
+ *   - `OrganizationMember.role` 决定**公司级能力**（知识源配置、公司事实录入/确认）。
+ *   - `ProjectMember.role` 决定**产品/项目级能力**（写版本、跑分析、采纳修订、上市）。
+ *
+ * 为什么必须有这张表：在此之前 `isOrgAdmin` 只能拿「本组织任一项目的 OWNER」当代理，
+ * 而任何成员都能创建项目并因此成为 OWNER —— 等于任何人都能自举成「组织管理员」，
+ * 进而读知识来源配置（含服务器 rootPath）。权限语义本身有洞，不是页面问题。
+ */
+enum OrgRole {
+  ORG_ADMIN
+  MEMBER
+}
+
+/**
+ * 组织成员关系（最小模型）
+ *
+ * 不变量：每个 `User` 在所属组织内**应当**有且仅有一条成员记录（`@@unique` 保证）。
+ * 未持记录的用户一律按「非管理员」处理，绝不回退到项目角色推断 —— 回退就是自举漏洞的来源。
+ */
+model OrganizationMember {
+  id             String   @id @default(uuid())
+  organizationId String
+  userId         String
+  role           OrgRole  @default(MEMBER)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId, role])
+  @@index([userId])
+}
+
+enum Role {
+  OWNER
+  DECISION_MAKER
+  FEEDBACK_PROVIDER
+  VIEWER
+  DIGITAL_WORKER
+  ORG_ADMIN
+}
+
+model User {
+  id             String   @id @default(uuid())
+  organizationId String
+  email          String   @unique
+  name           String
+  /**
+   * scrypt 口令哈希（algo$N$r$p$salt$hash）。仅由管理员脚本/种子写入，不存在公共注册。
+   */
+  passwordHash   String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization             Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sessions                 Session[]
+  projectMembers           ProjectMember[]
+  /** 组织成员关系（公司级角色）。未经此表授权的用户不得视为组织管理员。 */
+  orgMemberships           OrganizationMember[]
+  ownedProjects            Project[]               @relation("ProjectOwner")
+  decidingProjects         Project[]               @relation("ProjectDecisionMaker")
+  feedbackGiven            Feedback[]
+  decisionsMade            Decision[]
+  auditEvents              AuditEvent[]
+  verifiedEvidences        Evidence[]              @relation("EvidenceVerifier")
+  authoredSubmissions      WorkSubmission[]        @relation("WorkSubmissionAuthor")
+  reviewedSubmissions      WorkSubmission[]        @relation("WorkSubmissionReviewer")
+  confirmedApplicabilities ArtifactApplicability[] @relation("ApplicabilityConfirmer")
+  researchRunsCreated      ResearchRun[]           @relation("ResearchRunCreator")
+  researchTasksCreated     ResearchRunTask[]       @relation("ResearchTaskCreator")
+
+  // 产品开发工作台与 AI 顾问（蓝图 §7，2026-09-13）
+  ownedProducts        Product[]        @relation("ProductOwner")
+  analysisRunsCreated  AnalysisRun[]    @relation("AnalysisRunCreator")
+  conversations        Conversation[]   @relation("ConversationOwner")
+  agentRuns            AgentRun[]       @relation("AgentRunUser")
+  actionProposalsMade  ActionProposal[] @relation("ActionProposalProposer")
+  actionProposalsDecided ActionProposal[] @relation("ActionProposalDecider")
+  knowledgeSourcesCreated KnowledgeSource[] @relation("KnowledgeSourceCreator")
+  knowledgeSyncsStarted KnowledgeSyncRun[] @relation("KnowledgeSyncStarter")
+  companyFactsConfirmed CompanyFact[]  @relation("CompanyFactConfirmer")
+  launchPlansOwned      LaunchPlan[]    @relation("LaunchPlanOwner")
+  launchMilestonesOwned LaunchMilestone[] @relation("LaunchMilestoneOwner")
+
+  @@index([organizationId])
+}
+
+model Session {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([userId])
+}
+
+model ProjectMember {
+  id        String   @id @default(uuid())
+  projectId String
+  userId    String
+  role      Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@index([projectId])
+}
+
+// -------------------------------------------------------------
+// 2. Projects
+// -------------------------------------------------------------
+
+enum ProjectMode {
+  NEW_PRODUCT
+  FIXED_PRODUCT
+}
+
+enum ProjectStage {
+  DRAFT
+  RESEARCH
+  SAMPLING
+  PRODUCTION_PREP
+  PRODUCTION
+  DELIVERED
+}
+
+model Project {
+  id               String       @id @default(uuid())
+  organizationId   String
+  mode             ProjectMode  @default(NEW_PRODUCT)
+  title            String
+  target           String
+  constraints      String?
+  stage            ProjectStage @default(DRAFT)
+  revision         Int          @default(1)
+  isDemo           Boolean      @default(false)
+  productVersionId String?
+  /// 显式产品关联（蓝图 §4.1）：允许为空以保留既有「无产品的探索项目」；
+  /// 从产品入库时由 createDevelopmentProduct 在同一事务内写入。
+  productId        String?
+  ownerId          String
+  decisionMakerId  String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner          User            @relation("ProjectOwner", fields: [ownerId], references: [id])
+  decisionMaker  User?           @relation("ProjectDecisionMaker", fields: [decisionMakerId], references: [id])
+  productVersion ProductVersion? @relation("ProjectProductVersion", fields: [productVersionId], references: [id])
+  product        Product?        @relation("ProjectProduct", fields: [productId], references: [id])
+
+  members         ProjectMember[]
+  workItems       WorkItem[]
+  evidences       Evidence[]
+  dataGaps        DataGap[]
+  feedbackItems   Feedback[]
+  decisionPackets DecisionPacket[]
+  researchRuns    ResearchRun[]
+  launchPlans     LaunchPlan[]
+
+  @@index([organizationId])
+  @@index([ownerId])
+  @@index([decisionMakerId])
+  @@index([productVersionId])
+  @@index([productId])
+}
+
+// -------------------------------------------------------------
+// 3. Products & Product Versions
+// -------------------------------------------------------------
+
+model Product {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  /// 编码唯一性收敛到**组织内**（D-001 / I-005 修复）：
+  /// 全局唯一会让别的组织无法使用已占用的编码，并把「该码被占」确定性地告诉它
+  /// （跨组织存在性 oracle）。同组织同码仍由 409 拦下（P2002 中央映射，D-015）。
+  identityCode   String
+  targetAudience String
+  marketPath     String
+  devMode        String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // ---- 产品开发工作台入库字段（蓝图 §4.2，均为可空：先兼容为空，按真实关系回填后再收紧） ----
+  /// 一句话想法 / 核心概念。入库首屏必填项之一。
+  coreIdea         String?
+  /// 核心卖点（首屏必填）
+  coreSellingPoints String?
+  /// 预期渠道（首屏必填）
+  targetChannels   String?
+  /// 产品负责人（默认入库人）
+  ownerId          String?
+  /// 产品生命周期：与 ProjectStage 不是一对一（蓝图 §4.5）
+  lifecycleStage   ProductLifecycleStage @default(IDEA)
+  /// 目标上市日（未定即 null，UI 显示「未设置」）
+  targetLaunchDate DateTime?
+  /// 实际上市日：由实际上市动作/证据确认，不因审批通过自动写入（蓝图 §4.5）
+  actualLaunchDate DateTime?
+  /// 价格预期（选填）
+  priceExpectation String?
+  /// 剂型 / 规格（选填）
+  formSpec         String?
+  /// 禁用项（选填）
+  forbiddenItems   String?
+  /// 入库来源：MANUAL 手工填写 / AI_EXTRACTED 粘贴文本提取草稿（用户已编辑确认）
+  sourceKind       String   @default("MANUAL")
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner        User?            @relation("ProductOwner", fields: [ownerId], references: [id])
+  versions     ProductVersion[]
+  projects     Project[]        @relation("ProjectProduct")
+  analysisRuns AnalysisRun[]
+  conversations Conversation[]
+  actionProposals ActionProposal[]
+  launchPlans  LaunchPlan[]
+
+  @@unique([organizationId, identityCode])
+  @@index([organizationId])
+  @@index([ownerId])
+  @@index([lifecycleStage])
+}
+
+/// 产品生命周期（面向用户的口径，蓝图 §4.5）
+/// 想法入库 → 分析优化 → 打样验证 → 上市准备 → 已上市 → 复盘 / 暂停
+enum ProductLifecycleStage {
+  IDEA
+  ANALYSIS
+  SAMPLING
+  LAUNCH_PREP
+  LAUNCHED
+  REVIEW
+  PAUSED
+}
+
+model ProductVersion {
+  id              String   @id @default(uuid())
+  productId       String
+  versionTag      String
+  specs           Json
+  technicalAdvice String?
+  experienceGoals String?
+  targetCost      Decimal? @db.Decimal(12, 2)
+  currency        String   @default("CNY")
+  unknowns        Json?
+  evidenceRefs    Json?
+  isImmutable     Boolean  @default(true)
+  isConfirmed     Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  product         Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  projects        Project[]        @relation("ProjectProductVersion")
+  decisionPackets DecisionPacket[]
+  analysisRuns    AnalysisRun[]
+  artifacts       Artifact[]
+
+  @@unique([productId, versionTag])
+  @@index([productId])
+}
+
+// -------------------------------------------------------------
+// 4. Work Items, Runs, Submissions & Artifacts
+// -------------------------------------------------------------
+
+enum WorkExecutorType {
+  HUMAN
+  TEST_AGENT
+  DIGITAL_WORKER
+}
+
+enum WorkItemStatus {
+  TODO
+  RUNNING
+  SUBMITTED
+  CHANGES_REQUESTED
+  ACCEPTED
+}
+
+model WorkItem {
+  id                  String           @id @default(uuid())
+  projectId           String
+  title               String
+  target              String
+  executorType        WorkExecutorType @default(HUMAN)
+  dependencies        Json?
+  inputRevision       Int              @default(1)
+  status              WorkItemStatus   @default(TODO)
+  deliverableReq      String
+  currentSubmissionId String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  project         Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  receipts        RunReceipt[]
+  submissions     WorkSubmission[]
+  artifacts       Artifact[]
+  applicabilities ArtifactApplicability[]
+
+  @@index([projectId])
+  @@index([status])
+}
+
+enum RunReceiptStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+enum RunMode {
+  MANUAL
+  TEST_STUB
+  AUTOMATED
+  /// P4: 真实 LLM 生成回复（advisor.llm.enabled=true 时使用）
+  LLM
+}
+
+model RunReceipt {
+  id            String           @id @default(uuid())
+  workItemId    String
+  attempt       Int              @default(1)
+  inputRevision Int
+  runMode       RunMode          @default(MANUAL)
+  status        RunReceiptStatus @default(PENDING)
+  startedAt     DateTime         @default(now())
+  endedAt       DateTime?
+  errorMessage  String?
+  artifactIds   Json?
+  createdAt     DateTime         @default(now())
+
+  workItem WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+
+  @@index([workItemId])
+}
+
+model WorkSubmission {
+  id            String               @id @default(uuid())
+  workItemId    String
+  attempt       Int                  @default(1)
+  inputRevision Int
+  submittedById String
+  runMode       RunMode              @default(MANUAL)
+  status        ArtifactReviewStatus @default(PENDING)
+  reviewReason  String?
+  reviewedAt    DateTime?
+  reviewedById  String?
+  createdAt     DateTime             @default(now())
+
+  workItem        WorkItem                @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  submittedBy     User                    @relation("WorkSubmissionAuthor", fields: [submittedById], references: [id])
+  reviewedBy      User?                   @relation("WorkSubmissionReviewer", fields: [reviewedById], references: [id])
+  artifacts       Artifact[]
+  applicabilities ArtifactApplicability[]
+
+  @@index([workItemId])
+}
+
+enum ProducerType {
+  MANUAL
+  TEST_STUB
+  AI
+}
+
+enum ArtifactReviewStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+/**
+ * 沿用成果的适用性确认状态：待负责人确认 / 已确认适用于当前基线 / 已否决
+ */
+enum ArtifactApplicabilityStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+model Artifact {
+  id             String               @id @default(uuid())
+  workItemId     String?
+  submissionId   String?
+  /**
+   * 组织归属（契约 I-001，2026-09-16 批准实施）：成果是公司资产，审计与跨项目查询
+   * 必须能直接按组织过滤，而不是每次沿 workItem → project 绕行。
+   * 允许为空仅为兼容历史行；**写入路径必须显式赋值**。
+   */
+  organizationId String?
+  /**
+   * 绑定的产品版本（契约 I-002）：营销文案 / 报价 / 样品必须知道自己属于哪个
+   * `ProductVersion`，否则「产品已 V3，系统仍拿 V1 文案继续用」无法判定。
+   * ProductVersion 是本系统的版本真相源，成果不绑定版本即与版本治理原则冲突。
+   */
+  productVersionId String?
+  /**
+   * 结构化内容的 schema 版本（契约 I-003），与 `content` JSON 顶层 `schemaVersion` 同源。
+   * 只在 JSON 内则不可查询，无法按版本批量处理历史数据。
+   */
+  schemaVersion  String?
+  type           String
+  title          String
+  content        String
+  contentVersion Int                  @default(1)
+  producerType   ProducerType         @default(MANUAL)
+  inputRevision  Int                  @default(1)
+  evidenceRefs   Json?
+  reviewStatus   ArtifactReviewStatus @default(PENDING)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  organization    Organization?           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  productVersion  ProductVersion?         @relation(fields: [productVersionId], references: [id], onDelete: SetNull)
+  workItem        WorkItem?               @relation(fields: [workItemId], references: [id], onDelete: SetNull)
+  submission      WorkSubmission?         @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  applicabilities ArtifactApplicability[]
+
+  @@index([organizationId])
+  @@index([productVersionId])
+  @@index([organizationId, type])
+  @@index([workItemId])
+  @@index([submissionId])
+}
+
+/**
+ * 沿用成果适用性确认记录 (C01 局部修订)
+ * 局部修订时，未发生变化的成果不应被强制重新生成（那会伪装成「重新研究」），
+ * 但也不能默认沿用——必须留下一条记录，说明该成果是哪个基线产出的、
+ * 由谁确认它适用于哪个新基线。原始 Artifact.inputRevision 保持历史事实不变。
+ */
+model ArtifactApplicability {
+  id                  String                      @id @default(uuid())
+  artifactId          String
+  submissionId        String
+  workItemId          String
+  /**
+   * 该成果被确认适用的输入基线（决策包的 inputBaselineRevision）
+   */
+  baselineRevision    Int
+  /**
+   * 该成果实际产出时的输入基线（历史事实，不被覆盖）
+   */
+  sourceInputRevision Int
+  /**
+   * 确认时刻的成果内容指纹：内容若再变化，原确认即失效
+   */
+  contentHash         String
+  status              ArtifactApplicabilityStatus @default(PENDING)
+  note                String?
+  confirmedById       String?
+  confirmedAt         DateTime?
+  createdAt           DateTime                    @default(now())
+
+  artifact    Artifact       @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  submission  WorkSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  workItem    WorkItem       @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  confirmedBy User?          @relation("ApplicabilityConfirmer", fields: [confirmedById], references: [id])
+
+  @@unique([artifactId, submissionId])
+  @@index([artifactId, baselineRevision])
+  @@index([workItemId])
+  @@index([submissionId])
+}
+
+// -------------------------------------------------------------
+// 5. Evidence & Collaboration
+// -------------------------------------------------------------
+
+enum EvidenceNature {
+  REAL
+  DEMO
+}
+
+enum EvidenceVerifyStatus {
+  UNVERIFIED
+  VERIFIED
+  REJECTED
+}
+
+/**
+ * P1-02 市场验证状态：UNAPPLIED 未取得 / IN_PROGRESS 采集核验中 / VERIFIED_BY_LEAD 负责人确认已验证
+ */
+enum ValidationStatus {
+  UNAPPLIED
+  IN_PROGRESS
+  VERIFIED_BY_LEAD
+}
+
+model Evidence {
+  id                    String               @id @default(uuid())
+  projectId             String
+  contentOrUri          String
+  source                String
+  author                String?
+  obtainedAt            DateTime             @default(now())
+  infoDate              DateTime?
+  hash                  String
+  nature                EvidenceNature       @default(REAL)
+  verifyStatus          EvidenceVerifyStatus @default(UNVERIFIED)
+  verifiedByUserId      String?
+  verifiedAt            DateTime?
+  fileKey               String?
+  fileSize              Int?
+  mimeType              String?
+  originalFilename      String?
+  /**
+   * 适用产品：该资料针对的竞品/产品；渠道：来源或适用渠道（如抖音/快手/私域）
+   */
+  productRef            String?
+  channel               String?
+  /**
+   * P1-02 市场验证：真实渠道反馈/带时间范围的销售资料/明确记录的用户反馈，记录样本规模、时间范围与局限
+   */
+  validationSampleSize  String?
+  validationTimeRange   String?
+  validationLimitations String?
+  /**
+   * 市场验证状态：仅负责人(OWNER)可手动置 VERIFIED_BY_LEAD；模型/纯函数一律不得写入，避免以模型评分冒充真实验证
+   */
+  validationStatus      ValidationStatus     @default(UNAPPLIED)
+  createdAt             DateTime             @default(now())
+
+  project      Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  verifiedBy   User?           @relation("EvidenceVerifier", fields: [verifiedByUserId], references: [id])
+  claims       EvidenceClaim[]
+  resolvingGap DataGap[]       @relation("GapResolvedByEvidence")
+
+  @@index([projectId])
+  @@index([nature])
+  @@index([verifiedByUserId])
+}
+
+/**
+ * 证据细分断言（P1-01 统一证据结构核心层，C02/R2-03）
+ * 一条证据（原文/附件）可拆解为多个「支撑的具体字段断言」，每一项必须明确：
+ * - kind：FACT（原文直接支撑的事实）、INFERENCE（基于证据的推断）、ASSUMPTION（未确认假设）；
+ * - fieldKey：支撑的具体字段（如 price、salesVolume、netWeight、dosageForm、targetAudience）；
+ * - 价格必须带规格(spec)、计价单位(unit)、机制(mechanism，如到手价/划线价/组合装价)，严禁单盒价与组合装价混算。
+ * - conflictGroup + selectionReason：冲突资料并列展示并记录选用理由，不静默覆盖。
+ */
+enum EvidenceClaimKind {
+  FACT
+  INFERENCE
+  ASSUMPTION
+}
+
+model EvidenceClaim {
+  id                String            @id @default(uuid())
+  evidenceId        String
+  fieldKey          String
+  fieldName         String
+  kind              EvidenceClaimKind
+  value             String
+  currency          String            @default("CNY")
+  spec              String? // 规格，如「30条/盒」「6盒/组」
+  unit              String? // 计价单位，如「盒」「条」「组」
+  mechanism         String? // 计价机制，如「到手价」「划线价」「组合装价」
+  applicableProduct String?
+  applicableChannel String?
+  conflictGroup     String? // 命中冲突并列时归入同一组
+  selectionReason   String? // 冲突时选用理由
+  createdAt         DateTime          @default(now())
+
+  evidence Evidence @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+
+  @@index([evidenceId])
+  @@index([fieldKey])
+}
+
+/**
+ * 数据缺口（P1-01）：采集/验证失败时显式记录缺口，不自动补成事实，经补充证据后可流转 FILLED
+ */
+enum DataGapStatus {
+  OPEN
+  FILLED
+}
+
+model DataGap {
+  id                   String        @id @default(uuid())
+  projectId            String
+  fieldKey             String
+  fieldName            String
+  description          String
+  status               DataGapStatus @default(OPEN)
+  resolvedByEvidenceId String?
+  resolvedAt           DateTime?
+  createdAt            DateTime      @default(now())
+
+  project            Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  resolvedByEvidence Evidence? @relation("GapResolvedByEvidence", fields: [resolvedByEvidenceId], references: [id])
+
+  @@unique([projectId, fieldKey])
+  @@index([projectId])
+  @@index([fieldKey])
+  @@index([status])
+}
+
+enum FeedbackStatus {
+  OPEN
+  ACCEPTED
+  REJECTED
+  NEEDS_INFO
+}
+
+model Feedback {
+  id                 String         @id @default(uuid())
+  projectId          String
+  targetType         String
+  targetId           String
+  targetVersion      String?
+  authorId           String
+  content            String
+  status             FeedbackStatus @default(OPEN)
+  dispositionReason  String?
+  revisionWorkItemId String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId], references: [id])
+
+  @@index([projectId])
+  @@index([authorId])
+}
+
+// -------------------------------------------------------------
+// 6. Decision Packets & Gate Decisions
+// -------------------------------------------------------------
+
+enum GateType {
+  RESEARCH_SAMPLING_GATE
+  PRODUCTION_GATE
+}
+
+enum DecisionPacketStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  CHANGES_REQUESTED
+  DEFERRED
+  REJECTED
+  WITHDRAWN
+}
+
+model DecisionPacket {
+  id               String               @id @default(uuid())
+  gate             GateType             @default(RESEARCH_SAMPLING_GATE)
+  projectId        String
+  productVersionId String?
+  artifactVersions Json
+  evidenceVersions Json
+  budgetAmount     Decimal?             @db.Decimal(12, 2)
+  budgetCurrency   String               @default("CNY")
+  budgetScope      String?
+  validationPlan   String
+  requiredChecks   Json
+  scopeHash        String
+  status           DecisionPacketStatus @default(DRAFT)
+  snapshot         Json?
+  submittedAt      DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  project        Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  productVersion ProductVersion? @relation(fields: [productVersionId], references: [id])
+  decisions      Decision[]
+
+  @@index([projectId])
+  @@index([status])
+}
+
+enum DecisionOutcome {
+  APPROVE
+  REQUEST_CHANGES
+  DEFER
+  REJECT
+  WITHDRAW
+}
+
+model Decision {
+  id          String          @id @default(uuid())
+  packetId    String
+  actorId     String
+  decision    DecisionOutcome
+  reason      String
+  obligations String?
+  decidedAt   DateTime        @default(now())
+
+  packet DecisionPacket @relation(fields: [packetId], references: [id], onDelete: Cascade)
+  actor  User           @relation(fields: [actorId], references: [id])
+
+  @@index([packetId])
+  @@index([actorId])
+}
+
+// -------------------------------------------------------------
+// 7. Audit & Idempotency Infrastructure
+// -------------------------------------------------------------
+
+model AuditEvent {
+  id         String   @id @default(uuid())
+  actorId    String
+  action     String
+  objectType String
+  objectId   String
+  revision   Int?
+  requestId  String?
+  summary    String
+  details    Json?
+  timestamp  DateTime @default(now())
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([objectType, objectId])
+  @@index([timestamp])
+}
+
+model IdempotencyRecord {
+  id             String   @id @default(uuid())
+  key            String   @unique
+  actorId        String
+  commandScope   String
+  requestHash    String
+  responseStatus Int
+  responseBody   Json
+  createdAt      DateTime @default(now())
+
+  @@index([key])
+  @@index([actorId, commandScope])
+}
+
+// -------------------------------------------------------------
+// R: Research Run (五阶段研究编排 · 迁移自老版 research-run.ts 机制)
+//   报告阶段复用本模块的规则合成 synthesizeMarketResearch，不引入 LLM。
+// -------------------------------------------------------------
+
+enum ResearchRunStatus {
+  RUNNING
+  PUBLISHED
+  FAILED
+}
+
+enum ResearchRunTaskStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum ResearchTaskType {
+  CLARIFY_SCOPE
+  BRANCH_MARKET
+  BRANCH_PRODUCT
+  BRANCH_CAPABILITY
+  OTHER
+}
+
+model ResearchRun {
+  id                  String            @id @default(uuid())
+  projectId           String
+  question            String
+  inputRevision       Int
+  scopeSnapshotJson   Json
+  status              ResearchRunStatus @default(RUNNING)
+  createdById         String
+  publishedSnapshotId String?
+  errorReason         String?
+  publishedAt         DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  project              Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy            User                  @relation("ResearchRunCreator", fields: [createdById], references: [id])
+  tasks                ResearchRunTask[]
+  researchRunSnapshots ResearchRunSnapshot[]
+
+  @@index([projectId])
+  @@index([status])
+}
+
+model ResearchRunTask {
+  id           String                @id @default(uuid())
+  runId        String
+  projectId    String
+  taskType     ResearchTaskType
+  title        String
+  status       ResearchRunTaskStatus @default(QUEUED)
+  attempt      Int                   @default(0)
+  inputJson    Json
+  resultJson   Json?
+  errorReason  String?
+  runnerPid    Int?
+  runnerBootId String?
+  parentTaskId String?
+  seq          Int?
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  createdAt    DateTime              @default(now())
+
+  run         ResearchRun       @relation(fields: [runId], references: [id], onDelete: Cascade)
+  parentTask  ResearchRunTask?  @relation("ResearchSubTask", fields: [parentTaskId], references: [id])
+  subtasks    ResearchRunTask[] @relation("ResearchSubTask")
+  createdBy   User?             @relation("ResearchTaskCreator", fields: [createdById], references: [id])
+  createdById String?
+
+  @@index([runId])
+  @@index([status])
+}
+
+model ResearchRunSnapshot {
+  id              String   @id @default(uuid())
+  runId           String
+  reportVersion   Int
+  reportJson      Json
+  publishedStatus String   @default("published")
+  generatedAt     DateTime @default(now())
+
+  run ResearchRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, reportVersion])
+  @@index([runId])
+}
+
+// S: Signal Radar（信号采集 · 机制迁移自老版 signal-*.ts 骨架）
+//   SignalSource：全局信号源注册表与健康状态（跨项目，不绑定具体 Project）
+//   SignalItem：采集/录入的信号，字段对齐新版 Evidence 包装（nature/verifyStatus/productRef/channel/hash），
+//   既保留老版雷达分级（valueTier/valueReason），也支持后续「信号→证据」封装转换（evidenceId 溯源）。
+//   蝉妈妈等外部平台 adapter 在本模块仅标验证项（mode=manual / verifyStatus 不自动置 VERIFIED），绝不虚构数据。
+// -------------------------------------------------------------
+
+model SignalSource {
+  id            String    @id @default(uuid())
+  /// 组织归属（蓝图 §7）：NULL = 公共来源配置（所有组织可见，例如公开平台适配器）；
+  /// 非空 = 该组织的私有来源配置。写入时必须显式区分，禁止把私有来源当公共配置。
+  organizationId String?
+  key           String    @unique
+  name          String
+  category      String    @default("trend")
+  description   String?
+  enabled       Boolean   @default(true)
+  priority      String    @default("P1")
+  /// auto（有自动收集器）/ manual（仅人工录入；无收集器则采集时跳过，不虚构）
+  mode          String    @default("auto")
+  lastStatus    String?   @default("idle")
+  lastError     String?
+  lastCollected DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  items SignalItem[]
+
+  @@index([enabled, priority])
+  @@index([organizationId])
+}
+
+model SignalItem {
+  id           String               @id @default(uuid())
+  /// 组织归属（蓝图 §7）：信号是公司私有内容，接入公司机会库前必须带上组织。
+  /// 2026-09-16 收紧为 NOT NULL：去重唯一键必须包含组织，否则跨组织同标题会互相顶掉，
+  /// 并把「另一家公司已录入过这个信号」这一事实泄露给调用方（D-002）。
+  /// 若本列为 NULL，唯一约束在 PostgreSQL 下按 NULLS DISTINCT 处理，可被重复插入绕过。
+  organizationId String
+  sourceKey    String
+  sourceName   String
+  category     String               @default("trend")
+  title        String
+  summary      String?
+  relevance    String?
+  url          String?
+  /// 对齐新版 Evidence 包装：数据性质（REAL 真实资料 / DEMO）与核验状态（UNVERIFIED 默认，绝不自动 VERIFIED）
+  nature       EvidenceNature       @default(REAL)
+  verifyStatus EvidenceVerifyStatus @default(UNVERIFIED)
+  /// 适用产品（竞品/产品）与渠道（抖音/快手/私域…）
+  productRef   String?
+  channel      String?
+  /// 去重指纹：同源同 hash 视为同一信号，采集时跳过重复
+  hash         String?
+  /// 信号封装为证据时记录落点，溯源「信号→证据」链路
+  evidenceId   String?
+  rawJson      String?
+  importance   Int                  @default(1)
+  /// 价值分级：high / normal / low（NULL = 未评估）
+  valueTier    String?
+  valueReason  String?
+  collectedBy  String               @default("manual")
+  collectedAt  DateTime             @default(now())
+  createdAt    DateTime             @default(now())
+
+  source SignalSource? @relation(fields: [sourceKey], references: [key])
+
+  @@index([sourceKey])
+  @@index([category])
+  @@index([valueTier])
+  @@index([organizationId])
+  /// 去重指纹按**组织**隔离（原为 @@unique([sourceKey, hash]) 全局唯一）：
+  /// 组织 A 与组织 B 各自录入同标题信号都必须能成功，且互不知情。
+  @@unique([organizationId, sourceKey, hash])
+}
+
+// =============================================================
+// T. 产品开发：分析运行、评分（蓝图 §4.4）
+//    原则：AnalysisRun 固定产品版本 / 证据版本 / 公司上下文版本 / 评分规则版本 / 模型；
+//    历史结果不可被最新结果覆盖；未知项不补造数值（score 保持 null）。
+// =============================================================
+
+enum AnalysisRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum AnalysisRunKind {
+  /// 首轮基线分析（v1）
+  BASELINE
+  /// 采纳修改草案后的重评（v2+）
+  REVISION_REVIEW
+}
+
+enum AnalysisDimensionKey {
+  DEMAND_VALUE
+  DIFFERENTIATION
+  UNIT_ECONOMICS
+  COMPANY_FIT
+  DELIVERY_FEASIBILITY
+  LAUNCH_READINESS
+}
+
+model AnalysisRun {
+  id               String           @id @default(uuid())
+  organizationId   String
+  productId        String
+  productVersionId String
+  kind             AnalysisRunKind   @default(BASELINE)
+  status           AnalysisRunStatus @default(RUNNING)
+  /// 输入快照：证据 id+hash 集合、公司上下文版本、评分规则版本、统计时间
+  inputSnapshot    Json
+  /// 证据版本指纹（用于判断旧利润结论是否仍适用）
+  evidenceFingerprint String?
+  /// 评分规则版本（蓝图 §4.4：保存评分规则版本，允许以后调整）
+  ruleVersion      String            @default("v1")
+  provider         String?
+  modelId          String?
+  runMode          RunMode           @default(MANUAL)
+  /// 上一轮基线：本轮为 REVISION_REVIEW 时指向被改动的 v1
+  supersedesRunId  String?
+  errorReason      String?
+  createdById      String
+  startedAt        DateTime          @default(now())
+  finishedAt       DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product        Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productVersion ProductVersion     @relation(fields: [productVersionId], references: [id])
+  createdBy      User               @relation("AnalysisRunCreator", fields: [createdById], references: [id])
+  dimensions     AnalysisDimension[]
+  scorecard      Scorecard?
+
+  @@index([organizationId])
+  @@index([productId])
+  @@index([productVersionId])
+  @@index([status])
+}
+
+model AnalysisDimension {
+  id         String               @id @default(uuid())
+  runId      String
+  dimension  AnalysisDimensionKey
+  /// 未知项保持 null，不默认 0、不补造数值
+  score      Int?
+  /// 依据（必须有来源或明确标注为判断）
+  basis      String?
+  /// 假设（未确认的推断，与依据分离）
+  assumptions String?
+  /// 缺口
+  gaps       String?
+  /// 建议
+  recommendation String?
+  /// 人工调整理由
+  humanAdjustReason String?
+  /// 证据引用：[{ evidenceId, hash, claimId, fieldKey }]
+  evidenceRefs Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  run AnalysisRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, dimension])
+  @@index([runId])
+}
+
+/// 评分卡：按已评维度权重归一化的结果；覆盖不足时 provisional = true（暂评），
+/// 且不得进入可直接排序的完整评分榜（蓝图 §4.4）。
+model Scorecard {
+  id               String   @id @default(uuid())
+  runId            String   @unique
+  productId        String
+  productVersionId String
+  /// 权重配置与版本：{ "DEMAND_VALUE": 25, ... }
+  weights          Json
+  ruleVersion      String   @default("v1")
+  /// 已评维度覆盖率（已评维度权重 / 全部权重）
+  coverageRatio    Float    @default(0)
+  /// 暂评（覆盖率不足）
+  provisional      Boolean  @default(true)
+  /// 按已评维度权重归一化后的分数；无任何已评维度时为 null
+  weightedScore    Float?
+  computedAt       DateTime @default(now())
+
+  run AnalysisRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+// =============================================================
+// U. AI 顾问：会话、运行、工具调用、可执行提议（蓝图 §5、§6）
+//    写入链：提议 → 权限与版本检查 → 用户确认 → 业务命令 → 回执。
+//    模型不直接写数据库。
+// =============================================================
+
+enum ConversationKind {
+  ADVISOR
+  PRODUCT
+}
+
+model Conversation {
+  id             String           @id @default(uuid())
+  organizationId String
+  ownerId        String
+  kind           ConversationKind @default(ADVISOR)
+  title          String
+  /// 产品页内顾问会话绑定产品；全局顾问为 null
+  productId      String?
+  archivedAt     DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner        User             @relation("ConversationOwner", fields: [ownerId], references: [id])
+  product      Product?         @relation(fields: [productId], references: [id])
+  messages     Message[]
+  runs         AgentRun[]
+  proposals    ActionProposal[]
+
+  @@index([organizationId])
+  @@index([ownerId])
+  @@index([productId])
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+  TOOL
+}
+
+model Message {
+  id             String      @id @default(uuid())
+  conversationId String
+  role           MessageRole
+  content        String
+  /// 产生这条消息的运行
+  runId          String?
+  /// 引用卡：[{ kind: "knowledge"|"evidence"|"product", ref, title, path, hash }]
+  citations      Json?
+  createdAt      DateTime    @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+}
+
+enum AgentRunStatus {
+  QUEUED
+  RUNNING
+  WAITING_CONFIRMATION
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+model AgentRun {
+  id             String         @id @default(uuid())
+  organizationId String
+  conversationId String?
+  userId         String
+  goal           String
+  /// 上下文快照：知识引用、产品版本、权限范围、检索时间（蓝图 §6）
+  contextSnapshot Json?
+  status         AgentRunStatus @default(QUEUED)
+  provider       String?
+  modelId        String?
+  promptTemplateVersion String?
+  /// TEST_STUB 表示未接真实模型，仅验证交互流程
+  runMode        RunMode        @default(TEST_STUB)
+  toolWhitelist  Json?
+  attempt        Int            @default(1)
+  /// worker 租约 / 心跳（蓝图 §6：崩溃恢复）
+  leaseOwner     String?
+  heartbeatAt    DateTime?
+  cancelRequestedAt DateTime?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  durationMs     Int?
+  /// token / 费用；未知即 "unknown"，不编造
+  usageJson      Json?
+  costStatus     String         @default("unknown")
+  errorReason    String?
+  outputMessageId String?
+  /// 与既有 RunReceipt 关联而非竞争（蓝图 §7）
+  receiptId      String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  conversation Conversation?    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User             @relation("AgentRunUser", fields: [userId], references: [id])
+  toolCalls    ToolCall[]
+  proposals    ActionProposal[]
+
+  @@index([organizationId])
+  @@index([conversationId])
+  @@index([status])
+}
+
+model ToolCall {
+  id          String    @id @default(uuid())
+  runId       String
+  toolKey     String
+  inputJson   Json?
+  resultJson  Json?
+  status      String    @default("RUNNING")
+  errorReason String?
+  startedAt   DateTime  @default(now())
+  finishedAt  DateTime?
+  durationMs  Int?
+
+  run AgentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+}
+
+enum ActionProposalStatus {
+  DRAFT
+  PENDING_CONFIRMATION
+  APPLIED
+  REJECTED
+  SUPERSEDED
+  EXPIRED
+}
+
+model ActionProposal {
+  id             String               @id @default(uuid())
+  organizationId String
+  runId          String?
+  conversationId String?
+  productId      String?
+  projectId      String?
+  /// CREATE_WORK_ITEM / CREATE_REVISION / UPDATE_FIELD / ...
+  actionType     String
+  payloadJson    Json
+  status         ActionProposalStatus @default(DRAFT)
+  proposedById   String
+  decidedById    String?
+  decidedAt      DateTime?
+  decisionReason String?
+  appliedObjectType String?
+  appliedObjectId   String?
+  /// 幂等：重复点击或重试不得重复写入（蓝图 §5.3）
+  idempotencyKey String?              @unique
+  /// 旧版本提议在产品已改变时重新校验（蓝图 §5.3）
+  baseVersionHash String?
+  expectedRevision Int?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  run          AgentRun?     @relation(fields: [runId], references: [id], onDelete: SetNull)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  product      Product?      @relation(fields: [productId], references: [id])
+  proposedBy   User          @relation("ActionProposalProposer", fields: [proposedById], references: [id])
+  decidedBy    User?         @relation("ActionProposalDecider", fields: [decidedById], references: [id])
+
+  @@index([organizationId])
+  @@index([conversationId])
+  @@index([productId])
+  @@index([status])
+}
+
+// =============================================================
+// V. 公司知识：来源、文档、切片、同步批次、已确认事实（蓝图 §5.2）
+//    数据库是任务/状态/版本/审批的事实来源；Obsidian 保存解释性文档。
+//    聊天记录不自动变成公司事实。
+// =============================================================
+
+enum KnowledgeSourceKind {
+  OBSIDIAN_VAULT
+  LOCAL_DIR
+}
+
+model KnowledgeSource {
+  id             String              @id @default(uuid())
+  organizationId String
+  kind           KnowledgeSourceKind @default(OBSIDIAN_VAULT)
+  name           String
+  /// 指定 Vault / 目录的绝对路径（首版只读导入，蓝图 §5.2）
+  rootPath       String
+  enabled        Boolean             @default(true)
+  includeGlobs   Json?
+  excludeGlobs   Json?
+  /// 默认只读导入
+  readOnly       Boolean             @default(true)
+  lastSyncAt     DateTime?
+  createdById    String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?             @relation("KnowledgeSourceCreator", fields: [createdById], references: [id])
+  documents    KnowledgeDocument[]
+  syncRuns     KnowledgeSyncRun[]
+
+  @@index([organizationId])
+}
+
+model KnowledgeDocument {
+  id             String    @id @default(uuid())
+  sourceId       String
+  organizationId String
+  relativePath   String
+  title          String
+  frontmatter    Json?
+  /// 内容哈希：判断是否需要重建切片
+  contentHash    String
+  byteSize       Int       @default(0)
+  wordCount      Int?
+  /// 来源更新时间（frontmatter 或文件 mtime）
+  sourceUpdatedAt DateTime?
+  /// 删除文档从新检索中移除（历史引用保留最小授权快照）
+  deletedAt      DateTime?
+  indexedAt      DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  source       KnowledgeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  chunks       KnowledgeChunk[]
+
+  @@unique([sourceId, relativePath])
+  @@index([organizationId])
+  @@index([sourceId])
+}
+
+model KnowledgeChunk {
+  id             String  @id @default(uuid())
+  documentId     String
+  organizationId String
+  chunkIndex     Int
+  /// 标题层级路径：品牌手册 > 渠道政策 > 私域
+  headingPath    String?
+  content        String
+  tokens         Int?
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  document     KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([organizationId])
+}
+
+enum KnowledgeSyncStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+model KnowledgeSyncRun {
+  id             String              @id @default(uuid())
+  sourceId       String
+  organizationId String
+  status         KnowledgeSyncStatus @default(RUNNING)
+  scanned        Int                 @default(0)
+  created        Int                 @default(0)
+  updated        Int                 @default(0)
+  deleted        Int                 @default(0)
+  failed         Int                 @default(0)
+  /// 失败文件与原因：[{ path, reason }]
+  failures       Json?
+  errorReason    String?
+  startedById    String?
+  startedAt      DateTime            @default(now())
+  finishedAt     DateTime?
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  source       KnowledgeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  startedBy    User?           @relation("KnowledgeSyncStarter", fields: [startedById], references: [id])
+
+  @@index([organizationId])
+  @@index([sourceId])
+}
+
+enum CompanyFactStatus {
+  PENDING
+  CONFIRMED
+  SUPERSEDED
+}
+
+/// 已确认的公司事实：业务状态优先读数据库，公司政策取已确认且有效的版本，
+/// 不能只依赖「最后修改时间」（蓝图 §5.2）。
+model CompanyFact {
+  id             String            @id @default(uuid())
+  organizationId String
+  key            String
+  label          String
+  value          String
+  category       String            @default("general")
+  status         CompanyFactStatus @default(PENDING)
+  /// 来源文档与路径：资料冲突并列展示并要求确认，不自动合并
+  sourceDocId    String?
+  sourcePath     String?
+  confirmedById  String?
+  confirmedAt    DateTime?
+  validFrom      DateTime?
+  validUntil     DateTime?
+  supersededById String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  confirmedBy  User?        @relation("CompanyFactConfirmer", fields: [confirmedById], references: [id])
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
+  @@index([status])
+}
+
+// =============================================================
+// W. 上市计划与里程碑（蓝图 §4.5、§7）
+//    审批通过只表示获准，不自动把产品标为已上市；实际上市由动作/证据确认。
+//    执行动作复用 WorkItem，不建第二套任务系统。
+// =============================================================
+
+enum LaunchPlanStatus {
+  DRAFT
+  ACTIVE
+  BLOCKED
+  COMPLETED
+  CANCELLED
+}
+
+model LaunchPlan {
+  id             String            @id @default(uuid())
+  organizationId String
+  productId      String
+  projectId      String?
+  title          String
+  targetDate     DateTime?
+  ownerId        String?
+  status         LaunchPlanStatus  @default(DRAFT)
+  /// 获准时间（审批通过 ≠ 已上市）
+  approvedAt     DateTime?
+  /// 实际上市时间（由实际上市动作/证据确认）
+  actualLaunchedAt DateTime?
+  notes          String?
+  createdById    String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  project      Project?          @relation(fields: [projectId], references: [id])
+  owner        User?             @relation("LaunchPlanOwner", fields: [ownerId], references: [id])
+  milestones   LaunchMilestone[]
+
+  @@index([organizationId])
+  @@index([productId])
+  @@index([status])
+}
+
+enum LaunchMilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  BLOCKED
+}
+
+model LaunchMilestone {
+  id             String                @id @default(uuid())
+  planId         String
+  organizationId String
+  title          String
+  /// MATERIAL / CHANNEL / SUPPLY / COMPLIANCE / OTHER
+  kind           String                @default("OTHER")
+  seq            Int                   @default(0)
+  dueDate        DateTime?
+  ownerId        String?
+  status         LaunchMilestoneStatus @default(PENDING)
+  blockerReason  String?
+  completedAt    DateTime?
+  /// 复用既有 WorkItem（蓝图 §7：避免双任务系统）
+  workItemId     String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan         LaunchPlan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+  owner        User?        @relation("LaunchMilestoneOwner", fields: [ownerId], references: [id])
+
+  @@index([organizationId])
+  @@index([planId])
+  @@index([status])
+}
