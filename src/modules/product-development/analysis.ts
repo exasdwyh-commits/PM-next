@@ -421,7 +421,6 @@ export async function analyzeProductVersion(session: SessionContext, params: Ana
 
   // TASK-016：如果请求了专业分析，生成并保存
   if (params.requestProfessionalAnalysis && params.agentRunId) {
-    // 验证 agentRunId 的有效性
     const agentRun = await prisma.agentRun.findUnique({
       where: { id: params.agentRunId },
       select: {
@@ -429,118 +428,145 @@ export async function analyzeProductVersion(session: SessionContext, params: Ana
         organizationId: true,
         status: true,
         userId: true,
+        startedAt: true,
+        cancelRequestedAt: true,
+        usageJson: true,
       },
     });
 
     if (!agentRun || agentRun.organizationId !== session.organizationId) {
       throw new UnprocessableEntityError("agentRunId 无效或不属于该组织");
     }
-
+    if (agentRun.userId !== session.userId) {
+      throw new UnprocessableEntityError("agentRun 不属于当前用户");
+    }
     if (agentRun.status !== "RUNNING") {
       throw new UnprocessableEntityError("agentRun 状态不是 RUNNING，无法认领");
     }
+    if (agentRun.cancelRequestedAt) {
+      await prisma.agentRun.update({
+        where: { id: agentRun.id },
+        data: {
+          status: "CANCELLED",
+          finishedAt: new Date(),
+          errorReason: "专业分析开始前已收到取消请求",
+        },
+      });
+      throw new UnprocessableEntityError("agentRun 已请求取消");
+    }
 
-    // 检查版本是否已变
     const currentVersion = await prisma.productVersion.findUnique({
       where: { id: version.id },
-      select: { id: true, createdAt: true },
+      select: { id: true },
     });
-
     if (!currentVersion) {
       throw new UnprocessableEntityError("版本不存在");
     }
 
-    // 生成专业分析草稿
-    const { generateProfessionalAnalysisDraft } = await import("../product-development/professional-analysis");
-    const { buildAuthorizedAnalysisContext } = await import("../advisor/context");
-    const { getRuntimeStatus } = await import("@/shared/runtime-status");
-    const { createAdvisorLLMClient, isAdvisorLLMEnabled } = await import("../advisor/llm");
+    const startedAt = agentRun.startedAt ?? new Date();
+    try {
+      const { generateProfessionalAnalysisDraft } = await import(
+        "../product-development/professional-analysis"
+      );
+      const { buildAuthorizedAnalysisContext } = await import("../advisor/context");
 
-    const llmEnabled = isAdvisorLLMEnabled();
-    const runtime = getRuntimeStatus();
+      // 无论 LLM 是否启用都走同一个生成入口：
+      // 未启用/输出无效时 generateProfessionalAnalysisDraft 会返回 canonical V1 默认分析，
+      // 不再写入另一套 placeholder schema。
+      const context = await buildAuthorizedAnalysisContext({
+        session,
+        productId: product.id,
+        productVersionId: version.id,
+      });
+      const analysisDraft = await generateProfessionalAnalysisDraft({
+        session,
+        context,
+        productId: product.id,
+        productVersionId: version.id,
+        signal: AbortSignal.timeout(120000),
+      });
 
-    if (!llmEnabled) {
-      // LLM 未启用时，返回占位符分析
-      const placeholderAnalysis = {
-        status: "DRAFT" as const,
-        summary: "专业分析需要启用 LLM 适配器。当前为确定性规则合成模式。",
-        recommendedActions: [],
-        evidenceGaps: [],
-        riskAssessment: {
-          level: "UNKNOWN" as const,
-          factors: [],
+      const finishedAt = new Date();
+      const durationMs = Math.max(0, finishedAt.getTime() - startedAt.getTime());
+      const generatedAt = finishedAt.toISOString();
+      const existingUsage =
+        agentRun.usageJson &&
+        typeof agentRun.usageJson === "object" &&
+        !Array.isArray(agentRun.usageJson)
+          ? (agentRun.usageJson as Record<string, unknown>)
+          : {};
+
+      await prisma.$transaction(async (tx) => {
+        await tx.analysisRun.update({
+          where: { id: run.id },
+          data: {
+            inputSnapshot: {
+              ...((run.inputSnapshot as Record<string, unknown>) || {}),
+              // 主数据字段永远只保存纯 ProfessionalAnalysisV1。
+              professionalAnalysis: analysisDraft.analysis as unknown as Prisma.InputJsonValue,
+              // 生成过程元数据与业务分析正文分离。
+              professionalAnalysisMeta: {
+                isLLMGenerated: analysisDraft.isLLMGenerated,
+                promptVersion: analysisDraft.promptVersion,
+                failureReason: analysisDraft.failureReason ?? null,
+                generatedAt,
+              },
+              agentRunId: agentRun.id,
+              versionIdAtAnalysis: version.id,
+              generatedAt,
+            } as unknown as Prisma.InputJsonValue,
+          },
+        });
+
+        await tx.agentRun.update({
+          where: { id: agentRun.id },
+          data: {
+            status: "SUCCEEDED",
+            finishedAt,
+            durationMs,
+            errorReason: null,
+            usageJson: {
+              ...existingUsage,
+              analysisRunId: run.id,
+              versionId: version.id,
+              professionalAnalysis: {
+                isLLMGenerated: analysisDraft.isLLMGenerated,
+                promptVersion: analysisDraft.promptVersion,
+                fallbackReason: analysisDraft.failureReason ?? null,
+              },
+            } as Prisma.InputJsonValue,
+          },
+        });
+      });
+    } catch (error) {
+      const finishedAt = new Date();
+      const latest = await prisma.agentRun.findUnique({
+        where: { id: agentRun.id },
+        select: { cancelRequestedAt: true },
+      });
+      const cancelled =
+        !!latest?.cancelRequestedAt ||
+        (error instanceof Error && error.name === "AbortError");
+
+      await prisma.agentRun.updateMany({
+        where: {
+          id: agentRun.id,
+          organizationId: session.organizationId,
+          status: "RUNNING",
         },
-        metadata: {
-          version: "1.0",
-          generatedAt: new Date().toISOString(),
-          model: "deterministic-rules",
-          confidence: 0,
-        },
-      };
-
-      // 保存占位符分析
-      await prisma.analysisRun.update({
-        where: { id: run.id },
         data: {
-          inputSnapshot: {
-            ...((run.inputSnapshot as Record<string, unknown>) || {}),
-            professionalAnalysis: placeholderAnalysis as unknown as Record<string, unknown>,
-            agentRunId: params.agentRunId,
-            versionIdAtAnalysis: version.id,
-          } as unknown as Prisma.InputJsonValue,
+          status: cancelled ? "CANCELLED" : "FAILED",
+          finishedAt,
+          durationMs: Math.max(0, finishedAt.getTime() - startedAt.getTime()),
+          errorReason:
+            error instanceof Error
+              ? error.message.slice(0, 1000)
+              : String(error).slice(0, 1000),
         },
       });
 
-      return run.id;
+      throw error;
     }
-
-    // 构建授权分析上下文
-    const context = await buildAuthorizedAnalysisContext({
-      session,
-      productId: product.id,
-      productVersionId: version.id,
-    });
-
-    // 调用 LLM 生成专业分析
-    const llmClient = createAdvisorLLMClient();
-    if (!llmClient) {
-      throw new UnprocessableEntityError("无法创建 LLM 客户端");
-    }
-
-    const analysisDraft = await generateProfessionalAnalysisDraft({
-      session,
-      context,
-      productId: product.id,
-      productVersionId: version.id,
-      signal: AbortSignal.timeout(120000), // 2 分钟超时
-    });
-
-    // 保存专业分析结果
-    await prisma.analysisRun.update({
-      where: { id: run.id },
-      data: {
-        inputSnapshot: {
-          ...((run.inputSnapshot as Record<string, unknown>) || {}),
-          professionalAnalysis: analysisDraft as unknown as Record<string, unknown>,
-          agentRunId: params.agentRunId,
-          versionIdAtAnalysis: version.id,
-          generatedAt: new Date().toISOString(),
-        } as unknown as Prisma.InputJsonValue,
-      },
-    });
-
-    // 更新 agentRun 状态
-    await prisma.agentRun.update({
-      where: { id: params.agentRunId },
-      data: {
-        status: "SUCCEEDED",
-        finishedAt: new Date(),
-        usageJson: {
-          analysisRunId: run.id,
-          versionId: version.id,
-        },
-      },
-    });
   }
 
   return run.id;

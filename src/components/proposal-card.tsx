@@ -24,7 +24,6 @@ export interface ProposalCardData {
   actionLabel?: string | null;
   status: string;
   payloadJson: unknown;
-  idempotencyKey?: string | null;
   decidedAt?: string | null;
   decisionReason?: string | null;
   appliedObjectType?: string | null;
@@ -229,7 +228,6 @@ export default function ProposalCard({
 
       <p className="hermes-note" style={{ marginTop: 6 }}>
         未确认前不会写入任何业务数据；确认时会由服务端重新做权限与版本检查。
-        {proposal.idempotencyKey ? `（提议幂等键 ${proposal.idempotencyKey}）` : ""}
       </p>
 
       {err && (

@@ -191,7 +191,10 @@ export function compareCostScenarios(
   right: CostScenarioRecord
 ): ScenarioDiffField[] {
   const diffs: ScenarioDiffField[] = [];
-  const fields: Array<{ key: string; label: string }> = [
+  const fields: Array<{
+    key: "scenarioName" | "sourceStatus" | "unit" | "currency" | "expenseBase";
+    label: string;
+  }> = [
     { key: "scenarioName", label: "情景名称" },
     { key: "sourceStatus", label: "来源状态" },
     { key: "unit", label: "单位" },
@@ -200,8 +203,8 @@ export function compareCostScenarios(
   ];
 
   for (const f of fields) {
-    const lv = (left as Record<string, unknown>)[f.key];
-    const rv = (right as Record<string, unknown>)[f.key];
+    const lv = left[f.key];
+    const rv = right[f.key];
     if (lv !== rv) {
       diffs.push({ field: f.key, label: f.label, left: lv, right: rv });
     }

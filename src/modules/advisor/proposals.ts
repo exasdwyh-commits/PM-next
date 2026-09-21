@@ -14,11 +14,12 @@
 
 import crypto from "crypto";
 import prisma from "@/shared/db";
-import { ConflictError, NotFoundError, UnprocessableEntityError } from "@/shared/errors";
-import { Prisma } from "@prisma/client";
+import { ConflictError, ForbiddenError, NotFoundError, UnprocessableEntityError } from "@/shared/errors";
+import { OrgRole, Prisma, Role } from "@prisma/client";
 import { SessionContext } from "../identity/session";
-import { createWorkItem } from "../work/service";
+import { createWorkItemInTx } from "../work/service";
 import { FIELD_LABELS, ProductSpecField, createRevision } from "../product-development/revision";
+import { analyzeProductVersion } from "../product-development/analysis";
 
 // ---------------------------------------------------------------------------
 // 动作类型与字段白名单
@@ -104,6 +105,100 @@ export async function productVersionHash(productId: string): Promise<string | nu
   return hashProductVersion(latest);
 }
 
+type ProposalAuthorizationTarget = {
+  actionType: string;
+  productId?: string | null;
+  projectId?: string | null;
+};
+
+/**
+ * Proposal 服务边界授权。
+ *
+ * 提议本身也是治理状态：创建、确认、拒绝、作废都会改变正式治理队列，
+ * 因此不能只依赖最终业务命令做授权。这里把“能处置某类 proposal 的人”
+ * 收敛为“具备执行该类业务写入权限的人”。
+ */
+async function assertProposalMutationAuthorized(
+  tx: Prisma.TransactionClient,
+  session: SessionContext,
+  target: ProposalAuthorizationTarget
+): Promise<void> {
+  if (target.actionType === "CREATE_WORK_ITEM") {
+    const projectId = normalizeText(target.projectId);
+    if (!projectId) throw new UnprocessableEntityError("提议缺少 projectId");
+
+    const project = await tx.project.findUnique({
+      where: { id: projectId },
+      select: { id: true, organizationId: true },
+    });
+    if (!project || project.organizationId !== session.organizationId) {
+      throw new NotFoundError("Project not found");
+    }
+
+    const membership = await tx.projectMember.findUnique({
+      where: { projectId_userId: { projectId, userId: session.userId } },
+      select: { role: true },
+    });
+    if (!membership || membership.role !== Role.OWNER) {
+      throw new ForbiddenError("Only project owner can manage work-item proposals");
+    }
+    return;
+  }
+
+  if (target.actionType === "UPDATE_FIELD" || target.actionType === "CREATE_REVISION") {
+    const productId = normalizeText(target.productId);
+    if (!productId) throw new UnprocessableEntityError("提议缺少 productId");
+
+    const product = await tx.product.findUnique({
+      where: { id: productId },
+      select: { id: true, organizationId: true },
+    });
+    if (!product || product.organizationId !== session.organizationId) {
+      throw new NotFoundError("Product not found");
+    }
+
+    const [projectCount, memberships] = await Promise.all([
+      tx.project.count({
+        where: { productId, organizationId: session.organizationId },
+      }),
+      tx.projectMember.findMany({
+        where: {
+          userId: session.userId,
+          project: { productId, organizationId: session.organizationId },
+        },
+        select: { role: true },
+      }),
+    ]);
+
+    if (projectCount === 0) {
+      const orgMembership = await tx.organizationMember.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: session.organizationId,
+            userId: session.userId,
+          },
+        },
+        select: { role: true },
+      });
+      if (orgMembership?.role !== OrgRole.ORG_ADMIN) {
+        throw new ForbiddenError("该产品尚未绑定项目，仅组织管理员可管理提议");
+      }
+      return;
+    }
+
+    const canWrite = memberships.some(
+      (membership) =>
+        membership.role === Role.OWNER || membership.role === Role.DECISION_MAKER
+    );
+    if (!canWrite) {
+      throw new ForbiddenError("You do not have product write permission for this proposal");
+    }
+    return;
+  }
+
+  throw new UnprocessableEntityError(`不支持的提议类型「${target.actionType}」`);
+}
+
 // ---------------------------------------------------------------------------
 // 1. 创建提议（幂等）
 // ---------------------------------------------------------------------------
@@ -169,7 +264,10 @@ export async function createProposal(
   if (rawKey) {
     const existing = await prisma.actionProposal.findUnique({ where: { idempotencyKey: rawKey } });
     if (existing) {
-      if (existing.organizationId !== session.organizationId) {
+      if (
+        existing.organizationId !== session.organizationId ||
+        existing.proposedById !== session.userId
+      ) {
         throw new NotFoundError("Proposal not found");
       }
       return {
@@ -236,7 +334,7 @@ export async function createProposal(
     };
     productId = product.id;
     baseVersionHash = hashProductVersion(base);
-    expectedRevision = product.versions.length;
+    expectedRevision = product.methodRevision;
   } else if (actionType === "CREATE_WORK_ITEM") {
     const targetProjectId = normalizeText(raw.projectId) ?? normalizeText(params.projectId);
     if (!targetProjectId) throw new UnprocessableEntityError("CREATE_WORK_ITEM 提议必须指定 projectId");
@@ -277,40 +375,76 @@ export async function createProposal(
   }
 
   try {
-    const proposal = await prisma.actionProposal.create({
-      data: {
-        organizationId: session.organizationId,
-        runId: params.runId || null,
-        conversationId: params.conversationId || null,
-        productId: productId ?? normalizeText(params.productId),
-        projectId: projectId ?? normalizeText(params.projectId),
+    const proposal = await prisma.$transaction(async (tx) => {
+      await assertProposalMutationAuthorized(tx, session, {
         actionType,
-        payloadJson: {
-          ...normalizedPayload,
-          rationale: normalizeText(params.rationale),
-        } as Prisma.InputJsonValue,
-        status: "PENDING_CONFIRMATION",
-        proposedById: session.userId,
-        idempotencyKey: rawKey,
-        baseVersionHash,
-        expectedRevision,
-      },
-    });
+        productId,
+        projectId,
+      });
 
-    await prisma.auditEvent.create({
-      data: {
-        actorId: session.userId,
-        action: "ACTION_PROPOSAL_CREATED",
-        objectType: "ActionProposal",
-        objectId: proposal.id,
-        summary: `顾问产出待确认提议「${ACTION_TYPE_LABELS[actionType]}」，未确认前不写入业务数据`,
-        details: {
+      if (actionType === "UPDATE_FIELD" && productId) {
+        const [currentProduct, latestVersion] = await Promise.all([
+          tx.product.findUnique({
+            where: { id: productId },
+            select: { methodRevision: true },
+          }),
+          tx.productVersion.findFirst({
+            where: { productId },
+            orderBy: { createdAt: "desc" },
+          }),
+        ]);
+
+        const currentHash = hashProductVersion(latestVersion);
+        if (
+          !currentProduct ||
+          currentProduct.methodRevision !== expectedRevision ||
+          currentHash !== baseVersionHash
+        ) {
+          throw new ConflictError(
+            "产品在 proposal 创建过程中已发生变化，请基于最新版本重新生成提议"
+          );
+        }
+      }
+
+      const created = await tx.actionProposal.create({
+        data: {
+          organizationId: session.organizationId,
+          runId: params.runId || null,
+          conversationId: params.conversationId || null,
+          productId: productId ?? normalizeText(params.productId),
+          projectId: projectId ?? normalizeText(params.projectId),
           actionType,
-          payload: normalizedPayload,
+          payloadJson: {
+            ...normalizedPayload,
+            rationale: normalizeText(params.rationale),
+          } as Prisma.InputJsonValue,
+          status: "PENDING_CONFIRMATION",
+          proposedById: session.userId,
+          idempotencyKey: rawKey,
           baseVersionHash,
-          rationale: normalizeText(params.rationale),
-        } as Prisma.InputJsonValue,
-      },
+          expectedRevision,
+        },
+      });
+
+      // proposal 存在但审计缺失会形成不可追溯状态，因此二者必须原子提交。
+      await tx.auditEvent.create({
+        data: {
+          actorId: session.userId,
+          action: "ACTION_PROPOSAL_CREATED",
+          objectType: "ActionProposal",
+          objectId: created.id,
+          summary: `顾问产出待确认提议「${ACTION_TYPE_LABELS[actionType]}」，未确认前不写入业务数据`,
+          details: {
+            actionType,
+            payload: normalizedPayload,
+            baseVersionHash,
+            expectedRevision,
+            rationale: normalizeText(params.rationale),
+          } as Prisma.InputJsonValue,
+        },
+      });
+
+      return created;
     });
 
     return { proposalId: proposal.id, created: true, status: proposal.status, baseVersionHash };
@@ -318,7 +452,11 @@ export async function createProposal(
     // 并发下唯一键冲突：按幂等语义返回既有提议
     if (rawKey && e?.code === "P2002") {
       const existing = await prisma.actionProposal.findUnique({ where: { idempotencyKey: rawKey } });
-      if (existing && existing.organizationId === session.organizationId) {
+      if (
+        existing &&
+        existing.organizationId === session.organizationId &&
+        existing.proposedById === session.userId
+      ) {
         return {
           proposalId: existing.id,
           created: false,
@@ -380,7 +518,6 @@ export async function listProposals(session: SessionContext, opts: ListProposals
     product: r.product,
     project: r.projectId ? projectMap.get(r.projectId) ?? null : null,
     baseVersionHash: r.baseVersionHash,
-    idempotencyKey: r.idempotencyKey,
     decidedAt: r.decidedAt,
     decisionReason: r.decisionReason,
     appliedObjectType: r.appliedObjectType,
@@ -396,38 +533,83 @@ export type ProposalRow = Awaited<ReturnType<typeof listProposals>>[number];
  * 判据：提议冻结的 baseVersionHash 与产品当前最新版本指纹不一致。
  * 在用户打开产品页 / 顾问会话时调用，避免界面上堆积"看起来还能点，点了必然失败"的提议。
  */
-export async function supersedeStaleProposals(session: SessionContext, productId: string) {
-  const current = await productVersionHash(productId);
-  const pending = await prisma.actionProposal.findMany({
-    where: { organizationId: session.organizationId, productId, status: "PENDING_CONFIRMATION" },
-    select: { id: true, baseVersionHash: true, actionType: true },
+export async function supersedeStaleProposals(
+  session: SessionContext,
+  productId: string
+) {
+  return prisma.$transaction(async (tx) => {
+    await assertProposalMutationAuthorized(tx, session, {
+      actionType: "UPDATE_FIELD",
+      productId,
+    });
+
+    // 锁定 Product：与 createRevision 的 methodRevision CAS 串行化，
+    // 防止我们刚算完 currentHash，另一事务立刻发布新版本。
+    await tx.$queryRaw(Prisma.sql`
+      SELECT "id" FROM "Product"
+      WHERE "id" = ${productId}
+        AND "organizationId" = ${session.organizationId}
+      FOR UPDATE
+    `);
+
+    const latest = await tx.productVersion.findFirst({
+      where: { productId },
+      orderBy: { createdAt: "desc" },
+    });
+    const currentHash = hashProductVersion(latest);
+
+    const pending = await tx.actionProposal.findMany({
+      where: {
+        organizationId: session.organizationId,
+        productId,
+        status: "PENDING_CONFIRMATION",
+      },
+      select: { id: true, baseVersionHash: true },
+    });
+
+    const staleIds = pending
+      .filter((proposal) =>
+        proposal.baseVersionHash !== null && proposal.baseVersionHash !== currentHash
+      )
+      .map((proposal) => proposal.id);
+
+    if (staleIds.length === 0) {
+      return { superseded: 0, currentHash };
+    }
+
+    const changed = await tx.actionProposal.updateMany({
+      where: {
+        id: { in: staleIds },
+        organizationId: session.organizationId,
+        status: "PENDING_CONFIRMATION",
+      },
+      data: {
+        status: "SUPERSEDED",
+        decidedAt: new Date(),
+        decidedById: session.userId,
+        decisionReason: "产品方案已产生更新版本，该提议依据的旧版本已失效，未执行",
+      },
+    });
+
+    if (changed.count > 0) {
+      await tx.auditEvent.create({
+        data: {
+          actorId: session.userId,
+          action: "ACTION_PROPOSAL_SUPERSEDED",
+          objectType: "Product",
+          objectId: productId,
+          summary: `产品方案已变更，${changed.count} 条待确认提议因依据版本失效被作废（未写入业务数据）`,
+          details: {
+            proposalIds: staleIds,
+            currentHash,
+            changedCount: changed.count,
+          } as Prisma.InputJsonValue,
+        },
+      });
+    }
+
+    return { superseded: changed.count, currentHash };
   });
-
-  const stale = pending.filter((p) => p.baseVersionHash !== null && p.baseVersionHash !== current);
-  if (stale.length === 0) return { superseded: 0, currentHash: current };
-
-  await prisma.actionProposal.updateMany({
-    where: { id: { in: stale.map((p) => p.id) } },
-    data: {
-      status: "SUPERSEDED",
-      decidedAt: new Date(),
-      decidedById: session.userId,
-      decisionReason: "产品方案已产生更新版本，该提议依据的旧版本已失效，未执行",
-    },
-  });
-
-  await prisma.auditEvent.create({
-    data: {
-      actorId: session.userId,
-      action: "ACTION_PROPOSAL_SUPERSEDED",
-      objectType: "Product",
-      objectId: productId,
-      summary: `产品方案已变更，${stale.length} 条待确认提议因依据版本失效被作废（未写入业务数据）`,
-      details: { proposalIds: stale.map((p) => p.id), currentHash: current } as Prisma.InputJsonValue,
-    },
-  });
-
-  return { superseded: stale.length, currentHash: current };
 }
 
 // ---------------------------------------------------------------------------
@@ -508,243 +690,347 @@ export async function applyProposal(
     JSON.stringify(canonicalize({ proposalId, reason, actorId: session.userId }))
   );
 
-  // 1. 幂等重放：同一键已经处理过，直接返回当时记录的回执
+  // 快速幂等重放。主事务拿到 proposal 行锁后会再次检查，覆盖并发窗口。
   if (idemKey) {
     const rec = await prisma.idempotencyRecord.findUnique({ where: { key: idemKey } });
     if (rec) {
       if (rec.actorId !== session.userId) throw new NotFoundError("Proposal not found");
+      if (rec.commandScope !== scope || rec.requestHash !== requestHash) {
+        throw new ConflictError("该幂等键已用于内容不同的请求，已拒绝执行");
+      }
       if (rec.responseStatus === IDEM_IN_PROGRESS) {
         throw new ConflictError("上一次相同请求仍在处理中，请稍后刷新查看结果（未重复写入）");
       }
-      if (rec.requestHash !== requestHash) {
-        throw new ConflictError("该幂等键已用于内容不同的请求，已拒绝执行");
-      }
-      const body = (rec.responseBody ?? {}) as Record<string, unknown>;
-      return { ...(body as unknown as ProposalReceipt), idempotent: true };
-    }
-  }
-
-  const proposal = await prisma.actionProposal.findUnique({ where: { id: proposalId } });
-  if (!proposal || proposal.organizationId !== session.organizationId) {
-    throw new NotFoundError("Proposal not found");
-  }
-
-  // 2. 状态检查：已应用 → 返回既有回执；已作废 → 明确拒绝
-  if (proposal.status === "APPLIED") {
-    if (proposal.appliedObjectId === null && proposal.appliedObjectType === null) {
-      throw new ConflictError("该提议正在应用中，请稍后刷新查看结果（未重复写入）");
-    }
-    return receiptOf(proposal, true, {
-      objectType: proposal.appliedObjectType,
-      objectId: proposal.appliedObjectId,
-    });
-  }
-  if (proposal.status === "SUPERSEDED") {
-    throw new ConflictError(
-      proposal.decisionReason || "该提议依据的产品版本已失效（产品产生了更新版本），未执行"
-    );
-  }
-  if (proposal.status === "REJECTED") {
-    throw new UnprocessableEntityError(proposal.decisionReason || "该提议已被拒绝，不能再次应用");
-  }
-  if (proposal.status === "EXPIRED") {
-    throw new UnprocessableEntityError("该提议已过期，不能应用");
-  }
-  if (proposal.status !== "PENDING_CONFIRMATION") {
-    throw new UnprocessableEntityError(`提议当前状态为 ${proposal.status}，不能应用`);
-  }
-
-  // 3. 占位加锁：条件更新保证并发下只有一个请求能进入应用
-  const claim = await prisma.actionProposal.updateMany({
-    where: { id: proposal.id, status: "PENDING_CONFIRMATION" },
-    data: {
-      status: "APPLIED",
-      decidedById: session.userId,
-      decidedAt: new Date(),
-      decisionReason: reason || "用户确认应用",
-      appliedObjectType: null,
-      appliedObjectId: null,
-    },
-  });
-  if (claim.count === 0) {
-    const again = await prisma.actionProposal.findUnique({ where: { id: proposal.id } });
-    if (again?.status === "APPLIED" && again.appliedObjectId) {
-      return receiptOf(again, true, { objectType: again.appliedObjectType, objectId: again.appliedObjectId });
-    }
-    throw new ConflictError("该提议正在被其他请求处理，请稍后刷新查看结果（未重复写入）");
-  }
-
-  // 4. 占用幂等键（处理中占位），并发重复请求会在这里被挡住
-  if (idemKey) {
-    try {
-      await prisma.idempotencyRecord.create({
-        data: {
-          key: idemKey,
-          actorId: session.userId,
-          commandScope: scope,
-          requestHash,
-          responseStatus: IDEM_IN_PROGRESS,
-          responseBody: { state: "IN_PROGRESS", proposalId: proposal.id } as Prisma.InputJsonValue,
-        },
-      });
-    } catch (e: any) {
-      if (e?.code === "P2002") {
-        await revertClaim(proposal.id, null);
-        const rec = await prisma.idempotencyRecord.findUnique({ where: { key: idemKey } });
-        // 同一幂等键被用到"内容不同"的请求上：不得返回别人的回执
-        if (rec && rec.requestHash !== requestHash) {
-          throw new ConflictError("该幂等键已用于内容不同的请求（可能对应另一个提议），已拒绝执行");
-        }
-        if (rec && rec.responseStatus !== IDEM_IN_PROGRESS) {
-          return { ...((rec.responseBody ?? {}) as unknown as ProposalReceipt), idempotent: true };
-        }
-        throw new ConflictError("上一次相同请求仍在处理中，请稍后刷新查看结果（未重复写入）");
-      }
-      await revertClaim(proposal.id, null);
-      throw e;
-    }
-  }
-
-  const payload = (proposal.payloadJson && typeof proposal.payloadJson === "object"
-    ? (proposal.payloadJson as Record<string, unknown>)
-    : {}) as Record<string, unknown>;
-
-  let result: Record<string, unknown>;
-  let appliedObjectType: string;
-  let appliedObjectId: string;
-  let supersededReason: string | null = null;
-
-  try {
-    if (proposal.actionType === "CREATE_WORK_ITEM") {
-      const projectId = String(payload.projectId ?? proposal.projectId ?? "");
-      if (!projectId) throw new UnprocessableEntityError("提议缺少 projectId，无法创建工作项");
-
-      // 权限检查在业务命令内部（createWorkItem → requireProjectRole OWNER）
-      const item = await createWorkItem(session, projectId, {
-        title: String(payload.title ?? ""),
-        target: String(payload.target ?? ""),
-        deliverableReq: String(payload.deliverableReq ?? ""),
-      });
-      appliedObjectType = "WorkItem";
-      appliedObjectId = item.id;
-      result = { workItem: { id: item.id, title: item.title, status: item.status } };
-    } else if (proposal.actionType === "UPDATE_FIELD") {
-      const productId = String(payload.productId ?? proposal.productId ?? "");
-      const baseVersionId = String(payload.baseVersionId ?? "");
-      const field = String(payload.field ?? "");
-      const product = await prisma.product.findUnique({ where: { id: productId } });
-      if (!product || product.organizationId !== session.organizationId) {
-        throw new NotFoundError("Product not found");
-      }
-
-      // 版本重新校验：产品最新版本指纹变了，旧提议作废（不覆盖新修改）
-      const current = await productVersionHash(productId);
-      if (proposal.baseVersionHash !== current) {
-        supersededReason = "提议依据的产品版本已变更为更新版本，该提议未执行（不覆盖新修改）";
-        throw new ConflictError(supersededReason);
-      }
-
-      // 走同一条多轮优化命令：v 不被覆盖，写入新版本并对受影响维度重评
-      const revision = await createRevision(session, {
-        productId,
-        baseVersionId,
-        adoptedKeys: [`advisor:UPDATE_FIELD:${field}`],
-        changes: { [field]: payload.value === null || payload.value === undefined ? null : String(payload.value) },
-        note: reason
-          ? `顾问提议确认：${reason}`
-          : `顾问提议确认：修改「${String(payload.fieldLabel ?? field)}」`,
-      });
-
-      appliedObjectType = "ProductVersion";
-      appliedObjectId = revision.versionId;
-      result = {
-        versionTag: revision.versionTag,
-        supersedesVersionTag: revision.supersedesVersionTag,
-        changedFields: revision.diff.filter((d) => d.changed).map((d) => d.field),
-        diff: revision.diff.filter((d) => d.changed).map((d) => ({ field: d.field, label: d.label, before: d.before, after: d.after })),
-        affectedDimensions: revision.affectedDimensions,
-        analysisRunId: revision.analysisRunId,
+      return {
+        ...((rec.responseBody ?? {}) as unknown as ProposalReceipt),
+        idempotent: true,
       };
-    } else if (proposal.actionType === "CREATE_REVISION") {
-      throw new UnprocessableEntityError(
-        "顾问通道尚未支持创建产品新版本，请在产品的多轮优化面板中采纳修改"
-      );
-    } else {
-      throw new UnprocessableEntityError(`不支持的提议类型「${proposal.actionType}」`);
     }
-  } catch (e: any) {
-    if (supersededReason) {
-      // 版本失效：保留 SUPERSEDED 结论，写审计，不回退为待确认
-      await prisma.actionProposal.update({
-        where: { id: proposal.id },
-        data: { status: "SUPERSEDED", decisionReason: supersededReason },
+  }
+
+  type TxOutcome =
+    | { kind: "ok"; receipt: ProposalReceipt; postCommitAnalysis: null | { productId: string; versionId: string; previousRunId: string | null } }
+    | { kind: "superseded"; reason: string };
+
+  let outcome: TxOutcome;
+  try {
+    outcome = await prisma.$transaction(async (tx): Promise<TxOutcome> => {
+      // PostgreSQL 行锁：并发确认同一 proposal 时，第二个请求必须等第一个事务结束后再判断状态。
+      await tx.$queryRaw(Prisma.sql`
+        SELECT "id" FROM "ActionProposal"
+        WHERE "id" = ${proposalId}
+          AND "organizationId" = ${session.organizationId}
+        FOR UPDATE
+      `);
+
+      // 再次检查幂等键，关闭“事务开始前未看到、等待行锁期间另一请求已提交”的窗口。
+      if (idemKey) {
+        const replay = await tx.idempotencyRecord.findUnique({ where: { key: idemKey } });
+        if (replay) {
+          if (
+            replay.actorId !== session.userId ||
+            replay.commandScope !== scope ||
+            replay.requestHash !== requestHash
+          ) {
+            throw new ConflictError("该幂等键已用于不同请求，已拒绝执行");
+          }
+          if (replay.responseStatus === IDEM_IN_PROGRESS) {
+            throw new ConflictError("上一次相同请求仍在处理中，请稍后刷新查看结果（未重复写入）");
+          }
+          return {
+            kind: "ok",
+            receipt: {
+              ...((replay.responseBody ?? {}) as unknown as ProposalReceipt),
+              idempotent: true,
+            },
+            postCommitAnalysis: null,
+          };
+        }
+      }
+
+      const proposal = await tx.actionProposal.findUnique({ where: { id: proposalId } });
+      if (!proposal || proposal.organizationId !== session.organizationId) {
+        throw new NotFoundError("Proposal not found");
+      }
+
+      if (proposal.status === "APPLIED") {
+        const receipt = receiptOf(
+          proposal,
+          true,
+          { objectType: proposal.appliedObjectType, objectId: proposal.appliedObjectId }
+        );
+        if (idemKey) {
+          await tx.idempotencyRecord.create({
+            data: {
+              key: idemKey,
+              actorId: session.userId,
+              commandScope: scope,
+              requestHash,
+              responseStatus: 200,
+              responseBody: receipt as unknown as Prisma.InputJsonValue,
+            },
+          });
+        }
+        return { kind: "ok", receipt, postCommitAnalysis: null };
+      }
+      if (proposal.status === "SUPERSEDED") {
+        throw new ConflictError(
+          proposal.decisionReason || "该提议依据的产品版本已失效（产品产生了更新版本），未执行"
+        );
+      }
+      if (proposal.status === "REJECTED") {
+        throw new UnprocessableEntityError(proposal.decisionReason || "该提议已被拒绝，不能再次应用");
+      }
+      if (proposal.status === "EXPIRED") {
+        throw new UnprocessableEntityError("该提议已过期，不能应用");
+      }
+      if (proposal.status !== "PENDING_CONFIRMATION") {
+        throw new UnprocessableEntityError(`提议当前状态为 ${proposal.status}，不能应用`);
+      }
+
+      await assertProposalMutationAuthorized(tx, session, {
+        actionType: proposal.actionType,
+        productId: proposal.productId,
+        projectId: proposal.projectId,
       });
-      await prisma.auditEvent.create({
+
+      const payload = (
+        proposal.payloadJson &&
+        typeof proposal.payloadJson === "object" &&
+        !Array.isArray(proposal.payloadJson)
+          ? (proposal.payloadJson as Record<string, unknown>)
+          : {}
+      ) as Record<string, unknown>;
+
+      let result: Record<string, unknown>;
+      let appliedObjectType: string;
+      let appliedObjectId: string;
+      let postCommitAnalysis: { productId: string; versionId: string; previousRunId: string | null } | null = null;
+
+      if (proposal.actionType === "CREATE_WORK_ITEM") {
+        const projectId = String(payload.projectId ?? proposal.projectId ?? "");
+        if (!projectId) throw new UnprocessableEntityError("提议缺少 projectId，无法创建工作项");
+
+        const project = await tx.project.findUnique({ where: { id: projectId } });
+        if (!project || project.organizationId !== session.organizationId) {
+          throw new NotFoundError("Project not found");
+        }
+        const membership = await tx.projectMember.findUnique({
+          where: { projectId_userId: { projectId, userId: session.userId } },
+        });
+        if (!membership || membership.role !== Role.OWNER) {
+          throw new ForbiddenError("Only project owner can create work items");
+        }
+
+        const item = await createWorkItemInTx(tx, session, projectId, {
+          title: String(payload.title ?? ""),
+          target: String(payload.target ?? ""),
+          deliverableReq: String(payload.deliverableReq ?? ""),
+        });
+        appliedObjectType = "WorkItem";
+        appliedObjectId = item.id;
+        result = { workItem: { id: item.id, title: item.title, status: item.status } };
+      } else if (proposal.actionType === "UPDATE_FIELD") {
+        const productId = String(payload.productId ?? proposal.productId ?? "");
+        const baseVersionId = String(payload.baseVersionId ?? "");
+        const field = String(payload.field ?? "");
+        const product = await tx.product.findUnique({ where: { id: productId } });
+        if (!product || product.organizationId !== session.organizationId) {
+          throw new NotFoundError("Product not found");
+        }
+
+        const latest = await tx.productVersion.findFirst({
+          where: { productId },
+          orderBy: { createdAt: "desc" },
+        });
+        const currentHash = hashProductVersion(latest);
+        if (proposal.baseVersionHash !== currentHash) {
+          const supersededReason =
+            "提议依据的产品版本已变更为更新版本，该提议未执行（不覆盖新修改）";
+          await tx.actionProposal.update({
+            where: { id: proposal.id },
+            data: {
+              status: "SUPERSEDED",
+              decidedById: session.userId,
+              decidedAt: new Date(),
+              decisionReason: supersededReason,
+            },
+          });
+          await tx.auditEvent.create({
+            data: {
+              actorId: session.userId,
+              action: "ACTION_PROPOSAL_SUPERSEDED",
+              objectType: "ActionProposal",
+              objectId: proposal.id,
+              summary: supersededReason,
+              details: {
+                baseVersionHash: proposal.baseVersionHash,
+                currentHash,
+              } as Prisma.InputJsonValue,
+            },
+          });
+          return { kind: "superseded", reason: supersededReason };
+        }
+
+        // 版本写入、methodRevision CAS、写后读回和 PRODUCT_VERSION_REVISED 审计
+        // 都复用同一个上层事务，不再出现“业务已提交但 proposal/receipt 未提交”。
+        const revision = await createRevision(
+          session,
+          {
+            productId,
+            baseVersionId,
+            adoptedKeys: [`advisor:UPDATE_FIELD:${field}`],
+            changes: {
+              [field]:
+                payload.value === null || payload.value === undefined
+                  ? null
+                  : String(payload.value),
+            },
+            note: reason
+              ? `顾问提议确认：${reason}`
+              : `顾问提议确认：修改「${String(payload.fieldLabel ?? field)}」`,
+            expectedMethodRevision: proposal.expectedRevision ?? undefined,
+          },
+          { tx, deferAnalysis: true }
+        );
+
+        appliedObjectType = "ProductVersion";
+        appliedObjectId = revision.versionId;
+        result = {
+          versionTag: revision.versionTag,
+          supersedesVersionTag: revision.supersedesVersionTag,
+          changedFields: revision.diff.filter((d) => d.changed).map((d) => d.field),
+          diff: revision.diff
+            .filter((d) => d.changed)
+            .map((d) => ({ field: d.field, label: d.label, before: d.before, after: d.after })),
+          affectedDimensions: revision.affectedDimensions,
+          analysisRunId: null,
+          analysisRequested: true,
+          methodRevision: revision.methodRevision,
+        };
+        postCommitAnalysis = {
+          productId,
+          versionId: revision.versionId,
+          previousRunId: revision.previousRunId,
+        };
+      } else if (proposal.actionType === "CREATE_REVISION") {
+        throw new UnprocessableEntityError(
+          "顾问通道尚未支持创建产品新版本，请在产品的多轮优化面板中采纳修改"
+        );
+      } else {
+        throw new UnprocessableEntityError(`不支持的提议类型「${proposal.actionType}」`);
+      }
+
+      const decidedAt = new Date();
+      const finalized = await tx.actionProposal.update({
+        where: { id: proposal.id },
         data: {
-          actorId: session.userId,
-          action: "ACTION_PROPOSAL_SUPERSEDED",
-          objectType: "ActionProposal",
-          objectId: proposal.id,
-          summary: supersededReason,
-          details: { baseVersionHash: proposal.baseVersionHash, currentHash: await productVersionHash(String(payload.productId ?? "")) } as Prisma.InputJsonValue,
+          status: "APPLIED",
+          decidedById: session.userId,
+          decidedAt,
+          decisionReason: reason || "用户确认应用",
+          appliedObjectType,
+          appliedObjectId,
         },
       });
-      if (idemKey) await prisma.idempotencyRecord.deleteMany({ where: { key: idemKey, responseStatus: IDEM_IN_PROGRESS } });
-      throw e;
+
+      const receipt = receiptOf(finalized, false, result);
+
+      await tx.auditEvent.create({
+        data: {
+          actorId: session.userId,
+          action: "ACTION_PROPOSAL_APPLIED",
+          objectType: appliedObjectType,
+          objectId: appliedObjectId,
+          summary:
+            `确认并应用顾问提议「${ACTION_TYPE_LABELS[proposal.actionType as ProposalActionType] ?? proposal.actionType}」` +
+            `→ ${appliedObjectType} ${appliedObjectId}；确认说明：${reason || "未填写"}`,
+          details: {
+            proposalId: proposal.id,
+            actionType: proposal.actionType,
+            result,
+            idempotencyKey: rawKey,
+            expectedRevision: proposal.expectedRevision,
+          } as Prisma.InputJsonValue,
+        },
+      });
+
+      if (idemKey) {
+        await tx.idempotencyRecord.create({
+          data: {
+            key: idemKey,
+            actorId: session.userId,
+            commandScope: scope,
+            requestHash,
+            responseStatus: 200,
+            responseBody: receipt as unknown as Prisma.InputJsonValue,
+          },
+        });
+      }
+
+      return { kind: "ok", receipt, postCommitAnalysis };
+    });
+  } catch (e: any) {
+    // 跨 proposal 复用同一幂等键时，唯一约束会让整个事务回滚；
+    // 回滚后再读取已提交的原回执，确保不会留下第二份业务写入。
+    if (idemKey && e?.code === "P2002") {
+      const rec = await prisma.idempotencyRecord.findUnique({ where: { key: idemKey } });
+      if (
+        rec &&
+        rec.actorId === session.userId &&
+        rec.commandScope === scope &&
+        rec.requestHash === requestHash &&
+        rec.responseStatus !== IDEM_IN_PROGRESS
+      ) {
+        return {
+          ...((rec.responseBody ?? {}) as unknown as ProposalReceipt),
+          idempotent: true,
+        };
+      }
+      throw new ConflictError("该幂等键已被其他请求占用，且请求内容不一致");
     }
-    await revertClaim(proposal.id, supersededReason);
-    if (idemKey) await prisma.idempotencyRecord.deleteMany({ where: { key: idemKey, responseStatus: IDEM_IN_PROGRESS } });
     throw e;
   }
 
-  // 5. 写回执：提议终态 + 幂等记录 + 审计
-  const decidedAt = new Date();
-  const finalized = await prisma.actionProposal.update({
-    where: { id: proposal.id },
-    data: { appliedObjectType, appliedObjectId, decidedAt },
-  });
-
-  const receipt = receiptOf(finalized, false, result);
-
-  if (idemKey) {
-    await prisma.idempotencyRecord.updateMany({
-      where: { key: idemKey },
-      data: { responseStatus: 200, responseBody: receipt as unknown as Prisma.InputJsonValue },
-    });
+  if (outcome.kind === "superseded") {
+    throw new ConflictError(outcome.reason);
   }
 
-  await prisma.auditEvent.create({
-    data: {
-      actorId: session.userId,
-      action: "ACTION_PROPOSAL_APPLIED",
-      objectType: appliedObjectType,
-      objectId: appliedObjectId,
-      summary:
-        `确认并应用顾问提议「${ACTION_TYPE_LABELS[proposal.actionType as ProposalActionType] ?? proposal.actionType}」` +
-        `→ ${appliedObjectType} ${appliedObjectId}；确认说明：${reason || "未填写"}`,
-      details: {
-        proposalId: proposal.id,
-        actionType: proposal.actionType,
-        result,
-        idempotencyKey: rawKey,
-      } as Prisma.InputJsonValue,
-    },
-  });
+  // 自动重评属于派生计算，不参与核心 Receipt。
+  // Receipt 一旦在治理事务中落库就保持不可变，保证首次响应与幂等重放语义一致。
+  if (outcome.postCommitAnalysis) {
+    const meta = outcome.postCommitAnalysis;
+    try {
+      await analyzeProductVersion(session, {
+        productId: meta.productId,
+        productVersionId: meta.versionId,
+        kind: "REVISION_REVIEW",
+        supersedesRunId: meta.previousRunId ?? undefined,
+      });
+    } catch (e) {
+      // 派生分析失败不反向污染已经成功提交的业务事实；
+      // 单独留痕，后续可重试/补跑。
+      await prisma.auditEvent.create({
+        data: {
+          actorId: session.userId,
+          action: "PROPOSAL_REANALYSIS_FAILED",
+          objectType: "ProductVersion",
+          objectId: meta.versionId,
+          summary: `顾问提议已成功应用，但自动重评失败：${(e as Error).message}`,
+          details: {
+            proposalId,
+            productId: meta.productId,
+            productVersionId: meta.versionId,
+            supersedesRunId: meta.previousRunId,
+          } as Prisma.InputJsonValue,
+        },
+      }).catch(() => {
+        // 核心治理事务已经提交；派生失败日志不得改写核心 Receipt 或制造“业务失败”假象。
+      });
+    }
+  }
 
-  return receipt;
-}
-
-/** 回退占位加锁：仅当提议仍处于"已加锁但未产出对象"时还原为待确认 */
-async function revertClaim(proposalId: string, reason: string | null) {
-  await prisma.actionProposal.updateMany({
-    where: { id: proposalId, status: "APPLIED", appliedObjectId: null, appliedObjectType: null },
-    data: {
-      status: "PENDING_CONFIRMATION",
-      decidedById: null,
-      decidedAt: null,
-      decisionReason: reason,
-    },
-  });
+  return outcome.receipt;
 }
 
 /** 蓝图 §7 接口名为 applyProposal；confirm 为同一命令的对外别名 */
@@ -759,47 +1045,80 @@ export async function rejectProposal(
   proposalId: string,
   reason: string | null
 ) {
-  const proposal = await prisma.actionProposal.findUnique({ where: { id: proposalId } });
-  if (!proposal || proposal.organizationId !== session.organizationId) {
-    throw new NotFoundError("Proposal not found");
-  }
-
-  if (proposal.status === "APPLIED") {
-    throw new ConflictError("该提议已应用，不能改为拒绝；如需撤销请走对应业务命令");
-  }
-  if (proposal.status === "REJECTED") {
-    return { proposalId: proposal.id, status: proposal.status, idempotent: true };
-  }
-  if (proposal.status !== "PENDING_CONFIRMATION") {
-    throw new UnprocessableEntityError(`提议当前状态为 ${proposal.status}，不能拒绝`);
-  }
-
   const text = normalizeText(reason);
-  if (!text) throw new UnprocessableEntityError("拒绝提议必须填写理由（用于留痕与后续回归）");
-
-  const now = new Date();
-  const updated = await prisma.actionProposal.updateMany({
-    where: { id: proposal.id, status: "PENDING_CONFIRMATION" },
-    data: { status: "REJECTED", decidedById: session.userId, decidedAt: now, decisionReason: text },
-  });
-  if (updated.count === 0) {
-    const again = await prisma.actionProposal.findUnique({ where: { id: proposal.id } });
-    if (again?.status === "REJECTED") return { proposalId: proposal.id, status: again.status, idempotent: true };
-    throw new ConflictError("该提议状态已被其他请求改变，请刷新查看");
+  if (!text) {
+    throw new UnprocessableEntityError("拒绝提议必须填写理由（用于留痕与后续回归）");
   }
 
-  await prisma.auditEvent.create({
-    data: {
-      actorId: session.userId,
-      action: "ACTION_PROPOSAL_REJECTED",
-      objectType: "ActionProposal",
-      objectId: proposal.id,
-      summary: `拒绝顾问提议，未写入业务数据。理由：${text}`,
-      details: { actionType: proposal.actionType } as Prisma.InputJsonValue,
-    },
-  });
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw(Prisma.sql`
+      SELECT "id" FROM "ActionProposal"
+      WHERE "id" = ${proposalId}
+        AND "organizationId" = ${session.organizationId}
+      FOR UPDATE
+    `);
 
-  return { proposalId: proposal.id, status: "REJECTED" as const, idempotent: false };
+    const proposal = await tx.actionProposal.findUnique({
+      where: { id: proposalId },
+    });
+    if (!proposal || proposal.organizationId !== session.organizationId) {
+      throw new NotFoundError("Proposal not found");
+    }
+
+    await assertProposalMutationAuthorized(tx, session, {
+      actionType: proposal.actionType,
+      productId: proposal.productId,
+      projectId: proposal.projectId,
+    });
+
+    if (proposal.status === "APPLIED") {
+      throw new ConflictError("该提议已应用，不能改为拒绝；如需撤销请走对应业务命令");
+    }
+    if (proposal.status === "REJECTED") {
+      return {
+        proposalId: proposal.id,
+        status: proposal.status,
+        idempotent: true,
+      };
+    }
+    if (proposal.status !== "PENDING_CONFIRMATION") {
+      throw new UnprocessableEntityError(
+        `提议当前状态为 ${proposal.status}，不能拒绝`
+      );
+    }
+
+    const now = new Date();
+    const updated = await tx.actionProposal.update({
+      where: { id: proposal.id },
+      data: {
+        status: "REJECTED",
+        decidedById: session.userId,
+        decidedAt: now,
+        decisionReason: text,
+      },
+    });
+
+    await tx.auditEvent.create({
+      data: {
+        actorId: session.userId,
+        action: "ACTION_PROPOSAL_REJECTED",
+        objectType: "ActionProposal",
+        objectId: proposal.id,
+        summary: `拒绝顾问提议，未写入业务数据。理由：${text}`,
+        details: {
+          actionType: proposal.actionType,
+          productId: proposal.productId,
+          projectId: proposal.projectId,
+        } as Prisma.InputJsonValue,
+      },
+    });
+
+    return {
+      proposalId: updated.id,
+      status: updated.status,
+      idempotent: false,
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------

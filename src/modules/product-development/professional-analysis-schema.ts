@@ -83,6 +83,94 @@ export interface ProfessionalAnalysisV1 {
   limitations: string[];
 }
 
+const CONCLUSIONS: AnalysisConclusion[] = [
+  "PROCEED_TO_VALIDATE",
+  "NEEDS_EVIDENCE",
+  "PAUSE",
+  "REJECT",
+];
+const CLAIM_LEVELS: ClaimLevel[] = ["FACT", "INFERENCE", "ASSUMPTION"];
+const RISK_LEVELS = ["HIGH", "MEDIUM", "LOW"] as const;
+const ACTION_PRIORITIES = ["HIGH", "MEDIUM", "LOW"] as const;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+/**
+ * ProfessionalAnalysisV1 的严格运行时结构校验。
+ *
+ * 这里故意不做“容错修复”：
+ * - 非法 claim.level 不能自动降级为 ASSUMPTION
+ * - 非法 risk.severity 不能自动改成 MEDIUM
+ * - 缺失数组不能自动补 []
+ *
+ * LLM 输出若不符合契约，应被拒收并走默认/重试路径，而不是伪装成合法结构。
+ */
+export function isProfessionalAnalysisV1(value: unknown): value is ProfessionalAnalysisV1 {
+  if (!isRecord(value)) return false;
+  if (typeof value.schemaVersion !== "string") return false;
+  if (!CONCLUSIONS.includes(value.conclusion as AnalysisConclusion)) return false;
+  if (typeof value.summary !== "string") return false;
+  if (!isStringArray(value.companyFit)) return false;
+  if (!isStringArray(value.alternatives)) return false;
+  if (!isStringArray(value.unknowns)) return false;
+  if (!isStringArray(value.limitations)) return false;
+  if (!(value.economicScenarioRef === null || typeof value.economicScenarioRef === "string")) {
+    return false;
+  }
+
+  if (
+    !Array.isArray(value.claims) ||
+    !value.claims.every((claim) => {
+      if (!isRecord(claim)) return false;
+      return (
+        typeof claim.content === "string" &&
+        CLAIM_LEVELS.includes(claim.level as ClaimLevel) &&
+        isStringArray(claim.sourceRefs)
+      );
+    })
+  ) {
+    return false;
+  }
+
+  if (
+    !Array.isArray(value.risks) ||
+    !value.risks.every((risk) => {
+      if (!isRecord(risk)) return false;
+      return (
+        typeof risk.description === "string" &&
+        RISK_LEVELS.includes(risk.severity as (typeof RISK_LEVELS)[number]) &&
+        (risk.mitigation === undefined || typeof risk.mitigation === "string")
+      );
+    })
+  ) {
+    return false;
+  }
+
+  if (
+    !Array.isArray(value.recommendedActions) ||
+    !value.recommendedActions.every((action) => {
+      if (!isRecord(action)) return false;
+      return (
+        typeof action.action === "string" &&
+        ACTION_PRIORITIES.includes(
+          action.priority as (typeof ACTION_PRIORITIES)[number]
+        ) &&
+        (action.owner === undefined || typeof action.owner === "string")
+      );
+    })
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 // ── 校验函数 ──
 
 /**

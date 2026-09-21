@@ -12,6 +12,36 @@ import assert from "node:assert/strict";
 
 // 导入类型定义
 import type { AnalyzeParams } from "../src/modules/product-development/analysis";
+import { PROFESSIONAL_ANALYSIS_VERSION, type ProfessionalAnalysisV1 } from "../src/modules/product-development/professional-analysis-schema";
+
+type AnalysisInputSnapshotProbe = {
+  scorecard: {
+    ruleVersion: string;
+    coverageRatio: number;
+    provisional: boolean;
+    weightedScore: number;
+  };
+  professionalAnalysis?: ProfessionalAnalysisV1;
+  agentRunId?: string;
+  versionIdAtAnalysis?: string;
+  generatedAt?: string;
+};
+
+function canonicalDraftAnalysis(): ProfessionalAnalysisV1 {
+  return {
+    schemaVersion: PROFESSIONAL_ANALYSIS_VERSION,
+    conclusion: "NEEDS_EVIDENCE",
+    summary: "专业分析需要启用 LLM 适配器",
+    companyFit: [],
+    claims: [],
+    alternatives: [],
+    economicScenarioRef: null,
+    risks: [],
+    unknowns: [],
+    recommendedActions: [],
+    limitations: [],
+  };
+}
 
 // ─────────────────────── ① 参数验证 ───────────────────────
 
@@ -75,7 +105,7 @@ test("TASK-016: 有 agentRunId 但未请求专业分析", () => {
 
 test("TASK-016: 输入快照结构验证", () => {
   // 模拟输入快照结构
-  const inputSnapshot = {
+  const inputSnapshot: AnalysisInputSnapshotProbe = {
     // 原有字段
     scorecard: {
       ruleVersion: "1.0",
@@ -84,22 +114,7 @@ test("TASK-016: 输入快照结构验证", () => {
       weightedScore: 75,
     },
     // 新增字段（专业分析）
-    professionalAnalysis: {
-      status: "DRAFT",
-      summary: "专业分析需要启用 LLM 适配器",
-      recommendedActions: [],
-      evidenceGaps: [],
-      riskAssessment: {
-        level: "UNKNOWN",
-        factors: [],
-      },
-      metadata: {
-        version: "1.0",
-        generatedAt: new Date().toISOString(),
-        model: "deterministic-rules",
-        confidence: 0,
-      },
-    },
+    professionalAnalysis: canonicalDraftAnalysis(),
     agentRunId: "agent-run-1",
     versionIdAtAnalysis: "version-1",
     generatedAt: new Date().toISOString(),
@@ -114,14 +129,14 @@ test("TASK-016: 输入快照结构验证", () => {
 
   // 验证专业分析字段
   const analysis = inputSnapshot.professionalAnalysis;
-  assert.equal(analysis.status, "DRAFT");
-  assert.equal(analysis.metadata.model, "deterministic-rules");
-  assert.equal(analysis.metadata.version, "1.0");
+  assert.equal(analysis.conclusion, "NEEDS_EVIDENCE");
+  assert.equal(analysis.schemaVersion, PROFESSIONAL_ANALYSIS_VERSION);
+  assert.ok(Array.isArray(analysis.unknowns));
 });
 
 test("TASK-016: 版本变更时的输入快照结构", () => {
   // 模拟版本变更时的输入快照结构
-  const inputSnapshot = {
+  const inputSnapshot: AnalysisInputSnapshotProbe = {
     // 原有字段
     scorecard: {
       ruleVersion: "1.0",
@@ -130,22 +145,7 @@ test("TASK-016: 版本变更时的输入快照结构", () => {
       weightedScore: 75,
     },
     // 新增字段（专业分析）
-    professionalAnalysis: {
-      status: "DRAFT",
-      summary: "专业分析需要启用 LLM 适配器",
-      recommendedActions: [],
-      evidenceGaps: [],
-      riskAssessment: {
-        level: "UNKNOWN",
-        factors: [],
-      },
-      metadata: {
-        version: "1.0",
-        generatedAt: new Date().toISOString(),
-        model: "deterministic-rules",
-        confidence: 0,
-      },
-    },
+    professionalAnalysis: canonicalDraftAnalysis(),
     agentRunId: "agent-run-1",
     versionIdAtAnalysis: "version-1",
     generatedAt: new Date().toISOString(),
@@ -159,7 +159,7 @@ test("TASK-016: 版本变更时的输入快照结构", () => {
 
 test("TASK-016: 版本变更时的输入快照结构（无专业分析）", () => {
   // 模拟版本变更时的输入快照结构（无专业分析）
-  const inputSnapshot = {
+  const inputSnapshot: AnalysisInputSnapshotProbe = {
     // 原有字段
     scorecard: {
       ruleVersion: "1.0",

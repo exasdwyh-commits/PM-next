@@ -17,12 +17,8 @@ import { createAdvisorLLMClient, isAdvisorLLMEnabled } from "../advisor/llm";
 import type { AuthorizedAnalysisContext } from "../advisor/context";
 import {
   type ProfessionalAnalysisV1,
-  type AnalysisConclusion,
-  type ClaimLevel,
-  type AnalysisClaim,
-  type AnalysisRisk,
-  type AnalysisRecommendedAction,
   validateProfessionalAnalysis,
+  isProfessionalAnalysisV1,
   createDefaultAnalysis,
   PROFESSIONAL_ANALYSIS_VERSION,
 } from "./professional-analysis-schema";
@@ -227,51 +223,8 @@ function parseAnalysisFromLLMOutput(text: string): ProfessionalAnalysisV1 | null
       jsonStr = jsonMatch[1];
     }
 
-    const parsed = JSON.parse(jsonStr);
-
-    // 校验必需字段
-    if (
-      typeof parsed !== "object" ||
-      parsed === null ||
-      typeof parsed.schemaVersion !== "string" ||
-      typeof parsed.conclusion !== "string" ||
-      typeof parsed.summary !== "string"
-    ) {
-      return null;
-    }
-
-    // 构建完整的分析结构
-    return {
-      schemaVersion: parsed.schemaVersion,
-      conclusion: parsed.conclusion as AnalysisConclusion,
-      summary: parsed.summary,
-      companyFit: Array.isArray(parsed.companyFit) ? parsed.companyFit : [],
-      claims: Array.isArray(parsed.claims)
-        ? parsed.claims.map((c: any) => ({
-            content: String(c.content ?? ""),
-            level: (["FACT", "INFERENCE", "ASSUMPTION"].includes(c.level) ? c.level : "ASSUMPTION") as ClaimLevel,
-            sourceRefs: Array.isArray(c.sourceRefs) ? c.sourceRefs : [],
-          }))
-        : [],
-      alternatives: Array.isArray(parsed.alternatives) ? parsed.alternatives : [],
-      economicScenarioRef: parsed.economicScenarioRef ?? null,
-      risks: Array.isArray(parsed.risks)
-        ? parsed.risks.map((r: any) => ({
-            description: String(r.description ?? ""),
-            severity: (["HIGH", "MEDIUM", "LOW"].includes(r.severity) ? r.severity : "MEDIUM") as "HIGH" | "MEDIUM" | "LOW",
-            mitigation: r.mitigation ? String(r.mitigation) : undefined,
-          }))
-        : [],
-      unknowns: Array.isArray(parsed.unknowns) ? parsed.unknowns : [],
-      recommendedActions: Array.isArray(parsed.recommendedActions)
-        ? parsed.recommendedActions.map((a: any) => ({
-            action: String(a.action ?? ""),
-            priority: (["HIGH", "MEDIUM", "LOW"].includes(a.priority) ? a.priority : "MEDIUM") as "HIGH" | "MEDIUM" | "LOW",
-            owner: a.owner ? String(a.owner) : undefined,
-          }))
-        : [],
-      limitations: Array.isArray(parsed.limitations) ? parsed.limitations : [],
-    };
+    const parsed: unknown = JSON.parse(jsonStr);
+    return isProfessionalAnalysisV1(parsed) ? parsed : null;
   } catch {
     return null;
   }

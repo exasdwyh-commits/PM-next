@@ -73,24 +73,25 @@ export interface CreateWorkItemParams {
   dependencies?: string[];
 }
 
-export async function createWorkItem(
+export async function createWorkItemInTx(
+  tx: Prisma.TransactionClient,
   session: SessionContext,
   projectId: string,
   params: CreateWorkItemParams
 ) {
-  await requireProjectRole(session, projectId, [Role.OWNER]);
-
   if (!params.title || !params.target || !params.deliverableReq) {
     throw new UnprocessableEntityError("Title, target and deliverable requirements are required");
   }
 
-  const project = await prisma.project.findUnique({ where: { id: projectId } });
-  if (!project) throw new NotFoundError("Project not found");
+  const project = await tx.project.findUnique({ where: { id: projectId } });
+  if (!project || project.organizationId !== session.organizationId) {
+    throw new NotFoundError("Project not found");
+  }
 
   // F03: 校验依赖项必须属于同一项目，避免跨项目引用导致依赖判定失效
   const depIds: string[] = [];
   if (params.dependencies && params.dependencies.length > 0) {
-    const deps = await prisma.workItem.findMany({
+    const deps = await tx.workItem.findMany({
       where: { projectId, id: { in: params.dependencies } },
       select: { id: true },
     });
@@ -102,7 +103,7 @@ export async function createWorkItem(
     depIds.push(...params.dependencies);
   }
 
-  const item = await prisma.workItem.create({
+  const item = await tx.workItem.create({
     data: {
       projectId,
       title: params.title.trim(),
@@ -115,18 +116,29 @@ export async function createWorkItem(
     },
   });
 
-  await prisma.auditEvent.create({
-    data: {
-      actorId: session.userId,
-      action: "WORK_ITEM_CREATED",
-      objectType: "WorkItem",
-      objectId: item.id,
-      revision: project.revision,
-      summary: `负责人创建工作项 "${item.title}"，要求交付: ${item.deliverableReq}`,
-    },
+  // 业务写入和审计必须共享同一个事务：审计失败 = 业务写入回滚。
+  await createAuditEventInTx(tx, {
+    actorId: session.userId,
+    action: "WORK_ITEM_CREATED",
+    objectType: "WorkItem",
+    objectId: item.id,
+    revision: project.revision,
+    summary: `负责人创建工作项 "${item.title}"，要求交付: ${item.deliverableReq}`,
   });
 
   return item;
+}
+
+export async function createWorkItem(
+  session: SessionContext,
+  projectId: string,
+  params: CreateWorkItemParams
+) {
+  await requireProjectRole(session, projectId, [Role.OWNER]);
+
+  return prisma.$transaction((tx) =>
+    createWorkItemInTx(tx, session, projectId, params)
+  );
 }
 
 export interface SubmitWorkParams {

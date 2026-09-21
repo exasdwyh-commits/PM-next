@@ -300,6 +300,8 @@ export interface CreateRevisionParams {
   /** 本轮修改理由（人工填写，写入版本留痕） */
   note?: string | null;
   rationale?: string | null;
+  /** 数据库级乐观锁令牌；顾问提议必须传入生成提议时冻结的 methodRevision。 */
+  expectedMethodRevision?: number;
 }
 
 export interface CreateRevisionResult {
@@ -311,13 +313,24 @@ export interface CreateRevisionResult {
   affectedDimensions: { key: AnalysisDimensionKey; label: string }[];
   analysisRunId: string | null;
   previousRunId: string | null;
+  /** 本次成功提交后的治理修订号。 */
+  methodRevision: number;
+}
+
+export interface CreateRevisionExecutionOptions {
+  /** 复用上层治理事务；用于 proposal 的原子应用链。 */
+  tx?: Prisma.TransactionClient;
+  /** 上层事务提交后再触发分析，避免分析读取到未提交的新版本。 */
+  deferAnalysis?: boolean;
 }
 
 export async function createRevision(
   session: SessionContext,
-  params: CreateRevisionParams
+  params: CreateRevisionParams,
+  execution: CreateRevisionExecutionOptions = {}
 ): Promise<CreateRevisionResult> {
-  const product = await prisma.product.findUnique({
+  const db = execution.tx ?? prisma;
+  const product = await db.product.findUnique({
     where: { id: params.productId },
     include: {
       versions: { orderBy: { createdAt: "desc" } },
@@ -332,6 +345,16 @@ export async function createRevision(
   // B4：写入门禁 —— 采纳修订会产生新版本，需为该产品关联项目的
   // OWNER / DECISION_MAKER。产品不存在 / 跨组织统一 404。
   await requireProductRole(session, params.productId, PRODUCT_WRITE_ROLES);
+
+  const expectedMethodRevision = params.expectedMethodRevision ?? product.methodRevision;
+  if (
+    params.expectedMethodRevision !== undefined &&
+    params.expectedMethodRevision !== product.methodRevision
+  ) {
+    throw new ConflictError(
+      `提议基于 methodRevision=${params.expectedMethodRevision}，但当前产品已是 methodRevision=${product.methodRevision}。请基于最新状态重新生成提议。`
+    );
+  }
 
   const latest = product.versions[0];
   if (!latest) throw new UnprocessableEntityError("该产品还没有任何版本");
@@ -416,8 +439,20 @@ export async function createRevision(
   const previousRunId = product.analysisRuns[0]?.id ?? null;
 
   // 事务：新版本 + 审计。重评在事务外调用（它自身开事务），避免长事务。
-  const version = await prisma.$transaction(async (tx) => {
-    // 再查一次版本列表，防止并发双开 v2（两个请求同时通过上面的检查）
+  const writeRevision = async (tx: Prisma.TransactionClient) => {
+    // 数据库级 CAS：只有仍处于生成草案时 revision 的请求能进入写入。
+    // CAS 与后续版本创建、审计在同一事务内；任何一步失败都会一起回滚。
+    const claimed = await tx.product.updateMany({
+      where: { id: product.id, methodRevision: expectedMethodRevision },
+      data: { methodRevision: { increment: 1 } },
+    });
+    if (claimed.count !== 1) {
+      throw new ConflictError(
+        "检测到并发修改：产品治理修订号已变化，本轮草案未写入。请基于最新版本重新生成。"
+      );
+    }
+
+    // 再查一次版本列表，防止存在未走 methodRevision 的历史/兼容写入路径
     const again = await tx.productVersion.findFirst({
       where: { productId: product.id },
       orderBy: { createdAt: "desc" },
@@ -456,6 +491,7 @@ export async function createRevision(
       action: "PRODUCT_VERSION_REVISED",
       objectType: "Product",
       objectId: product.id,
+      revision: expectedMethodRevision + 1,
       summary:
         `创建 ${nextTag}（基于 ${base.versionTag}），变更字段：` +
         `${changedFields.map((f) => FIELD_LABELS[f]).join("、")}；` +
@@ -472,24 +508,50 @@ export async function createRevision(
       } as Prisma.InputJsonValue,
     });
 
+    // 写后读回：不能只相信 create() 返回值。事务提交前再次校验 DB 真值。
+    const [verifiedVersion, verifiedProduct] = await Promise.all([
+      tx.productVersion.findUnique({
+        where: { id: created.id },
+        select: { id: true, productId: true, versionTag: true },
+      }),
+      tx.product.findUnique({
+        where: { id: product.id },
+        select: { methodRevision: true },
+      }),
+    ]);
+    if (
+      !verifiedVersion ||
+      verifiedVersion.productId !== product.id ||
+      verifiedVersion.versionTag !== nextTag ||
+      verifiedProduct?.methodRevision !== expectedMethodRevision + 1
+    ) {
+      throw new ConflictError("写后读回校验失败：产品版本或治理修订号与预期不一致，本次事务已回滚。");
+    }
+
     return created;
-  });
+  };
+
+  const version = execution.tx
+    ? await writeRevision(execution.tx)
+    : await prisma.$transaction(writeRevision);
 
   // 对受影响维度重评：走同一条 analyzeProductVersion 通道，kind=REVISION_REVIEW + supersedesRunId
   // 注意：历史 run 不被覆盖，新 run 用 supersedesRunId 指向被替代者（蓝图 §4.4）。
   let analysisRunId: string | null = null;
-  try {
-    analysisRunId = await analyzeProductVersion(session, {
-      productId: product.id,
-      productVersionId: version.id,
-      kind: "REVISION_REVIEW",
-      supersedesRunId: previousRunId ?? undefined,
-    });
-  } catch (e) {
-    // 版本已写入，重评失败不应回滚版本；把失败如实抛给调用方，由前端提示「可手动重跑分析」
-    throw new UnprocessableEntityError(
-      `${nextTag} 已创建，但自动重评失败：${(e as Error).message}。可在「分析与评分」页签手动运行分析。`
-    );
+  if (!execution.deferAnalysis) {
+    try {
+      analysisRunId = await analyzeProductVersion(session, {
+        productId: product.id,
+        productVersionId: version.id,
+        kind: "REVISION_REVIEW",
+        supersedesRunId: previousRunId ?? undefined,
+      });
+    } catch (e) {
+      // 版本已写入，重评失败不应伪装成“版本未创建”。
+      throw new UnprocessableEntityError(
+        `${nextTag} 已创建，但自动重评失败：${(e as Error).message}。可在「分析与评分」页签手动运行分析。`
+      );
+    }
   }
 
   return {
@@ -501,6 +563,7 @@ export async function createRevision(
     affectedDimensions,
     analysisRunId,
     previousRunId,
+    methodRevision: expectedMethodRevision + 1,
   };
 }
 

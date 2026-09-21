@@ -20,7 +20,7 @@ import assert from "node:assert/strict";
 
 // 导入类型定义
 import type { AnalyzeParams } from "../src/modules/product-development/analysis";
-import type { ProfessionalAnalysisV1 } from "../src/modules/product-development/professional-analysis-schema";
+import { PROFESSIONAL_ANALYSIS_VERSION, type ProfessionalAnalysisV1 } from "../src/modules/product-development/professional-analysis-schema";
 
 // ─────────────────────── ① 公司约束测试 ───────────────────────
 
@@ -358,27 +358,26 @@ test("TASK-019: 验证分析参数结构", () => {
 
 test("TASK-019: 验证专业分析输出结构", () => {
   const analysis: ProfessionalAnalysisV1 = {
-    status: "DRAFT",
+    schemaVersion: PROFESSIONAL_ANALYSIS_VERSION,
+    conclusion: "NEEDS_EVIDENCE",
     summary: "专业分析摘要",
+    companyFit: [],
+    claims: [],
+    alternatives: [],
+    economicScenarioRef: null,
+    risks: [],
+    unknowns: [],
     recommendedActions: [],
-    evidenceGaps: [],
-    riskAssessment: {
-      level: "MEDIUM",
-      factors: [],
-    },
-    metadata: {
-      version: "1.0",
-      generatedAt: new Date().toISOString(),
-      model: "test-model",
-      confidence: 0.8,
-    },
+    limitations: [],
   };
 
-  // 验证输出结构
-  assert.ok(analysis.status);
+  // 验证统一的 ProfessionalAnalysisV1 契约
+  assert.equal(analysis.schemaVersion, PROFESSIONAL_ANALYSIS_VERSION);
+  assert.equal(analysis.conclusion, "NEEDS_EVIDENCE");
   assert.ok(analysis.summary);
-  assert.ok(analysis.recommendedActions);
-  assert.ok(analysis.evidenceGaps);
-  assert.ok(analysis.riskAssessment);
-  assert.ok(analysis.metadata);
+  assert.ok(Array.isArray(analysis.claims));
+  assert.ok(Array.isArray(analysis.unknowns));
+  assert.ok(Array.isArray(analysis.risks));
+  assert.ok(Array.isArray(analysis.recommendedActions));
+  assert.ok(Array.isArray(analysis.limitations));
 });

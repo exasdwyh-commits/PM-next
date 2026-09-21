@@ -237,6 +237,9 @@ model Product {
   devMode        String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  /// 治理写入修订号：所有产品方案变更必须通过数据库级 CAS 条件递增。
+  /// 与 ProductVersion 不同：这是并发控制令牌，不是面向用户的版本号。
+  methodRevision Int      @default(0)
 
   // ---- 产品开发工作台入库字段（蓝图 §4.2，均为可空：先兼容为空，按真实关系回填后再收紧） ----
   /// 一句话想法 / 核心概念。入库首屏必填项之一。
@@ -273,6 +276,7 @@ model Product {
 
   @@unique([organizationId, identityCode])
   @@index([organizationId])
+  @@index([organizationId, methodRevision])
   @@index([ownerId])
   @@index([lifecycleStage])
 }
