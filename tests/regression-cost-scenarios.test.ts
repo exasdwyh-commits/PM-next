@@ -29,9 +29,10 @@ const BASE_INPUT: CostInput = {
 
 function makeRecord(overrides: Partial<CostScenarioRecord> & { scenarioName: string }): CostScenarioRecord {
   const result = calcCost(BASE_INPUT);
+  const { scenarioName, ...rest } = overrides;
   return {
     artifactId: "art-1",
-    scenarioName: overrides.scenarioName,
+    scenarioName,
     costInput: BASE_INPUT,
     recalculatedResult: result,
     sourceStatus: "DRAFT",
@@ -41,7 +42,7 @@ function makeRecord(overrides: Partial<CostScenarioRecord> & { scenarioName: str
     engineVersion: COST_ENGINE_VERSION,
     recordedBy: "user-1",
     contentVersion: 1,
-    ...overrides,
+    ...rest,
   };
 }
 

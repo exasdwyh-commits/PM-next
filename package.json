@@ -34,7 +34,8 @@
     "test:critical": "npm run test:product-center && npm run test:authz && npm run test:science && npm run test:llm-e2e",
     "db:seed": "tsx prisma/seed.ts",
     "user:create": "tsx scripts/create-user.ts",
-    "test:governance": "tsx scripts/run-test.ts tests/regression-governance-convergence.ts"
+    "test:governance": "tsx scripts/run-test.ts tests/regression-governance-convergence.ts",
+    "typecheck": "tsc --noEmit"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -1,63 +1,40 @@
 /**
  * POST /api/agent-runs - 创建交互式运行（TASK-017）
- *
- * 根据计划 §1.9：
- * - 仅创建受权 AgentRun 并返回 runId
- * - 初始化限定用途：ADVISOR_MESSAGE / PROFESSIONAL_ANALYSIS
- * - 上下文只接受经服务器校验的 conversationId/productId/versionId
  */
-
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth } from "@/shared/auth";
+import { getServerSession } from "@/modules/identity/session";
 import { prepareInteractiveRun, type InteractiveRunPurpose } from "@/modules/advisor/runs";
 import { UnprocessableEntityError } from "@/shared/errors";
+import { handleApiError } from "@/shared/api-handler";
+import { readJsonObjectBody } from "@/shared/request-body";
 
-export const POST = withAuth(async (req: NextRequest, session) => {
+export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { purpose, conversationId, productId, productVersionId, goal } = body;
+    const session = await getServerSession(req);
+    const body = await readJsonObjectBody(req);
+    const purpose = body.purpose as InteractiveRunPurpose | undefined;
 
-    // 校验必需字段
     if (!purpose) {
-      return NextResponse.json(
-        { error: "缺少必需字段：purpose" },
-        { status: 422 }
-      );
+      throw new UnprocessableEntityError("缺少必需字段：purpose");
     }
-
-    // 校验用途值
     const validPurposes: InteractiveRunPurpose[] = ["ADVISOR_MESSAGE", "PROFESSIONAL_ANALYSIS"];
     if (!validPurposes.includes(purpose)) {
-      return NextResponse.json(
-        { error: `无效的用途：${purpose}。允许的值：${validPurposes.join(", ")}` },
-        { status: 422 }
+      throw new UnprocessableEntityError(
+        `无效的用途：${String(body.purpose)}。允许的值：${validPurposes.join(", ")}`
       );
     }
 
     const result = await prepareInteractiveRun({
       session,
       purpose,
-      conversationId,
-      productId,
-      productVersionId,
-      goal,
+      conversationId: body.conversationId,
+      productId: body.productId,
+      productVersionId: body.productVersionId,
+      goal: body.goal,
     });
 
     return NextResponse.json(result, { status: 201 });
-  } catch (e: any) {
-    if (e instanceof UnprocessableEntityError) {
-      return NextResponse.json({ error: e.message }, { status: 422 });
-    }
-    if (e?.name === "NotFoundError") {
-      return NextResponse.json({ error: e.message }, { status: 404 });
-    }
-    if (e?.name === "ForbiddenError") {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
-    console.error("Failed to create agent run:", e);
-    return NextResponse.json(
-      { error: "创建运行失败" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return handleApiError(error, req);
   }
-});
+}

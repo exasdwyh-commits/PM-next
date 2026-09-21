@@ -6,47 +6,65 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/shared/db";
-import { requireSession } from "@/shared/auth";
-import { UnprocessableEntityError } from "@/shared/errors";
+import { getServerSession } from "@/modules/identity/session";
+import {
+  PRODUCT_WRITE_ROLES,
+  requireProductRead,
+  requireProductRole,
+} from "@/modules/identity/product-access";
+import { NotFoundError, UnprocessableEntityError } from "@/shared/errors";
 import { saveCostScenario } from "@/modules/cost-engine/scenarios";
+import { handleApiError } from "@/shared/api-handler";
+import { readJsonObjectBody } from "@/shared/request-body";
+
+const COST_SCENARIO_STATUSES = ["DRAFT", "ACTIVE", "ARCHIVED"] as const;
+type CostScenarioStatus = (typeof COST_SCENARIO_STATUSES)[number];
+
+function isCostScenarioStatus(value: unknown): value is CostScenarioStatus {
+  return typeof value === "string" &&
+    COST_SCENARIO_STATUSES.includes(value as CostScenarioStatus);
+}
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await requireSession(req);
-  const { id: productId } = await params;
+  try {
+    const session = await getServerSession(req);
+    const { id: productId } = await params;
+    await requireProductRead(session, productId);
 
-  const product = await prisma.product.findUnique({ where: { id: productId } });
-  if (!product || product.organizationId !== session.organizationId) {
-    return NextResponse.json({ error: "Product not found" }, { status: 404 });
-  }
+    const artifacts = await prisma.artifact.findMany({
+      where: {
+        type: "COST_SCENARIO",
+        organizationId: session.organizationId,
+        workItem: {
+          project: {
+            productId,
+            organizationId: session.organizationId,
+          },
+        },
+      },
+      orderBy: { contentVersion: "desc" },
+      select: {
+        id: true,
+        content: true,
+        schemaVersion: true,
+        contentVersion: true,
+        title: true,
+        createdAt: true,
+        productVersionId: true,
+      },
+    });
 
-  const artifacts = await prisma.artifact.findMany({
-    where: {
-      type: "COST_SCENARIO",
-      organizationId: session.organizationId,
-      workItem: { projectId: product.projectId ?? undefined },
-    },
-    orderBy: { contentVersion: "desc" },
-    select: {
-      id: true,
-      content: true,
-      schemaVersion: true,
-      contentVersion: true,
-      title: true,
-      createdAt: true,
-    },
-  });
-
-  const scenarios = artifacts
-    .filter((a) => a.schemaVersion === "1.0")
-    .map((a) => {
+    const scenarios = artifacts.flatMap((artifact) => {
+      if (artifact.schemaVersion !== "1.0") return [];
       try {
-        const parsed = JSON.parse(a.content);
-        return {
-          artifactId: a.id,
-          scenarioName: parsed.scenarioName ?? a.title,
+        const parsed = JSON.parse(artifact.content) as Record<string, unknown>;
+        return [{
+          artifactId: artifact.id,
+          productVersionId: artifact.productVersionId,
+          scenarioName: parsed.scenarioName ?? artifact.title,
           engineVersion: parsed.engineVersion,
           sourceStatus: parsed.sourceStatus,
           unit: parsed.unit,
@@ -54,58 +72,96 @@ export async function GET(
           expenseBase: parsed.expenseBase,
           result: parsed.result,
           netProfit: parsed.netProfit,
-          contentVersion: a.contentVersion,
-          createdAt: a.createdAt,
-        };
+          contentVersion: artifact.contentVersion,
+          createdAt: artifact.createdAt,
+        }];
       } catch {
-        return null;
+        return [];
       }
-    })
-    .filter(Boolean);
+    });
 
-  return NextResponse.json({ scenarios });
+    return NextResponse.json({ scenarios });
+  } catch (error) {
+    return handleApiError(error, req);
+  }
 }
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await requireSession(req);
-  const { id: productId } = await params;
+  try {
+    const session = await getServerSession(req);
+    const { id: productId } = await params;
+    await requireProductRole(session, productId, PRODUCT_WRITE_ROLES);
 
-  const product = await prisma.product.findUnique({ where: { id: productId } });
-  if (!product || product.organizationId !== session.organizationId) {
-    return NextResponse.json({ error: "Product not found" }, { status: 404 });
-  }
-
-  const body = await req.json();
-  const { scenarioName, costInput, sourceStatus, unit, currency, expenseBase, workItemId } = body;
-
-  if (!scenarioName || !costInput || !sourceStatus || !unit || !currency || !expenseBase || !workItemId) {
-    throw new UnprocessableEntityError(
-      "缺少必填字段: scenarioName, costInput, sourceStatus, unit, currency, expenseBase, workItemId"
-    );
-  }
-
-  const workItem = await prisma.workItem.findUnique({ where: { id: workItemId } });
-  if (!workItem || workItem.projectId !== product.projectId) {
-    return NextResponse.json({ error: "WorkItem not found or not in same project" }, { status: 404 });
-  }
-
-  const result = await prisma.$transaction(async (tx) => {
-    return saveCostScenario(tx, {
-      workItemId,
-      productVersionId: product.currentVersionId,
+    const body = await readJsonObjectBody(req);
+    const {
       scenarioName,
       costInput,
       sourceStatus,
       unit,
       currency,
       expenseBase,
-      recordedBy: session.userId,
-      organizationId: session.organizationId,
-    });
-  });
+      workItemId,
+    } = body;
 
-  return NextResponse.json(result, { status: 201 });
+    if (!scenarioName || !costInput || !sourceStatus || !unit || !currency || !expenseBase || !workItemId) {
+      throw new UnprocessableEntityError(
+        "缺少必填字段: scenarioName, costInput, sourceStatus, unit, currency, expenseBase, workItemId"
+      );
+    }
+    if (!isCostScenarioStatus(sourceStatus)) {
+      throw new UnprocessableEntityError(
+        `sourceStatus 非法，允许值：${COST_SCENARIO_STATUSES.join(" / ")}`
+      );
+    }
+
+    const workItem = await prisma.workItem.findUnique({
+      where: { id: String(workItemId) },
+      include: {
+        project: {
+          select: {
+            id: true,
+            organizationId: true,
+            productId: true,
+            productVersionId: true,
+          },
+        },
+      },
+    });
+
+    if (!workItem ||
+        workItem.project.organizationId !== session.organizationId ||
+        workItem.project.productId !== productId) {
+      throw new NotFoundError("WorkItem not found or not linked to this product");
+    }
+
+    const latestVersion = await prisma.productVersion.findFirst({
+      where: { productId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+    const productVersionId =
+      workItem.project.productVersionId ?? latestVersion?.id ?? null;
+
+    const result = await prisma.$transaction((tx) =>
+      saveCostScenario(tx, {
+        workItemId: workItem.id,
+        productVersionId,
+        scenarioName: String(scenarioName),
+        costInput,
+        sourceStatus,
+        unit: String(unit),
+        currency: String(currency),
+        expenseBase: String(expenseBase),
+        recordedBy: session.userId,
+        organizationId: session.organizationId,
+      })
+    );
+
+    return NextResponse.json(result, { status: 201 });
+  } catch (error) {
+    return handleApiError(error, req);
+  }
 }

@@ -133,14 +133,14 @@ test("TASK-017: 条件更新防重复认领逻辑", () => {
 });
 
 test("TASK-017: RUNNING 状态不可认领", () => {
-  const currentStatus = "RUNNING";
+  const currentStatus: string = "RUNNING";
   const canClaim = currentStatus === "QUEUED";
   
   assert.ok(!canClaim, "RUNNING 状态不可认领");
 });
 
 test("TASK-017: CANCELLED 状态不可认领", () => {
-  const currentStatus = "CANCELLED";
+  const currentStatus: string = "CANCELLED";
   const canClaim = currentStatus === "QUEUED";
   
   assert.ok(!canClaim, "CANCELLED 状态不可认领");
@@ -183,8 +183,8 @@ test("TASK-017: 只有运行发起人可取消", () => {
 });
 
 test("TASK-017: 非运行发起人不可取消", () => {
-  const runUserId = "user-1";
-  const currentUserId = "user-2";
+  const runUserId: string = "user-1";
+  const currentUserId: string = "user-2";
   
   const canCancel = runUserId === currentUserId;
   assert.ok(!canCancel, "非发起人不可取消他人运行");
@@ -199,8 +199,8 @@ test("TASK-017: 只有运行发起人可认领", () => {
 });
 
 test("TASK-017: 非运行发起人不可认领", () => {
-  const runUserId = "user-1";
-  const currentUserId = "user-2";
+  const runUserId: string = "user-1";
+  const currentUserId: string = "user-2";
   
   const canClaim = runUserId === currentUserId;
   assert.ok(!canClaim, "非发起人不可认领他人运行");

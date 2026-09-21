@@ -508,6 +508,8 @@ export async function listProposals(session: SessionContext, opts: ListProposals
       : [];
   const projectMap = new Map(projects.map((p) => [p.id, p]));
 
+  const currentHash = opts.productId ? await productVersionHash(opts.productId) : null;
+
   return rows.map((r) => ({
     id: r.id,
     actionType: r.actionType,
@@ -523,6 +525,11 @@ export async function listProposals(session: SessionContext, opts: ListProposals
     appliedObjectType: r.appliedObjectType,
     appliedObjectId: r.appliedObjectId,
     createdAt: r.createdAt,
+    isStale:
+      r.status === "PENDING_CONFIRMATION" &&
+      r.baseVersionHash !== null &&
+      currentHash !== null &&
+      r.baseVersionHash !== currentHash,
   }));
 }
 
