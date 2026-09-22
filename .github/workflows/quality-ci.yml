@@ -26,6 +26,7 @@ jobs:
       - run: npm run test:golden
       - run: npm run test:potential
       - run: npm run test:model-gateway
+      - run: npm run test:harness
       - run: npm run test:launch-auth
       - run: npm run typecheck
       - run: npm run lint
