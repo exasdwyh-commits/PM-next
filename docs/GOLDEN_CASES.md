@@ -79,3 +79,57 @@ npm run test:golden
 ```bash
 npm run test:research-snapshot
 ```
+
+
+## V3 · 组织级开品闭环 Golden Case
+
+V3 不再只验证纯函数，而是用真实数据库与服务层跑一条完整产品组织链路。
+
+当前首个案例：**AKG 钙高客单半年套餐**。
+
+覆盖：
+
+```text
+高价值 Signal
+  → Hermes PM
+  → Product + ProductVersion
+  → Red Team
+  → Channel Spec Economics
+  → Product Potential
+  → Scientific / Compliance Hard Gate
+  → FrozenPrediction
+  → VERIFIED Evidence
+  → Hermes PM Re-evaluation
+  → Specialist Delegation
+  → Result Summary
+  → Parent Review
+  → Harness waits for real Outcome
+```
+
+关键验收点：
+
+- Signal 可以唤醒 PM，但 UNVERIFIED signal 不能被自动升级成 verified evidence；
+- 产品入库必须原子创建 Product / ProductVersion / Project；
+- 新不可变 ProductVersion 必须触发 Red Team；
+- 渠道经济性即使成立，也不能平均掉科学/合规硬门；
+- 高诊断指数不等于成功概率；
+- 强功效宣称命中硬门时 verdict 必须 BLOCKED；
+- 修正高风险宣称后，缺少成品验证只能从 FAIL 改进到 UNKNOWN / NEEDS_EVIDENCE，不能直接 PASS；
+- REAL Evidence 正式 VERIFIED 后自动唤醒 Hermes PM 复核，但不自动批准产品；
+- 专业 Agent 完成委派必须返回 resultSummary，父 Agent 可审计复核；
+- 没有真实 ProductOutcome 时，Harness 不得生成“成功/失败学习标签”。
+
+运行：
+
+```bash
+npm run test:golden-org
+```
+
+该测试使用隔离 PostgreSQL，进入 Golden Organization CI。
+
+后续新增真实开品案例时，优先按“**一个案例 = 一条完整组织行为链**”扩展，而不是重复堆函数断言：
+
+- G-ORG-02 · 骆驼奶 + AOS：多档规格 / 渠道经济性 / 证据不足；
+- G-ORG-03 · AKK 后生元：直播渠道 / 营销红线 / Claim 修正；
+- G-ORG-04 · HMB 老年营养：人群适配 / 体感目标 / 复购验证；
+- G-ORG-05 · 真实失败复盘：FrozenPrediction → D30/D90 Outcome → ExperienceLesson。
