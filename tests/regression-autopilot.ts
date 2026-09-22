@@ -98,10 +98,10 @@ async function main() {
       sourceType: "SignalItem",
       sourceId: "381",
       state: {
-        actionable: true,
-        duplicate: false,
+        valueTier: "high",
+        hasValueReason: true,
+        nature: "REAL",
         blocked: false,
-        relevanceScore: 91,
       },
       contextRefs: ["signal:381", "source:reuters", "signal:381"],
       taskGoal: "Review signal 381 and decide whether it changes product priorities",
@@ -118,9 +118,9 @@ async function main() {
       sourceId: "381",
       state: {
         blocked: false,
-        duplicate: false,
-        relevanceScore: 91,
-        actionable: true,
+        nature: "REAL",
+        hasValueReason: true,
+        valueTier: "high",
       },
       contextRefs: ["source:reuters", "signal:381"],
       taskGoal: "Review signal 381 and decide whether it changes product priorities",
@@ -137,10 +137,10 @@ async function main() {
         sourceType: "SignalItem",
         sourceId: "381",
         state: {
-          actionable: false,
-          duplicate: false,
+          valueTier: "low",
+          hasValueReason: false,
+          nature: "REAL",
           blocked: false,
-          relevanceScore: 20,
         },
         contextRefs: ["signal:381"],
         taskGoal: "Different payload under same key",
@@ -149,7 +149,7 @@ async function main() {
     );
     console.log("  ✔ duplicate event returns the same durable receipt; key reuse cannot overwrite facts");
 
-    console.log("▶ A3 actionable signal wakes Hermes PM exactly once");
+    console.log("▶ A3 high-value signal with explicit rationale wakes Hermes PM exactly once");
     const processed = await processAutopilotReceipt(
       org.id,
       first.receipt.id,
@@ -191,7 +191,7 @@ async function main() {
     );
     console.log("  ✔ terminal receipt is replay-safe; no second AgentTask is created");
 
-    console.log("▶ A4 duplicate/low-value signal is durably suppressed, not silently dropped");
+    console.log("▶ A4 low-value signal is durably suppressed, not silently dropped");
     const low = await submitAutopilotEvent({
       organizationId: org.id,
       autopilotKey: "signal_wake_pm",
@@ -200,10 +200,10 @@ async function main() {
       sourceType: "SignalItem",
       sourceId: "382",
       state: {
-        actionable: true,
-        duplicate: true,
+        valueTier: "low",
+        hasValueReason: true,
+        nature: "REAL",
         blocked: false,
-        relevanceScore: 99,
       },
       contextRefs: ["signal:382"],
       taskGoal: "Should not wake PM",
@@ -229,10 +229,10 @@ async function main() {
       sourceType: "SignalItem",
       sourceId: "383",
       state: {
-        actionable: true,
-        duplicate: false,
+        valueTier: "high",
+        hasValueReason: true,
+        nature: "REAL",
         blocked: false,
-        relevanceScore: 88,
       },
       contextRefs: ["signal:383"],
       taskGoal: "Review signal 383 after resume",
@@ -272,7 +272,7 @@ async function main() {
       autopilotKey: "signal_wake_pm",
       eventKey: "signal:bad",
       eventType: "SIGNAL_INGESTED",
-      state: { actionable: true },
+      state: { valueTier: "high", hasValueReason: true, nature: "REAL" },
       contextRefs: ["signal:bad"],
       taskGoal: "This should fail at DecisionSpec lookup",
       maxAttempts: 3,
@@ -297,10 +297,10 @@ async function main() {
       eventKey: "signal:cooldown",
       eventType: "SIGNAL_INGESTED",
       state: {
-        actionable: true,
-        duplicate: false,
+        valueTier: "high",
+        hasValueReason: true,
+        nature: "REAL",
         blocked: false,
-        relevanceScore: 90,
       },
       contextRefs: ["signal:cooldown"],
       taskGoal: "Wait until Autopilot recovers",
@@ -320,7 +320,7 @@ async function main() {
       where: { id: autopilot.id },
       data: {
         decisionKey: "signal.should_wake_pm",
-        decisionSpecVersion: "v1",
+        decisionSpecVersion: "v2",
       },
     });
     await setAutopilotPaused(session, autopilot.id, false, "provider/config fixed");
@@ -344,10 +344,10 @@ async function main() {
       eventKey: "signal:lease",
       eventType: "SIGNAL_INGESTED",
       state: {
-        actionable: true,
-        duplicate: false,
+        valueTier: "high",
+        hasValueReason: true,
+        nature: "REAL",
         blocked: false,
-        relevanceScore: 87,
       },
       contextRefs: ["signal:lease"],
       taskGoal: "Recover stale worker lease",

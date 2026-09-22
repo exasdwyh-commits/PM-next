@@ -78,52 +78,98 @@ export async function bootstrapDefaultAutopilots(session: SessionContext) {
   await requireAutopilotAdmin(session);
   await getOrCreateSystemPrincipalSession(session.organizationId);
 
+  const specs = [
+    {
+      key: "signal_wake_pm",
+      name: "Signal → Hermes PM",
+      description:
+        "只使用信号现有真实字段判断：高价值且有明确价值依据时唤醒 Hermes PM，不伪造连续相关度分数。",
+      decisionKey: "signal.should_wake_pm",
+      decisionSpecVersion: "v2",
+      actionKind: AutopilotActionKind.WAKE_PM,
+    },
+    {
+      key: "product_version_red_team",
+      name: "ProductVersion → Red Team",
+      description:
+        "发布新的不可变 ProductVersion 后自动唤醒 Red Team，挑战假设、规格/渠道适配与证据缺口。",
+      decisionKey: "product_version.should_red_team",
+      decisionSpecVersion: "v1",
+      actionKind: AutopilotActionKind.WAKE_RED_TEAM,
+    },
+    {
+      key: "evidence_recheck_pm",
+      name: "Verified Evidence → Hermes PM",
+      description:
+        "REAL 证据被负责人正式核验后唤醒 Hermes PM，重新判断受影响的产品、分析和决策。",
+      decisionKey: "evidence.should_wake_pm",
+      decisionSpecVersion: "v1",
+      actionKind: AutopilotActionKind.WAKE_PM,
+    },
+  ] as const;
+
   return prisma.$transaction(async (tx) => {
-    const autopilot = await tx.autopilot.upsert({
-      where: {
-        organizationId_key: {
-          organizationId: session.organizationId,
-          key: "signal_wake_pm",
+    let primaryId: string | null = null;
+    const bootstrapped: Array<{
+      id: string;
+      key: string;
+      decisionKey: string;
+      decisionSpecVersion: string;
+      actionKind: AutopilotActionKind;
+    }> = [];
+
+    for (const spec of specs) {
+      const autopilot = await tx.autopilot.upsert({
+        where: {
+          organizationId_key: {
+            organizationId: session.organizationId,
+            key: spec.key,
+          },
         },
-      },
-      create: {
-        organizationId: session.organizationId,
-        key: "signal_wake_pm",
-        name: "Signal → Hermes PM",
-        description:
-          "对低风险、可行动、非重复且达到相关度门槛的信号进行规则判断；只有明确 true 才唤醒 Hermes PM。",
-        decisionKey: "signal.should_wake_pm",
-        decisionSpecVersion: "v1",
-        actionKind: AutopilotActionKind.WAKE_PM,
-        cooldownSeconds: 300,
-        failureThreshold: 3,
-        createdById: session.userId,
-      },
-      update: {
-        name: "Signal → Hermes PM",
-        description:
-          "对低风险、可行动、非重复且达到相关度门槛的信号进行规则判断；只有明确 true 才唤醒 Hermes PM。",
-        decisionKey: "signal.should_wake_pm",
-        decisionSpecVersion: "v1",
-        actionKind: AutopilotActionKind.WAKE_PM,
-      },
-    });
+        create: {
+          organizationId: session.organizationId,
+          key: spec.key,
+          name: spec.name,
+          description: spec.description,
+          decisionKey: spec.decisionKey,
+          decisionSpecVersion: spec.decisionSpecVersion,
+          actionKind: spec.actionKind,
+          cooldownSeconds: 300,
+          failureThreshold: 3,
+          createdById: session.userId,
+        },
+        update: {
+          name: spec.name,
+          description: spec.description,
+          decisionKey: spec.decisionKey,
+          decisionSpecVersion: spec.decisionSpecVersion,
+          actionKind: spec.actionKind,
+        },
+      });
+      if (spec.key === "signal_wake_pm") primaryId = autopilot.id;
+      bootstrapped.push({
+        id: autopilot.id,
+        key: autopilot.key,
+        decisionKey: autopilot.decisionKey,
+        decisionSpecVersion: autopilot.decisionSpecVersion,
+        actionKind: autopilot.actionKind,
+      });
+    }
+
+    if (!primaryId) throw new Error("Signal Autopilot bootstrap invariant failed");
 
     await createAuditEventInTx(tx, {
       actorId: session.userId,
       action: "AUTOPILOT_BOOTSTRAPPED",
       objectType: "Autopilot",
-      objectId: autopilot.id,
-      summary: "初始化 Signal → Hermes PM Autopilot",
-      details: {
-        key: autopilot.key,
-        decisionKey: autopilot.decisionKey,
-        decisionSpecVersion: autopilot.decisionSpecVersion,
-        actionKind: autopilot.actionKind,
-      } as Prisma.InputJsonValue,
+      objectId: primaryId,
+      summary: "初始化默认业务 Autopilots",
+      details: { autopilots: bootstrapped } as Prisma.InputJsonValue,
     });
 
-    return autopilot;
+    // Preserve the existing return contract: callers that only know the
+    // original signal Autopilot still receive that row.
+    return tx.autopilot.findUniqueOrThrow({ where: { id: primaryId } });
   });
 }
 
@@ -252,17 +298,17 @@ export interface ProcessAutopilotReceiptResult {
     | "ALREADY_TERMINAL";
 }
 
-async function findHermesPm(organizationId: string) {
+async function findAgentByCode(organizationId: string, code: string) {
   const agent = await prisma.agent.findUnique({
     where: {
       organizationId_code: {
         organizationId,
-        code: "hermes_pm",
+        code,
       },
     },
   });
   if (!agent) {
-    throw new Error("Hermes PM Agent is not bootstrapped");
+    throw new Error(code + " Agent is not bootstrapped");
   }
   return agent;
 }
@@ -442,21 +488,27 @@ export async function processAutopilotReceipt(
 
     switch (decision.execution.policy.action) {
       case "AUTO": {
-        if (claimed.autopilot.actionKind !== AutopilotActionKind.WAKE_PM) {
-          throw new Error(
-            `Unsupported Autopilot actionKind: ${claimed.autopilot.actionKind}`
-          );
-        }
-
         if (decision.execution.engineResult.value !== true) {
           status = AutopilotEventStatus.SUPPRESSED;
           suppressionReason = "DECISION_FALSE";
           break;
         }
 
-        const hermes = await findHermesPm(organizationId);
+        const targetCode =
+          claimed.autopilot.actionKind === AutopilotActionKind.WAKE_PM
+            ? "hermes_pm"
+            : claimed.autopilot.actionKind === AutopilotActionKind.WAKE_RED_TEAM
+              ? "red_team"
+              : null;
+        if (!targetCode) {
+          throw new Error(
+            `Unsupported Autopilot actionKind: ${claimed.autopilot.actionKind}`
+          );
+        }
+
+        const target = await findAgentByCode(organizationId, targetCode);
         const task = await createAgentTask(principal, {
-          agentId: hermes.id,
+          agentId: target.id,
           goal: claimed.taskGoal,
           triggerType: AgentTriggerType.EVENT,
           triggerRef:
@@ -470,7 +522,7 @@ export async function processAutopilotReceipt(
       }
 
       case "ESCALATE_AGENT": {
-        const hermes = await findHermesPm(organizationId);
+        const hermes = await findAgentByCode(organizationId, "hermes_pm");
         const task = await createAgentTask(principal, {
           agentId: hermes.id,
           goal: "Review escalated Autopilot decision: " + claimed.taskGoal,

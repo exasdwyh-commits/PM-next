@@ -57,6 +57,9 @@ model Organization {
   // Autopilot / Event Wakeup
   autopilots        Autopilot[]
   autopilotReceipts AutopilotEventReceipt[]
+
+  // Transactional business-event outbox
+  businessEvents BusinessEvent[]
 }
 
 /**
@@ -172,6 +175,9 @@ model User {
 
   // Autopilot / Event Wakeup
   autopilotsCreated Autopilot[] @relation("AutopilotCreator")
+
+  // Transactional business-event outbox
+  businessEventsCreated BusinessEvent[] @relation("BusinessEventCreator")
 
   @@index([organizationId, isSystem])
   @@index([organizationId])
@@ -1650,6 +1656,7 @@ enum AutopilotStatus {
 
 enum AutopilotActionKind {
   WAKE_PM
+  WAKE_RED_TEAM
 }
 
 enum AutopilotEventStatus {
@@ -1720,12 +1727,58 @@ model AutopilotEventReceipt {
   autopilot    Autopilot    @relation(fields: [autopilotId], references: [id], onDelete: Cascade)
   decisionRun  DecisionRun? @relation(fields: [decisionRunId], references: [id], onDelete: SetNull)
   agentTask    AgentTask?   @relation(fields: [agentTaskId], references: [id], onDelete: SetNull)
+  businessEvent BusinessEvent?
 
   @@unique([autopilotId, eventKey])
   @@index([organizationId, status])
   @@index([autopilotId, status])
   @@index([decisionRunId])
   @@index([sourceType, sourceId])
+  @@index([leaseExpiresAt])
+  @@index([createdAt])
+}
+
+// =============================================================
+// U.57 Transactional Business Event Outbox
+// =============================================================
+
+enum BusinessEventStatus {
+  PENDING
+  PROCESSING
+  DISPATCHED
+  FAILED
+}
+
+model BusinessEvent {
+  id                 String              @id @default(uuid())
+  organizationId     String
+  eventKey           String
+  eventType          String
+  aggregateType      String
+  aggregateId        String
+  payloadJson        Json
+  payloadHash        String
+  contextRefs        Json
+  status             BusinessEventStatus @default(PENDING)
+  attempt            Int                 @default(0)
+  maxAttempts        Int                 @default(5)
+  leaseOwner         String?
+  leaseExpiresAt     DateTime?
+  lastError          String?
+  autopilotReceiptId String?             @unique
+  createdById        String?
+  dispatchedAt       DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  organization     Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy        User?                  @relation("BusinessEventCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  autopilotReceipt AutopilotEventReceipt? @relation(fields: [autopilotReceiptId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, eventKey])
+  @@index([organizationId, status])
+  @@index([eventType, createdAt])
+  @@index([aggregateType, aggregateId])
   @@index([leaseExpiresAt])
   @@index([createdAt])
 }

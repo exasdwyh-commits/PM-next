@@ -4,6 +4,11 @@ import { ForbiddenError, NotFoundError, UnprocessableEntityError } from "@/share
 import { Prisma, ProductLifecycleStage, ProjectMode, Role } from "@prisma/client";
 import { createAuditEventInTx } from "@/shared/audit";
 import { PRODUCT_WRITE_ROLES, requireProductRead, requireProductRole } from "../identity/product-access";
+import {
+  BUSINESS_EVENT_TYPES,
+  dispatchBusinessEvent,
+  enqueueBusinessEventInTx,
+} from "../business-events";
 
 export interface CreateProductParams {
   name: string;
@@ -77,22 +82,67 @@ export async function publishProductVersion(
     throw new UnprocessableEntityError("versionTag and specs are required");
   }
 
-  const version = await prisma.productVersion.create({
-    data: {
-      productId,
-      versionTag: params.versionTag.trim(),
-      specs: params.specs,
-      technicalAdvice: params.technicalAdvice,
-      experienceGoals: params.experienceGoals,
-      targetCost: params.targetCost,
-      currency: params.currency || "CNY",
-      unknowns: params.unknowns,
-      isImmutable: true,
-      isConfirmed: params.isConfirmed ?? false, // R08: Business confirmation distinction
-    },
+  const created = await prisma.$transaction(async (tx) => {
+    const version = await tx.productVersion.create({
+      data: {
+        productId,
+        versionTag: params.versionTag.trim(),
+        specs: params.specs,
+        technicalAdvice: params.technicalAdvice,
+        experienceGoals: params.experienceGoals,
+        targetCost: params.targetCost,
+        currency: params.currency || "CNY",
+        unknowns: params.unknowns,
+        isImmutable: true,
+        isConfirmed: params.isConfirmed ?? false, // R08: Business confirmation distinction
+      },
+    });
+
+    await createAuditEventInTx(tx, {
+      actorId: session.userId,
+      action: "PRODUCT_VERSION_PUBLISHED",
+      objectType: "ProductVersion",
+      objectId: version.id,
+      summary: `发布产品版本 ${version.versionTag}`,
+      details: {
+        productId,
+        versionTag: version.versionTag,
+        isConfirmed: version.isConfirmed,
+      } as Prisma.InputJsonValue,
+    });
+
+    const event = await enqueueBusinessEventInTx(tx, {
+      organizationId: session.organizationId,
+      eventKey: `product-version:${version.id}:published`,
+      eventType: BUSINESS_EVENT_TYPES.PRODUCT_VERSION_PUBLISHED,
+      aggregateType: "ProductVersion",
+      aggregateId: version.id,
+      payload: {
+        productId,
+        versionTag: version.versionTag,
+        isImmutable: version.isImmutable,
+        isConfirmed: version.isConfirmed,
+        hasUnknowns:
+          !!params.unknowns && Object.keys(params.unknowns).length > 0,
+      },
+      contextRefs: [
+        `product:${productId}`,
+        `product-version:${version.id}`,
+      ],
+      createdById: session.userId,
+    });
+
+    return { version, eventId: event.id };
   });
 
-  return version;
+  // The ProductVersion is already committed together with its outbox event.
+  // Automation failure must not turn a successful immutable version write into
+  // an ambiguous API failure.
+  await dispatchBusinessEvent(session.organizationId, created.eventId, {
+    workerId: "product-version:" + session.userId,
+  }).catch(() => null);
+
+  return created.version;
 }
 
 export async function listOrganizationProducts(session: SessionContext) {

@@ -26,6 +26,11 @@ import {
   SignalSourceDef,
   SignalCategory,
 } from "./source-registry";
+import {
+  BUSINESS_EVENT_TYPES,
+  dispatchBusinessEvent,
+  enqueueBusinessEventInTx,
+} from "../business-events";
 
 export interface SignalCandidate {
   title: string;
@@ -149,28 +154,64 @@ async function collectOne(
         continue;
       }
       try {
-        await prisma.signalItem.create({
-          data: {
-            organizationId, // 信号是公司私有内容，落库必须带归属组织（列为 NOT NULL）
-            sourceKey: source.key,
-            sourceName: source.name,
-            category: candidate.category ?? source.category,
-            title: candidate.title,
-            summary: candidate.summary ?? null,
-            url: candidate.url ?? null,
-            nature: EvidenceNature.REAL,
-            verifyStatus: EvidenceVerifyStatus.UNVERIFIED,
-            productRef: candidate.productRef ?? null,
-            channel: candidate.channel ?? null,
-            hash,
-            importance: candidate.importance ?? 1,
-            collectedBy: `auto:${collector.mode}`,
-          },
+        const created = await prisma.$transaction(async (tx) => {
+          const signal = await tx.signalItem.create({
+            data: {
+              organizationId, // 信号是公司私有内容，落库必须带归属组织（列为 NOT NULL）
+              sourceKey: source.key,
+              sourceName: source.name,
+              category: candidate.category ?? source.category,
+              title: candidate.title,
+              summary: candidate.summary ?? null,
+              url: candidate.url ?? null,
+              nature: EvidenceNature.REAL,
+              verifyStatus: EvidenceVerifyStatus.UNVERIFIED,
+              productRef: candidate.productRef ?? null,
+              channel: candidate.channel ?? null,
+              hash,
+              importance: candidate.importance ?? 1,
+              collectedBy: `auto:${collector.mode}`,
+            },
+          });
+
+          const event = await enqueueBusinessEventInTx(tx, {
+            organizationId,
+            eventKey: `signal:${signal.id}:captured`,
+            eventType: BUSINESS_EVENT_TYPES.SIGNAL_CAPTURED,
+            aggregateType: "SignalItem",
+            aggregateId: signal.id,
+            payload: {
+              title: signal.title,
+              sourceKey: signal.sourceKey,
+              category: signal.category,
+              channel: signal.channel,
+              productRef: signal.productRef,
+              valueTier: signal.valueTier,
+              valueReason: signal.valueReason,
+              verifyStatus: signal.verifyStatus,
+              nature: signal.nature,
+              collectedBy: signal.collectedBy,
+            },
+            contextRefs: [`signal:${signal.id}`],
+          });
+
+          return { signal, eventId: event.id };
         });
-      } catch {
-        // (organizationId, sourceKey, hash) 唯一冲突 = 并发下的同组织重复：视为重复跳过
-        skippedDuplicates += 1;
-        continue;
+
+        await dispatchBusinessEvent(organizationId, created.eventId, {
+          workerId: "signal-collector:" + source.key,
+        }).catch(() => null);
+      } catch (error) {
+        // 只有唯一键冲突才是并发重复；其它错误不能伪装成“已去重”。
+        if (
+          typeof error === "object" &&
+          error !== null &&
+          (error as { code?: string }).code === "P2002"
+        ) {
+          skippedDuplicates += 1;
+          continue;
+        }
+        throw error;
       }
       existingHashes.add(hash);
       itemsCreated += 1;

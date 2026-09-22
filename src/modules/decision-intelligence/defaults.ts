@@ -53,6 +53,51 @@ export function createDefaultDecisionSpecs(): DecisionSpecRegistry {
     description: "Decide whether a signal is actionable enough to wake Hermes PM.",
   });
 
+  registry.register(
+    {
+      key: "signal.should_wake_pm",
+      version: "v2",
+      outputType: "BOOLEAN",
+      riskClass: "LOW",
+      allowedEngines: ["RULES", "MODEL"],
+      automation: {
+        autoPolicy: "RULES_ONLY",
+        escalationTarget: "AGENT",
+      },
+      description:
+        "Wake Hermes PM only from real signal fields: high value tier plus an explicit value rationale; do not invent a continuous relevance score.",
+    },
+    { active: false }
+  );
+
+  registry.register({
+    key: "product_version.should_red_team",
+    version: "v1",
+    outputType: "BOOLEAN",
+    riskClass: "LOW",
+    allowedEngines: ["RULES", "MODEL"],
+    automation: {
+      autoPolicy: "RULES_ONLY",
+      escalationTarget: "AGENT",
+    },
+    description:
+      "Wake Red Team after a published immutable ProductVersion so changed assumptions are challenged before downstream execution.",
+  });
+
+  registry.register({
+    key: "evidence.should_wake_pm",
+    version: "v1",
+    outputType: "BOOLEAN",
+    riskClass: "LOW",
+    allowedEngines: ["RULES", "MODEL"],
+    automation: {
+      autoPolicy: "RULES_ONLY",
+      escalationTarget: "AGENT",
+    },
+    description:
+      "Wake Hermes PM when formally verified REAL evidence may change product or project conclusions.",
+  });
+
   registry.register({
     key: "workforce.task_priority",
     version: "v1",
@@ -150,6 +195,53 @@ export function createDefaultRulesDecisionEngine(): RulesDecisionEngine {
         duplicate ? "DUPLICATE" : "NOT_DUPLICATE",
         blocked ? "BLOCKED" : "NOT_BLOCKED",
         relevance >= 70 ? "RELEVANCE_THRESHOLD_MET" : "LOW_RELEVANCE",
+      ],
+    };
+  });
+
+  engine.register("signal.should_wake_pm", "v2", (_spec, request) => {
+    const state = stateObject(request.state);
+    const highValue = str(state, "valueTier") === "HIGH";
+    const hasValueReason = bool(state, "hasValueReason");
+    const realSignal = str(state, "nature") === "REAL";
+    const blocked = bool(state, "blocked");
+    const wake = highValue && hasValueReason && realSignal && !blocked;
+    return {
+      value: wake,
+      reasonCodes: [
+        highValue ? "HIGH_VALUE_TIER" : "NOT_HIGH_VALUE",
+        hasValueReason ? "VALUE_REASON_PRESENT" : "VALUE_REASON_MISSING",
+        realSignal ? "REAL_SIGNAL" : "NON_REAL_SIGNAL",
+        blocked ? "BLOCKED" : "NOT_BLOCKED",
+      ],
+    };
+  });
+
+  engine.register("product_version.should_red_team", "v1", (_spec, request) => {
+    const state = stateObject(request.state);
+    const versionTag = str(state, "versionTag");
+    const immutable = bool(state, "isImmutable");
+    const wake = versionTag.length > 0 && immutable;
+    return {
+      value: wake,
+      reasonCodes: [
+        versionTag.length > 0 ? "VERSION_TAG_PRESENT" : "VERSION_TAG_MISSING",
+        immutable ? "IMMUTABLE_VERSION" : "MUTABLE_VERSION",
+        bool(state, "isConfirmed") ? "BUSINESS_CONFIRMED" : "NOT_BUSINESS_CONFIRMED",
+        bool(state, "hasUnknowns") ? "UNKNOWNS_PRESENT" : "NO_DECLARED_UNKNOWNS",
+      ],
+    };
+  });
+
+  engine.register("evidence.should_wake_pm", "v1", (_spec, request) => {
+    const state = stateObject(request.state);
+    const verified = str(state, "verifyStatus") === "VERIFIED";
+    const real = str(state, "nature") === "REAL";
+    return {
+      value: verified && real,
+      reasonCodes: [
+        verified ? "EVIDENCE_VERIFIED" : "EVIDENCE_NOT_VERIFIED",
+        real ? "REAL_EVIDENCE" : "NON_REAL_EVIDENCE",
       ],
     };
   });

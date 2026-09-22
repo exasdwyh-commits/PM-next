@@ -297,3 +297,71 @@ test("Decision Intelligence：没有任何允许引擎可处理时显式失败",
     /No registered engine/
   );
 });
+
+
+test("Decision Intelligence：Signal V2 只用真实分级与价值依据，不依赖伪造 relevance 分", async () => {
+  const { kernel } = buildDefaultKernel();
+
+  const wake = await kernel.decide({
+    decisionKey: "signal.should_wake_pm",
+    specVersion: "v2",
+    state: {
+      valueTier: "high",
+      hasValueReason: true,
+      nature: "REAL",
+    },
+    contextRefs: ["signal:real-fields"],
+  });
+  assert.equal(wake.engineResult.value, true);
+  assert.equal(wake.policy.action, "AUTO");
+  assert.ok(wake.engineResult.reasonCodes.includes("HIGH_VALUE_TIER"));
+  assert.ok(wake.engineResult.reasonCodes.includes("VALUE_REASON_PRESENT"));
+
+  const noReason = await kernel.decide({
+    decisionKey: "signal.should_wake_pm",
+    specVersion: "v2",
+    state: {
+      valueTier: "high",
+      hasValueReason: false,
+      nature: "REAL",
+      relevanceScore: 100,
+    },
+    contextRefs: ["signal:no-reason"],
+  });
+  assert.equal(noReason.engineResult.value, false);
+  assert.ok(noReason.engineResult.reasonCodes.includes("VALUE_REASON_MISSING"));
+});
+
+test("Decision Intelligence：发布不可变 ProductVersion 会触发 Red Team 判断", async () => {
+  const { kernel } = buildDefaultKernel();
+  const result = await kernel.decide({
+    decisionKey: "product_version.should_red_team",
+    state: {
+      versionTag: "v2",
+      isImmutable: true,
+      isConfirmed: false,
+      hasUnknowns: true,
+    },
+    contextRefs: ["product-version:v2"],
+  });
+  assert.equal(result.engineResult.value, true);
+  assert.equal(result.policy.action, "AUTO");
+});
+
+test("Decision Intelligence：只有 VERIFIED + REAL 证据自动唤醒 Hermes PM", async () => {
+  const { kernel } = buildDefaultKernel();
+
+  const verified = await kernel.decide({
+    decisionKey: "evidence.should_wake_pm",
+    state: { verifyStatus: "VERIFIED", nature: "REAL" },
+    contextRefs: ["evidence:1"],
+  });
+  assert.equal(verified.engineResult.value, true);
+
+  const demo = await kernel.decide({
+    decisionKey: "evidence.should_wake_pm",
+    state: { verifyStatus: "VERIFIED", nature: "DEMO" },
+    contextRefs: ["evidence:2"],
+  });
+  assert.equal(demo.engineResult.value, false);
+});

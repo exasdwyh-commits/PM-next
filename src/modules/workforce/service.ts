@@ -538,6 +538,22 @@ export async function createAgentTask(
           }
           break;
 
+        case "product_version.should_red_team":
+          if (result?.value !== true || agent.code !== "red_team") {
+            throw new UnprocessableEntityError(
+              "ProductVersion challenge decision must be true and target Red Team"
+            );
+          }
+          break;
+
+        case "evidence.should_wake_pm":
+          if (result?.value !== true || agent.code !== "hermes_pm") {
+            throw new UnprocessableEntityError(
+              "Evidence wake decision must be true and target Hermes PM"
+            );
+          }
+          break;
+
         default:
           throw new UnprocessableEntityError(
             "DecisionSpec is not allowed to directly trigger an AgentTask"

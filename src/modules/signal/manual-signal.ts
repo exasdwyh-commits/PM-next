@@ -14,6 +14,11 @@ import { UnprocessableEntityError } from "@/shared/errors";
 import { EvidenceNature, EvidenceVerifyStatus } from "@prisma/client";
 import { SessionContext } from "../identity/session";
 import { signalHash } from "./signal-collection";
+import {
+  BUSINESS_EVENT_TYPES,
+  dispatchBusinessEvent,
+  enqueueBusinessEventInTx,
+} from "../business-events";
 
 const MANUAL_SOURCE_KEY = "manual-entry";
 
@@ -70,28 +75,62 @@ export async function createManualSignal(session: SessionContext, params: Create
   if (existing) return existing;
 
   try {
-    return await prisma.signalItem.create({
-      data: {
-        organizationId, // 强制组织归属（列为 NOT NULL，缺失即写入失败，不做猜测）
-        sourceKey: MANUAL_SOURCE_KEY,
-        sourceName: "手工录入",
-        category: params.category?.trim() || "manual",
-        title,
-        summary: params.summary?.trim() || null,
-        relevance: null,
-        url: params.url?.trim() || null,
-        // 手工录入的观察默认按真实资料登记，但核验状态保持 UNVERIFIED（不自动置为已核实）
-        nature: EvidenceNature.REAL,
-        verifyStatus: EvidenceVerifyStatus.UNVERIFIED,
-        productRef: params.productRef?.trim() || null,
-        channel: params.channel?.trim() || null,
-        hash,
-        importance: params.importance ?? 1,
-        valueTier: params.valueTier ?? null,
-        valueReason: params.valueReason?.trim() || null,
-        collectedBy: "manual",
-      },
+    const created = await prisma.$transaction(async (tx) => {
+      const signal = await tx.signalItem.create({
+        data: {
+          organizationId, // 强制组织归属（列为 NOT NULL，缺失即写入失败，不做猜测）
+          sourceKey: MANUAL_SOURCE_KEY,
+          sourceName: "手工录入",
+          category: params.category?.trim() || "manual",
+          title,
+          summary: params.summary?.trim() || null,
+          relevance: null,
+          url: params.url?.trim() || null,
+          // 手工录入的观察默认按真实资料登记，但核验状态保持 UNVERIFIED（不自动置为已核实）
+          nature: EvidenceNature.REAL,
+          verifyStatus: EvidenceVerifyStatus.UNVERIFIED,
+          productRef: params.productRef?.trim() || null,
+          channel: params.channel?.trim() || null,
+          hash,
+          importance: params.importance ?? 1,
+          valueTier: params.valueTier ?? null,
+          valueReason: params.valueReason?.trim() || null,
+          collectedBy: "manual",
+        },
+      });
+
+      const event = await enqueueBusinessEventInTx(tx, {
+        organizationId,
+        eventKey: `signal:${signal.id}:captured`,
+        eventType: BUSINESS_EVENT_TYPES.SIGNAL_CAPTURED,
+        aggregateType: "SignalItem",
+        aggregateId: signal.id,
+        payload: {
+          title: signal.title,
+          sourceKey: signal.sourceKey,
+          category: signal.category,
+          channel: signal.channel,
+          productRef: signal.productRef,
+          valueTier: signal.valueTier,
+          valueReason: signal.valueReason,
+          verifyStatus: signal.verifyStatus,
+          nature: signal.nature,
+          collectedBy: signal.collectedBy,
+        },
+        contextRefs: [`signal:${signal.id}`],
+        createdById: session.userId,
+      });
+
+      return { signal, eventId: event.id };
     });
+
+    // Business success must not depend on automation availability. The event is
+    // already durable in the outbox; best-effort immediate dispatch only reduces latency.
+    await dispatchBusinessEvent(organizationId, created.eventId, {
+      workerId: "manual-signal:" + session.userId,
+    }).catch(() => null);
+
+    return created.signal;
   } catch (error) {
     // 并发下的同组织重复：唯一键冲突 → 回读既有行，仍然返回成功语义（幂等）
     if (isUniqueViolation(error)) {
