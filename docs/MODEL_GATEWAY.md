@@ -78,14 +78,22 @@ Fallback：
 
 ## 当前阶段
 
-本 PR 只建设纯 Model Gateway 内核，不改变现有 Advisor 行为。
+Model Gateway 内核已经具备显式候选路由、能力过滤、健康隔离和 fail-closed fallback。
+
+Model Control Center V1 进一步补齐配置平面：
+
+1. ModelProfile / ModelPolicy 已组织级持久化；
+2. Agent 使用 Agent × TaskClass → Policy 绑定，不把单一 provider/modelId 写死在长期身份上；
+3. 设置页可以安装官方推荐模板、编辑 Profile、创建自定义 Profile / Policy、绑定 Agent；
+4. API Key 不入数据库，继续由环境变量 / Secret Provider 承载；
+5. 官方模板默认禁用且使用 UNCONFIGURED 占位，不猜具体厂商模型 ID，也不静默产生费用。
 
 下一阶段：
 1. 将现有 AdvisorLLMClient 包装为 provider plugin；
-2. 新增 ModelProfile / ModelPolicy / ModelRun 持久化；
-3. Workforce 收口后把 Agent.provider/modelId 改成 modelPolicyId；
+2. Agent/Advisor 执行前从 Model Control Center 解析 Policy；
+3. 新增 ModelRun 持久化，记录 policy/profile/provider/modelId/usage/attempts；
 4. AgentRun 保留实际 provider/modelId 历史；
-5. 设置页增加 Provider / Profile / Policy 管理。
+5. 在高价值任务上再引入受预算约束的 MoA / challenger → synthesis 流程。
 
 
 ## Runtime Health / Circuit Breaker

@@ -13,6 +13,8 @@ import {
 import Icon from "@/components/icons";
 import { fmtDateTime } from "@/shared/datetime";
 import RecentAuditList from "./recent-audit-list";
+import ModelControlClient from "./model-control-client";
+import { getModelControlOverview } from "@/modules/model-control/service";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +31,7 @@ export default async function SettingsPage() {
 
   const runtime = getRuntimeStatus();
 
-  const [knowledgeSources, agentRunCounts, recentAudits, signalCount, productCount] = await Promise.all([
+  const [knowledgeSources, agentRunCounts, recentAudits, signalCount, productCount, modelControl] = await Promise.all([
     prisma.knowledgeSource.findMany({
       where: { organizationId: session.organizationId },
       orderBy: { createdAt: "desc" },
@@ -53,6 +55,7 @@ export default async function SettingsPage() {
     }),
     prisma.signalItem.count({ where: { organizationId: session.organizationId } }),
     prisma.product.count({ where: { organizationId: session.organizationId } }),
+    getModelControlOverview(session),
   ]);
 
   const totalRuns = agentRunCounts.reduce((a, b) => a + b._count._all, 0);
@@ -126,23 +129,20 @@ export default async function SettingsPage() {
           )}
         </Panel>
 
-        <Panel icon="nodes" eyebrow="MODEL" title="模型配置" sub="模型统一从配置读取，不写死在业务逻辑中">
-          <div className={`hermes-banner ${runtime.modelConfigured ? "is-ok" : "is-warn"}`}>
-            <strong>{runtime.label}</strong>
-            <div style={{ marginTop: 4 }}>{runtime.detail}</div>
+        <Panel
+          icon="nodes"
+          className="is-span-all"
+          eyebrow="MODEL CONTROL"
+          title="模型控制中心"
+          sub="按任务类型路由模型；日常低成本、核心研发 Frontier、红队复核与本地私密任务分开配置"
+        >
+          <div className={`hermes-banner ${runtime.modelConfigured ? "is-ok" : "is-warn"}`} style={{ marginBottom: 12 }}>
+            <strong>旧 Advisor 环境变量：{runtime.label}</strong>
+            <div style={{ marginTop: 4 }}>
+              {runtime.detail}。Model Control V1 先建立配置平面，不会在未验证 Provider 插件前替换现有 Advisor 执行链。
+            </div>
           </div>
-          <KV
-            items={[
-              { k: "当前模型提供方", v: runtime.provider || "未配置" },
-              { k: "当前模型 ID", v: runtime.modelId || "未配置" },
-              { k: "所需环境变量", v: "ADVISOR_MODEL_PROVIDER、ADVISOR_MODEL_ID（可选 ADVISOR_BASE_URL、ADVISOR_API_KEY）" },
-              { k: "费用状态", v: "未接入计费口径（不编造额度）" },
-            ]}
-          />
-          <div className="hermes-note" style={{ marginTop: 10 }}>
-            注意：「Codex 中可选择 Luna」不等于本系统已获得同名 API。接入时须核对提供方、实际 modelId、认证与能力，
-            并禁止静默切换到付费模型。
-          </div>
+          <ModelControlClient initial={JSON.parse(JSON.stringify(modelControl))} />
         </Panel>
 
         <Panel icon="chart" className="is-span-all" eyebrow="USAGE" title="用量与审计" sub="留痕用于追溯，不用于考核">

@@ -60,6 +60,11 @@ model Organization {
 
   // Transactional business-event outbox
   businessEvents BusinessEvent[]
+
+  // Model Control Center
+  modelProfiles       ModelProfileConfig[]
+  modelPolicies       ModelPolicyConfig[]
+  modelPolicyBindings AgentModelPolicyBinding[]
 }
 
 /**
@@ -1413,10 +1418,85 @@ model Agent {
   runs              AgentRun[]
   delegationsFrom   AgentDelegation[]  @relation("DelegationFromAgent")
   delegationsTo     AgentDelegation[]  @relation("DelegationToAgent")
+  modelPolicyBindings AgentModelPolicyBinding[]
 
   @@unique([organizationId, code])
   @@index([organizationId, status])
   @@index([ownerId])
+}
+
+// =============================================================
+// U.51 Model Control Center
+//     Organization-scoped model profiles and task-class policies.
+//     Credentials are intentionally NOT stored here.
+// =============================================================
+
+model ModelProfileConfig {
+  id               String   @id @default(uuid())
+  organizationId   String
+  key              String
+  displayName      String
+  description      String?
+  provider         String
+  modelId          String
+  capabilities     Json
+  locality         String
+  health           String   @default("HEALTHY")
+  enabled          Boolean  @default(false)
+  qualityTier      String
+  latencyTier      String
+  costTier         String
+  contextWindow    Int?
+  dataPolicyNote   String?
+  isPreset         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, key])
+  @@index([organizationId, enabled])
+  @@index([organizationId, provider])
+}
+
+model ModelPolicyConfig {
+  id                    String   @id @default(uuid())
+  organizationId        String
+  key                   String
+  name                  String
+  description           String?
+  version               String
+  taskClass             String
+  candidates            Json
+  requiredCapabilities  Json
+  cloudAllowed          Boolean  @default(true)
+  maxContextRequirement Int?
+  failurePolicy         Json?
+  isPreset              Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, key])
+  @@index([organizationId, taskClass])
+}
+
+model AgentModelPolicyBinding {
+  id             String   @id @default(uuid())
+  organizationId String
+  agentId        String
+  taskClass      String
+  policyKey      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  agent        Agent        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, taskClass])
+  @@index([organizationId, policyKey])
+  @@index([organizationId, taskClass])
 }
 
 model Skill {
