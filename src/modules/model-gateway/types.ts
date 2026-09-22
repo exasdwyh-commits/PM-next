@@ -32,6 +32,38 @@ export type ModelQualityTier = "FAST" | "BALANCED" | "FRONTIER";
 export type ModelLatencyTier = "FAST" | "NORMAL" | "SLOW";
 export type ModelCostTier = "FREE" | "LOW" | "STANDARD" | "PREMIUM" | "FIXED_LOCAL";
 
+export type ModelFailureKind =
+  | "RATE_LIMIT"
+  | "TIMEOUT"
+  | "AUTH"
+  | "CONFIG"
+  | "BAD_REQUEST"
+  | "CONTENT_POLICY"
+  | "SERVICE_UNAVAILABLE"
+  | "TRANSIENT"
+  | "UNKNOWN";
+
+export interface ModelFailurePolicy {
+  /** Consecutive health-relevant failures before opening the circuit. */
+  failureThreshold: number;
+  /** Default cooldown for threshold-triggered failures. */
+  cooldownMs: number;
+  /** Rate limit can use a shorter/longer provider-specific cooldown. */
+  rateLimitCooldownMs?: number;
+  /** Auth failures usually need operator intervention; default is longer. */
+  authCooldownMs?: number;
+}
+
+export interface ModelHealthSnapshot {
+  profileId: string;
+  consecutiveFailures: number;
+  cooldownUntilMs: number | null;
+  lastFailureKind: ModelFailureKind | null;
+  lastFailureAtMs: number | null;
+  lastSuccessAtMs: number | null;
+  lastError: string | null;
+}
+
 export interface ModelProfile {
   id: string;
   provider: string;
@@ -70,6 +102,11 @@ export interface ModelPolicy {
   cloudAllowed: boolean;
   /** Optional upper bound; absence means caller did not impose one. */
   maxContextRequirement?: number | null;
+  /**
+   * Runtime failure/cooldown policy. Omitted uses conservative gateway defaults.
+   * This controls availability only; it never expands the candidate list.
+   */
+  failurePolicy?: ModelFailurePolicy;
 }
 
 export interface ModelGatewayMessage {
@@ -120,6 +157,8 @@ export interface ModelExecutionAttempt {
   modelId: string;
   success: boolean;
   error?: string;
+  failureKind?: ModelFailureKind;
+  fallbackAllowed?: boolean;
 }
 
 export interface ModelGatewayResult extends ModelProviderResult {
@@ -129,4 +168,6 @@ export interface ModelGatewayResult extends ModelProviderResult {
   policyId: string;
   policyVersion: string;
   attempts: ModelExecutionAttempt[];
+  /** Profiles skipped by routing, including active cooldowns. */
+  routingSkips: ModelRouteSkip[];
 }

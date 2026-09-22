@@ -86,3 +86,38 @@ Fallback：
 3. Workforce 收口后把 Agent.provider/modelId 改成 modelPolicyId；
 4. AgentRun 保留实际 provider/modelId 历史；
 5. 设置页增加 Provider / Profile / Policy 管理。
+
+
+## Runtime Health / Circuit Breaker
+
+Model Gateway V2 增加运行期健康隔离：
+
+- `RATE_LIMIT`：立即进入短 cooldown，可在显式 ModelPolicy 候选中 fallback；
+- `AUTH`：立即进入较长 cooldown，等待配置修复；
+- `TIMEOUT / SERVICE_UNAVAILABLE / TRANSIENT / UNKNOWN`：达到连续失败阈值后 cooldown；
+- `BAD_REQUEST`：视为请求契约问题，不记坏模型健康，也不 fallback；
+- `CONTENT_POLICY`：禁止通过切换模型绕过内容策略；
+- `CONFIG`：启用 Profile 却没有 Provider 插件时 fail closed，禁止静默烧其它模型。
+
+任何 fallback 都必须仍在 ModelPolicy 的候选列表中。
+
+### 当前实现边界
+
+V2 的 `InMemoryModelHealthStore` 是**单进程运行时实现**，用于先验证状态机与行为契约；
+它不声称提供跨实例共享健康状态。
+
+接口已经异步抽象为 `ModelHealthStore`，未来部署多实例 Runtime 时可替换为
+PostgreSQL / Redis 实现，而不改变 ModelGateway 和业务层调用方式。
+
+### 为什么不把所有失败都算坏模型
+
+下列失败主要是请求本身的问题：
+
+- BAD_REQUEST
+- CONTENT_POLICY
+- CONFIG
+
+若把它们累计进 provider failure streak，会错误地把“某个请求不合法”解释成
+“整个模型服务不健康”，导致正常任务也被熔断。
+
+因此 Hermes 将**任务错误**与**模型可用性错误**分开。

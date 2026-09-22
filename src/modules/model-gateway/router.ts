@@ -1,6 +1,8 @@
+import { isModelCoolingDown } from "./health";
 import type {
   ModelCapability,
   ModelGatewayRequest,
+  ModelHealthSnapshot,
   ModelPolicy,
   ModelProfile,
   ModelRouteDecision,
@@ -50,7 +52,9 @@ export function selectModelRoute(
   policy: ModelPolicy,
   profiles: ModelProfile[],
   request: ModelGatewayRequest,
-  excludedProfileIds: Set<string> = new Set()
+  excludedProfileIds: Set<string> = new Set(),
+  healthSnapshots: ReadonlyMap<string, ModelHealthSnapshot> = new Map(),
+  nowMs: number = Date.now()
 ): ModelRouteDecision {
   if (policy.taskClass !== request.taskClass) {
     throw new ModelRoutingError(
@@ -70,6 +74,16 @@ export function selectModelRoute(
   for (const profile of orderedPolicyProfiles(policy, profiles)) {
     if (excludedProfileIds.has(profile.id)) {
       skipped.push({ profileId: profile.id, reason: "本次执行已尝试过该模型" });
+      continue;
+    }
+    const dynamicHealth = healthSnapshots.get(profile.id);
+    if (isModelCoolingDown(dynamicHealth, nowMs)) {
+      skipped.push({
+        profileId: profile.id,
+        reason: `模型冷却中，直到 ${new Date(
+          dynamicHealth!.cooldownUntilMs!
+        ).toISOString()}`,
+      });
       continue;
     }
     if (!profile.enabled) {

@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  InMemoryModelHealthStore,
   ModelGateway,
   ModelGatewayExecutionError,
+  ModelProviderError,
   ModelRegistry,
   selectModelRoute,
   type ModelPolicy,
@@ -197,4 +199,224 @@ test("Model Gateway：策略内没有满足能力的模型时显式失败", asyn
       ),
     ModelGatewayExecutionError
   );
+});
+
+
+test("Model Gateway：限流后进入 cooldown，后续请求直接路由策略内 fallback", async () => {
+  let now = 1_000;
+  let agnesCalls = 0;
+  const registry = new ModelRegistry();
+  registry.registerProfile(agnes);
+  registry.registerProfile(gpt);
+  registry.registerProvider({
+    provider: "agnes",
+    async execute() {
+      agnesCalls += 1;
+      throw new ModelProviderError("429 rate limit", "RATE_LIMIT", 429);
+    },
+  });
+  registry.registerProvider({
+    provider: "openai",
+    async execute(profile) {
+      return { text: "fallback", modelId: profile.modelId };
+    },
+  });
+
+  const health = new InMemoryModelHealthStore(() => now);
+  const gateway = new ModelGateway(registry, health, () => now);
+  const policy: ModelPolicy = {
+    id: "rate-limit-circuit",
+    version: "1",
+    taskClass: "QUICK_RESEARCH",
+    candidates: [
+      { profileId: "agnes-fast", priority: 1 },
+      { profileId: "gpt-frontier", priority: 2 },
+    ],
+    requiredCapabilities: ["TEXT"],
+    cloudAllowed: true,
+    failurePolicy: {
+      failureThreshold: 2,
+      cooldownMs: 10_000,
+      rateLimitCooldownMs: 5_000,
+      authCooldownMs: 60_000,
+    },
+  };
+  const request = {
+    taskClass: "QUICK_RESEARCH" as const,
+    messages: [{ role: "user" as const, content: "research" }],
+  };
+
+  const first = await gateway.execute(policy, request);
+  assert.equal(first.profileId, "gpt-frontier");
+  assert.equal(agnesCalls, 1);
+  const snapshot = await health.get("agnes-fast");
+  assert.equal(snapshot?.lastFailureKind, "RATE_LIMIT");
+  assert.equal(snapshot?.cooldownUntilMs, 6_000);
+
+  const second = await gateway.execute(policy, request);
+  assert.equal(second.profileId, "gpt-frontier");
+  assert.equal(agnesCalls, 1);
+  assert.ok(
+    second.routingSkips.some(
+      (item) =>
+        item.profileId === "agnes-fast" &&
+        item.reason.includes("冷却")
+    )
+  );
+
+  now = 6_001;
+  const third = await gateway.execute(policy, request);
+  assert.equal(third.profileId, "gpt-frontier");
+  assert.equal(agnesCalls, 2);
+});
+
+test("Model Gateway：配置错误不允许静默切到策略内付费 fallback", async () => {
+  let gptCalls = 0;
+  const registry = new ModelRegistry();
+  registry.registerProfile(agnes);
+  registry.registerProfile(gpt);
+  registry.registerProvider({
+    provider: "openai",
+    async execute() {
+      gptCalls += 1;
+      return { text: "should not be used" };
+    },
+  });
+
+  const gateway = new ModelGateway(registry);
+  await assert.rejects(
+    () =>
+      gateway.execute(
+        {
+          id: "config-fail-closed",
+          version: "1",
+          taskClass: "QUICK_RESEARCH",
+          candidates: [
+            { profileId: "agnes-fast", priority: 1 },
+            { profileId: "gpt-frontier", priority: 2 },
+          ],
+          requiredCapabilities: ["TEXT"],
+          cloudAllowed: true,
+        },
+        {
+          taskClass: "QUICK_RESEARCH",
+          messages: [{ role: "user", content: "research" }],
+        }
+      ),
+    (error: unknown) => {
+      assert.ok(error instanceof ModelGatewayExecutionError);
+      assert.equal(error.attempts[0]?.failureKind, "CONFIG");
+      assert.equal(error.attempts[0]?.fallbackAllowed, false);
+      return true;
+    }
+  );
+  assert.equal(gptCalls, 0);
+});
+
+test("Model Gateway：内容策略拒绝不通过切换模型绕过", async () => {
+  let gptCalls = 0;
+  const registry = new ModelRegistry();
+  registry.registerProfile(agnes);
+  registry.registerProfile(gpt);
+  registry.registerProvider({
+    provider: "agnes",
+    async execute() {
+      throw new ModelProviderError(
+        "provider content policy rejected request",
+        "CONTENT_POLICY"
+      );
+    },
+  });
+  registry.registerProvider({
+    provider: "openai",
+    async execute() {
+      gptCalls += 1;
+      return { text: "should not be used" };
+    },
+  });
+
+  const gateway = new ModelGateway(registry);
+  await assert.rejects(
+    () =>
+      gateway.execute(
+        {
+          id: "content-policy-fail-closed",
+          version: "1",
+          taskClass: "QUICK_RESEARCH",
+          candidates: [
+            { profileId: "agnes-fast", priority: 1 },
+            { profileId: "gpt-frontier", priority: 2 },
+          ],
+          requiredCapabilities: ["TEXT"],
+          cloudAllowed: true,
+        },
+        {
+          taskClass: "QUICK_RESEARCH",
+          messages: [{ role: "user", content: "request" }],
+        }
+      ),
+    (error: unknown) => {
+      assert.ok(error instanceof ModelGatewayExecutionError);
+      assert.equal(error.attempts[0]?.failureKind, "CONTENT_POLICY");
+      return true;
+    }
+  );
+  assert.equal(gptCalls, 0);
+});
+
+test("Model Gateway：cooldown 后模型恢复成功会清零 failure streak", async () => {
+  let now = 10_000;
+  let shouldFail = true;
+  const registry = new ModelRegistry();
+  registry.registerProfile(agnes);
+  registry.registerProfile(gpt);
+  registry.registerProvider({
+    provider: "agnes",
+    async execute(profile) {
+      if (shouldFail) {
+        throw new ModelProviderError("temporary timeout", "TIMEOUT");
+      }
+      return { text: "recovered", modelId: profile.modelId };
+    },
+  });
+  registry.registerProvider({
+    provider: "openai",
+    async execute(profile) {
+      return { text: "fallback", modelId: profile.modelId };
+    },
+  });
+
+  const health = new InMemoryModelHealthStore(() => now);
+  const gateway = new ModelGateway(registry, health, () => now);
+  const policy: ModelPolicy = {
+    id: "recovery",
+    version: "1",
+    taskClass: "QUICK_RESEARCH",
+    candidates: [
+      { profileId: "agnes-fast", priority: 1 },
+      { profileId: "gpt-frontier", priority: 2 },
+    ],
+    requiredCapabilities: ["TEXT"],
+    cloudAllowed: true,
+    failurePolicy: {
+      failureThreshold: 1,
+      cooldownMs: 100,
+    },
+  };
+  const request = {
+    taskClass: "QUICK_RESEARCH" as const,
+    messages: [{ role: "user" as const, content: "research" }],
+  };
+
+  const first = await gateway.execute(policy, request);
+  assert.equal(first.profileId, "gpt-frontier");
+  assert.equal((await health.get("agnes-fast"))?.consecutiveFailures, 1);
+
+  now += 101;
+  shouldFail = false;
+  const recovered = await gateway.execute(policy, request);
+  assert.equal(recovered.profileId, "agnes-fast");
+  const snapshot = await health.get("agnes-fast");
+  assert.equal(snapshot?.consecutiveFailures, 0);
+  assert.equal(snapshot?.cooldownUntilMs, null);
 });
