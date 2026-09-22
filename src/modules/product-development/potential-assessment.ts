@@ -8,6 +8,8 @@
  * - 潜力分只是已知信息下的诊断指标，不是市场成功概率。
  */
 
+export const PRODUCT_POTENTIAL_RULE_VERSION = "product-potential/v2";
+
 export type PotentialEvidenceState =
   | "VERIFIED"
   | "SUPPORTED"

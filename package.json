@@ -43,7 +43,8 @@
     "test:potential": "node --import tsx --test tests/golden-product-potential.test.ts",
     "test:model-gateway": "node --import tsx --test tests/model-gateway-routing.test.ts",
     "test:harness": "node --import tsx --test tests/evaluation-harness.test.ts",
-    "test:workforce": "tsx scripts/run-test.ts tests/regression-workforce-kernel.ts"
+    "test:workforce": "tsx scripts/run-test.ts tests/regression-workforce-kernel.ts",
+    "test:experience": "tsx scripts/run-test.ts tests/regression-harness-experience.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

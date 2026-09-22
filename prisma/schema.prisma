@@ -43,6 +43,13 @@ model Organization {
   workforceSquads      Squad[]
   workforceAgentTasks  AgentTask[]
   workforceDelegations AgentDelegation[]
+
+  // Evaluation Harness & Experience Loop
+  evaluationSuites  EvaluationSuite[]
+  evaluationRuns    EvaluationRun[]
+  frozenPredictions FrozenPrediction[]
+  productOutcomes   ProductOutcome[]
+  experienceLessons ExperienceLesson[]
 }
 
 /**
@@ -143,6 +150,13 @@ model User {
   workforceSquadMemberships   SquadMember[]     @relation("WorkforceSquadHumanMember")
   workforceAgentTasksCreated  AgentTask[]       @relation("WorkforceAgentTaskCreator")
   workforceDelegationsCreated AgentDelegation[] @relation("WorkforceDelegationCreator")
+
+  // Evaluation Harness & Experience Loop
+  evaluationSuitesCreated   EvaluationSuite[]   @relation("EvaluationSuiteCreator")
+  evaluationRunsStarted     EvaluationRun[]     @relation("EvaluationRunStarter")
+  frozenPredictionsCreated  FrozenPrediction[]  @relation("FrozenPredictionCreator")
+  productOutcomesVerified   ProductOutcome[]    @relation("ProductOutcomeVerifier")
+  experienceLessonsReviewed ExperienceLesson[] @relation("ExperienceLessonReviewer")
 
   @@index([organizationId])
 }
@@ -289,6 +303,7 @@ model Product {
   conversations Conversation[]
   actionProposals ActionProposal[]
   launchPlans  LaunchPlan[]
+  frozenPredictions FrozenPrediction[]
 
   @@unique([organizationId, identityCode])
   @@index([organizationId])
@@ -329,6 +344,7 @@ model ProductVersion {
   decisionPackets DecisionPacket[]
   analysisRuns    AnalysisRun[]
   artifacts       Artifact[]
+  frozenPredictions FrozenPrediction[]
 
   @@unique([productId, versionTag])
   @@index([productId])
@@ -1531,6 +1547,253 @@ model AgentDelegation {
   @@index([toAgentId])
   @@index([parentTaskId])
   @@index([sourceRunId])
+}
+
+// =============================================================
+// U.6 Evaluation Harness & Experience Loop
+// =============================================================
+
+enum EvaluationSuiteStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum EvaluationRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum EvaluationEvaluatorKind {
+  CODE
+  LLM_JUDGE
+  HUMAN
+  OUTCOME
+}
+
+enum FrozenPredictionVerdict {
+  BLOCKED
+  NEEDS_EVIDENCE
+  DEPRIORITIZE
+  VALIDATE
+  PRIORITIZE_FOR_VALIDATION
+}
+
+enum ProductValidationOutcomeStatus {
+  SUCCESS
+  FAILURE
+  INCONCLUSIVE
+  NOT_RUN
+}
+
+enum BacktestAlignmentStatus {
+  ALIGNED_SUCCESS
+  ALIGNED_FAILURE
+  FALSE_POSITIVE
+  FALSE_NEGATIVE
+  ABSTAINED
+  INCONCLUSIVE
+}
+
+enum ExperienceLessonStatus {
+  CANDIDATE
+  APPROVED
+  REJECTED
+  SUPERSEDED
+}
+
+model EvaluationSuite {
+  id             String                @id @default(uuid())
+  organizationId String
+  key            String
+  name           String
+  description    String?
+  version        Int                   @default(1)
+  status         EvaluationSuiteStatus @default(ACTIVE)
+  createdById    String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?                  @relation("EvaluationSuiteCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  cases        EvaluationCase[]
+  runs         EvaluationRun[]
+
+  @@unique([organizationId, key, version])
+  @@index([organizationId, status])
+}
+
+model EvaluationCase {
+  id           String   @id @default(uuid())
+  suiteId      String
+  key          String
+  title        String
+  inputJson    Json
+  expectedJson Json
+  tags         Json?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  suite   EvaluationSuite       @relation(fields: [suiteId], references: [id], onDelete: Cascade)
+  results EvaluationCaseResult[]
+
+  @@unique([suiteId, key])
+  @@index([suiteId, active])
+}
+
+model EvaluationRun {
+  id              String              @id @default(uuid())
+  organizationId  String
+  suiteId         String?
+  triggerType     String              @default("MANUAL")
+  status          EvaluationRunStatus @default(RUNNING)
+  subjectType     String?
+  subjectId       String?
+  modelProfileId  String?
+  modelPolicyKey  String?
+  promptVersion   String?
+  ruleVersion     String?
+  metricsJson     Json?
+  errorReason     String?
+  startedById     String?
+  startedAt       DateTime            @default(now())
+  finishedAt      DateTime?
+  createdAt       DateTime            @default(now())
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  suite        EvaluationSuite?       @relation(fields: [suiteId], references: [id], onDelete: SetNull)
+  startedBy    User?                  @relation("EvaluationRunStarter", fields: [startedById], references: [id], onDelete: SetNull)
+  results      EvaluationCaseResult[]
+
+  @@index([organizationId, status])
+  @@index([suiteId])
+  @@index([subjectType, subjectId])
+  @@index([modelProfileId])
+  @@index([modelPolicyKey])
+}
+
+model EvaluationCaseResult {
+  id               String                  @id @default(uuid())
+  runId            String
+  caseId           String?
+  caseKey          String
+  title            String
+  evaluatorKind    EvaluationEvaluatorKind @default(CODE)
+  passed           Boolean
+  criticalFailures Int                     @default(0)
+  outputJson       Json?
+  checksJson       Json
+  scoreJson        Json?
+  createdAt        DateTime                @default(now())
+
+  run  EvaluationRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  case EvaluationCase? @relation(fields: [caseId], references: [id], onDelete: SetNull)
+
+  @@index([runId])
+  @@index([caseId])
+  @@index([passed])
+}
+
+model FrozenPrediction {
+  id                       String                   @id @default(uuid())
+  organizationId           String
+  productId                String
+  productVersionId         String
+  productVersionFingerprint String
+  channelRouteId           String?
+  channelRouteFingerprint  String?
+  segmentKey               String                   @default("global")
+  assessmentRuleVersion    String
+  verdict                  FrozenPredictionVerdict
+  diagnosticIndex          Float?
+  coverageRatio            Float
+  verifiedCoverageRatio    Float
+  dimensionSnapshot        Json
+  gateSnapshot             Json
+  evidenceFingerprint      String?
+  modelPolicyKey           String?
+  modelProfileId           String?
+  promptVersion            String?
+  createdById              String
+  evaluatedAt              DateTime                 @default(now())
+  createdAt                DateTime                 @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productVersion ProductVersion @relation(fields: [productVersionId], references: [id], onDelete: Restrict)
+  createdBy    User         @relation("FrozenPredictionCreator", fields: [createdById], references: [id])
+  outcomes     ProductOutcome[]
+
+  @@index([organizationId, productId])
+  @@index([productVersionId])
+  @@index([segmentKey])
+  @@index([verdict])
+  @@index([evaluatedAt])
+}
+
+model ProductOutcome {
+  id                           String                         @id @default(uuid())
+  organizationId               String
+  frozenPredictionId           String
+  observationKey               String
+  outcome                      ProductValidationOutcomeStatus
+  evidenceRefs                 Json
+  verifiedById                 String
+  verifiedAt                   DateTime
+  channelAccepted              Boolean?
+  launched                     Boolean?
+  actualContributionMarginRate Float?
+  actualReturnRate             Float?
+  repeatPurchaseRate           Float?
+  observationDays              Int?
+  notes                        Json?
+  backtestAlignment            BacktestAlignmentStatus
+  backtestComparable           Boolean                        @default(true)
+  backtestReason               String
+  createdAt                    DateTime                       @default(now())
+
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  frozenPrediction FrozenPrediction @relation(fields: [frozenPredictionId], references: [id], onDelete: Cascade)
+  verifiedBy       User             @relation("ProductOutcomeVerifier", fields: [verifiedById], references: [id])
+
+  @@unique([frozenPredictionId, observationKey])
+  @@index([organizationId, outcome])
+  @@index([observationKey])
+  @@index([backtestAlignment])
+}
+
+model ExperienceLesson {
+  id                 String                 @id @default(uuid())
+  organizationId     String
+  key                String
+  version            Int                    @default(1)
+  segmentKey         String
+  targetType         String?
+  targetKey          String?
+  statement          String
+  supportCount       Int
+  contradictionCount Int
+  sampleSize         Int
+  evidenceRefs       Json
+  status             ExperienceLessonStatus @default(CANDIDATE)
+  readyForReview     Boolean                @default(false)
+  limitations        Json
+  proposedChange     Json?
+  reviewedById       String?
+  reviewedAt         DateTime?
+  decisionReason     String?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reviewedBy   User?        @relation("ExperienceLessonReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, key, version])
+  @@index([organizationId, status])
+  @@index([segmentKey, targetType, targetKey])
+  @@index([readyForReview])
 }
 
 // =============================================================
