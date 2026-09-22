@@ -36,6 +36,13 @@ model Organization {
   launchPlans      LaunchPlan[]
   launchMilestones LaunchMilestone[]
   artifacts        Artifact[]
+
+  // Autonomous Workforce Kernel
+  workforceAgents      Agent[]
+  workforceSkills      Skill[]
+  workforceSquads      Squad[]
+  workforceAgentTasks  AgentTask[]
+  workforceDelegations AgentDelegation[]
 }
 
 /**
@@ -127,6 +134,15 @@ model User {
   companyFactsConfirmed CompanyFact[]  @relation("CompanyFactConfirmer")
   launchPlansOwned      LaunchPlan[]    @relation("LaunchPlanOwner")
   launchMilestonesOwned LaunchMilestone[] @relation("LaunchMilestoneOwner")
+
+  // Autonomous Workforce Kernel
+  workforceAgentsOwned        Agent[]           @relation("WorkforceAgentOwner")
+  workforceSkillsCreated      Skill[]           @relation("WorkforceSkillCreator")
+  workforceSkillAssignments   AgentSkill[]      @relation("WorkforceSkillAssigner")
+  workforceSquadsCreated      Squad[]           @relation("WorkforceSquadCreator")
+  workforceSquadMemberships   SquadMember[]     @relation("WorkforceSquadHumanMember")
+  workforceAgentTasksCreated  AgentTask[]       @relation("WorkforceAgentTaskCreator")
+  workforceDelegationsCreated AgentDelegation[] @relation("WorkforceDelegationCreator")
 
   @@index([organizationId])
 }
@@ -355,6 +371,7 @@ model WorkItem {
   submissions     WorkSubmission[]
   artifacts       Artifact[]
   applicabilities ArtifactApplicability[]
+  agentTasks      AgentTask[]
 
   @@index([projectId])
   @@index([status])
@@ -1151,6 +1168,13 @@ model AgentRun {
   organizationId String
   conversationId String?
   userId         String
+  /// 长期数字员工身份；为空表示历史/未归属运行
+  agentId        String?
+  /// 本次运行所执行的数字员工任务；为空表示直接顾问会话等历史路径
+  agentTaskId    String?
+  /// 触发来源用于审计/回放，不承担授权含义
+  triggerType    AgentTriggerType?
+  triggerRef     String?
   goal           String
   /// 上下文快照：知识引用、产品版本、权限范围、检索时间（蓝图 §6）
   contextSnapshot Json?
@@ -1182,11 +1206,16 @@ model AgentRun {
   organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   conversation Conversation?    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   user         User             @relation("AgentRunUser", fields: [userId], references: [id])
+  agent        Agent?           @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  agentTask    AgentTask?       @relation(fields: [agentTaskId], references: [id], onDelete: SetNull)
   toolCalls    ToolCall[]
   proposals    ActionProposal[]
+  delegations AgentDelegation[] @relation("DelegationSourceRun")
 
   @@index([organizationId])
   @@index([conversationId])
+  @@index([agentId])
+  @@index([agentTaskId])
   @@index([status])
 }
 
@@ -1252,6 +1281,256 @@ model ActionProposal {
   @@index([conversationId])
   @@index([productId])
   @@index([status])
+}
+
+// =============================================================
+// U.5 Autonomous Workforce Kernel
+//     Agent = 长期身份；Skill = 可复用 SOP；Squad = 协作路由；
+//     AgentTask = 一次接活；AgentRun = 一次实际执行；Delegation = 委派证据。
+//     本层不直接绕过 Governance Kernel：任何产品/项目业务写入仍走既有授权、
+//     Proposal / Changeset / Audit / Receipt 约束。
+// =============================================================
+
+enum AgentLifecycleStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum AgentAccessMode {
+  OWNER_ONLY
+  ORGANIZATION
+}
+
+enum SkillLifecycleStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum SquadLifecycleStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum SquadMemberType {
+  AGENT
+  HUMAN
+}
+
+enum AgentTaskStatus {
+  QUEUED
+  RUNNING
+  BLOCKED
+  WAITING_HUMAN
+  SUBMITTED
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum AgentTriggerType {
+  MANUAL
+  WORK_ITEM
+  DELEGATION
+  SYSTEM
+  AUTOPILOT
+  EVENT
+  API
+}
+
+enum DelegationStatus {
+  CREATED
+  ACCEPTED
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model Agent {
+  id                 String               @id @default(uuid())
+  organizationId     String
+  code               String
+  name               String
+  description        String?
+  roleKey            String
+  instructions       String               @default("")
+  /// 默认模型策略引用；实际 provider/modelId 记录在 AgentRun/ModelRun，而不是绑定在长期 Agent 身份上。
+  modelPolicyKey     String?
+  maxConcurrentTasks Int                  @default(2)
+  accessMode         AgentAccessMode      @default(OWNER_ONLY)
+  ownerId            String?
+  isSystem           Boolean              @default(false)
+  status             AgentLifecycleStatus @default(ACTIVE)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner             User?              @relation("WorkforceAgentOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  skillBindings     AgentSkill[]
+  ledSquads         Squad[]            @relation("WorkforceSquadLeader")
+  squadMemberships  SquadMember[]
+  tasks             AgentTask[]
+  runs              AgentRun[]
+  delegationsFrom   AgentDelegation[]  @relation("DelegationFromAgent")
+  delegationsTo     AgentDelegation[]  @relation("DelegationToAgent")
+
+  @@unique([organizationId, code])
+  @@index([organizationId, status])
+  @@index([ownerId])
+}
+
+model Skill {
+  id             String               @id @default(uuid())
+  organizationId String
+  key            String
+  name           String
+  description    String?
+  instructions   String
+  version        Int                  @default(1)
+  references     Json?
+  allowedTools   Json?
+  outputSchema   Json?
+  status         SkillLifecycleStatus @default(ACTIVE)
+  createdById    String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy     User?        @relation("WorkforceSkillCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  agentBindings AgentSkill[]
+
+  @@unique([organizationId, key])
+  @@index([organizationId, status])
+}
+
+model AgentSkill {
+  id           String   @id @default(uuid())
+  agentId      String
+  skillId      String
+  enabled      Boolean  @default(true)
+  assignedById String?
+  assignedAt   DateTime @default(now())
+
+  agent      Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  skill      Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  assignedBy User? @relation("WorkforceSkillAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@unique([agentId, skillId])
+  @@index([skillId])
+}
+
+model Squad {
+  id             String               @id @default(uuid())
+  organizationId String
+  code           String
+  name           String
+  description    String?
+  instructions   String               @default("")
+  leaderAgentId  String
+  createdById    String?
+  status         SquadLifecycleStatus @default(ACTIVE)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leader       Agent        @relation("WorkforceSquadLeader", fields: [leaderAgentId], references: [id])
+  createdBy    User?        @relation("WorkforceSquadCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  members      SquadMember[]
+  tasks        AgentTask[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, status])
+  @@index([leaderAgentId])
+}
+
+model SquadMember {
+  id              String          @id @default(uuid())
+  squadId         String
+  memberType      SquadMemberType
+  agentId         String?
+  userId          String?
+  roleDescription String?
+  createdAt       DateTime        @default(now())
+
+  squad Squad @relation(fields: [squadId], references: [id], onDelete: Cascade)
+  agent Agent? @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  user  User?  @relation("WorkforceSquadHumanMember", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([squadId, agentId])
+  @@unique([squadId, userId])
+  @@index([agentId])
+  @@index([userId])
+}
+
+model AgentTask {
+  id              String          @id @default(uuid())
+  organizationId  String
+  agentId         String
+  workItemId      String?
+  squadId         String?
+  parentTaskId    String?
+  goal            String
+  contextSnapshot Json?
+  status          AgentTaskStatus @default(QUEUED)
+  priority        Int             @default(50)
+  triggerType     AgentTriggerType @default(MANUAL)
+  triggerRef      String?
+  blockedReason   String?
+  attempt         Int             @default(1)
+  maxAttempts     Int             @default(3)
+  createdByUserId String?
+  availableAt     DateTime        @default(now())
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  agent        Agent        @relation(fields: [agentId], references: [id])
+  workItem     WorkItem?    @relation(fields: [workItemId], references: [id], onDelete: SetNull)
+  squad        Squad?       @relation(fields: [squadId], references: [id], onDelete: SetNull)
+  parentTask   AgentTask?   @relation("WorkforceAgentTaskParent", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  childTasks   AgentTask[]  @relation("WorkforceAgentTaskParent")
+  createdBy    User?        @relation("WorkforceAgentTaskCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  runs         AgentRun[]
+  parentDelegations AgentDelegation[] @relation("DelegationParentTask")
+  childDelegation   AgentDelegation?  @relation("DelegationChildTask")
+
+  @@index([organizationId, status])
+  @@index([agentId, status])
+  @@index([workItemId])
+  @@index([squadId])
+  @@index([parentTaskId])
+  @@index([availableAt])
+}
+
+model AgentDelegation {
+  id              String           @id @default(uuid())
+  organizationId  String
+  fromAgentId     String
+  toAgentId       String
+  parentTaskId    String?
+  childTaskId     String           @unique
+  sourceRunId     String?
+  reason          String
+  status          DelegationStatus @default(CREATED)
+  createdByUserId String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fromAgent    Agent        @relation("DelegationFromAgent", fields: [fromAgentId], references: [id])
+  toAgent      Agent        @relation("DelegationToAgent", fields: [toAgentId], references: [id])
+  parentTask   AgentTask?   @relation("DelegationParentTask", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  childTask    AgentTask    @relation("DelegationChildTask", fields: [childTaskId], references: [id], onDelete: Cascade)
+  sourceRun    AgentRun?    @relation("DelegationSourceRun", fields: [sourceRunId], references: [id], onDelete: SetNull)
+  createdBy    User?        @relation("WorkforceDelegationCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
+  @@index([fromAgentId])
+  @@index([toAgentId])
+  @@index([parentTaskId])
+  @@index([sourceRunId])
 }
 
 // =============================================================

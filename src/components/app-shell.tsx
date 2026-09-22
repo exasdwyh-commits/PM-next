@@ -30,6 +30,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "overview", label: "工作总览", href: "/", icon: "grid", hint: "今天待办、待我决策、产品推进、风险阻塞" },
   { key: "products", label: "产品开发", href: "/products", icon: "flask", hint: "产品列表与阶段看板" },
   { key: "advisor", label: "AI 顾问", href: "/advisor", icon: "chat", hint: "公司上下文咨询与任务草案" },
+  { key: "workforce", label: "数字员工", href: "/workforce", icon: "users", hint: "Agent、Squad、Skills、任务负载与等待拍板" },
   { key: "opportunities", label: "市场机会", href: "/opportunities", icon: "signal", hint: "有来源的信号与待验证假设" },
   { key: "knowledge", label: "公司知识", href: "/knowledge", icon: "book", hint: "公司概况、文档、决策与复盘" },
 ];
