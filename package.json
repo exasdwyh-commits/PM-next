@@ -40,7 +40,8 @@
     "test:research-snapshot": "tsx scripts/run-test.ts tests/regression-research-snapshot.ts",
     "test:launch-auth": "node --import tsx --test tests/regression-launch-authorization.test.ts",
     "test:g3": "tsx scripts/run-test.ts tests/regression-formal-g3.ts",
-    "test:potential": "node --import tsx --test tests/golden-product-potential.test.ts"
+    "test:potential": "node --import tsx --test tests/golden-product-potential.test.ts",
+    "test:model-gateway": "node --import tsx --test tests/model-gateway-routing.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
