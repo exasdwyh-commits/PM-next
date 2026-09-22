@@ -61,3 +61,21 @@ npm run test:golden
 - Proposal → Revision → Decision Gate 的端到端黄金路径；
 - 真实 LLM 输出的结构契约与反例集；
 - 多组织与多角色下的同一业务案例。
+
+
+## V2 · ResearchRun 冻结需求快照
+
+新增研究编排一致性门槛：
+
+- ResearchRun 启动时把本轮研究问题、Project 目标/约束、Product 定义和 ProductVersion 关键字段合并为 `requirement-context/v2`；
+- 完整需求上下文写入 `scopeSnapshotJson`，与 `inputRevision` 一起冻结；
+- 后续市场研究优先读取冻结上下文，不再直接依赖执行时的 live Product / Project 字段；
+- 旧 ResearchRun 没有 v2 快照时才走兼容回退。
+
+数据库回归会在 ResearchRun 启动后故意把 1999 元改成 99 元、35 岁改成 18 岁、私域改成快手直播；当前研究结果仍必须保持启动时输入，证明不存在“半路换题”。
+
+运行：
+
+```bash
+npm run test:research-snapshot
+```

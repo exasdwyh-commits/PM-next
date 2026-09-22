@@ -6,10 +6,12 @@ on:
       - "prisma/**"
       - "src/modules/advisor/**"
       - "src/modules/product-development/**"
+      - "src/modules/research/**"
       - "src/modules/work/**"
       - "src/shared/audit.ts"
       - "src/shared/idempotency.ts"
       - "tests/regression-governance-convergence.ts"
+      - "tests/regression-research-snapshot.ts"
       - "package.json"
       - ".github/workflows/governance-ci.yml"
   push:
@@ -18,10 +20,12 @@ on:
       - "prisma/**"
       - "src/modules/advisor/**"
       - "src/modules/product-development/**"
+      - "src/modules/research/**"
       - "src/modules/work/**"
       - "src/shared/audit.ts"
       - "src/shared/idempotency.ts"
       - "tests/regression-governance-convergence.ts"
+      - "tests/regression-research-snapshot.ts"
       - "package.json"
       - ".github/workflows/governance-ci.yml"
 
@@ -75,3 +79,4 @@ jobs:
       - run: npx tsc --noEmit -p tsconfig.governance.json
       - run: npx prisma migrate deploy
       - run: npm run test:governance
+      - run: npm run test:research-snapshot

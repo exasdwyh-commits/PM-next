@@ -9,6 +9,7 @@ import {
 } from "@prisma/client";
 import { synthesizeMarketResearch } from "./market-research";
 import { parseProjectRequirements } from "./requirement-parser";
+import { buildRequirementContext, readFrozenRequirementContext } from "./requirement-context";
 
 /**
  * R: 五阶段研究编排（机制迁移自老版 research-run.ts，报告阶段接入本模块规则合成）
@@ -100,15 +101,58 @@ export async function startResearchRun(
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    select: { revision: true, target: true, constraints: true },
+    select: {
+      revision: true,
+      target: true,
+      constraints: true,
+      product: {
+        select: {
+          name: true,
+          coreIdea: true,
+          targetAudience: true,
+          coreSellingPoints: true,
+          targetChannels: true,
+          priceExpectation: true,
+          formSpec: true,
+          forbiddenItems: true,
+        },
+      },
+      productVersion: {
+        select: {
+          specs: true,
+          product: {
+            select: {
+              name: true,
+              coreIdea: true,
+              targetAudience: true,
+              coreSellingPoints: true,
+              targetChannels: true,
+              priceExpectation: true,
+              formSpec: true,
+              forbiddenItems: true,
+            },
+          },
+        },
+      },
+    },
   });
   if (!project) throw new NotFoundError("Project not found");
+
+  const productContext = project.product ?? project.productVersion?.product ?? null;
+  const requirementContext = buildRequirementContext({
+    question: question.slice(0, 500),
+    projectTarget: project.target,
+    projectConstraints: project.constraints || null,
+    product: productContext,
+    versionSpecs: project.productVersion?.specs ?? null,
+  });
 
   const scopeSnapshot = {
     question: question.slice(0, 500),
     projectTarget: project.target,
     projectConstraints: project.constraints || null,
     inputRevision: project.revision,
+    requirementContext,
   };
 
   const run = await prisma.researchRun.create({
@@ -231,16 +275,34 @@ async function branchMarket(runId: string): Promise<TaskOutcome> {
     where: { id: run.projectId },
     include: {
       evidences: { include: { claims: true } },
+      product: true,
       productVersion: { include: { product: true } },
     },
   });
   if (!project) return { status: "failed", errorReason: "项目不存在" };
 
-  const constraints = parseProjectRequirements(project.constraints || "").constraints;
+  // 优先使用启动 ResearchRun 时冻结的需求上下文。这样即使产品/项目在研究执行过程中被修改，
+  // 本轮报告仍严格对应 inputRevision 与 scopeSnapshot，不会“半路换题”。
+  const frozenRequirement = readFrozenRequirementContext(run.scopeSnapshotJson);
+  const legacyProductContext = project.product ?? project.productVersion?.product ?? null;
+  const legacyRequirement = buildRequirementContext({
+    question: run.question,
+    projectTarget: project.target,
+    projectConstraints: project.constraints || null,
+    product: legacyProductContext,
+    versionSpecs: project.productVersion?.specs ?? null,
+  });
+  const requirementText = frozenRequirement?.requirementText ?? legacyRequirement.requirementText;
+  const constraints = parseProjectRequirements(requirementText).constraints;
+
   const verifiedSnippets = project.evidences
     .filter((e) => e.verifyStatus === "VERIFIED")
     .map((e) => ({ id: e.id, content: e.contentOrUri, source: e.source }));
-  const categoryName = project.productVersion?.product?.name || "健康食品";
+  const categoryName =
+    frozenRequirement?.productName ||
+    legacyRequirement.productName ||
+    project.productVersion?.product?.name ||
+    "健康食品";
 
   try {
     const report = synthesizeMarketResearch(run.projectId, categoryName, constraints, verifiedSnippets);
