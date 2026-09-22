@@ -13,7 +13,14 @@
     "src/modules/work/service.ts",
     "tests/regression-governance-convergence.ts",
     "tests/acceptance-professional-analysis.test.ts",
-    "tests/regression-professional-analysis-integration.test.ts"
+    "tests/regression-professional-analysis-integration.test.ts",
+    "src/modules/decisions/service.ts",
+    "src/modules/decisions/scope-hash.ts",
+    "src/modules/launch/gate.ts",
+    "src/modules/launch/service.ts",
+    "tests/regression-formal-g3.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }

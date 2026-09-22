@@ -5,6 +5,8 @@ export interface ScopeHashInput {
   projectId: string;
   gate: string;
   productVersionId?: string | null;
+  launchPlanId?: string | null;
+  launchPlanHash?: string | null;
   /** 允许携带 id / contentHash / inputRevision 等扩展字段，但只有 type 与 version 参与指纹 */
   artifactVersions: Array<{ type: string; version: number }>;
   evidenceVersions: Array<{ id: string; hash: string }>;
@@ -41,6 +43,8 @@ export function computeScopeHash(input: ScopeHashInput): string {
     projectId: input.projectId,
     gate: input.gate,
     productVersionId: input.productVersionId || null,
+    launchPlanId: input.launchPlanId || null,
+    launchPlanHash: input.launchPlanHash || null,
     artifacts: sortedArtifacts,
     evidences: sortedEvidences,
     budgetAmount: input.budgetAmount ? String(input.budgetAmount) : null,
@@ -74,6 +78,9 @@ export function diffScopeInput(
   const aPV = String(a.productVersionId ?? "");
   const bPV = String(b.productVersionId ?? "");
   if (aPV !== bPV) changes.push("产品版本");
+
+  if (String(a.launchPlanId ?? "") !== String(b.launchPlanId ?? "")) changes.push("上市计划");
+  if (String(a.launchPlanHash ?? "") !== String(b.launchPlanHash ?? "")) changes.push("上市计划内容");
 
   // artifactVersions: 按 类型/版本 规范化对比
   const normArt = (arr: any) =>

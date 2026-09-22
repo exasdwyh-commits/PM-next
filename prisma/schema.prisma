@@ -689,6 +689,7 @@ model Feedback {
 enum GateType {
   RESEARCH_SAMPLING_GATE
   PRODUCTION_GATE
+  LAUNCH_GATE
 }
 
 enum DecisionPacketStatus {
@@ -706,6 +707,8 @@ model DecisionPacket {
   gate             GateType             @default(RESEARCH_SAMPLING_GATE)
   projectId        String
   productVersionId String?
+  launchPlanId     String?
+  launchPlanHash   String?
   artifactVersions Json
   evidenceVersions Json
   budgetAmount     Decimal?             @db.Decimal(12, 2)
@@ -722,9 +725,12 @@ model DecisionPacket {
 
   project        Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   productVersion ProductVersion? @relation(fields: [productVersionId], references: [id])
+  launchPlan     LaunchPlan?     @relation("LaunchDecisionPackets", fields: [launchPlanId], references: [id], onDelete: SetNull)
+  formalG3ForPlan LaunchPlan?    @relation("LaunchFormalG3")
   decisions      Decision[]
 
   @@index([projectId])
+  @@index([launchPlanId])
   @@index([status])
 }
 
@@ -1418,10 +1424,16 @@ model LaunchPlan {
   targetDate     DateTime?
   ownerId        String?
   status         LaunchPlanStatus  @default(DRAFT)
+  /// 上市计划治理修订号：基本信息/里程碑任一实质修改必须递增，用于 G3 CAS。
+  governanceRevision Int @default(1)
   /// 获准时间（审批通过 ≠ 已上市）
   approvedAt     DateTime?
   /// 实际上市时间（由实际上市动作/证据确认）
   actualLaunchedAt DateTime?
+  /// 当前有效的正式 G3 授权。历史 DecisionPacket / Decision 保持 append-only；
+  /// 若计划随后发生实质修改，仅清空当前有效指针，不删除历史批准。
+  formalG3PacketId   String?   @unique
+  formalG3ApprovedAt DateTime?
   notes          String?
   createdById    String?
   createdAt      DateTime          @default(now())
@@ -1432,6 +1444,8 @@ model LaunchPlan {
   project      Project?          @relation(fields: [projectId], references: [id])
   owner        User?             @relation("LaunchPlanOwner", fields: [ownerId], references: [id])
   milestones   LaunchMilestone[]
+  decisionPackets DecisionPacket[] @relation("LaunchDecisionPackets")
+  formalG3Packet DecisionPacket?   @relation("LaunchFormalG3", fields: [formalG3PacketId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@index([productId])

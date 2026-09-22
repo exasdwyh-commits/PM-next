@@ -96,8 +96,10 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
   const plan = ctx?.plan ?? null;
   const gate = ctx?.gate ?? null;
   const canEdit = !!ctx?.canEdit;
-  // TASK-005b：放行机制来源（LEGACY_APPROVAL vs FORMAL_G3）。正式 G3 当前恒不存在。
   const authorization = ctx?.authorization ?? null;
+  const g3Packet = ctx?.g3Packet ?? null;
+  const canRequestG3 = !!ctx?.canRequestG3;
+  const canDecideG3 = !!ctx?.canDecideG3;
 
   if (loading) {
     return (
@@ -280,60 +282,62 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
   const milestones: any[] = plan.milestones ?? [];
   const doneCount = milestones.filter((m) => m.status === "DONE").length;
 
-  // 计算当前所处的关键推进阶段（渐进式推进）：
-  // 1. 存在未完成或阻塞里程碑 -> 关键动作是推进/排除里程碑阻塞
-  // 2. 里程碑已完备但门禁未获准 -> 关键动作是放行（获准）
-  // 3. 旧机制批准但未上市 -> 关键动作是确认实际上市
-  // 4. 已上市 -> 流程完成
+  // 正式 G3 与实际上市是两步：G3 只授权，实际上市仍需单独记录真实动作。
   const blockedMilestones = milestones.filter((m) => m.status === "BLOCKED");
-  const hasPendingMilestones = milestones.some((m) => m.status !== "DONE");
-  const isApproved = !!plan.approvedAt;
+  const hasFormalG3 = !!authorization?.formalG3;
+  const hasLegacyApproval = !!plan.approvedAt && !hasFormalG3;
   const isLaunched = !!plan.actualLaunchedAt;
-  // 分层信息设计 · 上市默认下一里程碑和阻塞，全部依赖在详情。
+  const g3InReview = g3Packet?.status === "IN_REVIEW";
   const nextMilestone = milestones.find((m) => m.status !== "DONE") ?? null;
+
   const nextFocusText = isLaunched
     ? "流程已完成，无待办里程碑。"
     : blockedMilestones.length > 0
       ? `下一里程碑「${blockedMilestones[0].title}」被阻塞${blockedMilestones[0].blockerReason ? `（${blockedMilestones[0].blockerReason}）` : ""}。`
       : nextMilestone
         ? `下一里程碑「${nextMilestone.title}」${nextMilestone.dueDate ? `，截止 ${toDateInput(nextMilestone.dueDate)}` : "，未设截止日"}。`
-        : "里程碑已全部完成，等待放行审批。";
+        : hasFormalG3
+          ? "正式 G3 已批准，等待真实渠道/供货动作后确认实际上市。"
+          : g3InReview
+            ? "正式 G3 已提交，等待指定决策人审批。"
+            : "里程碑已全部完成，可提交正式 G3 上市授权审批。";
 
-  // 门槛线 G3（上市放行）：依据 LaunchPlan + evaluateGate()。获准 ≠ 已上市，两态如实区分。
-  // TASK-005b：且「获准」当前来自**旧 approve 机制（LEGACY_APPROVAL）**，**不是正式 G3 授权**。
-  const g3State: GateNode["state"] = plan.approvedAt || plan.actualLaunchedAt
+  const g3State: GateNode["state"] = hasFormalG3 || isLaunched
     ? "passed"
-    : gate?.ready
+    : g3InReview || gate?.ready
       ? "pending"
       : "blocked";
-  const g3Detail = plan.actualLaunchedAt
+  const g3Detail = isLaunched
     ? "已上市"
-    : plan.approvedAt
-      ? "旧机制批准（未上市）"
-      : gate?.ready
-        ? "待放行审批"
-        : `门禁未满足：${(gate?.blockers?.length ?? 0)} 项`;
+    : hasFormalG3
+      ? "正式 G3 已批准"
+      : g3InReview
+        ? "正式 G3 待审批"
+        : gate?.ready
+          ? "可提交正式 G3"
+          : `门禁未满足：${gate?.blockers?.length ?? 0} 项`;
   const gateNodes: GateNode[] = [
-    { key: "G3", label: "上市放行", state: g3State, source: "launch-plan", detail: g3Detail, refId: plan.id },
+    { key: "G3", label: "上市授权", state: g3State, source: "decision-packet", detail: g3Detail, refId: g3Packet?.id ?? plan.id },
   ];
-
   return (
     <div className="hermes-stack">
       {err && <div className="hermes-banner is-danger">{err}</div>}
       {msg && <div className="hermes-banner">{msg}</div>}
 
       {/* 阶段导引条：明确当前最重要的推进动作，避免多阶段动作同时抢占注意 */}
-      <div className={cx("hermes-banner", isLaunched ? "is-ok" : isApproved ? "is-info" : blockedMilestones.length > 0 ? "is-danger" : "is-warn")}>
+      <div className={cx("hermes-banner", isLaunched || hasFormalG3 ? "is-ok" : blockedMilestones.length > 0 ? "is-danger" : "is-warn")}>
         <strong>当前推进阶段：</strong>{" "}
         {isLaunched
           ? `已于 ${fmtDate(plan.actualLaunchedAt)} 确认上市，产品生命周期已转为「已上市」。`
-          : isApproved
-            ? "上市计划已获旧机制批准（准备就绪）——非正式 G3 授权。下一步动作：待首批货源/渠道实际上线后，点击下方「确认实际上市」写入真实依据。"
-            : blockedMilestones.length > 0
-              ? `当前存在 ${blockedMilestones.length} 项阻塞里程碑，放行门禁已拦截。当前焦点：协调解决阻塞原因。`
-              : gate?.ready
-                ? "所有前置依赖与门禁条件均已满足！当前焦点：由负责人或决策人审核并点击「放行（获准）」。"
-                : "上市计划推进中，请继续完善依赖项并满足放行门禁要求。"}
+          : hasFormalG3
+            ? "正式 G3 已由指定决策人批准。下一步：在渠道/供货真实发生后记录实际上市动作。"
+            : g3InReview
+              ? "正式 G3 已送审，当前等待指定决策人批准或驳回；负责人不能自批。"
+              : blockedMilestones.length > 0
+                ? `当前存在 ${blockedMilestones.length} 项阻塞里程碑，G3 门禁已拦截。当前焦点：协调解决阻塞原因。`
+                : gate?.ready
+                  ? "前置依赖已满足。当前焦点：由项目负责人提交正式 G3，再由指定决策人审批。"
+                  : "上市计划推进中，请继续完善依赖项并满足正式 G3 前置门禁。"}
       </div>
 
       {authorization?.approved && !authorization.formalG3 && (
@@ -346,7 +350,7 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
       <Panel eyebrow="LAUNCH" title="上市计划" sub={plan.title}>
         <p className="hermes-theme-conclusion" style={{ margin: "0 0 8px" }}>{nextFocusText}</p>
         <p className="hermes-theme-detail-p">
-          负责人 {plan.owner?.name ?? "未设置"} · 目标 {plan.targetDate ? toDateInput(plan.targetDate) : "未设置日期"} · 里程碑 {doneCount}/{milestones.length} 完成 · {plan.approvedAt ? "旧机制批准（准备就绪）" : "未获准"}
+          负责人 {plan.owner?.name ?? "未设置"} · 目标 {plan.targetDate ? toDateInput(plan.targetDate) : "未设置日期"} · 里程碑 {doneCount}/{milestones.length} 完成 · {hasFormalG3 ? "正式 G3 已批准" : g3InReview ? "G3 待审批" : "G3 未授权"}
         </p>
         <details className="hermes-details" style={{ marginTop: 10 }}>
           <summary style={{ fontWeight: 600, padding: "4px 0" }}>查看计划与时间明细</summary>
@@ -355,8 +359,12 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
               items={[
                 { k: "计划状态", v: labelLaunchPlanStatus(plan.status) },
                 {
-                  k: "获准时间",
-                  v: plan.approvedAt ? fmtDateTime(plan.approvedAt) : "尚未获准",
+                  k: "正式 G3",
+                  v: hasFormalG3
+                    ? `已批准 · ${authorization?.approvedAt ? fmtDateTime(authorization.approvedAt) : "时间已记录"}`
+                    : g3InReview
+                      ? "等待指定决策人审批"
+                      : "尚未授权",
                 },
                 {
                   k: "实际上市时间",
@@ -381,7 +389,7 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
 
         {/* 门槛线 G3：依据上市计划（LaunchPlan + evaluateGate）。获准 ≠ 已上市。 */}
         <GateLine gates={gateNodes} ariaLabel="上市放行门槛" />
-        <p className="viz-source-note">依据：上市计划。获准 ≠ 已上市；实际上市由「确认实际上市」单独记录。当前「获准」为旧机制批准（准备就绪），<strong>不是正式 G3 授权</strong>（正式授权将由指定决策人批准，TASK-034/035 落地）。</p>
+        <p className="viz-source-note">依据：上市计划 + 正式 DecisionPacket。负责人提交 G3，指定决策人审批，负责人不得自批；计划、里程碑、产品版本或项目基线变化会让当前 G3 授权失效。G3 批准 ≠ 已上市，实际上市仍需单独记录真实动作。</p>
 
         <details className="hermes-details" style={{ marginTop: 10 }} open={gate?.ready === false}>
           <summary style={{ fontWeight: 600, padding: "4px 0" }}>
@@ -403,45 +411,70 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
         </details>
 
         <div className="hermes-inline-end" style={{ marginTop: 14 }}>
-          <button
-            className="hermes-primary-btn"
-            disabled={busy || !gate?.ready || !canEdit || !!plan.approvedAt}
-            title={
-              !canEdit
-                ? "没有修改权限"
-                : plan.approvedAt
-                  ? "已批准（旧机制）"
-                  : gate?.ready
-                    ? undefined
-                    : "门禁未全部满足，不可放行"
-            }
-            onClick={() => call(`/api/launch/plans/${plan.id}/approve`, "POST", { note: null })}
-          >
-            {plan.approvedAt ? "已批准（旧机制）" : "放行（获准）"}
-          </button>
-          {plan.approvedAt && (
+          {canRequestG3 && !hasFormalG3 && !g3InReview && (
             <button
-              className="hermes-danger-btn"
-              disabled={busy || !canEdit}
+              className="hermes-primary-btn"
+              disabled={busy || !gate?.ready}
+              title={gate?.ready ? undefined : "门禁未全部满足，不能提交正式 G3"}
               onClick={async () => {
-                const reason = await askReason({
-                  title: "撤销获准",
-                  label: "撤销获准的原因",
-                  placeholder: "填写撤销获准的原因…",
-                  confirmText: "确认撤销",
-                  tone: "danger",
-                });
-                // 取消 / Esc / 点遮罩 → null：不触发任何写操作（撤销获准不可逆）
-                if (!reason) return;
-                await call(`/api/launch/plans/${plan.id}/approve`, "DELETE", { reason });
+                const r = await call(`/api/launch/plans/${plan.id}/approve`, "POST");
+                if (r) setMsg("正式 G3 已提交，等待指定决策人审批");
               }}
             >
-              撤销获准
+              提交正式 G3 审批
             </button>
           )}
+          {canDecideG3 && g3InReview && (
+            <>
+              <button
+                className="hermes-primary-btn"
+                disabled={busy}
+                onClick={async () => {
+                  const reason = await askReason({
+                    title: "批准正式 G3",
+                    label: "批准理由",
+                    placeholder: "说明为什么当前上市计划可以获得正式上市授权…",
+                    confirmText: "批准 G3",
+                  });
+                  if (!reason) return;
+                  const r = await call(`/api/decision-packets/${g3Packet.id}/decide`, "POST", {
+                    decision: "APPROVE",
+                    reason,
+                  });
+                  if (r) setMsg("正式 G3 已批准；实际上市仍需单独确认");
+                }}
+              >
+                批准 G3
+              </button>
+              <button
+                className="hermes-danger-btn"
+                disabled={busy}
+                onClick={async () => {
+                  const reason = await askReason({
+                    title: "驳回正式 G3",
+                    label: "驳回理由",
+                    placeholder: "说明需要补充或修改的事项…",
+                    confirmText: "确认驳回",
+                    tone: "danger",
+                  });
+                  if (!reason) return;
+                  await call(`/api/decision-packets/${g3Packet.id}/decide`, "POST", {
+                    decision: "REJECT",
+                    reason,
+                  });
+                }}
+              >
+                驳回 G3
+              </button>
+            </>
+          )}
+          {g3InReview && !canDecideG3 && (
+            <span className="hermes-note">已送审，等待指定决策人处理</span>
+          )}
+          {hasFormalG3 && <Badge status="VERIFIED" tone="ok">正式 G3 已批准</Badge>}
         </div>
         <p className="hermes-note" style={{ marginTop: 8 }}>
-          审批通过只表示获准，不会自动把产品标为已上市；实际上市由下一步的「确认实际上市」记录。
+          G3 批准只表示正式授权，不会自动把产品标为已上市；实际上市由下一步的「确认实际上市」记录。
         </p>
       </Panel>
 
@@ -531,11 +564,11 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
       <Panel
         eyebrow="EXECUTE"
         title="确认实际上市"
-        sub="与「获准」分开的一步：需要已获旧机制批准，并记录实际动作说明"
+        sub="与正式 G3 授权分开：必须先取得当前有效 G3，再记录真实上市动作"
       >
         <KV
           items={[
-            { k: "批准（旧机制）", v: plan.approvedAt ? "旧机制批准 · 非正式 G3 授权" : "未获准" },
+            { k: "正式 G3 授权", v: hasFormalG3 ? "已批准" : hasLegacyApproval ? "仅有旧批准，不可上市" : "未授权" },
             {
               k: "实际上市",
               v: plan.actualLaunchedAt ? fmtDateTime(plan.actualLaunchedAt) : "未记录",
@@ -545,12 +578,12 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
         <div className="hermes-inline-end" style={{ marginTop: 14 }}>
           <button
             className="hermes-primary-btn"
-            disabled={busy || !canEdit || !plan.approvedAt || !!plan.actualLaunchedAt}
+            disabled={busy || !canEdit || !hasFormalG3 || !!plan.actualLaunchedAt}
             title={
               !canEdit
                 ? "没有修改权限"
-                : !plan.approvedAt
-                  ? "需先通过放行门禁并获准"
+                : !hasFormalG3
+                  ? "需先取得当前有效的正式 G3 授权"
                   : plan.actualLaunchedAt
                     ? "已记录实际上市时间"
                     : undefined
@@ -565,7 +598,7 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
           </button>
         </div>
         <p className="hermes-note" style={{ marginTop: 8 }}>
-          确认后会写入实际上市时间，并把产品生命周期更新为「已上市」。未获准时按钮不可用。
+          确认后会写入实际上市时间，并把产品生命周期更新为「已上市」。没有当前有效的正式 G3 时按钮不可用。
         </p>
       </Panel>
 
@@ -693,7 +726,7 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
               if (r) {
                 setLOpen(false);
                 setMsg(
-                  `已记录实际上市时间：${fmtDateTime(r.actualLaunchedAt)}${r.authorization?.gap ? `（授权缺口：${r.authorization.gap}）` : ""}`
+                  `已记录实际上市时间：${fmtDateTime(r.actualLaunchedAt)} · 正式 G3 授权已验证`
                 );
               }
             }}

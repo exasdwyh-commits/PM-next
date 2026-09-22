@@ -35,13 +35,14 @@ import {
 import {
   prepareLaunch,
   evaluateGate,
-  approveLaunch,
+  requestFormalG3Approval,
   confirmLaunchExecution,
   upsertMilestone,
   getLaunchContext,
 } from "../src/modules/launch/service";
 import { getWorkspaceOverview } from "../src/modules/workspace/overview";
-import { ProductLifecycleStage, LaunchMilestoneStatus } from "@prisma/client";
+import { DecisionOutcome, ProductLifecycleStage, LaunchMilestoneStatus } from "@prisma/client";
+import { decideDecisionPacket } from "../src/modules/decisions/service";
 
 function assert(condition: boolean, msg: string) {
   if (!condition) {
@@ -291,7 +292,7 @@ author: 战略发展部
   // 强行放行应当抛出 422
   let blockedApprovalPassed = false;
   try {
-    await approveLaunch(sessionA, planId);
+    await requestFormalG3Approval(sessionA, planId);
     blockedApprovalPassed = true;
   } catch (e: any) {
     assert(e.statusCode === 422 || e.message.includes("未通过放行门禁"), "门禁硬拦截生效：阻断放行");
@@ -304,13 +305,49 @@ author: 战略发展部
   await upsertMilestone(sessionA, planId, { id: m1.id, title: m1.title, status: LaunchMilestoneStatus.DONE });
   await upsertMilestone(sessionA, planId, { id: m2.id, title: m2.title, status: LaunchMilestoneStatus.DONE, blockerReason: null });
 
-  // 门禁通过并批准放行
-  const approveRes = await approveLaunch(sessionA, planId, "全部前置里程碑已闭环，准予进入上市筹备");
-  assert(!!approveRes.approvedAt, "上市计划获准成功");
+  // 为正式 G3 配置独立决策人（负责人不得自批）
+  const launchDm = await prisma.user.create({
+    data: {
+      organizationId: orgA.id,
+      email: `launch_dm_${timestamp}@hermes.test`,
+      name: "蓝图上市决策人",
+    },
+  });
+  await prisma.project.update({
+    where: { id: productRes.project.id },
+    data: { decisionMakerId: launchDm.id },
+  });
+  await prisma.projectMember.create({
+    data: {
+      projectId: productRes.project.id,
+      userId: launchDm.id,
+      role: "DECISION_MAKER",
+    },
+  });
+  const launchDmSession: SessionContext = {
+    userId: launchDm.id,
+    organizationId: orgA.id,
+    userEmail: launchDm.email,
+    userName: launchDm.name,
+  };
 
-  // 验证获准并不等于已上市
+  // 门禁通过后由负责人提交 G3；提交本身不等于批准
+  const g3Submit = await requestFormalG3Approval(sessionA, planId);
+  assert(g3Submit.status === "IN_REVIEW", "正式 G3 由负责人提交后进入待审批");
+  const planBeforeG3Decision = await prisma.launchPlan.findUnique({ where: { id: planId } });
+  assert(!planBeforeG3Decision?.formalG3PacketId, "负责人提交 G3 不会直接产生正式授权");
+
+  // 独立决策人批准正式 G3
+  await decideDecisionPacket(launchDmSession, g3Submit.packetId, {
+    decision: DecisionOutcome.APPROVE,
+    reason: "全部上市前置里程碑闭环，批准正式 G3",
+  });
+  const planAfterG3 = await prisma.launchPlan.findUnique({ where: { id: planId } });
+  assert(planAfterG3?.formalG3PacketId === g3Submit.packetId, "指定决策人批准后写入正式 G3 授权");
+
+  // 验证 G3 批准并不等于已上市
   const prodAfterApprove = await prisma.product.findUnique({ where: { id: productRes.product.id } });
-  assert(prodAfterApprove?.lifecycleStage !== ProductLifecycleStage.LAUNCHED, "审批通过只表示获准，产品生命周期决不自动变为 LAUNCHED！");
+  assert(prodAfterApprove?.lifecycleStage !== ProductLifecycleStage.LAUNCHED, "G3 批准只表示授权，产品生命周期决不自动变为 LAUNCHED！");
 
   // 确认实际上市
   const confirmRes = await confirmLaunchExecution(sessionA, planId, {

@@ -314,6 +314,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   LAUNCH_MILESTONE_ADDED: "新增上市里程碑",
   LAUNCH_MILESTONE_UPDATED: "更新上市里程碑",
   LAUNCH_APPROVED: "上市计划获准",
+  FORMAL_G3_INVALIDATED: "正式 G3 授权 / 待审批快照失效",
   LAUNCH_APPROVAL_REVOKED: "撤销上市批准",
   LAUNCH_EXECUTED: "确认实际上市",
 };

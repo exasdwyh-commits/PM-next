@@ -15,8 +15,9 @@
  */
 
 import prisma from "@/shared/db";
-import { ForbiddenError, NotFoundError, UnprocessableEntityError } from "@/shared/errors";
+import { ConflictError, ForbiddenError, NotFoundError, UnprocessableEntityError } from "@/shared/errors";
 import {
+  GateType,
   LaunchMilestoneStatus,
   LaunchPlanStatus,
   Prisma,
@@ -28,6 +29,8 @@ import { SessionContext } from "../identity/session";
 import { PRODUCT_WRITE_ROLES, requireProductRole } from "../identity/product-access";
 import { assertOrgUser, assertWorkItemRef } from "../identity/ownership";
 import { LAUNCH_MILESTONE_KIND_LABELS, labelLaunchMilestoneKind, labelLaunchMilestoneStatus } from "@/shared/status-labels";
+import { evaluateGate as evaluateLaunchGate } from "./gate";
+import { createDecisionPacketDraft, submitDecisionPacket } from "../decisions/service";
 
 export interface LaunchGateCheck {
   key: string;
@@ -103,66 +106,7 @@ export function evaluateGate(plan: {
   targetDate: Date | null;
   milestones: { title: string; status: LaunchMilestoneStatus }[];
 }): LaunchGate {
-  const checks: LaunchGateCheck[] = [];
-
-  checks.push({
-    key: "owner",
-    label: "已指定负责人",
-    ok: !!plan.ownerId,
-    detail: plan.ownerId ? "负责人已指定" : "尚未指定负责人",
-  });
-
-  checks.push({
-    key: "targetDate",
-    label: "已设置目标日期",
-    ok: !!plan.targetDate,
-    detail: plan.targetDate ? "目标日期已设置" : "尚未设置目标日期",
-  });
-
-  checks.push({
-    key: "milestones",
-    label: "至少一个依赖里程碑",
-    ok: plan.milestones.length > 0,
-    detail: plan.milestones.length > 0 ? `已有 ${plan.milestones.length} 个里程碑` : "尚无任何依赖里程碑",
-  });
-
-  const blocked = plan.milestones.filter((m) => m.status === "BLOCKED");
-  checks.push({
-    key: "no_blocked",
-    label: "无阻塞项",
-    ok: blocked.length === 0,
-    detail:
-      blocked.length === 0
-        ? "无阻塞项"
-        : `存在 ${blocked.length} 个阻塞项：${blocked.map((m) => m.title).join("、")}`,
-  });
-
-  const unfinished = plan.milestones.filter((m) => m.status !== "DONE");
-  checks.push({
-    key: "all_done",
-    label: "全部依赖已完成",
-    ok: plan.milestones.length > 0 && unfinished.length === 0,
-    detail:
-      plan.milestones.length === 0
-        ? "尚无里程碑，谈不上完成"
-        : unfinished.length === 0
-          ? "全部里程碑已完成"
-          : `未完成 ${unfinished.length} 项：${unfinished
-              .map((m) => `${m.title}（${m.status}）`)
-              .join("、")}`,
-  });
-
-  const blockers = checks.filter((c) => !c.ok).map((c) => c.detail);
-  const ready = blockers.length === 0;
-
-  return {
-    ready,
-    checks,
-    blockers,
-    summary: ready
-      ? "门禁全部满足，可提交放行（获准）。"
-      : `尚有 ${blockers.length} 项未满足：${blockers.join("；")}`,
-  };
+  return evaluateLaunchGate(plan);
 }
 
 export async function computeLaunchGate(session: SessionContext, planId: string): Promise<LaunchGate> {
@@ -181,57 +125,74 @@ export async function computeLaunchGate(session: SessionContext, planId: string)
 /**
  * 放行机制来源。
  * - `LEGACY_APPROVAL`：旧 `approveLaunch` 机制写入的 `approvedAt`（仅产品写角色，非指定决策人）。
- * - `FORMAL_G3`：**正式 G3 授权 —— 当前恒不存在**（未实现；待 TASK-034/035 把 `approveLaunch`
- *   改为经统一 `DecisionPacket` 授权后才会出现）。
+ * - `FORMAL_G3`：由统一 DecisionPacket 的 LAUNCH_GATE 经指定决策人批准后产生。
  */
 export type LaunchAuthorizationMechanism = "LEGACY_APPROVAL" | "FORMAL_G3";
 
 export interface LaunchAuthorization {
-  /** 是否已获放行（**仅凭 `approvedAt` 非空**，**不代表正式授权**） */
   approved: boolean;
-  /** 机制来源：当前只可能是 `LEGACY_APPROVAL`；未放行为 `null`。 */
   mechanism: LaunchAuthorizationMechanism | null;
-  /** 是否已获**正式 G3** 授权 —— 当前**恒为 `false`**。 */
   formalG3: boolean;
-  /** 缺口说明：正式 G3 未授权时非空（调用方据此**显式暴露缺口**，不得视为完整授权）。 */
   gap: string | null;
+  packetId?: string | null;
+  approvedAt?: string | null;
 }
 
-/** 正式 G3 未实现时的固定缺口文案（供 UI 与测试共用，改一处即可）。 */
 export const FORMAL_G3_UNAVAILABLE_GAP =
-  "正式 G3 授权尚未实现（TASK-034/035）；当前放行仅为旧 approve 机制（LEGACY_APPROVAL · 准备就绪），不得视为完整上市授权。";
+  "当前上市计划尚未取得正式 G3 授权；旧 approve 记录仅代表历史准备就绪，不能替代指定决策人的正式上市授权。";
 
-/** 确认实际开售时，因无正式 G3 授权而必须随结果一并返回的缺口文案。 */
 export const LAUNCH_EXECUTION_NO_FORMAL_G3_GAP =
-  "该实际开售记录是在无正式 G3 授权的情况下录入的（旧机制批准 · 准备就绪 · 非正式 G3 授权）。";
+  "实际上市必须先取得正式 G3 授权；仅有旧机制批准时不得确认上市执行。";
 
-/**
- * 由 `LaunchPlan` 推导放行机制来源。**只读、无副作用、不写任何 `Decision`。**
- * 关键：即使 `approvedAt` 非空，`formalG3` 也**恒为 `false`**、`gap` 非空 ——
- * 调用方**不得**仅凭 `approvedAt` 判定"已获正式授权"。
- */
-export function describeLaunchAuthorization(plan: { approvedAt: Date | null }): LaunchAuthorization {
+export function describeLaunchAuthorization(plan: {
+  approvedAt: Date | null;
+  formalG3ApprovedAt?: Date | null;
+  formalG3PacketId?: string | null;
+}): LaunchAuthorization {
+  if (plan.formalG3ApprovedAt && plan.formalG3PacketId) {
+    return {
+      approved: true,
+      mechanism: "FORMAL_G3",
+      formalG3: true,
+      gap: null,
+      packetId: plan.formalG3PacketId,
+      approvedAt: plan.formalG3ApprovedAt.toISOString(),
+    };
+  }
   if (!plan.approvedAt) {
-    return { approved: false, mechanism: null, formalG3: false, gap: null };
+    return { approved: false, mechanism: null, formalG3: false, gap: null, packetId: null, approvedAt: null };
   }
   return {
     approved: true,
     mechanism: "LEGACY_APPROVAL",
     formalG3: false,
     gap: FORMAL_G3_UNAVAILABLE_GAP,
+    packetId: null,
+    approvedAt: plan.approvedAt.toISOString(),
   };
 }
 
-/**
- * 确认实际开售时随结果返回的授权缺口（纯函数，便于测试）。
- * 允许记录"已发生的事实"，但**必须**显式暴露"无正式 G3 授权"这一缺口。
- */
-export function describeLaunchExecutionAuthorization(): LaunchAuthorization {
+export function describeLaunchExecutionAuthorization(plan: {
+  formalG3ApprovedAt?: Date | null;
+  formalG3PacketId?: string | null;
+}): LaunchAuthorization {
+  if (plan.formalG3ApprovedAt && plan.formalG3PacketId) {
+    return {
+      approved: true,
+      mechanism: "FORMAL_G3",
+      formalG3: true,
+      gap: null,
+      packetId: plan.formalG3PacketId,
+      approvedAt: plan.formalG3ApprovedAt.toISOString(),
+    };
+  }
   return {
-    approved: true,
-    mechanism: "LEGACY_APPROVAL",
+    approved: false,
+    mechanism: null,
     formalG3: false,
     gap: LAUNCH_EXECUTION_NO_FORMAL_G3_GAP,
+    packetId: null,
+    approvedAt: null,
   };
 }
 
@@ -252,6 +213,12 @@ export async function getLaunchContext(session: SessionContext, productId: strin
     include: {
       milestones: { orderBy: { seq: "asc" }, include: { owner: { select: { id: true, name: true } } } },
       owner: { select: { id: true, name: true } },
+      project: { select: { id: true, title: true, ownerId: true, decisionMakerId: true, revision: true, productVersionId: true } },
+      formalG3Packet: {
+        include: {
+          decisions: { orderBy: { decidedAt: "desc" }, take: 1, include: { actor: { select: { id: true, name: true } } } },
+        },
+      },
     },
   });
 
@@ -261,6 +228,23 @@ export async function getLaunchContext(session: SessionContext, productId: strin
     select: { role: true, user: { select: { id: true, name: true, email: true } } },
     distinct: ["userId"],
   });
+
+  const g3Packet = plan
+    ? await prisma.decisionPacket.findFirst({
+        where: { launchPlanId: plan.id, gate: GateType.LAUNCH_GATE },
+        orderBy: { createdAt: "desc" },
+        include: {
+          decisions: { orderBy: { decidedAt: "desc" }, take: 1, include: { actor: { select: { id: true, name: true } } } },
+        },
+      })
+    : null;
+
+  const canRequestG3 = !!plan?.project && plan.project.ownerId === session.userId;
+  const canDecideG3 =
+    !!plan?.project &&
+    !!plan.project.decisionMakerId &&
+    plan.project.decisionMakerId === session.userId &&
+    plan.project.ownerId !== session.userId;
 
   // 写权限同样由服务端判定，前端据此决定是否禁用表单（不作安全边界）
   let canEdit = false;
@@ -289,6 +273,9 @@ export async function getLaunchContext(session: SessionContext, productId: strin
     // TASK-005b：显式携带放行机制来源（LEGACY_APPROVAL vs FORMAL_G3）；
     // 调用方不得只看 approvedAt 就以为拿到正式授权。
     authorization: plan ? describeLaunchAuthorization(plan) : null,
+    g3Packet,
+    canRequestG3,
+    canDecideG3,
     canEdit,
     milestoneKinds: MILESTONE_KINDS.map((k) => ({ key: k, label: MILESTONE_KIND_LABELS[k] })),
   };
@@ -297,6 +284,53 @@ export async function getLaunchContext(session: SessionContext, productId: strin
 // ---------------------------------------------------------------------------
 // 写入
 // ---------------------------------------------------------------------------
+
+async function claimLaunchPlanMutation(
+  tx: Prisma.TransactionClient,
+  plan: { id: string; productId: string; governanceRevision: number; approvedAt: Date | null; formalG3PacketId: string | null },
+  actorId: string,
+  reason: string
+) {
+  const claimed = await tx.launchPlan.updateMany({
+    where: { id: plan.id, governanceRevision: plan.governanceRevision },
+    data: {
+      governanceRevision: { increment: 1 },
+      approvedAt: null,
+      formalG3PacketId: null,
+      formalG3ApprovedAt: null,
+    },
+  });
+  if (claimed.count !== 1) {
+    throw new ConflictError("上市计划已被其他操作修改，本次变更未写入，请刷新后重试");
+  }
+
+  // 计划一旦变化，正在送审的旧 G3 快照也必须退出评审队列，否则重新提交会捡回旧包。
+  const invalidatedReviews = await tx.decisionPacket.updateMany({
+    where: {
+      launchPlanId: plan.id,
+      gate: GateType.LAUNCH_GATE,
+      status: { in: ["DRAFT", "IN_REVIEW"] },
+    },
+    data: { status: "WITHDRAWN" },
+  });
+
+  if (plan.approvedAt || plan.formalG3PacketId || invalidatedReviews.count > 0) {
+    await createAuditEventInTx(tx, {
+      actorId,
+      action: "FORMAL_G3_INVALIDATED",
+      objectType: "Product",
+      objectId: plan.productId,
+      summary: `上市计划发生实质修改，原 G3 授权/待审批快照已失效：${reason}`,
+      details: {
+        planId: plan.id,
+        previousGovernanceRevision: plan.governanceRevision,
+        formalG3PacketId: plan.formalG3PacketId,
+        invalidatedReviewCount: invalidatedReviews.count,
+        reason,
+      } as Prisma.InputJsonValue,
+    });
+  }
+}
 
 function parseDateOrNull(input: string | null | undefined, fieldLabel: string): Date | null {
   if (!input) return null;
@@ -423,7 +457,10 @@ export async function updateLaunchBasics(
   planId: string,
   params: { title?: string; targetDate?: string | null; ownerId?: string | null; notes?: string | null }
 ): Promise<void> {
-  const plan = await prisma.launchPlan.findUnique({ where: { id: planId } });
+  const plan = await prisma.launchPlan.findUnique({
+    where: { id: planId },
+    include: { formalG3Packet: true },
+  });
   if (!plan || plan.organizationId !== session.organizationId) throw new NotFoundError("Launch plan not found");
   await assertLaunchWritePermission(session, plan.productId);
 
@@ -432,10 +469,15 @@ export async function updateLaunchBasics(
     await assertOrgUser(session, params.ownerId, "上市计划负责人");
   }
 
+  if (plan.actualLaunchedAt) {
+    throw new UnprocessableEntityError("产品已确认实际上市；历史上市计划不可再修改，请进入复盘流程记录后续变化");
+  }
+
   const targetDate =
     params.targetDate === undefined ? plan.targetDate : parseDateOrNull(params.targetDate, "目标上市日期");
 
   await prisma.$transaction(async (tx) => {
+    await claimLaunchPlanMutation(tx, plan, session.userId, "更新上市计划基本信息");
     await tx.launchPlan.update({
       where: { id: plan.id },
       data: {
@@ -469,6 +511,9 @@ export async function upsertMilestone(
   });
   if (!plan || plan.organizationId !== session.organizationId) throw new NotFoundError("Launch plan not found");
   await assertLaunchWritePermission(session, plan.productId);
+  if (plan.actualLaunchedAt) {
+    throw new UnprocessableEntityError("产品已确认实际上市；历史上市里程碑不可再修改，请进入复盘流程");
+  }
 
   // B5：里程碑上可选的 ownerId / workItemId 来自请求体，必须校验归属 ——
   // 外组织的用户、其它产品/项目的工作项都必须被拒绝。
@@ -496,6 +541,7 @@ export async function upsertMilestone(
 
     const status = input.status ?? existing.status;
     await prisma.$transaction(async (tx) => {
+      await claimLaunchPlanMutation(tx, plan, session.userId, `更新里程碑「${input.title.trim()}」`);
       await tx.launchMilestone.update({
         where: { id: existing.id },
         data: {
@@ -526,6 +572,7 @@ export async function upsertMilestone(
   const maxSeq = plan.milestones.reduce((a, m) => Math.max(a, m.seq), -1);
 
   const created = await prisma.$transaction(async (tx) => {
+    await claimLaunchPlanMutation(tx, plan, session.userId, `新增里程碑「${input.title.trim()}」`);
     const m = await tx.launchMilestone.create({
       data: {
         planId: plan.id,
@@ -556,43 +603,71 @@ export async function upsertMilestone(
 }
 
 /**
- * 放行（获准）。
- * 必须通过门禁；只写 approvedAt，**不写 actualLaunchedAt、不改 Product.lifecycleStage**。
+ * 提交正式 G3 上市授权审批。
+ * 负责人只能“提交”，不能自批；最终决定必须由 Project.decisionMakerId 经统一 DecisionPacket 做出。
  */
-export async function approveLaunch(
+export async function requestFormalG3Approval(
   session: SessionContext,
-  planId: string,
-  note?: string | null
-): Promise<{ approvedAt: string }> {
+  planId: string
+): Promise<{ packetId: string; status: string }> {
   const plan = await prisma.launchPlan.findUnique({
     where: { id: planId },
-    include: { milestones: true },
+    include: { milestones: true, project: true },
   });
   if (!plan || plan.organizationId !== session.organizationId) throw new NotFoundError("Launch plan not found");
-  await assertLaunchWritePermission(session, plan.productId);
+  if (plan.actualLaunchedAt) {
+    throw new UnprocessableEntityError("产品已经确认实际上市，不能再次提交 G3");
+  }
+  if (!plan.projectId || !plan.project) {
+    throw new UnprocessableEntityError("正式 G3 需要上市计划绑定项目");
+  }
+  if (plan.project.ownerId !== session.userId) {
+    throw new ForbiddenError("只有项目负责人可以提交正式 G3 上市授权审批");
+  }
+  if (!plan.project.decisionMakerId || plan.project.decisionMakerId === plan.project.ownerId) {
+    throw new UnprocessableEntityError("正式 G3 需要独立的指定决策人，且不得由负责人自批");
+  }
 
   const gate = evaluateGate(plan);
   if (!gate.ready) {
-    throw new UnprocessableEntityError(`未通过放行门禁，不得放行：${gate.blockers.join("；")}`);
+    throw new UnprocessableEntityError(`未通过 G3 前置门禁：${gate.blockers.join("；")}`);
   }
 
-  const approvedAt = new Date();
-  await prisma.$transaction(async (tx) => {
-    await tx.launchPlan.update({
-      where: { id: plan.id },
-      data: { approvedAt, status: LaunchPlanStatus.ACTIVE },
-    });
-    await createAuditEventInTx(tx, {
-      actorId: session.userId,
-      action: "LAUNCH_APPROVED",
-      objectType: "Product",
-      objectId: plan.productId,
-      summary: `上市计划获准（approve）。获准只表示允许推进，产品不会被自动标记为已上市`,
-      details: { planId: plan.id, approvedAt: approvedAt.toISOString(), note: note ?? null, gateChecks: gate.checks } as unknown as Prisma.InputJsonValue,
-    });
+  const active = await prisma.decisionPacket.findFirst({
+    where: {
+      launchPlanId: plan.id,
+      gate: GateType.LAUNCH_GATE,
+      status: { in: ["DRAFT", "IN_REVIEW"] },
+    },
+    orderBy: { createdAt: "desc" },
   });
+  if (active) {
+    if (active.status === "IN_REVIEW") return { packetId: active.id, status: active.status };
+    const submitted = await submitDecisionPacket(session, active.id);
+    return { packetId: active.id, status: submitted?.status ?? "IN_REVIEW" };
+  }
 
-  return { approvedAt: approvedAt.toISOString() };
+  const packet = await createDecisionPacketDraft(session, {
+    projectId: plan.projectId,
+    gate: GateType.LAUNCH_GATE,
+    productVersionId: plan.project.productVersionId ?? undefined,
+    launchPlanId: plan.id,
+    artifactVersions: [],
+    evidenceVersions: [],
+    validationPlan: "正式 G3 上市授权：冻结上市计划、里程碑、产品版本与项目基线，审批时重新验证未发生漂移",
+    requiredChecks: {},
+  });
+  const submitted = await submitDecisionPacket(session, packet.id);
+  return { packetId: packet.id, status: submitted?.status ?? "IN_REVIEW" };
+}
+
+/** @deprecated 旧直接放行入口已收口为正式 G3 提交，不再直接写 approvedAt。 */
+export async function approveLaunch(
+  session: SessionContext,
+  planId: string,
+  _note?: string | null
+): Promise<{ packetId: string; status: string }> {
+  return requestFormalG3Approval(session, planId);
 }
 
 export async function revokeLaunchApproval(
@@ -605,8 +680,18 @@ export async function revokeLaunchApproval(
   if (!plan || plan.organizationId !== session.organizationId) throw new NotFoundError("Launch plan not found");
   await assertLaunchWritePermission(session, plan.productId);
 
+  if (plan.formalG3PacketId || plan.formalG3ApprovedAt) {
+    throw new UnprocessableEntityError(
+      "正式 G3 决策为不可变审计记录，不能用旧“撤销获准”按钮删除。若方案变化，请修改上市计划使当前 G3 自动失效后重新送审。"
+    );
+  }
+
   await prisma.$transaction(async (tx) => {
-    await tx.launchPlan.update({ where: { id: plan.id }, data: { approvedAt: null } });
+    const claimed = await tx.launchPlan.updateMany({
+      where: { id: plan.id, governanceRevision: plan.governanceRevision },
+      data: { approvedAt: null, governanceRevision: { increment: 1 } },
+    });
+    if (claimed.count !== 1) throw new ConflictError("上市计划已发生并发修改，请刷新后重试");
     await createAuditEventInTx(tx, {
       actorId: session.userId,
       action: "LAUNCH_APPROVAL_REVOKED",
@@ -620,7 +705,7 @@ export async function revokeLaunchApproval(
 
 /**
  * 实际上市确认（与获准分开）。
- * 前置：必须已获准；且必须提供实际动作说明（可选附证据 id）。
+ * 前置：必须持有当前有效的正式 G3；且必须提供实际动作说明（可选附证据 id）。
  * 写入 actualLaunchedAt 并把 Product.lifecycleStage 置为 LAUNCHED。
  */
 export async function confirmLaunchExecution(
@@ -632,12 +717,22 @@ export async function confirmLaunchExecution(
     throw new UnprocessableEntityError("确认实际上市必须填写实际动作说明（如渠道上线记录、首批出货凭证）");
   }
 
-  const plan = await prisma.launchPlan.findUnique({ where: { id: planId } });
+  const plan = await prisma.launchPlan.findUnique({
+    where: { id: planId },
+    include: { formalG3Packet: true },
+  });
   if (!plan || plan.organizationId !== session.organizationId) throw new NotFoundError("Launch plan not found");
   await assertLaunchWritePermission(session, plan.productId);
 
-  if (!plan.approvedAt) {
-    throw new UnprocessableEntityError("该上市计划尚未获准，不能确认实际上市。审批通过只表示获准，需先通过放行门禁并获得批准。");
+  if (
+    !plan.formalG3PacketId ||
+    !plan.formalG3ApprovedAt ||
+    !plan.formalG3Packet ||
+    plan.formalG3Packet.status !== "APPROVED"
+  ) {
+    throw new UnprocessableEntityError(
+      "该上市计划尚未取得当前有效的正式 G3 授权，不能确认实际上市。旧机制批准不能替代正式 G3。"
+    );
   }
   if (plan.actualLaunchedAt) {
     throw new UnprocessableEntityError("实际上市时间已记录，不可重复确认");
@@ -657,14 +752,23 @@ export async function confirmLaunchExecution(
   const actualLaunchedAt = new Date();
 
   await prisma.$transaction(async (tx) => {
-    await tx.launchPlan.update({
-      where: { id: plan.id },
+    const claimed = await tx.launchPlan.updateMany({
+      where: {
+        id: plan.id,
+        governanceRevision: plan.governanceRevision,
+        formalG3PacketId: plan.formalG3PacketId,
+        formalG3ApprovedAt: plan.formalG3ApprovedAt,
+        actualLaunchedAt: null,
+      },
       data: {
         actualLaunchedAt,
         status: LaunchPlanStatus.COMPLETED,
         notes: params.note.trim(),
       },
     });
+    if (claimed.count !== 1) {
+      throw new ConflictError("确认上市时 G3 授权或上市计划已发生变化，请刷新后重试");
+    }
     await tx.product.update({
       where: { id: plan.productId },
       data: { lifecycleStage: ProductLifecycleStage.LAUNCHED },
@@ -678,6 +782,8 @@ export async function confirmLaunchExecution(
       details: {
         planId: plan.id,
         approvedAt: plan.approvedAt?.toISOString() ?? null,
+        formalG3PacketId: plan.formalG3PacketId,
+        formalG3ApprovedAt: plan.formalG3ApprovedAt?.toISOString() ?? null,
         actualLaunchedAt: actualLaunchedAt.toISOString(),
         evidenceId: params.evidenceId ?? null,
       } as Prisma.InputJsonValue,
@@ -687,7 +793,6 @@ export async function confirmLaunchExecution(
   return {
     actualLaunchedAt: actualLaunchedAt.toISOString(),
     lifecycleStage: "LAUNCHED",
-    // TASK-005b：允许记录实际开售（已发生的事实不因授权缺失被挡），但**必须显式暴露缺口**。
-    authorization: describeLaunchExecutionAuthorization(),
+    authorization: describeLaunchExecutionAuthorization(plan),
   };
 }

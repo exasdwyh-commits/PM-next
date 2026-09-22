@@ -17,6 +17,7 @@ import { computeScopeHash, diffScopeInput, ScopeHashInput } from "./scope-hash";
 import { computeArtifactContentHash, findSupersedingVersion, resolveAuthoritativeArtifactRefs } from "./artifact-ref";
 import { computeRequestHash } from "@/shared/idempotency";
 import { labelDecisionOutcome, labelDecisionPacketStatus } from "@/shared/status-labels";
+import { computeLaunchPlanHash, evaluateGate } from "../launch/gate";
 
 /**
  * 决策命令的幂等作用域字面量。读取判定与写入必须使用**同一个常量**，
@@ -29,14 +30,15 @@ const DECIDE_COMMAND_SCOPE = "DECIDE_DECISION_PACKET";
  *
  * 背景（TASK-003a 只读复现结论）：`decideDecisionPacket` 的 APPROVE 分支此前**不按 `GateType` 分派**，
  * 任何门型批准都会把 `Project.stage` 无条件推进到 `SAMPLING` 并派生「打样准备」任务。
- * 对尚未实现的门型（当前 `PRODUCTION_GATE`；`LAUNCH_GATE` 尚未进入枚举），必须 **fail-closed**：
+ * 对尚未实现的门型（当前仅 `PRODUCTION_GATE`），必须 **fail-closed**：
  * 抛 422，**不写 Decision、不推进阶段、不派生任务**。
  *
- * 新增门型实现时（如 TASK-028/029 的 G2），把该门型加入此集合，并在 APPROVE 分支补对应阶段/任务分派。
+ * 新增门型实现时（如后续 G2），把该门型加入此集合，并在 APPROVE 分支补对应阶段/任务分派。
  * 本批**只做封堵 + 集中保护**，不实现任何未实现门的业务逻辑。
  */
 const IMPLEMENTED_GATES: ReadonlySet<GateType> = new Set<GateType>([
   GateType.RESEARCH_SAMPLING_GATE,
+  GateType.LAUNCH_GATE,
 ]);
 
 /** 该门型是否已有实现（可放行）。 */
@@ -59,10 +61,40 @@ export function assertGateImplemented(gate: GateType): void {
   }
 }
 
+
+function buildLaunchPlanSnapshotInput(plan: any, project: any) {
+  return {
+    launchPlanId: plan.id,
+    governanceRevision: plan.governanceRevision,
+    projectId: project.id,
+    projectRevision: project.revision,
+    productId: plan.productId,
+    productVersionId: project.productVersionId ?? null,
+    title: plan.title,
+    targetDate: plan.targetDate,
+    ownerId: plan.ownerId,
+    status: plan.status,
+    notes: plan.notes,
+    milestones: (plan.milestones ?? []).map((m: any) => ({
+      id: m.id,
+      title: m.title,
+      kind: m.kind,
+      seq: m.seq,
+      dueDate: m.dueDate,
+      ownerId: m.ownerId,
+      status: m.status,
+      blockerReason: m.blockerReason,
+      workItemId: m.workItemId,
+      completedAt: m.completedAt,
+    })),
+  };
+}
+
 export interface CreateDecisionPacketDraftParams {
   projectId: string;
   gate?: GateType;
   productVersionId?: string;
+  launchPlanId?: string;
   artifactVersions: Array<{ type: string; version: number }>;
   evidenceVersions: Array<{ id: string; hash: string }>;
   budgetAmount?: number;
@@ -108,7 +140,11 @@ export async function createDecisionPacketDraft(
   // C01: 打样门决策包必须显式绑定产品版本。未显式传入时绑定项目当前产品版本，
   // 避免决策包指纹与基线复核使用不同产品版本，导致批准后永远无法判定为有效批准。
   let productVersionId = params.productVersionId ?? null;
-  if (!productVersionId && gate === GateType.RESEARCH_SAMPLING_GATE) {
+  let launchPlanId: string | null = null;
+  let launchPlanHash: string | null = null;
+  let launchRequiredChecks: Record<string, any> | null = null;
+
+  if (!productVersionId && (gate === GateType.RESEARCH_SAMPLING_GATE || gate === GateType.LAUNCH_GATE)) {
     const project = await prisma.project.findUnique({
       where: { id: params.projectId },
       select: { productVersionId: true },
@@ -116,10 +152,64 @@ export async function createDecisionPacketDraft(
     productVersionId = project?.productVersionId ?? null;
   }
 
+  if (gate === GateType.LAUNCH_GATE) {
+    launchPlanId = typeof params.launchPlanId === "string" && params.launchPlanId.trim()
+      ? params.launchPlanId.trim()
+      : null;
+    if (!launchPlanId) {
+      throw new UnprocessableEntityError("LAUNCH_GATE 必须绑定 launchPlanId");
+    }
+
+    const launchPlan = await prisma.launchPlan.findUnique({
+      where: { id: launchPlanId },
+      include: {
+        milestones: { orderBy: { seq: "asc" } },
+        project: true,
+      },
+    });
+    if (
+      !launchPlan ||
+      launchPlan.organizationId !== session.organizationId ||
+      !launchPlan.project ||
+      launchPlan.projectId !== params.projectId
+    ) {
+      throw new UnprocessableEntityError("LAUNCH_GATE 上市计划不存在、未绑定项目或与当前项目不匹配");
+    }
+    if (launchPlan.productId !== launchPlan.project.productId) {
+      throw new ConflictError("上市计划与项目当前产品不一致，必须先修正产品关联后再提交 G3");
+    }
+    if (!launchPlan.project.decisionMakerId) {
+      throw new UnprocessableEntityError("正式 G3 需要项目指定独立决策人");
+    }
+    if (launchPlan.project.decisionMakerId === launchPlan.project.ownerId) {
+      throw new UnprocessableEntityError("正式 G3 不允许负责人自批；项目负责人和指定决策人必须是不同用户");
+    }
+
+    const launchGate = evaluateGate(launchPlan);
+    if (!launchGate.ready) {
+      throw new UnprocessableEntityError(
+        `未满足正式 G3 前置门禁：${launchGate.blockers.join("；")}`
+      );
+    }
+
+    productVersionId = launchPlan.project.productVersionId ?? productVersionId;
+    launchPlanHash = computeLaunchPlanHash(
+      buildLaunchPlanSnapshotInput(launchPlan, launchPlan.project)
+    );
+    launchRequiredChecks = {
+      launchGateReady: true,
+      launchGateChecks: launchGate.checks,
+      launchGovernanceRevision: launchPlan.governanceRevision,
+      projectRevision: launchPlan.project.revision,
+    };
+  }
+
   const scopeHash = computeScopeHash({
     projectId: params.projectId,
     gate,
     productVersionId,
+    launchPlanId,
+    launchPlanHash,
     artifactVersions: params.artifactVersions,
     evidenceVersions: params.evidenceVersions,
     budgetAmount: params.budgetAmount,
@@ -133,13 +223,15 @@ export async function createDecisionPacketDraft(
       projectId: params.projectId,
       gate,
       productVersionId,
+      launchPlanId,
+      launchPlanHash,
       artifactVersions: params.artifactVersions as any,
       evidenceVersions: params.evidenceVersions as any,
       budgetAmount: params.budgetAmount,
       budgetCurrency: params.budgetCurrency || "CNY",
       budgetScope: params.budgetScope,
       validationPlan: params.validationPlan,
-      requiredChecks: params.requiredChecks || {},
+      requiredChecks: launchRequiredChecks ?? params.requiredChecks ?? {},
       scopeHash,
       status: DecisionPacketStatus.DRAFT,
     },
@@ -151,7 +243,10 @@ export async function createDecisionPacketDraft(
       action: "DECISION_PACKET_DRAFT_CREATED",
       objectType: "DecisionPacket",
       objectId: packet.id,
-      summary: `负责人创建研发打样门决策草稿，结构化指纹: ${scopeHash.slice(0, 16)}`,
+      summary:
+        gate === GateType.LAUNCH_GATE
+          ? `负责人创建正式 G3 上市授权决策草稿，结构化指纹: ${scopeHash.slice(0, 16)}`
+          : `负责人创建研发打样门决策草稿，结构化指纹: ${scopeHash.slice(0, 16)}`,
     },
   });
 
@@ -189,6 +284,36 @@ export async function submitDecisionPacket(session: SessionContext, packetId: st
     throw new UnprocessableEntityError("Validation plan is required to submit decision packet");
   }
 
+  if (packet.gate === GateType.LAUNCH_GATE) {
+    if (!packet.launchPlanId || !packet.launchPlanHash) {
+      throw new UnprocessableEntityError("正式 G3 决策包缺少上市计划冻结指纹");
+    }
+    const currentPlan = await prisma.launchPlan.findUnique({
+      where: { id: packet.launchPlanId },
+      include: { milestones: { orderBy: { seq: "asc" } }, project: true },
+    });
+    if (
+      !currentPlan ||
+      currentPlan.organizationId !== session.organizationId ||
+      !currentPlan.project ||
+      currentPlan.projectId !== packet.projectId
+    ) {
+      throw new ConflictError("正式 G3 绑定的上市计划已不存在或项目关联已变化");
+    }
+    const gate = evaluateGate(currentPlan);
+    if (!gate.ready) {
+      throw new UnprocessableEntityError(
+        `上市计划在送审前已不再满足 G3 门禁：${gate.blockers.join("；")}`
+      );
+    }
+    const currentHash = computeLaunchPlanHash(
+      buildLaunchPlanSnapshotInput(currentPlan, currentPlan.project)
+    );
+    if (currentHash !== packet.launchPlanHash) {
+      throw new ConflictError("上市计划自 G3 草稿创建后已发生变化，请重新创建正式 G3 决策包");
+    }
+  }
+
   // Freeze immutable snapshot of submission
   const frozenSnapshot = {
     packetId: packet.id,
@@ -200,6 +325,8 @@ export async function submitDecisionPacket(session: SessionContext, packetId: st
     gate: packet.gate,
     scopeHash: packet.scopeHash,
     productVersionId: packet.productVersionId,
+    launchPlanId: packet.launchPlanId,
+    launchPlanHash: packet.launchPlanHash,
     artifactVersions: packet.artifactVersions,
     evidenceVersions: packet.evidenceVersions,
     budgetAmount: packet.budgetAmount ? String(packet.budgetAmount) : null,
@@ -292,6 +419,9 @@ export async function decideDecisionPacket(
         productVersion: {
           include: { product: true },
         },
+        launchPlan: {
+          include: { milestones: { orderBy: { seq: "asc" } } },
+        },
         project: {
           include: {
             evidences: true,
@@ -336,6 +466,61 @@ export async function decideDecisionPacket(
 
     // 4. Precondition verification if APPROVING
     if (params.decision === DecisionOutcome.APPROVE) {
+      if (packet.gate === GateType.LAUNCH_GATE) {
+        if (!packet.launchPlan || !packet.launchPlanId || !packet.launchPlanHash) {
+          throw new UnprocessableEntityError("正式 G3 决策包缺少有效上市计划或冻结指纹");
+        }
+        if (packet.launchPlan.projectId !== packet.projectId) {
+          throw new ConflictError("正式 G3 上市计划与决策项目已不匹配");
+        }
+
+        const snapshot = packet.snapshot as any;
+        if (
+          snapshot?.projectRevision !== undefined &&
+          snapshot.projectRevision !== packet.project.revision
+        ) {
+          throw new ConflictError(
+            `G3 项目基线已漂移（送审 r${snapshot.projectRevision}，当前 r${packet.project.revision}），必须重新送审`
+          );
+        }
+        if (
+          packet.productVersionId &&
+          packet.project.productVersionId &&
+          packet.productVersionId !== packet.project.productVersionId
+        ) {
+          throw new ConflictError("G3 绑定的产品版本已不是项目当前版本，必须重新送审");
+        }
+
+        const launchGate = evaluateGate(packet.launchPlan);
+        if (!launchGate.ready) {
+          throw new UnprocessableEntityError(
+            `G3 审批时上市门禁已失效：${launchGate.blockers.join("；")}`
+          );
+        }
+        const currentLaunchHash = computeLaunchPlanHash(
+          buildLaunchPlanSnapshotInput(packet.launchPlan, packet.project)
+        );
+        if (currentLaunchHash !== packet.launchPlanHash) {
+          throw new ConflictError("G3 冻结后上市计划已变化，旧审批自动失效，必须重新送审");
+        }
+
+        const currentScopeHash = computeScopeHash({
+          projectId: packet.projectId,
+          gate: packet.gate,
+          productVersionId: packet.productVersionId,
+          launchPlanId: packet.launchPlanId,
+          launchPlanHash: currentLaunchHash,
+          artifactVersions: [],
+          evidenceVersions: [],
+          budgetAmount: packet.budgetAmount ? Number(packet.budgetAmount) : null,
+          budgetCurrency: packet.budgetCurrency,
+          budgetScope: packet.budgetScope,
+          validationPlan: packet.validationPlan,
+        });
+        if (currentScopeHash !== packet.scopeHash) {
+          throw new ConflictError("G3 决策范围指纹已变化，旧审批自动失效，必须重新送审");
+        }
+      } else {
       // Budget check
       if (!packet.budgetAmount || !packet.budgetScope || packet.budgetScope.trim() === "") {
         throw new UnprocessableEntityError("Missing budget amount or explicit budget scope; approval blocked (A05)");
@@ -579,6 +764,7 @@ export async function decideDecisionPacket(
           `Scope hash mismatch: ${changeText}。当前快照已过期，原批准自动失效，需对当前方案重新提交审批 (R06/R2-02)`
         );
       }
+      }
     }
 
     // 5. Atomic State Transition using Conditional Update (R05)
@@ -620,7 +806,7 @@ export async function decideDecisionPacket(
     // TASK-003b: 阶段推进**按门分派**——只有 G1（RESEARCH_SAMPLING_GATE）批准才推进到 SAMPLING
     // 并派生打样任务。未实现门型已在上方 assertGateImplemented() 处 422 拦截，不会走到这里；
     // 此处显式按门判断，杜绝「某门批准却推进到 SAMPLING」的路径。
-    // G2/G3 的阶段与任务分派待 TASK-028/029 实现，本批不实现。
+    // G2 仍 fail-closed；G3 不推进 ProjectStage，只在 LaunchPlan 上落正式授权。
     if (params.decision === DecisionOutcome.APPROVE) {
       if (packet.gate === GateType.RESEARCH_SAMPLING_GATE) {
         // R2-02: Apply optimistic concurrency revision guard on Project
@@ -657,6 +843,30 @@ export async function decideDecisionPacket(
             inputRevision: updatedProject.revision,
           },
         });
+      } else if (packet.gate === GateType.LAUNCH_GATE) {
+        if (!packet.launchPlanId || !packet.launchPlan) {
+          throw new UnprocessableEntityError("正式 G3 缺少上市计划，无法落正式授权");
+        }
+        const approvedAt = new Date();
+        const claimedLaunch = await tx.launchPlan.updateMany({
+          where: {
+            id: packet.launchPlanId,
+            governanceRevision: packet.launchPlan.governanceRevision,
+            formalG3PacketId: null,
+            actualLaunchedAt: null,
+          },
+          data: {
+            formalG3PacketId: packet.id,
+            formalG3ApprovedAt: approvedAt,
+            approvedAt,
+            status: "ACTIVE",
+          },
+        });
+        if (claimedLaunch.count !== 1) {
+          throw new ConflictError(
+            "正式 G3 落授权时上市计划已并发变化或已存在其它有效授权，本次批准未生效"
+          );
+        }
       }
     }
 
