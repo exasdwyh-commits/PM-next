@@ -4,6 +4,7 @@ import {
   AgentTaskStatus,
   AgentTriggerType,
   DelegationStatus,
+  DecisionRunPolicyAction,
   Prisma,
   Role,
   SquadMemberType,
@@ -419,6 +420,8 @@ export interface CreateAgentTaskInput {
   priority?: number;
   triggerType?: AgentTriggerType;
   triggerRef?: string | null;
+  /** Primary Decision Intelligence provenance for autonomous/event routing. */
+  triggerDecisionRunId?: string | null;
 }
 
 export async function createAgentTask(
@@ -449,6 +452,100 @@ export async function createAgentTask(
     await requireProjectRole(session, workItem.projectId, [Role.OWNER, Role.DECISION_MAKER]);
   }
 
+  let triggerDecisionRun:
+    | {
+        id: string;
+        organizationId: string;
+        decisionKey: string;
+        policyAction: DecisionRunPolicyAction;
+        resultJson: Prisma.JsonValue;
+      }
+    | null = null;
+
+  if (input.triggerDecisionRunId) {
+    triggerDecisionRun = await prisma.decisionRun.findUnique({
+      where: { id: input.triggerDecisionRunId },
+      select: {
+        id: true,
+        organizationId: true,
+        decisionKey: true,
+        policyAction: true,
+        resultJson: true,
+      },
+    });
+
+    if (
+      !triggerDecisionRun ||
+      triggerDecisionRun.organizationId !== session.organizationId
+    ) {
+      throw new NotFoundError("Decision run not found");
+    }
+
+    if (
+      triggerDecisionRun.policyAction === DecisionRunPolicyAction.ESCALATE_HUMAN ||
+      triggerDecisionRun.policyAction === DecisionRunPolicyAction.BLOCK
+    ) {
+      throw new UnprocessableEntityError(
+        "Decision run does not authorize creation of an AgentTask"
+      );
+    }
+
+    const result =
+      triggerDecisionRun.resultJson &&
+      typeof triggerDecisionRun.resultJson === "object" &&
+      !Array.isArray(triggerDecisionRun.resultJson)
+        ? (triggerDecisionRun.resultJson as Record<string, unknown>)
+        : null;
+
+    if (triggerDecisionRun.policyAction === DecisionRunPolicyAction.ESCALATE_AGENT) {
+      // Escalation means “send to the PM/reviewer”, never “trust the model's
+      // proposed specialist anyway”.
+      if (agent.code !== "hermes_pm") {
+        throw new UnprocessableEntityError(
+          "ESCALATE_AGENT decision can only create a Hermes PM review task"
+        );
+      }
+    } else if (triggerDecisionRun.policyAction === DecisionRunPolicyAction.AUTO) {
+      const autonomousTriggerTypes: AgentTriggerType[] = [
+        AgentTriggerType.AUTOPILOT,
+        AgentTriggerType.EVENT,
+        AgentTriggerType.SYSTEM,
+      ];
+      if (
+        !autonomousTriggerTypes.includes(
+          input.triggerType ?? AgentTriggerType.MANUAL
+        )
+      ) {
+        throw new UnprocessableEntityError(
+          "AUTO decision provenance requires AUTOPILOT, EVENT, or SYSTEM triggerType"
+        );
+      }
+
+      switch (triggerDecisionRun.decisionKey) {
+        case "workforce.route_agent":
+          if (!result || typeof result.value !== "string" || result.value !== agent.code) {
+            throw new UnprocessableEntityError(
+              "Route decision result does not match the selected Agent"
+            );
+          }
+          break;
+
+        case "signal.should_wake_pm":
+          if (result?.value !== true || agent.code !== "hermes_pm") {
+            throw new UnprocessableEntityError(
+              "Signal wake decision must be true and target Hermes PM"
+            );
+          }
+          break;
+
+        default:
+          throw new UnprocessableEntityError(
+            "DecisionSpec is not allowed to directly trigger an AgentTask"
+          );
+      }
+    }
+  }
+
   if (input.squadId) {
     const squad = await prisma.squad.findUnique({
       where: { id: input.squadId },
@@ -475,6 +572,7 @@ export async function createAgentTask(
         priority,
         triggerType: input.triggerType ?? AgentTriggerType.MANUAL,
         triggerRef: input.triggerRef ?? null,
+        triggerDecisionRunId: triggerDecisionRun?.id ?? null,
         createdByUserId: session.userId,
       },
     });
@@ -489,6 +587,7 @@ export async function createAgentTask(
         workItemId: task.workItemId,
         squadId: task.squadId,
         triggerType: task.triggerType,
+        triggerDecisionRunId: task.triggerDecisionRunId,
       } as Prisma.InputJsonValue,
     });
     return task;

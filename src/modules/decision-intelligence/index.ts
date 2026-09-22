@@ -5,3 +5,4 @@ export * from "./rules-engine";
 export * from "./policy-gate";
 export * from "./kernel";
 export * from "./defaults";
+export * from "./persistence";
