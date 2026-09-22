@@ -53,6 +53,10 @@ model Organization {
 
   // Decision Intelligence provenance
   decisionRuns DecisionRun[]
+
+  // Autopilot / Event Wakeup
+  autopilots        Autopilot[]
+  autopilotReceipts AutopilotEventReceipt[]
 }
 
 /**
@@ -165,6 +169,9 @@ model User {
 
   // Decision Intelligence provenance
   decisionRunsCreated DecisionRun[] @relation("DecisionRunCreator")
+
+  // Autopilot / Event Wakeup
+  autopilotsCreated Autopilot[] @relation("AutopilotCreator")
 
   @@index([organizationId, isSystem])
   @@index([organizationId])
@@ -1519,6 +1526,7 @@ model AgentTask {
   parentTask   AgentTask?   @relation("WorkforceAgentTaskParent", fields: [parentTaskId], references: [id], onDelete: SetNull)
   childTasks   AgentTask[]  @relation("WorkforceAgentTaskParent")
   triggerDecisionRun DecisionRun? @relation("DecisionRunTriggeredTasks", fields: [triggerDecisionRunId], references: [id], onDelete: SetNull)
+  autopilotReceipt AutopilotEventReceipt?
   createdBy    User?        @relation("WorkforceAgentTaskCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
   runs         AgentRun[]
   parentDelegations AgentDelegation[] @relation("DelegationParentTask")
@@ -1621,12 +1629,105 @@ model DecisionRun {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdBy    User?        @relation("DecisionRunCreator", fields: [createdById], references: [id], onDelete: SetNull)
   triggeredTasks AgentTask[] @relation("DecisionRunTriggeredTasks")
+  autopilotReceipts AutopilotEventReceipt[]
 
   @@index([organizationId, decisionKey, createdAt])
   @@index([organizationId, policyAction])
   @@index([decisionKey, specVersion])
   @@index([engine, engineVersion])
   @@index([inputHash])
+}
+
+// =============================================================
+// U.56 Autopilot / Event Wakeup
+// =============================================================
+
+enum AutopilotStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum AutopilotActionKind {
+  WAKE_PM
+}
+
+enum AutopilotEventStatus {
+  PENDING
+  PROCESSING
+  TRIGGERED
+  SUPPRESSED
+  WAITING_HUMAN
+  FAILED
+}
+
+model Autopilot {
+  id                  String          @id @default(uuid())
+  organizationId      String
+  key                 String
+  name                String
+  description         String?
+  decisionKey         String
+  decisionSpecVersion String
+  actionKind          AutopilotActionKind
+  status              AutopilotStatus @default(ACTIVE)
+  cooldownSeconds     Int             @default(300)
+  failureThreshold    Int             @default(3)
+  consecutiveFailures Int             @default(0)
+  pausedUntil         DateTime?
+  lastError           String?
+  createdById         String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  organization Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?                   @relation("AutopilotCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  receipts     AutopilotEventReceipt[]
+
+  @@unique([organizationId, key])
+  @@index([organizationId, status])
+  @@index([pausedUntil])
+}
+
+model AutopilotEventReceipt {
+  id                String               @id @default(uuid())
+  organizationId    String
+  autopilotId       String
+  eventKey          String
+  eventType         String
+  sourceType        String?
+  sourceId          String?
+  payloadHash       String
+  payloadJson       Json
+  contextRefs       Json
+  taskGoal          String
+  status            AutopilotEventStatus @default(PENDING)
+  attempt           Int                  @default(0)
+  maxAttempts       Int                  @default(3)
+  decisionRunId     String?
+  agentTaskId       String?              @unique
+  suppressionReason String?
+  errorReason       String?
+  /// Worker lease enables crash recovery without double-processing a live receipt.
+  leaseOwner        String?
+  leaseExpiresAt    DateTime?
+  startedAt         DateTime?
+  finishedAt        DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  autopilot    Autopilot    @relation(fields: [autopilotId], references: [id], onDelete: Cascade)
+  decisionRun  DecisionRun? @relation(fields: [decisionRunId], references: [id], onDelete: SetNull)
+  agentTask    AgentTask?   @relation(fields: [agentTaskId], references: [id], onDelete: SetNull)
+
+  @@unique([autopilotId, eventKey])
+  @@index([organizationId, status])
+  @@index([autopilotId, status])
+  @@index([decisionRunId])
+  @@index([sourceType, sourceId])
+  @@index([leaseExpiresAt])
+  @@index([createdAt])
 }
 
 // =============================================================

@@ -48,7 +48,8 @@
     "test:validation-decision": "node --import tsx --test tests/product-validation-decision.test.ts",
     "test:decision-intelligence": "node --import tsx --test tests/decision-intelligence.test.ts",
     "test:decision-run": "tsx scripts/run-test.ts tests/regression-decision-run.ts",
-    "test:system-principal": "tsx scripts/run-test.ts tests/regression-system-principal.ts"
+    "test:system-principal": "tsx scripts/run-test.ts tests/regression-system-principal.ts",
+    "test:autopilot": "tsx scripts/run-test.ts tests/regression-autopilot.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
