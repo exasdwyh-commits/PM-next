@@ -18,7 +18,11 @@
     "src/modules/decisions/scope-hash.ts",
     "src/modules/launch/gate.ts",
     "src/modules/launch/service.ts",
-    "tests/regression-formal-g3.ts"
+    "tests/regression-formal-g3.ts",
+    "src/modules/production/gate.ts",
+    "src/modules/production/service.ts",
+    "src/modules/work/artifact-schema.ts",
+    "tests/regression-formal-g2.ts"
   ],
   "exclude": [
     "node_modules"

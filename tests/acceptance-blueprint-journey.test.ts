@@ -43,6 +43,8 @@ import {
 import { getWorkspaceOverview } from "../src/modules/workspace/overview";
 import { DecisionOutcome, ProductLifecycleStage, LaunchMilestoneStatus } from "@prisma/client";
 import { decideDecisionPacket } from "../src/modules/decisions/service";
+import { ARTIFACT_SCHEMA_VERSION } from "../src/modules/work/artifact-schema";
+import { computeInputFingerprint } from "../src/modules/work/structured-artifacts";
 
 function assert(condition: boolean, msg: string) {
   if (!condition) {
@@ -330,6 +332,101 @@ author: 战略发展部
     userEmail: launchDm.email,
     userName: launchDm.name,
   };
+
+  // G3 还必须有正式 G2 + 真实生产交付。完整 G2 业务链由 test:g2 专门回归；
+  // 本蓝图测试在这里建立已验证的生产闭环夹具，避免把“上市里程碑完成”误当成“已生产”。
+  const launchProject = await prisma.project.findUnique({
+    where: { id: productRes.project.id },
+    select: { id: true, productVersionId: true, revision: true },
+  });
+  assert(!!launchProject?.productVersionId, "G3 前项目已绑定当前产品版本");
+  await prisma.project.update({
+    where: { id: productRes.project.id },
+    data: { stage: "DELIVERED" },
+  });
+  const blueprintG2 = await prisma.decisionPacket.create({
+    data: {
+      projectId: productRes.project.id,
+      gate: "PRODUCTION_GATE",
+      productVersionId: launchProject!.productVersionId!,
+      artifactVersions: [],
+      evidenceVersions: [],
+      budgetAmount: 10000,
+      budgetCurrency: "CNY",
+      budgetScope: "1000 盒生产投入",
+      validationPlan: "蓝图验收生产投入夹具",
+      requiredChecks: {
+        productionAuthorization: {
+          quantity: 1000,
+          unit: "盒",
+          budget: 10000,
+          currency: "CNY",
+        },
+      },
+      scopeHash: `blueprint-g2-${timestamp}`,
+      status: "APPROVED",
+    },
+  });
+  await prisma.decision.create({
+    data: {
+      packetId: blueprintG2.id,
+      actorId: launchDm.id,
+      decision: "APPROVE",
+      reason: "蓝图 G3 前置：正式 G2 已批准",
+    },
+  });
+  const productionWork = await prisma.workItem.create({
+    data: {
+      projectId: productRes.project.id,
+      title: "蓝图 G3 前置生产交付",
+      target: "提供真实生产交付依据",
+      deliverableReq: "PRODUCTION_RECORD",
+      status: "ACCEPTED",
+      executorType: "HUMAN",
+      inputRevision: launchProject!.revision,
+    },
+  });
+  const productionBusiness = {
+    authorizationRef: blueprintG2.id,
+    batchNo: "BLUEPRINT-BATCH-001",
+    quantity: 1000,
+    unit: "盒",
+    factoryRef: "蓝图验收工厂",
+    producedAt: "2026-09-22",
+    conditions: ["按 G2 授权条件生产"],
+    exceptions: [],
+    deliveryConfirmation: "首批产品已完成生产并入仓",
+  };
+  await prisma.artifact.create({
+    data: {
+      workItemId: productionWork.id,
+      organizationId: orgA.id,
+      productVersionId: launchProject!.productVersionId!,
+      schemaVersion: ARTIFACT_SCHEMA_VERSION,
+      type: "PRODUCTION_RECORD",
+      title: "蓝图上市前生产交付依据",
+      contentVersion: 1,
+      inputRevision: launchProject!.revision,
+      reviewStatus: "ACCEPTED",
+      producerType: "MANUAL",
+      content: JSON.stringify({
+        ...productionBusiness,
+        schemaVersion: ARTIFACT_SCHEMA_VERSION,
+        organizationId: orgA.id,
+        projectId: productRes.project.id,
+        productId: productRes.product.id,
+        productVersionId: launchProject!.productVersionId!,
+        sourceRefs: [],
+        inputFingerprint: computeInputFingerprint(productionBusiness),
+        dataNature: "REAL",
+        assumptions: [],
+        missingInputs: [],
+        recordedBy: userA.id,
+        confirmedBy: null,
+        confirmedAt: null,
+      }),
+    },
+  });
 
   // 门禁通过后由负责人提交 G3；提交本身不等于批准
   const g3Submit = await requestFormalG3Approval(sessionA, planId);

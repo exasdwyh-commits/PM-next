@@ -4,8 +4,8 @@
  * 与 `tests/regression-gate-boundaries.test.ts` 的分工（**有意拆分，偏离计划**）：
  *   - `regression-gate-boundaries.test.ts`：**纯逻辑**（不需服务、不需 DB），锁住
  *     `assertGateImplemented()` 与 `checkOrRecordIdempotency()` 的单元语义，随时可跑。
- *   - 本文件：**真实 HTTP**（生产模式 `next start`），锁住「未实现门型在 HTTP 入口 fail-closed
- *     且**零写入**」「跨组织不因新增断言泄露存在性」「幂等重放 / 跨命令 409 / 并发批准仅一方成功」。
+ *   - 本文件：**真实 HTTP**（生产模式 `next start`），锁住「G2 前置条件不满足时 HTTP fail-closed
+ *     且**零写入**」「跨组织不因门禁校验泄露存在性」「幂等重放 / 跨命令 409 / 并发批准仅一方成功」。
  * 拆分原因：把 HTTP 依赖塞进纯逻辑测试会破坏后者的可跑性（无服务即可跑）。
  *
  * 运行（经既有启动器，自带端口占用与服务器归属校验）：
@@ -237,18 +237,18 @@ async function main() {
   );
 
   // ==========================================================================
-  // ① 门禁 422 + 零写入
+  // ① G2 业务前置 422 + 零写入
   // ==========================================================================
-  console.log("\n▶ 场景 1：未实现门型（PRODUCTION_GATE）fail-closed 且零写入");
+  console.log("\n▶ 场景 1：G2 在生产准备条件不满足时 fail-closed 且零写入");
 
-  // 1.1 draft gate=PRODUCTION_GATE → 422
+  // 1.1 当前项目仍在 RESEARCH 且缺生产成果：draft G2 → 422
   const before1 = await countWrites();
   const draftG2 = await api("POST", `/api/projects/${project.id}/decision-packets`, {
     token: ownerLogin.token,
     body: draftBody(G2),
   });
   const after1 = await countWrites();
-  ok(draftG2.status === 422, `1.1 draft gate=PRODUCTION_GATE → 422（HTTP ${draftG2.status}）`);
+  ok(draftG2.status === 422, `1.1 G2 前置未满足 → 422（HTTP ${draftG2.status}）`);
   ok(
     after1.packets === before1.packets && after1.decisions === before1.decisions && after1.workItems === before1.workItems && after1.stage === before1.stage,
     `1.1b 零写入：packets/decisions/workItems/stage 均不变（${before1.packets}/${before1.decisions}/${before1.workItems}/${before1.stage}）`
@@ -261,7 +261,7 @@ async function main() {
   });
   ok(draftG1.status === 201, `1.2 控制组 draft gate=RESEARCH_SAMPLING_GATE → 201（HTTP ${draftG1.status}）`);
 
-  // 1.3 submit 一个已存在的 PRODUCTION_GATE 包 → 422 且状态不变
+  // 1.3 submit 一个业务前置不满足的 PRODUCTION_GATE 包 → 422 且状态不变
   const g2Draft = await prisma.decisionPacket.create({
     data: {
       projectId: project.id,
@@ -284,7 +284,7 @@ async function main() {
   ok(g2AfterSubmit?.status === "DRAFT", `1.3b 包状态仍为 DRAFT（零写入，实际 ${g2AfterSubmit?.status}）`);
   ok(after3.decisions === before3.decisions && after3.workItems === before3.workItems && after3.stage === before3.stage, "1.3c 无 Decision / 无 WorkItem / 阶段不变");
 
-  // 1.4 decide 一个 IN_REVIEW 的 PRODUCTION_GATE 包 → 422 且零写入
+  // 1.4 decide 一个业务前置不满足的 IN_REVIEW PRODUCTION_GATE 包 → 422 且零写入
   const g2Review = await prisma.decisionPacket.create({
     data: {
       projectId: project.id,

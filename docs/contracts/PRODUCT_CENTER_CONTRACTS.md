@@ -55,7 +55,7 @@ scope: 九类业务成果 → 既有对象 / 必要新增对象 的映射，含�
 
 **本批明确不做**（不为"模块完整"而实现）：`GateType.LAUNCH_GATE`（I-006）、`Product` 复合唯一（I-005）、迁移基线重建（D-006）、Worker / `portfolio` / `agent-runtime` / 复杂 HR 权限 / UI 大改版。
 
-> ⚠️ **2026-09-20 更新**：其中两项已由后续任务完成 —— 迁移基线重建（D-006）→ **TASK-007**；`Product` 复合唯一（I-005 / D-001 约束半边）→ **TASK-008**。I-006 仍暂不实施（G3 首次真实可达时执行）。
+> ⚠️ **后续更新**：2026-09-20 已完成迁移基线重建（D-006 / TASK-007）与 `Product` 组织级复合唯一（I-005 / TASK-008）；2026-09-22 已完成 I-006 正式 G3，并进一步完成正式 G2。上面的“本批明确不做”仅描述当时批次边界，不代表当前实现状态。
 
 ---
 
@@ -172,10 +172,10 @@ scope: 九类业务成果 → 既有对象 / 必要新增对象 的映射，含�
 | 2 | 产品版本 | `ProductVersion` | `versionTag` + `isImmutable` + `isConfirmed`；`specs Json` 需带 `schemaVersion` | 运行已验证 | 既有对象够用。**缺口**：`specs` 无 schema 版本，历史 `specs` 结构不可迁移 |
 | 3 | 项目 | `Project` + `ProjectMember` | `revision`；`mode` × `stage` 二维 | 运行已验证 | 既有够用。**G0 不建决策包**，用 `stage: DRAFT→RESEARCH` + `AuditEvent` 留痕（见 §6.1） |
 | 4 | 证据 | `Evidence` + `EvidenceClaim` + `DataGap` | `Evidence.hash`；`nature(REAL/DEMO)` × `verifyStatus` × `validationStatus` | 运行已验证 | 既有够用。**契约要求**：任何投入金额的放行，其依据必须是 `nature=REAL ∧ verifyStatus=VERIFIED` 的 FACT |
-| 5 | 报价 | `Artifact(type=SUPPLIER_QUOTE)` | `content`（JSON 字符串，顶层带 `schemaVersion`）+ `contentVersion` | **待新增**（`supply/` 为 `BOUNDARY_ONLY` 空壳） | 首版**不新增表**，但**必须**遵守 §4.3 的 schema；出现"到期自动阻断"或"跨供应商比价"查询时升级为独立表 |
-| 6 | 样品 | `Artifact(type=SAMPLE_ROUND)` + `WorkItem` + `WorkSubmission` | 轮次 = `contentVersion`；结论 = `ArtifactApplicability` / `WorkSubmission.reviewedById` | **待新增** | 同上。样品"通过"必须由人确认，不得由 `ArtifactReviewStatus` 自动置 `ACCEPTED` |
-| 7 | 生产记录 | `Artifact(type=PRODUCTION_RECORD)` + `Project.stage` + `LaunchMilestone(kind=SUPPLY)` | `RunReceipt.runMode`；`WorkItem.inputRevision` | **待新增** | **G2 目前是空门**：`GateType.PRODUCTION_GATE` 枚举存在但**全仓无任何代码使用**（grep 实测）。见 §6.3 |
-| 8 | 营销成果 | `Artifact(type=BRAND_*/PACKAGING_*/CHANNEL_*)` | `contentVersion` + `evidenceRefs` | **待新增**（`brand-marketing/` 目录不存在） | **真实 schema 缺口**：`Artifact` **没有 `productVersionId`，也没有 `organizationId`**。营销成果必须绑定产品版本才能"改产品定义即失效文案"，见 §3.8 |
+| 5 | 报价 | `Artifact(type=SUPPLIER_QUOTE)` | 结构化 `schemaVersion` + `contentVersion` + 当前 `productVersionId` | **G2 路径运行已验证** | 首版不新增 SupplierQuote 表；G2 会校验负责人验收、REAL、有效期、数量/MOQ/单价。若需要跨供应商批量比价再升级独立表 |
+| 6 | 样品 | `Artifact(type=SAMPLE_ROUND)` + `WorkItem` + `WorkSubmission` | `contentVersion` + 当前 `productVersionId`；`verdict=PASS` 且负责人验收 | **G2 路径运行已验证** | 新品必须有当前版本、人工验收的 PASS 样品才能进入生产准备；固定产品不伪造样品历史 |
+| 7 | 生产记录 | `Artifact(type=PRODUCTION_RECORD)` + `Project.stage` + `WorkItem` | 结构化批次事实 + `authorizationRef` + `WorkItem.inputRevision` | **运行已验证** | G2 批准不产生生产记录；真实开工后提交并验收 REAL `PRODUCTION_RECORD`，绑定正式 G2 后才可确认交付 |
+| 8 | 营销/包装成果 | `Artifact(type=BRAND_*/PACKAGING_*/CHANNEL_*)` | `contentVersion` + `evidenceRefs` + `organizationId/productVersionId/schemaVersion` | **包装确认已进入 G2；其余按需实现** | `Artifact` 的组织/产品版本/schema 字段已落地；相关成果可按产品版本治理，避免新版产品继续沿用旧素材 |
 | 9 | 经营复盘 | `Artifact(type=BUSINESS_REVIEW)` + `Evidence`（销售/费用）+ `WorkItem` | 预期取自 `DecisionPacket.snapshot`；实际取自 `Evidence` | **待新增**（`reviews/` 目录不存在） | 复盘结论**不自动**成为公司规则；只能作为 `CompanyFact(status=PENDING)` 候选中转，须人工确认 |
 
 ---
@@ -513,39 +513,43 @@ scope: 九类业务成果 → 既有对象 / 必要新增对象 的映射，含�
 
 | 项 | 契约 |
 | --- | --- |
-| 前置 | G1 已 `APPROVED` 且未失效；报价有效期内；样品轮次结论 `PASS`；生产记录与数量/交付条件齐 |
-| 成果 | `DecisionPacket(gate=PRODUCTION_GATE)` + `Decision` |
-| **真实缺口** | `GateType.PRODUCTION_GATE` **枚举存在但全仓无任何代码使用**（grep 实测：仅 `decisions/service.ts` 的默认值与一处展示文案引用 `RESEARCH_SAMPLING_GATE`）。G2 的创建/校验/放行逻辑**不存在** |
-| 与 G1 的区别 | G2 必须额外绑定报价、样品、包装、数量、预算；**修改关键输入后 G1 不自动延续**（REQ-005） |
-| REST | **缺口**：复用 `POST /api/projects/{id}/decision-packets`（需支持 `gate` 入参） |
-| 待拍板 | G2 是否必须引用"已确认配方/成分"对象（当前无该对象，`RISK-004` 领域判断失真风险） |
+| 前置 | 当前 `ProductVersion` 已确认；项目处于 `PRODUCTION_PREP`；当前版本的结构化成果均为 `REAL`、`reviewStatus=ACCEPTED`、`missingInputs=[]`。新品额外要求负责人验收的 `SAMPLE_ROUND.verdict=PASS`；固定产品不伪造 G1/样品历史 |
+| 必需成果 | `SUPPLIER_QUOTE`（有效期内）+ `PROFESSIONAL_CONFIRMATION` + `PACKAGING_BRIEF` + `PRODUCTION_PLAN`；新品另加 `SAMPLE_ROUND` |
+| 成果 | `DecisionPacket(gate=PRODUCTION_GATE)` + append-only `Decision` |
+| 快照 | 冻结当前产品版本、Project revision、精确成果 `id/type/contentVersion/contentHash/inputRevision`、数量/预算/币种/生产与停止条件，并记录 `productionFingerprint` |
+| 权限 | `OWNER` 提交；指定 `DECISION_MAKER` 决定；负责人禁止自批 |
+| 执行边界 | G2 `APPROVED` **仍停留在 `PRODUCTION_PREP`**；只有记录真实开工并复核批准快照仍有效后才进入 `PRODUCTION`；真实 `PRODUCTION_RECORD` 验收后才可进入 `DELIVERED` |
+| 漂移 | 报价/样品/专业确认/包装/生产计划/数量/预算/产品版本等关键输入变化 → 待审批旧包自动 `WITHDRAWN`；已批准授权在实际开工前复核失败则要求重新 G2。历史 Decision 不删除 |
+| REST | `GET /api/projects/{id}/production`、`POST .../production/prepare`、`POST .../production/g2`、`POST .../production/start`、`POST .../production/deliver`；裁决复用统一 `POST /api/decision-packets/{id}/decide` |
+| 状态 | **运行已验证**：`test:g2` + Governance CI |
 
-> ⚠️ 本表「前置」一行（原写"G1 已 `APPROVED`…样品轮次结论 `PASS`…生产记录…齐"）已被 **DEC-003 / DEC-004** 取代（见 §决策对齐）：**固定产品路径不伪造 G1**（用已确认版本及其适用证据）；**G2 前需要生产计划、报价、数量与确认资料，实际生产记录在批准后产生**，不构成循环依赖。
+> 新品只有在当前版本样品经人工验收且 `PASS` 后，才可显式从 `SAMPLING → PRODUCTION_PREP`；这个动作只表示“可以整理生产决策材料”，**不代表 G2 已批准**。固定产品继续从 `PRODUCTION_PREP` 建档，不伪造 G1 历史。实际生产记录属于批准后的执行事实，不作为 G2 前置，避免循环依赖。
 
-### 6.4 G3 上市放行 = `DecisionPacket` 授权 + `LaunchPlan` 执行（**2026-09-16 已拍板统一授权机制**）
+### 6.4 G3 上市放行 = `DecisionPacket(LAUNCH_GATE)` 授权 + `LaunchPlan` 执行
 
 | 项 | 契约 |
 | --- | --- |
-| 承载 | `LaunchPlan.status`（`DRAFT/ACTIVE/BLOCKED/COMPLETED/CANCELLED`）+ `approvedAt`（获准）+ `actualLaunchedAt`（实际上市） |
-| 门禁 | `computeLaunchGate` 逐项检查 → `approveLaunch` / `revokeLaunchApproval` / `confirmLaunchExecution` |
+| 承载 | 正式授权由 `DecisionPacket(gate=LAUNCH_GATE) → Decision` 承载；`LaunchPlan` 只承载上市计划、里程碑、当前有效 G3 指针与实际上市事实 |
+| 门禁 | 冻结 `LaunchPlan` + 全部里程碑 + `governanceRevision` + Project revision + 当前 ProductVersion + **当前正式 G2 与真实 PRODUCTION_RECORD**，并计算 SHA-256 指纹；审批时从 DB 重算 |
 | 里程碑 | `LaunchMilestone.kind`：`MATERIAL` / `CHANNEL` / `SUPPLY` / `COMPLIANCE` / `OTHER`；`workItemId` 复用既有 `WorkItem` |
-| **批准 ≠ 执行** | `approvedAt` 写入**不**改 `Product.actualLaunchDate`；实际上市只由 `confirmLaunchExecution` + 证据写 |
-| 权限 | 复用 `assertLaunchWritePermission`（内部已收口到 `requireProductRole`）+ `PRODUCT_WRITE_ROLES` |
-| REST | `GET/POST /api/products/{id}/launch`、`PATCH /api/launch/plans/{planId}`、`POST /api/launch/plans/{planId}/approve`、`DELETE .../approve`（撤销）、`POST .../launch`（确认执行）、`POST .../milestones` |
-| **授权机制（2026-09-16 拍板）** | **统一"授权机制"，不统一"业务对象"**。<br>· `DecisionPacket → Decision` 只回答"**允许不允许做**" —— G1 打样批准 / G2 生产批准 / G3 上市批准**全部**通过它形成正式授权记录。<br>· `LaunchPlan` 只回答"**批准后怎么做、做到哪了**" —— 上市时间 / 责任人 / 里程碑 / 依赖 / 渠道准备 / 实际开售 / 执行状态。<br>因此 G3 审批**不得**继续留在 `LaunchPlan.approvedAt` 自成第二套审批系统：该字段将来必须由一条 `Decision` 派生。<br>**实施时机**：等 G3 首次真实可达（PC-2/PC-3）时执行，本批不动代码 —— 需要 `GateType.LAUNCH_GATE`（= I-006）与 `approveLaunch` 改造，属"当前试点不需要"的工程，按冻结原则不提前做。<br>**继续保持的纪律**：批准 ≠ 执行中 ≠ 实际完成 |
+| 权限 | `OWNER` 提交；指定 `DECISION_MAKER` 批准/驳回；负责人禁止自批 |
+| 漂移与历史 | 计划/里程碑实质变化通过 `governanceRevision` CAS 使当前 G3 失效，并撤回旧 DRAFT/IN_REVIEW；历史 APPROVED Packet / Decision 保持 append-only |
+| **批准 ≠ 执行** | 正式 G3 批准只代表上市授权；实际上市只由 `confirmLaunchExecution` 记录。历史 legacy `approvedAt` 单独存在时不得绕过正式 G3 |
+| REST | `GET/POST /api/products/{id}/launch`、`PATCH /api/launch/plans/{planId}`、`POST /api/launch/plans/{planId}/approve`（现为提交正式 G3）、`POST /api/decision-packets/{id}/decide`、`POST .../launch`、`POST .../milestones` |
+| 状态 | **运行已验证**：`test:launch-auth` + `test:g3` + Quality/Governance CI |
 
-> ⚠️ 本表「权限」一行（原写"复用 `assertLaunchWritePermission` + `PRODUCT_WRITE_ROLES`"）已被 **DEC-006** 取代（见 §决策对齐）：**正式 G3 与 G1/G2 同由指定决策人批准且禁止负责人自批**；产品编辑权限不得代替决策权。
+> 统一原则已落地：G1/G2/G3 全部用 `DecisionPacket → Decision` 回答“允许不允许做”；业务对象只记录执行计划与真实动作，不再各自发明审批系统。
 
 ### 6.5 门禁总表
 
 | 门 | 正式放行 | 承载对象 | 前置必需成果 | 放行人 | 状态 |
 | --- | --- | --- | --- | --- | --- |
 | G0 | 否 | `Project.stage` + `AuditEvent` | 产品想法 | `OWNER` | 运行已验证 |
-| G1 | 是 | `DecisionPacket(RESEARCH_SAMPLING_GATE)` | 规格简报 + 市场研究 + 合规证据 + 预算 | `DECISION_MAKER` | 运行已验证 |
-| G2 | 是 | `DecisionPacket(PRODUCTION_GATE)` | + 报价 + 样品 + 生产条件 | `DECISION_MAKER` | **空门（未实现）** |
-| G3 | 是 | `LaunchPlan` | + 素材 + 渠道 + 供货 | `PRODUCT_WRITE_ROLES` | 运行已验证（机制不同） |
+| G1 | 是 | `DecisionPacket(RESEARCH_SAMPLING_GATE)` | 规格简报 + 市场研究 + 合规证据 + 预算 | 指定 `DECISION_MAKER` | 运行已验证 |
+| G2 | 是 | `DecisionPacket(PRODUCTION_GATE)` | 当前版本 + 有效报价 +（新品 PASS 样品）+ 专业/包装确认 + 生产计划 | 指定 `DECISION_MAKER` | **运行已验证** |
+| G3 | 是 | `DecisionPacket(LAUNCH_GATE)` + `LaunchPlan` | 已交付生产（正式 G2 + REAL PRODUCTION_RECORD）+ 上市计划 + 素材/渠道/供货/合规里程碑 | 指定 `DECISION_MAKER` | **运行已验证** |
 
-> ⚠️ 本表 **G3 行「放行人 `PRODUCT_WRITE_ROLES`」已被 DEC-006 取代**（见 §决策对齐）：G3 放行人应为**指定决策人且禁止负责人自批**（与 G1/G2 同口径）。
+> G1/G2/G3 均由负责人提交、指定决策人决定且禁止自批；批准与真实执行分开记账。
 
 ---
 
@@ -576,7 +580,7 @@ scope: 九类业务成果 → 既有对象 / 必要新增对象 的映射，含�
 | D-002 | `SignalItem` 唯一约束为全局 `@@unique([sourceKey, hash])`，服务层在跨组织同标题时抛 422「该信号已属于其他组织」 | **泄露他组织存在性** | ✅ **已修复**。唯一约束改 `@@unique([organizationId, sourceKey, hash])`；`organizationId` 收紧为 **NOT NULL**（可空列在唯一键里会被 `NULLS DISTINCT` 绕过）；服务层去重查询按组织范围、删除泄漏分支。反向回归：B8 场景 6 |
 | D-003 | `isOrgAdmin` 近似为"本组织任一项目 `OWNER`" → 建项目即自升管理员 | 可读知识来源配置（含服务器 `rootPath`） | ✅ **已修复**。新增最小 `OrganizationMember(organizationId, userId, role, createdAt)`，`isOrgAdmin` 只看该表；无记录 = 非管理员，**不回退**到项目角色。反向回归：B8 场景 5 |
 | D-004 | `Artifact` 无 `organizationId` / `productVersionId` / `schemaVersion` | 无项目成果无法隔离；营销成果无法绑定版本 | ✅ **已实施 I-001/I-002/I-003**。历史行按 `workItem → project` 回填；`schemaVersion` 有意不回填 |
-| D-005 | `GateType.PRODUCTION_GATE` 无实现 | G2 空门 | 未修。PC-2 前置（TASK-012），不在本批 |
+| D-005 | `GateType.PRODUCTION_GATE` 曾无实现 | G2 曾为空门 | ✅ **已修复（2026-09-22）**。正式 G2 已走统一 DecisionPacket：服务端重建生产范围、独立决策人审批、防自批、关键输入漂移失效；批准后仍停留 `PRODUCTION_PREP`，真实开工/交付单独记录。回归：`test:g2` |
 | D-006 | `prisma/migrations` **无法回放**：`SignalSource` / `SignalItem` / `ResearchRun` / `ResearchRunTask` / `ResearchRunSnapshot` 在**任何**迁移中都没有 `CREATE TABLE`，而 `20260913220000_*` 却 `ALTER TABLE "SignalItem"`。在空库上 `migrate deploy` 直接失败（实测：`relation "SignalItem" does not exist`） | 无法用迁移从零重建数据库；新环境只能靠 `db push`；「迁移即真相」这一前提不成立 | **曾为新发现（2026-09-16），已于 2026-09-20 修复（TASK-007）**。修复前现状：两个本地库均由 `db push` 建立，与 `schema.prisma` **逐表一致**（`migrate diff` 输出为空迁移）→「迁移即真相」不成立。✅ **修复**：新增基线迁移 `20260913120000_add_signal_research_run_baseline`（排序在首次缺表引用 `20260913220000` 之前；3 枚举 + 5 表 + 索引/外键，表达该历史时点的真实结构，**未**用当前整库 schema 冒充历史建表），空库 `migrate deploy` 跑到 exit 0；新增 `scripts/verify-migration-replay.ts` 复现四条路径（空库建库 / 已知历史库升级 / 部分匹配拒绝 / 幂等重放）全绿；既有库按「先验证完整结构，再仅补该迁移账本」收口。详见 `MIGRATION_REPLAY_REPORT.md`「TASK-007 修复与复验」 |
 | D-007 | `Artifact` 三字段在 DB 层**可空**（I-001..I-003 按契约登记为 `String?`） | 写入方若忘记赋值不会有编译/约束错误 | **已知取舍，非缺陷**：可空是为兼容历史行。已由写入路径赋值 + `test:product-center` 断言新成果携带组织，两者共同兜底。若日后要收紧为 NOT NULL，需先确认不存在无项目成果 |
 | D-008 | 写路由把 `req.json()` / `req.formData()` **原样透传给 service，不校验必填字段**；缺字段时 Prisma 抛 `PrismaClientValidationError`、`req.formData()` 抛原生 `TypeError` → **500**。而生产环境响应体被消毒成「An internal server error occurred」，调用方无从定位少了哪个字段 | 实测 3 条：`POST /api/projects/{id}/attachments`（发 JSON 而非 multipart）、`POST /api/projects/{id}/feedback`（缺 `targetId`）、`POST /api/work-items/{id}/submissions`（缺 `inputRevision`）。**更严重的是发现方式**：`ownerGate: "NOT_DENIED"` 旧判据是「非 401/403/404」，**把 500 当成门禁已开**，30 条路由的 owner 侧断言因此一直分不清「正常」与「崩溃」 | ✅ **已修复**。三条路由分别映射 **415 / 422 / 422**，422 附 `fieldErrors` 点名缺失字段；`submitWork` 的校验有意置于**鉴权之后**（前置会把 404 变 422，反而给出资源存在性旁证）。门禁收紧为「非 401/403/404 **且非 5xx**」，并新增独立汇总断言「有权身份段无任何 5xx」（不依赖逐条门禁写法）。反向回归：B8 场景 7（9 断言，故意发错 body 断言 4xx + 点名字段） |
@@ -735,7 +739,7 @@ D-002 / D-003 / D-008 由 B8 矩阵（`tests/acceptance-authz-matrix.test.ts`）
 | I-003 | `Artifact.schemaVersion String?` | 加列 | §4.3：`schemaVersion` 只在 JSON 内则**不可查询**，无法按版本批量处理历史数据 | 需全表解析 JSON，无法安全迁移 | ✅ **已实施** |
 | I-004 | `SignalItem` 唯一约束改 `@@unique([organizationId, sourceKey, hash])`（或 hash 内加入 org） | 改约束 | D-002：跨组织泄露存在性 | 跨组织同标题录入失败并泄露他组织信息 | ✅ **已实施**（并把 `organizationId` 收紧为 NOT NULL） |
 | I-005 | `Product` 唯一约束改 `@@unique([organizationId, identityCode])` + 冲突映射 409 | 改约束 + 代码 | D-001：跨组织同名 → 500 | 组织 B 无法建与组织 A 同名的产品；且 B 能确定得知"该码被占"（存在性 oracle） | ✅ **已实施（2026-09-20，TASK-008）**。① **冲突映射**：`P2002 → 409 CONFLICT`（D-015，中央映射，先前已做）。② **约束变更**：`schema.prisma` 改 `@@unique([organizationId, identityCode])` + 迁移 `20260920235500_product_identity_code_org_scoped_unique`（先决条件 D-006 已由 TASK-007 解除）。③ **代码**：`products/service.ts` 的重试查重由单列 `findUnique({ where: { identityCode } })` 改为复合键 `organizationId_identityCode`。回归：`http-errors` 戊段 + `authz-matrix` 场景 6b |
-| I-006 | `GateType` 加 `LAUNCH_GATE` | 加枚举值 | §6.4：统一授权机制需要 G3 也有自己的门类型 | G3 与 G1/G2 机制不一致，放行口径分裂 | 📄 **方向已定，暂不实施**（见 §6.4）：G3 首次真实可达时执行 |
+| I-006 | `GateType` 加 `LAUNCH_GATE` | 加枚举值 | §6.4：统一授权机制需要 G3 也有自己的门类型 | G3 与 G1/G2 机制不一致，放行口径分裂 | ✅ **已实施（2026-09-22）**：正式 G3 已统一到 DecisionPacket，并有独立 G3 回归 |
 
 **本轮执行方式与证据**（SEC-003）：
 1. 全部为 `ADD COLUMN` / `CREATE TABLE` / `ALTER COLUMN SET NOT NULL` / `ADD CONSTRAINT`，**无删列、无改类型**。
@@ -763,16 +767,16 @@ D-002 / D-003 / D-008 由 B8 矩阵（`tests/acceptance-authz-matrix.test.ts`）
 
 | 契约条款 | 实现状态 |
 | --- | --- |
-| 九类成果映射（§1） | 4 类运行已验证（简报基础设施 / 产品版本 / 项目 / 证据），1 类空门（生产记录 → G2），4 类**完全未实现** |
+| 九类成果映射（§1） | G2 所需结构化生产成果（报价、样品、专业确认、包装、生产计划、生产记录）已可通过既有 `Artifact + WorkItem` 表达并进入正式门禁；其余领域成果继续按实际需求渐进实现 |
 | 成果类型注册表（§4） | 2 个类型已在用，9 个已登记未实现；`schemaVersion` 已**有可查询列**（I-003），但对自由文本成果仍**不强制**（`null` = 未版本化） |
-| G0–G3（§6） | G0/G1/G3 运行已验证；**G2 空门**；G3 授权机制**已拍板统一到 `DecisionPacket`**（实施待 G3 可达） |
+| G0–G3（§6） | **G0/G1/G2/G3 均已形成可运行闭环**；G1/G2/G3 统一到 `DecisionPacket → Decision`，且批准与真实执行分离 |
 | 版本与失效（§5） | `DecisionPacket.scopeHash` 与 `ArtifactApplicability` 运行已验证；`Artifact.productVersionId` 已落地，营销成果**已具备**绑定版本的载体（判定逻辑待营销成果实现） |
 | 幂等与错误（§7） | 通用与提议幂等运行已验证；**D-002 / D-001 已修复并回归**（D-001 于 2026-09-20 TASK-008 收口），**D-006（迁移链不可回放）已于 TASK-007 修复** |
 | REST 入口（§8） | 43/60 已登记并逐格断言；6 组缺口入口未实现 |
 | 权限（§9） | 写路径收口运行已验证；**读可见范围（B4）已拍板为"组织内可读"并已实现**；**组织角色（B7）已以最小 `OrganizationMember` 落地**，D-003 自举已修 |
-| 新增对象（§10） | **零新增领域表**；6 项最小增量中 **I-001–I-005 已实施**（I-005 于 2026-09-20 TASK-008 落地），I-006 方向已定暂不实施。新增的唯一表是 `OrganizationMember`（身份基础设施，非成果领域表） |
+| 新增对象（§10） | **仍未为 G2/G3 新建第二套领域表**；复用 `Artifact / WorkItem / DecisionPacket / LaunchPlan`。I-001–I-006 均已实施；新增的身份基础设施表仍仅 `OrganizationMember` |
 
-**结论（2026-09-16 更新）**：本契约仍是 **PC-0 契约侧交付**。经 2026-09-16 拍板，§9.3 的读口径与组织角色、§6.4 的 G3 授权机制均已确定，§10.2 的 I-001..I-004 已按批准范围实施，因此**契约不再是"待拍板"状态**。仍未实施且明确不属本批的：I-005（工程债）、I-006（G3 可达时）、G2 实现（TASK-012）、D-006（迁移基线）。
+**结论（2026-09-22 更新）**：核心产品治理链已从契约进入运行态：G1 打样投入、G2 生产投入、G3 上市授权均使用统一 `DecisionPacket → Decision`，指定决策人审批且防自批；真实打样/生产/上市动作单独记录。I-005、I-006、迁移基线与 G2 空门等此前关键工程债均已收口。后续重点转向真实供应链/专业确认的数据接入质量，而不是继续扩张审批对象。
 
 > ⚠️ 本节口径已被 **DEC-008** 补充（见 §决策对齐）：**工程通过、真实模型验证、专业确认、真实业务完成是四件事，分别记账**，不得互相替代。
 
@@ -788,7 +792,7 @@ D-002 / D-003 / D-008 由 B8 矩阵（`tests/acceptance-authz-matrix.test.ts`）
 | 2 | B7 组织级角色 | 做最小 `OrganizationMember`，不做人事系统 | §9.3 / §7.3 D-003 |
 | 3 | `Role.ORG_ADMIN` 枚举值 | 保留，但不再影响 `isOrgAdmin` | §9.3 |
 | 4 | G2/G3 授权机制 | 统一到 `DecisionPacket`；`LaunchPlan` 只管执行 | §6.4 |
-| 5 | §10.2 schema 增量 | 批准 I-001/I-002/I-003；I-004 一并实施（安全边界）；I-005 记工程债；I-006 方向已定暂不实施 | §10.2 |
+| 5 | §10.2 schema 增量 | I-001–I-006 均已按后续批次完成；G2/G3 继续复用既有领域对象，不新建第二套审批系统 | §10.2 |
 | 6 | Worker / 队列运行时 | **继续延期**（TASK-020）。除非真实试点出现"研究任务数分钟以上、HTTP 生命周期无法承载" | §2.9 冻结清单 |
 
 > ⚠️ 本表第 6 项已被 **DEC-007** 收敛（见 §决策对齐）：PC-0/PC-1 **明确不引入 Worker**；真实问题另立项并获用户解冻。与本契约既有冻结一致。

@@ -9,12 +9,15 @@ on:
       - "src/modules/research/**"
       - "src/modules/decisions/**"
       - "src/modules/launch/**"
+      - "src/modules/production/**"
       - "src/modules/work/**"
       - "src/shared/audit.ts"
       - "src/shared/idempotency.ts"
       - "tests/regression-governance-convergence.ts"
       - "tests/regression-research-snapshot.ts"
       - "tests/regression-formal-g3.ts"
+      - "tests/regression-formal-g2.ts"
+      - "tests/regression-gate-boundaries.test.ts"
       - "tests/regression-launch-authorization.test.ts"
       - "package.json"
       - ".github/workflows/governance-ci.yml"
@@ -27,12 +30,15 @@ on:
       - "src/modules/research/**"
       - "src/modules/decisions/**"
       - "src/modules/launch/**"
+      - "src/modules/production/**"
       - "src/modules/work/**"
       - "src/shared/audit.ts"
       - "src/shared/idempotency.ts"
       - "tests/regression-governance-convergence.ts"
       - "tests/regression-research-snapshot.ts"
       - "tests/regression-formal-g3.ts"
+      - "tests/regression-formal-g2.ts"
+      - "tests/regression-gate-boundaries.test.ts"
       - "tests/regression-launch-authorization.test.ts"
       - "package.json"
       - ".github/workflows/governance-ci.yml"
@@ -89,3 +95,6 @@ jobs:
       - run: npm run test:governance
       - run: npm run test:research-snapshot
       - run: npm run test:g3
+      - run: npm run test:g2
+      - run: npm run test:structured
+      - run: npm run test:gate-boundaries

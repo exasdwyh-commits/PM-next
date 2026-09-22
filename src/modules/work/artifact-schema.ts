@@ -121,6 +121,42 @@ export const STRUCTURED_ARTIFACT_REGISTRY = {
       { name: "recordedByPerson", kind: "string" },
     ],
   },
+  SUPPLIER_QUOTE: {
+    scope: "project",
+    businessFields: [
+      { name: "supplierRef", kind: "string" },
+      { name: "specification", kind: "string" },
+      { name: "quantity", kind: "number", nonNegative: true },
+      { name: "moq", kind: "number", nonNegative: true },
+      { name: "unitPrice", kind: "number", nonNegative: true },
+      { name: "currency", kind: "currency" },
+      { name: "taxBasis", kind: "string" },
+      { name: "leadTime", kind: "string" },
+      { name: "validUntil", kind: "isoDate" },
+      { name: "paymentTerms", kind: "string" },
+    ],
+  },
+  SAMPLE_ROUND: {
+    scope: "project",
+    businessFields: [
+      { name: "round", kind: "number", nonNegative: true },
+      { name: "factoryRef", kind: "string" },
+      { name: "sampleDate", kind: "isoDate" },
+      { name: "verdict", kind: "enum", enumValues: ["PASS", "FAIL", "CONDITIONAL"] },
+      { name: "issues", kind: "stringArray" },
+      { name: "nextAction", kind: "string" },
+    ],
+  },
+  PACKAGING_BRIEF: {
+    scope: "project",
+    businessFields: [
+      { name: "packagingVersion", kind: "string" },
+      { name: "format", kind: "string" },
+      { name: "material", kind: "string" },
+      { name: "specification", kind: "string" },
+      { name: "complianceNotes", kind: "stringArray" },
+    ],
+  },
   PRODUCTION_PLAN: {
     scope: "project",
     businessFields: [
@@ -134,6 +170,20 @@ export const STRUCTURED_ARTIFACT_REGISTRY = {
       { name: "leadTime", kind: "string", nullable: true },
       { name: "productionConditions", kind: "stringArray" },
       { name: "stopConditions", kind: "stringArray" },
+    ],
+  },
+  PRODUCTION_RECORD: {
+    scope: "project",
+    businessFields: [
+      { name: "authorizationRef", kind: "string" },
+      { name: "batchNo", kind: "string" },
+      { name: "quantity", kind: "number", nonNegative: true },
+      { name: "unit", kind: "string" },
+      { name: "factoryRef", kind: "string" },
+      { name: "producedAt", kind: "isoDate" },
+      { name: "conditions", kind: "stringArray" },
+      { name: "exceptions", kind: "stringArray" },
+      { name: "deliveryConfirmation", kind: "string" },
     ],
   },
   BUSINESS_OBSERVATION: {

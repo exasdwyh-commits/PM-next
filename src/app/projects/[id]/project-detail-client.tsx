@@ -25,6 +25,18 @@ import {
   labelFeedbackStatus,
 } from "@/shared/status-labels";
 
+const STRUCTURED_SUBMISSION_TYPES = new Set([
+  "COST_SCENARIO",
+  "PROFESSIONAL_ANALYSIS",
+  "PROFESSIONAL_CONFIRMATION",
+  "SUPPLIER_QUOTE",
+  "SAMPLE_ROUND",
+  "PACKAGING_BRIEF",
+  "PRODUCTION_PLAN",
+  "PRODUCTION_RECORD",
+  "BUSINESS_OBSERVATION",
+]);
+
 export default function ProjectDetailClient({
   initialProject,
   allUsers,
@@ -64,8 +76,10 @@ export default function ProjectDetailClient({
 
   const [showSubmissionModal, setShowSubmissionModal] = useState<string | null>(null);
   const [subArtifactTitle, setSubArtifactTitle] = useState("");
+  const [subArtifactType, setSubArtifactType] = useState("RESEARCH_REPORT");
   const [subArtifactContent, setSubArtifactContent] = useState("");
   const [subRunMode, setSubRunMode] = useState("MANUAL");
+  const [productionContext, setProductionContext] = useState<any>(null);
 
   const [showEvidenceModal, setShowEvidenceModal] = useState(false);
   const [evidenceContent, setEvidenceContent] = useState("");
@@ -111,10 +125,31 @@ export default function ProjectDetailClient({
         const data = await res.json();
         setProject(data);
       }
+      const productionRes = await fetch(`/api/projects/${project.id}/production`, {
+        headers: identityHeaders(mockAuth, activeUserId),
+      });
+      if (productionRes.ok) setProductionContext(await productionRes.json());
     } catch (e) {
       console.error(e);
     }
   };
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/projects/${project.id}/production`, {
+          headers: identityHeaders(mockAuth, activeUserId),
+        });
+        if (res.ok && !cancelled) setProductionContext(await res.json());
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [project.id, activeUserId, mockAuth]);
 
   // P1-01: 用户操作后刷新证据洞察（仅首次无障；挂载时用服务端初始值，避免 x-user-id 头在非 mock 会话下触发 403）
   const fetchEvidenceInsight = async () => {
@@ -181,23 +216,122 @@ export default function ProjectDetailClient({
     } catch (e) {}
   };
 
+  const latestAcceptedArtifactId = (type: string): string | null => {
+    const rows = project.workItems
+      .flatMap((w: any) => w.artifacts ?? [])
+      .filter((a: any) => a.type === type && a.reviewStatus === "ACCEPTED");
+    return rows[0]?.id ?? null;
+  };
+
+  const structuredTemplate = (type: string): string => {
+    const base = { dataNature: "REAL", assumptions: [], missingInputs: [] };
+    const plus90 = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const latestG2 = (project.decisionPackets ?? []).find(
+      (p: any) => p.gate === "PRODUCTION_GATE" && p.status === "APPROVED"
+    );
+    const templates: Record<string, any> = {
+      COST_SCENARIO: {
+        ...base,
+        engineVersion: "1.0",
+        scenarioName: "基础生产成本情景",
+        currency: "CNY",
+        unit: "盒",
+        expenseBase: "出厂口径",
+        result: 10,
+      },
+      SUPPLIER_QUOTE: {
+        ...base,
+        supplierRef: "供应商/工厂名称",
+        specification: "当前产品规格",
+        quantity: 1000,
+        moq: 1000,
+        unitPrice: 10,
+        currency: "CNY",
+        taxBasis: "含税",
+        leadTime: "30天",
+        validUntil: plus90,
+        paymentTerms: "示例：30%预付款，70%发货前付清",
+      },
+      SAMPLE_ROUND: {
+        ...base,
+        round: 1,
+        factoryRef: "打样工厂",
+        sampleDate: new Date().toISOString().slice(0, 10),
+        verdict: "PASS",
+        issues: [],
+        nextAction: "进入生产准备",
+      },
+      PROFESSIONAL_CONFIRMATION: {
+        ...base,
+        domain: "生产/合规",
+        appliesToIdentity: "当前产品身份",
+        appliesToRegion: "中国大陆",
+        appliesToChannel: "计划销售渠道",
+        materialRefs: [],
+        scopeItems: ["产品身份", "标签/宣称", "生产条件"],
+        validUntil: plus90,
+        confirmedByPerson: "实际确认人",
+        recordedByPerson: "录入人",
+      },
+      PACKAGING_BRIEF: {
+        ...base,
+        packagingVersion: "P1",
+        format: "盒/袋/瓶等",
+        material: "包装材质",
+        specification: "包装规格尺寸",
+        complianceNotes: ["标签信息已核对"],
+      },
+      PRODUCTION_PLAN: {
+        ...base,
+        quantity: 1000,
+        unit: "盒",
+        budget: 10000,
+        currency: "CNY",
+        quoteRefs: [latestAcceptedArtifactId("SUPPLIER_QUOTE") ?? "粘贴 SUPPLIER_QUOTE 成果ID"],
+        sampleRefs: project.mode === "NEW_PRODUCT"
+          ? [latestAcceptedArtifactId("SAMPLE_ROUND") ?? "粘贴 SAMPLE_ROUND 成果ID"]
+          : [],
+        packagingRefs: [latestAcceptedArtifactId("PACKAGING_BRIEF") ?? "粘贴 PACKAGING_BRIEF 成果ID"],
+        leadTime: "30天",
+        productionConditions: ["报价仍有效", "包装与专业确认未变化"],
+        stopConditions: ["数量/金额/规格越界", "报价或专业确认失效"],
+      },
+      PRODUCTION_RECORD: {
+        ...base,
+        authorizationRef: latestG2?.id ?? "粘贴已批准 G2 决策包ID",
+        batchNo: "BATCH-001",
+        quantity: 1000,
+        unit: "盒",
+        factoryRef: "实际生产工厂",
+        producedAt: new Date().toISOString().slice(0, 10),
+        conditions: ["按已批准生产计划执行"],
+        exceptions: [],
+        deliveryConfirmation: "填写真实出货/入仓/签收凭据摘要",
+      },
+    };
+    return templates[type] ? JSON.stringify(templates[type], null, 2) : "";
+  };
+
   // 2. Submit Deliverables
   const handleSubmitDeliverables = async (workItemId: string) => {
     try {
+      const structured = STRUCTURED_SUBMISSION_TYPES.has(subArtifactType);
       await apiCall(`/api/work-items/${workItemId}/submissions`, "POST", {
         inputRevision: project.revision,
         runMode: subRunMode,
         artifacts: [
           {
-            type: "RESEARCH_REPORT",
-            title: subArtifactTitle || "研究报告",
-            content: subArtifactContent || "成果详情内容",
+            type: subArtifactType,
+            title: subArtifactTitle || subArtifactType,
+            content: subArtifactContent || (structured ? structuredTemplate(subArtifactType) : "成果详情内容"),
+            ...(structured ? { schemaVersion: "1.0" } : {}),
           },
         ],
       });
-      showMsg("成果交付物已提交");
+      showMsg("成果交付物已提交，需负责人验收后才能进入正式门禁");
       setShowSubmissionModal(null);
       setSubArtifactTitle("");
+      setSubArtifactType("RESEARCH_REPORT");
       setSubArtifactContent("");
       await reloadProject();
     } catch (e) {}
@@ -324,6 +458,54 @@ export default function ProjectDetailClient({
     } catch (e) {}
   };
 
+  const handlePrepareProduction = async () => {
+    try {
+      await apiCall(`/api/projects/${project.id}/production/prepare`, "POST");
+      showMsg("已进入生产准备并补齐 G2 准备任务；这不代表生产已获批");
+      await reloadProject();
+    } catch (e) {}
+  };
+
+  const handleRequestG2 = async () => {
+    try {
+      await apiCall(`/api/projects/${project.id}/production/g2`, "POST");
+      showMsg("正式 G2 已提交，等待指定决策人审批");
+      await reloadProject();
+    } catch (e) {}
+  };
+
+  const handleProductionStart = async () => {
+    const note = await askReason({
+      title: "确认实际生产开工",
+      label: "实际开工说明",
+      placeholder: "填写工厂排产/开工/首批投料等真实动作…",
+      confirmText: "确认开工",
+      tone: "primary",
+    });
+    if (!note) return;
+    try {
+      await apiCall(`/api/projects/${project.id}/production/start`, "POST", { note });
+      showMsg("已记录真实开工，项目进入商业化生产阶段");
+      await reloadProject();
+    } catch (e) {}
+  };
+
+  const handleProductionDelivery = async () => {
+    const note = await askReason({
+      title: "确认生产交付",
+      label: "实际交付说明",
+      placeholder: "填写批次完成、出库/入仓/签收等真实交付说明…",
+      confirmText: "确认交付",
+      tone: "primary",
+    });
+    if (!note) return;
+    try {
+      await apiCall(`/api/projects/${project.id}/production/deliver`, "POST", { note });
+      showMsg("生产交付已确认，项目进入已交付阶段");
+      await reloadProject();
+    } catch (e) {}
+  };
+
   // 7. Create & Submit Decision Packet
   const handleCreateAndSubmitPacket = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -363,7 +545,14 @@ export default function ProjectDetailClient({
         reason,
         idempotencyKey: `idemp-${Date.now()}`,
       });
-      showMsg(decision === "APPROVE" ? "研发打样门已批准！项目已推进至 SAMPLING 并生成打样准备任务" : "已做出决策");
+      const decidedPacket = (project.decisionPackets ?? []).find((p: any) => p.id === packetId);
+      showMsg(
+        decision === "APPROVE"
+          ? decidedPacket?.gate === "PRODUCTION_GATE"
+            ? "正式 G2 已批准；项目仍停在生产准备，真实开工需另行确认"
+            : "研发打样门已批准！项目已推进至 SAMPLING 并生成打样准备任务"
+          : "已做出决策"
+      );
       await reloadProject();
     } catch (e) {}
   };
@@ -383,28 +572,38 @@ export default function ProjectDetailClient({
     };
   });
 
-  // 门槛线（G1/G2）：两套放行机制如实并列 —— G1 走 DecisionPacket(RESEARCH_SAMPLING_GATE)；
-  // G2 走 DecisionPacket(PRODUCTION_GATE)。本仓 PRODUCTION_GATE 全仓无任何写入，故 G2 恒为「未建档」。
+  // G1 / G2 都走统一 DecisionPacket。批准只代表授权，实际打样/生产动作由后续命令记录。
   const researchPacket = (project.decisionPackets || []).find(
     (p: any) => p.gate === "RESEARCH_SAMPLING_GATE"
   );
-  const g1State: GateNode["state"] = !researchPacket
-    ? "not-created"
-    : researchPacket.status === "APPROVED"
-      ? "passed"
-      : researchPacket.status === "DRAFT" || researchPacket.status === "IN_REVIEW"
-        ? "pending"
-        : "blocked";
+  const productionPacket = (project.decisionPackets || []).find(
+    (p: any) => p.gate === "PRODUCTION_GATE"
+  );
+  const gateState = (packet: any): GateNode["state"] =>
+    !packet
+      ? "not-created"
+      : packet.status === "APPROVED"
+        ? "passed"
+        : packet.status === "DRAFT" || packet.status === "IN_REVIEW"
+          ? "pending"
+          : "blocked";
   const gateNodes: GateNode[] = [
     {
       key: "G1",
       label: "研发打样门",
-      state: g1State,
+      state: gateState(researchPacket),
       source: "decision-packet",
       detail: researchPacket ? labelDecisionPacketStatus(researchPacket.status) : undefined,
       refId: researchPacket?.id ?? null,
     },
-    { key: "G2", label: "生产门", state: "not-created", source: "decision-packet", refId: null },
+    {
+      key: "G2",
+      label: "生产投入门",
+      state: gateState(productionPacket),
+      source: "decision-packet",
+      detail: productionPacket ? labelDecisionPacketStatus(productionPacket.status) : undefined,
+      refId: productionPacket?.id ?? null,
+    },
   ];
 
   return (
@@ -732,13 +931,94 @@ export default function ProjectDetailClient({
           </Modal>
         )}
 
+        {(project.stage === "SAMPLING" ||
+          project.stage === "PRODUCTION_PREP" ||
+          project.stage === "PRODUCTION" ||
+          project.stage === "DELIVERED") && (
+          <Panel
+            eyebrow="G2 · PRODUCTION"
+            title="生产投入与执行"
+            sub="样品通过 → 生产准备 → G2 正式授权 → 真实开工 → 真实交付；批准不等于已生产"
+          >
+            <GateLine gates={[gateNodes[1]]} ariaLabel="G2 生产投入门槛" />
+
+            {productionContext?.preparation && project.stage === "SAMPLING" && (
+              <div className={`hermes-banner ${productionContext.preparation.ready ? "" : "is-warn"}`} style={{ marginTop: 10 }}>
+                {productionContext.preparation.ready
+                  ? "当前样品与版本已满足进入生产准备的前置条件。"
+                  : `进入生产准备仍有 ${productionContext.preparation.blockers?.length ?? 0} 项阻断：${(productionContext.preparation.blockers ?? []).join("；")}`}
+              </div>
+            )}
+
+            {productionContext?.gate && project.stage === "PRODUCTION_PREP" && (
+              <>
+                <div className={`hermes-banner ${productionContext.gate.ready ? "" : "is-warn"}`} style={{ marginTop: 10 }}>
+                  {productionContext.gate.ready
+                    ? "正式 G2 输入已齐：当前版本、有效报价、样品/适用确认、包装、专业确认与生产计划均可验证。"
+                    : `G2 尚有 ${productionContext.gate.blockers?.length ?? 0} 项阻断。`}
+                </div>
+                {!productionContext.gate.ready && (
+                  <ul className="hermes-list" style={{ marginTop: 8 }}>
+                    {(productionContext.gate.blockers ?? []).map((b: string, i: number) => (
+                      <li key={i} className="hermes-row is-flat">{b}</li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+
+            <div className="hermes-inline-end" style={{ marginTop: 12 }}>
+              {isOwner && project.stage === "SAMPLING" && (
+                <button
+                  className="hermes-primary-btn"
+                  onClick={handlePrepareProduction}
+                  disabled={!productionContext?.preparation?.ready}
+                >
+                  样品闭环，进入生产准备
+                </button>
+              )}
+              {isOwner &&
+                project.stage === "PRODUCTION_PREP" &&
+                productionPacket?.status !== "APPROVED" &&
+                productionPacket?.status !== "IN_REVIEW" && (
+                  <button
+                    className="hermes-primary-btn"
+                    onClick={handleRequestG2}
+                    disabled={!productionContext?.gate?.ready}
+                  >
+                    提交正式 G2 审批
+                  </button>
+                )}
+              {productionPacket?.status === "IN_REVIEW" && (
+                <span className="hermes-note">
+                  G2 已送审，等待指定决策人处理；负责人不能自批。
+                </span>
+              )}
+              {isOwner && project.stage === "PRODUCTION_PREP" && productionPacket?.status === "APPROVED" && (
+                <button className="hermes-primary-btn" onClick={handleProductionStart}>
+                  确认实际开工
+                </button>
+              )}
+              {isOwner && project.stage === "PRODUCTION" && (
+                <button className="hermes-primary-btn" onClick={handleProductionDelivery}>
+                  确认生产交付
+                </button>
+              )}
+              {project.stage === "DELIVERED" && <Badge status="VERIFIED" tone="ok">生产已交付</Badge>}
+            </div>
+            <p className="viz-source-note">
+              G2 批准后仍停留在“生产准备”；只有记录真实开工才进入“商业化生产”，真实生产记录验收后才能进入“已交付”。
+            </p>
+          </Panel>
+        )}
+
         {/* 1. Decision Gate Section */}
         <Panel
-          eyebrow="研发打样门"
-          title="研发打样门决策包"
-          sub="冻结提交不可变快照，核实市场依据、投入范围与验证方案"
+          eyebrow="GOVERNANCE"
+          title="正式门禁决策包"
+          sub="G1 与 G2 均冻结不可变快照，由指定决策人裁决；负责人禁止自批"
           actions={
-            isOwner ? (
+            isOwner && (project.stage === "DRAFT" || project.stage === "RESEARCH") ? (
               <button onClick={() => setShowPacketModal(true)} className="hermes-primary-btn hermes-btn-sm">
                 <Icon name="plus" size={15} />
                 起草/重提决策包
@@ -746,16 +1026,17 @@ export default function ProjectDetailClient({
             ) : undefined
           }
         >
-          {/* 门槛线（两套放行机制如实并列）：G1 依据决策包、G2 恒为未建档。获准 ≠ 已上市。 */}
           <GateLine gates={gateNodes} ariaLabel="项目放行门槛线" />
           <p className="viz-source-note">
-            G1 依据：决策包（研发打样门）；G2 依据：生产门决策包（本仓尚无写入，恒为未建档）。获准 ≠ 已上市。
+            G1 批准允许投入打样；G2 批准允许投入生产。两者都不等于实际执行完成，真实开工/交付另行记录。
           </p>
           {project.decisionPackets.length === 0 ? (
             <Empty>暂无决策包。由负责人起草打样门方案并冻结提交。</Empty>
           ) : (
             <div className="hermes-list">
-              {project.decisionPackets.map((pkt: any) => {
+              {project.decisionPackets
+                .filter((pkt: any) => pkt.gate === "RESEARCH_SAMPLING_GATE" || pkt.gate === "PRODUCTION_GATE")
+                .map((pkt: any) => {
                 const pktTone =
                   pkt.status === "CHANGES_REQUESTED"
                     ? "danger"
@@ -768,6 +1049,7 @@ export default function ProjectDetailClient({
                   <div key={pkt.id} className="hermes-row">
                     <div className="hermes-row-head" style={{ justifyContent: "space-between" }}>
                       <div className="hermes-inline">
+                        <Badge tone={pktTone}>{pkt.gate === "PRODUCTION_GATE" ? "G2 生产投入门" : "G1 研发打样门"}</Badge>
                         <Badge tone={pktTone}>{labelDecisionPacketStatus(pkt.status)}</Badge>
                         <span className="hermes-mono">指纹: {pkt.scopeHash.slice(0, 16)}...</span>
                       </div>
@@ -793,7 +1075,9 @@ export default function ProjectDetailClient({
                       >
                         <span className="hermes-row-meta">
                           {isDecisionMaker ? (
-                            <span style={{ color: "var(--ok)", fontWeight: 600 }}>您是指定决策人，可执行打样门裁决</span>
+                            <span style={{ color: "var(--ok)", fontWeight: 600 }}>
+                              您是指定决策人，可执行{pkt.gate === "PRODUCTION_GATE" ? "生产投入门" : "研发打样门"}裁决
+                            </span>
                           ) : isOwner ? (
                             <span style={{ color: "var(--block-ink)", fontWeight: 600 }}>负责人禁止自批，等待指定决策人审批 (A05)</span>
                           ) : (
@@ -801,11 +1085,19 @@ export default function ProjectDetailClient({
                           )}
                         </span>
                         <div className="hermes-inline">
-                          <button onClick={() => handleDecideGate(pkt.id, "REQUEST_CHANGES")} className="hermes-danger-btn hermes-btn-sm">
+                          <button
+                            onClick={() => handleDecideGate(pkt.id, "REQUEST_CHANGES")}
+                            className="hermes-danger-btn hermes-btn-sm"
+                            disabled={!isDecisionMaker}
+                          >
                             退回修改
                           </button>
-                          <button onClick={() => handleDecideGate(pkt.id, "APPROVE")} className="hermes-primary-btn hermes-btn-sm">
-                            准予批准 (推进至打样)
+                          <button
+                            onClick={() => handleDecideGate(pkt.id, "APPROVE")}
+                            className="hermes-primary-btn hermes-btn-sm"
+                            disabled={!isDecisionMaker}
+                          >
+                            {pkt.gate === "PRODUCTION_GATE" ? "批准 G2（授权生产投入）" : "批准 G1（推进至打样）"}
                           </button>
                         </div>
                       </div>
@@ -920,7 +1212,9 @@ export default function ProjectDetailClient({
                         </div>
                         {item.artifacts.map((a: any) => (
                           <div key={a.id} className="hermes-row-body">
-                            <span style={{ fontWeight: 600, color: "var(--accent-hover)" }}>[{a.producerType}] {a.title}:</span> {a.content}
+                            <span style={{ fontWeight: 600, color: "var(--accent-hover)" }}>[{a.producerType}] {a.title}:</span>{" "}
+                            <span className="hermes-mono">id: {a.id}</span>{" "}
+                            {a.content}
                           </div>
                         ))}
                       </div>
@@ -1240,6 +1534,30 @@ export default function ProjectDetailClient({
                 </select>
               </label>
               <label className="hermes-label">
+                <span>成果类型</span>
+                <select
+                  className="hermes-select"
+                  value={subArtifactType}
+                  onChange={(e) => {
+                    const type = e.target.value;
+                    setSubArtifactType(type);
+                    if (STRUCTURED_SUBMISSION_TYPES.has(type)) {
+                      setSubArtifactContent(structuredTemplate(type));
+                      setSubArtifactTitle(type);
+                    }
+                  }}
+                >
+                  <option value="RESEARCH_REPORT">RESEARCH_REPORT（自由文本）</option>
+                  <option value="SAMPLE_ROUND">SAMPLE_ROUND（样品轮次）</option>
+                  <option value="SUPPLIER_QUOTE">SUPPLIER_QUOTE（供应商报价）</option>
+                  <option value="PROFESSIONAL_CONFIRMATION">PROFESSIONAL_CONFIRMATION（专业确认）</option>
+                  <option value="PACKAGING_BRIEF">PACKAGING_BRIEF（包装确认）</option>
+                  <option value="PRODUCTION_PLAN">PRODUCTION_PLAN（生产计划）</option>
+                  <option value="PRODUCTION_RECORD">PRODUCTION_RECORD（生产记录）</option>
+                  <option value="COST_SCENARIO">COST_SCENARIO（成本情景）</option>
+                </select>
+              </label>
+              <label className="hermes-label">
                 <span>产物标题</span>
                 <input
                   type="text"
@@ -1250,13 +1568,15 @@ export default function ProjectDetailClient({
                 />
               </label>
               <label className="hermes-label">
-                <span>产物核心内容</span>
+                <span>{STRUCTURED_SUBMISSION_TYPES.has(subArtifactType) ? "结构化 JSON 内容" : "产物核心内容"}</span>
                 <textarea
                   rows={3}
                   className="hermes-textarea"
                   value={subArtifactContent}
                   onChange={(e) => setSubArtifactContent(e.target.value)}
-                  placeholder="输入分析结论、测定数值或方案内容..."
+                  placeholder={STRUCTURED_SUBMISSION_TYPES.has(subArtifactType)
+                    ? "结构化成果使用 JSON；服务端会校验字段、REAL/DEMO、版本与缺失输入"
+                    : "输入分析结论、测定数值或方案内容..."}
                 />
               </label>
               <div className="hermes-modal-actions">

@@ -10,6 +10,8 @@ import {
 } from "../src/modules/launch/service";
 import { decideDecisionPacket } from "../src/modules/decisions/service";
 import { DecisionOutcome, LaunchMilestoneStatus } from "@prisma/client";
+import { ARTIFACT_SCHEMA_VERSION } from "../src/modules/work/artifact-schema";
+import { computeInputFingerprint } from "../src/modules/work/structured-artifacts";
 
 function check(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(`Assertion failed: ${message}`);
@@ -123,6 +125,96 @@ async function main() {
   });
   const planId = prepared.planId;
 
+  // G3 必须建立在正式 G2 + 当前版本真实生产交付之上，不能仅凭上市里程碑绕过生产门。
+  await expectFailure(
+    () => requestFormalG3Approval(ownerSession, planId),
+    "正式 G2"
+  );
+
+  const g2Packet = await prisma.decisionPacket.create({
+    data: {
+      projectId: project.id,
+      gate: "PRODUCTION_GATE",
+      productVersionId: version.id,
+      artifactVersions: [],
+      evidenceVersions: [],
+      budgetAmount: 10000,
+      budgetCurrency: "CNY",
+      budgetScope: "1000 盒正式生产",
+      validationPlan: "正式生产投入已批准",
+      requiredChecks: {
+        productionAuthorization: {
+          quantity: 1000,
+          unit: "盒",
+          budget: 10000,
+          currency: "CNY",
+        },
+      },
+      scopeHash: `g2-${tag}`,
+      status: "APPROVED",
+    },
+  });
+  await prisma.decision.create({
+    data: {
+      packetId: g2Packet.id,
+      actorId: dm.id,
+      decision: "APPROVE",
+      reason: "G3 回归夹具：正式 G2 已批准",
+    },
+  });
+  const productionWork = await prisma.workItem.create({
+    data: {
+      projectId: project.id,
+      title: "G3 回归生产记录",
+      target: "证明真实生产交付",
+      deliverableReq: "PRODUCTION_RECORD",
+      status: "ACCEPTED",
+      executorType: "HUMAN",
+      inputRevision: project.revision,
+    },
+  });
+  const productionBusiness = {
+    authorizationRef: g2Packet.id,
+    batchNo: "G3-BATCH-001",
+    quantity: 1000,
+    unit: "盒",
+    factoryRef: "G3 测试工厂",
+    producedAt: "2026-09-22",
+    conditions: ["按 G2 授权生产"],
+    exceptions: [],
+    deliveryConfirmation: "首批货物已完成真实入仓交付",
+  };
+  await prisma.artifact.create({
+    data: {
+      workItemId: productionWork.id,
+      organizationId: org.id,
+      productVersionId: version.id,
+      schemaVersion: ARTIFACT_SCHEMA_VERSION,
+      type: "PRODUCTION_RECORD",
+      title: "G3 上市前生产交付依据",
+      contentVersion: 1,
+      inputRevision: project.revision,
+      reviewStatus: "ACCEPTED",
+      producerType: "MANUAL",
+      content: JSON.stringify({
+        ...productionBusiness,
+        schemaVersion: ARTIFACT_SCHEMA_VERSION,
+        organizationId: org.id,
+        projectId: project.id,
+        productId: product.id,
+        productVersionId: version.id,
+        sourceRefs: [],
+        inputFingerprint: computeInputFingerprint(productionBusiness),
+        dataNature: "REAL",
+        assumptions: [],
+        missingInputs: [],
+        recordedBy: owner.id,
+        confirmedBy: null,
+        confirmedAt: null,
+      }),
+    },
+  });
+
   // 1. 负责人只能提交，提交本身不能产生正式授权。
   const submitted1 = await requestFormalG3Approval(ownerSession, planId);
   check(submitted1.status === "IN_REVIEW", "负责人提交后 G3 进入 IN_REVIEW");
@@ -208,12 +300,70 @@ async function main() {
     "尚未取得当前有效的正式 G3"
   );
 
-  // 5. 再次审批后才允许确认实际上市。
+  // 5. 再次审批后，如果生产交付依据又变化，实际上市必须让旧 G3 失效并重新审批。
   const submitted3 = await requestFormalG3Approval(ownerSession, planId);
   await decideDecisionPacket(dmSession, submitted3.packetId, {
     decision: DecisionOutcome.APPROVE,
     reason: "更新后的上市计划再次通过正式 G3",
   });
+
+  const revisedProductionBusiness = {
+    ...productionBusiness,
+    batchNo: "G3-BATCH-002",
+    quantity: 900,
+    deliveryConfirmation: "交付记录补充为最终入仓 900 盒",
+  };
+  await prisma.artifact.create({
+    data: {
+      workItemId: productionWork.id,
+      organizationId: org.id,
+      productVersionId: version.id,
+      schemaVersion: ARTIFACT_SCHEMA_VERSION,
+      type: "PRODUCTION_RECORD",
+      title: "G3 上市前生产交付依据 v2",
+      contentVersion: 2,
+      inputRevision: project.revision,
+      reviewStatus: "ACCEPTED",
+      producerType: "MANUAL",
+      content: JSON.stringify({
+        ...revisedProductionBusiness,
+        schemaVersion: ARTIFACT_SCHEMA_VERSION,
+        organizationId: org.id,
+        projectId: project.id,
+        productId: product.id,
+        productVersionId: version.id,
+        sourceRefs: [],
+        inputFingerprint: computeInputFingerprint(revisedProductionBusiness),
+        dataNature: "REAL",
+        assumptions: [],
+        missingInputs: [],
+        recordedBy: owner.id,
+        confirmedBy: null,
+        confirmedAt: null,
+      }),
+    },
+  });
+
+  await expectFailure(
+    () =>
+      confirmLaunchExecution(ownerSession, planId, {
+        note: "生产依据变化后尝试沿用旧 G3 上市",
+      }),
+    "当前正式 G3 已因项目/生产交付基线变化而失效"
+  );
+  const afterProductionDrift = await prisma.launchPlan.findUnique({ where: { id: planId } });
+  check(!afterProductionDrift?.formalG3PacketId, "生产交付依据变化后当前 G3 指针被清空");
+  check(
+    (await prisma.decisionPacket.findUnique({ where: { id: submitted3.packetId } }))?.status === "APPROVED",
+    "生产依据变化只失效当前授权，不篡改历史 G3 APPROVED 记录"
+  );
+
+  const submitted4 = await requestFormalG3Approval(ownerSession, planId);
+  await decideDecisionPacket(dmSession, submitted4.packetId, {
+    decision: DecisionOutcome.APPROVE,
+    reason: "按更新后的真实生产交付依据重新批准正式 G3",
+  });
+
   const launched = await confirmLaunchExecution(ownerSession, planId, {
     note: "渠道正式上线并完成首批出货",
   });
@@ -267,7 +417,7 @@ async function main() {
       action: "FORMAL_G3_INVALIDATED",
     },
   });
-  check(invalidationAudits >= 2, "待审批失效与已批准失效都留下审计事件");
+  check(invalidationAudits >= 3, "待审批、计划变更与生产依据漂移都留下 G3 失效审计事件");
 
   console.log("\n✅ Formal G3 governance regression passed");
 }

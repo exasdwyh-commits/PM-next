@@ -31,6 +31,8 @@ import { assertOrgUser, assertWorkItemRef } from "../identity/ownership";
 import { LAUNCH_MILESTONE_KIND_LABELS, labelLaunchMilestoneKind, labelLaunchMilestoneStatus } from "@/shared/status-labels";
 import { evaluateGate as evaluateLaunchGate } from "./gate";
 import { createDecisionPacketDraft, submitDecisionPacket } from "../decisions/service";
+import { inspectLaunchProductionBasis } from "../production/launch-basis";
+import { stableStringify } from "../decisions/artifact-ref";
 
 export interface LaunchGateCheck {
   key: string;
@@ -109,13 +111,62 @@ export function evaluateGate(plan: {
   return evaluateLaunchGate(plan);
 }
 
+async function evaluateFormalG3Gate(
+  session: SessionContext,
+  plan: {
+    projectId: string | null;
+    organizationId: string;
+    ownerId: string | null;
+    targetDate: Date | null;
+    milestones: { title: string; status: LaunchMilestoneStatus }[];
+    project?: { productVersionId: string | null } | null;
+  }
+): Promise<LaunchGate> {
+  const base = evaluateGate(plan);
+  const productVersionId = plan.project?.productVersionId ?? null;
+  const productionStatus = plan.projectId
+    ? await inspectLaunchProductionBasis(prisma, {
+        projectId: plan.projectId,
+        organizationId: session.organizationId,
+        productVersionId,
+      })
+    : {
+        ready: false,
+        blockers: ["正式 G3 上市计划必须绑定已完成生产交付的项目"],
+        basis: null,
+      };
+
+  const productionCheck: LaunchGateCheck = {
+    key: "production_delivery",
+    label: "正式 G2 与真实生产交付已闭环",
+    ok: productionStatus.ready,
+    detail: productionStatus.ready
+      ? "当前产品版本已有正式 G2 授权、真实生产记录且项目已交付"
+      : productionStatus.blockers.join("；"),
+  };
+  const checks = [...base.checks, productionCheck];
+  const blockers = checks.filter((check) => !check.ok).map((check) => check.detail);
+  return {
+    ready: blockers.length === 0,
+    checks,
+    blockers,
+    summary:
+      blockers.length === 0
+        ? "门禁全部满足，可提交正式 G3 上市授权审批。"
+        : `尚有 ${blockers.length} 项未满足：${blockers.join("；")}`,
+  };
+}
+
 export async function computeLaunchGate(session: SessionContext, planId: string): Promise<LaunchGate> {
   const plan = await prisma.launchPlan.findUnique({
     where: { id: planId },
-    include: { milestones: { orderBy: { seq: "asc" } } },
+    include: {
+      milestones: { orderBy: { seq: "asc" } },
+      project: { select: { productVersionId: true } },
+    },
   });
   if (!plan || plan.organizationId !== session.organizationId) throw new NotFoundError("Launch plan not found");
-  return evaluateGate(plan);
+  return evaluateFormalG3Gate(session, plan);
 }
 
 // ---------------------------------------------------------------------------
@@ -196,6 +247,98 @@ export function describeLaunchExecutionAuthorization(plan: {
   };
 }
 
+interface FormalG3Validity {
+  valid: boolean;
+  blockers: string[];
+}
+
+async function inspectFormalG3Validity(
+  session: SessionContext,
+  plan: any
+): Promise<FormalG3Validity> {
+  if (!plan.formalG3PacketId || !plan.formalG3ApprovedAt || !plan.formalG3Packet) {
+    return { valid: false, blockers: ["当前没有正式 G3 授权"] };
+  }
+
+  const blockers: string[] = [];
+  const packet = plan.formalG3Packet;
+  const project = plan.project;
+  const checks = (packet.requiredChecks ?? {}) as Record<string, any>;
+
+  if (packet.status !== "APPROVED") blockers.push("当前 G3 决策包不再是 APPROVED");
+  if (!project || plan.projectId !== project.id) blockers.push("上市计划绑定项目已变化");
+  if (checks.launchGovernanceRevision !== plan.governanceRevision) {
+    blockers.push("上市计划治理修订号已变化");
+  }
+  if (project && checks.projectRevision !== project.revision) {
+    blockers.push(
+      `G3 批准后项目基线已变化（批准 r${String(checks.projectRevision ?? "UNKNOWN")}，当前 r${project.revision}）`
+    );
+  }
+  if (project && packet.productVersionId !== project.productVersionId) {
+    blockers.push("G3 批准后当前产品版本已变化");
+  }
+
+  if (project) {
+    const productionStatus = await inspectLaunchProductionBasis(prisma, {
+      projectId: project.id,
+      organizationId: session.organizationId,
+      productVersionId: project.productVersionId,
+    });
+    if (!productionStatus.ready || !productionStatus.basis) {
+      blockers.push(...productionStatus.blockers);
+    } else {
+      const frozenBasis = checks.productionBasis ?? null;
+      if (!frozenBasis || stableStringify(frozenBasis) !== stableStringify(productionStatus.basis)) {
+        blockers.push("G3 批准后正式 G2 / 生产交付依据已变化");
+      }
+    }
+  }
+
+  return { valid: blockers.length === 0, blockers };
+}
+
+async function invalidateFormalG3ForExternalDrift(
+  session: SessionContext,
+  plan: any,
+  blockers: string[]
+) {
+  if (!plan.formalG3PacketId) return;
+  const invalidated = await prisma.$transaction(async (tx) => {
+    const result = await tx.launchPlan.updateMany({
+      where: {
+        id: plan.id,
+        governanceRevision: plan.governanceRevision,
+        formalG3PacketId: plan.formalG3PacketId,
+      },
+      data: {
+        governanceRevision: { increment: 1 },
+        approvedAt: null,
+        formalG3PacketId: null,
+        formalG3ApprovedAt: null,
+      },
+    });
+    if (result.count !== 1) return false;
+    await createAuditEventInTx(tx, {
+      actorId: session.userId,
+      action: "FORMAL_G3_INVALIDATED",
+      objectType: "Product",
+      objectId: plan.productId,
+      summary: "正式 G3 因项目/生产交付外部基线变化而失效",
+      details: {
+        planId: plan.id,
+        previousG3PacketId: plan.formalG3PacketId,
+        previousGovernanceRevision: plan.governanceRevision,
+        blockers,
+      } as Prisma.InputJsonValue,
+    });
+    return true;
+  });
+  if (!invalidated) {
+    throw new ConflictError("G3 失效处理时上市计划已并发变化，请刷新后重试");
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 读取
 // ---------------------------------------------------------------------------
@@ -255,6 +398,24 @@ export async function getLaunchContext(session: SessionContext, productId: strin
     canEdit = false;
   }
 
+  const gate = plan ? await evaluateFormalG3Gate(session, plan) : null;
+  const formalG3Validity =
+    plan?.formalG3PacketId && plan.formalG3Packet
+      ? await inspectFormalG3Validity(session, plan)
+      : null;
+  const authorization = plan
+    ? formalG3Validity && !formalG3Validity.valid
+      ? {
+          approved: false,
+          mechanism: null,
+          formalG3: false,
+          gap: `当前正式 G3 已失效：${formalG3Validity.blockers.join("；")}`,
+          packetId: plan.formalG3PacketId,
+          approvedAt: plan.formalG3ApprovedAt?.toISOString() ?? null,
+        } satisfies LaunchAuthorization
+      : describeLaunchAuthorization(plan)
+    : null;
+
   return {
     product: {
       id: product.id,
@@ -269,10 +430,10 @@ export async function getLaunchContext(session: SessionContext, productId: strin
       email: m.user.email,
       role: m.role,
     })),
-    gate: plan ? evaluateGate(plan) : null,
+    gate,
     // TASK-005b：显式携带放行机制来源（LEGACY_APPROVAL vs FORMAL_G3）；
     // 调用方不得只看 approvedAt 就以为拿到正式授权。
-    authorization: plan ? describeLaunchAuthorization(plan) : null,
+    authorization,
     g3Packet,
     canRequestG3,
     canDecideG3,
@@ -610,9 +771,9 @@ export async function requestFormalG3Approval(
   session: SessionContext,
   planId: string
 ): Promise<{ packetId: string; status: string }> {
-  const plan = await prisma.launchPlan.findUnique({
+  let plan = await prisma.launchPlan.findUnique({
     where: { id: planId },
-    include: { milestones: true, project: true },
+    include: { milestones: true, project: true, formalG3Packet: true },
   });
   if (!plan || plan.organizationId !== session.organizationId) throw new NotFoundError("Launch plan not found");
   if (plan.actualLaunchedAt) {
@@ -628,7 +789,22 @@ export async function requestFormalG3Approval(
     throw new UnprocessableEntityError("正式 G3 需要独立的指定决策人，且不得由负责人自批");
   }
 
-  const gate = evaluateGate(plan);
+  if (plan.formalG3PacketId && plan.formalG3Packet) {
+    const currentValidity = await inspectFormalG3Validity(session, plan);
+    if (currentValidity.valid) {
+      return { packetId: plan.formalG3PacketId, status: "APPROVED" };
+    }
+    await invalidateFormalG3ForExternalDrift(session, plan, currentValidity.blockers);
+    plan = await prisma.launchPlan.findUnique({
+      where: { id: planId },
+      include: { milestones: true, project: true, formalG3Packet: true },
+    });
+    if (!plan || plan.organizationId !== session.organizationId) {
+      throw new ConflictError("G3 失效后重新读取上市计划失败");
+    }
+  }
+
+  const gate = await evaluateFormalG3Gate(session, plan);
   if (!gate.ready) {
     throw new UnprocessableEntityError(`未通过 G3 前置门禁：${gate.blockers.join("；")}`);
   }
@@ -647,6 +823,9 @@ export async function requestFormalG3Approval(
     return { packetId: active.id, status: submitted?.status ?? "IN_REVIEW" };
   }
 
+  if (!plan.projectId || !plan.project) {
+    throw new ConflictError("正式 G3 提交前上市计划已失去项目关联");
+  }
   const packet = await createDecisionPacketDraft(session, {
     projectId: plan.projectId,
     gate: GateType.LAUNCH_GATE,
@@ -719,7 +898,10 @@ export async function confirmLaunchExecution(
 
   const plan = await prisma.launchPlan.findUnique({
     where: { id: planId },
-    include: { formalG3Packet: true },
+    include: {
+      formalG3Packet: true,
+      project: true,
+    },
   });
   if (!plan || plan.organizationId !== session.organizationId) throw new NotFoundError("Launch plan not found");
   await assertLaunchWritePermission(session, plan.productId);
@@ -734,6 +916,15 @@ export async function confirmLaunchExecution(
       "该上市计划尚未取得当前有效的正式 G3 授权，不能确认实际上市。旧机制批准不能替代正式 G3。"
     );
   }
+
+  const currentG3Validity = await inspectFormalG3Validity(session, plan);
+  if (!currentG3Validity.valid) {
+    await invalidateFormalG3ForExternalDrift(session, plan, currentG3Validity.blockers);
+    throw new ConflictError(
+      `当前正式 G3 已因项目/生产交付基线变化而失效，必须重新审批：${currentG3Validity.blockers.join("；")}`
+    );
+  }
+
   if (plan.actualLaunchedAt) {
     throw new UnprocessableEntityError("实际上市时间已记录，不可重复确认");
   }

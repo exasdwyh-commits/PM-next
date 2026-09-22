@@ -4,8 +4,8 @@
  * 盯住两类 TASK-003a 已复现的缺陷，防止回退：
  *   ① **门禁集中保护**：`decideDecisionPacket` 的 APPROVE 分支此前不按 `GateType` 分派，
  *      任何门型批准都会把 `Project.stage` 无条件推进到 `SAMPLING` 并派生打样任务。
- *      修复后：只有 `RESEARCH_SAMPLING_GATE`（G1）被视为「已实现」；未实现门型
- *      （当前 `PRODUCTION_GATE`）在 `assertGateImplemented()` 处 **fail-closed 422**。
+ *      当前 G1/G2/G3 均已实现；未来未知门型仍必须在 `assertGateImplemented()`
+ *      处 **fail-closed 422**，不得落入任何既有门的阶段推进分支。
  *   ③ **幂等命令范围**：`checkOrRecordIdempotency()` 读取分支此前只比 `requestHash`/`actorId`，
  *      未比 `commandScope` → 同键跨命令会命中旧记录并返回**别的命令**的历史响应。
  *      修复后：作用域 = `(actorId, commandScope)`，不一致即 409；合法重放仍成立。
@@ -35,25 +35,26 @@ test("① 正例：G1（RESEARCH_SAMPLING_GATE）已实现，断言不抛", () =
   assert.doesNotThrow(() => assertGateImplemented(GateType.RESEARCH_SAMPLING_GATE));
 });
 
-test("① 归类表：已实现门型集合恰为 {RESEARCH_SAMPLING_GATE}", () => {
-  const implemented = ALL_GATES.filter(isGateImplemented);
-  assert.deepEqual(implemented, [GateType.RESEARCH_SAMPLING_GATE]);
-  // 明确锁住「PRODUCTION_GATE 未实现」——G2 是计划所称的“空门”，本批只封堵不实现。
-  assert.equal(isGateImplemented(GateType.PRODUCTION_GATE), false);
+test("① 归类表：当前枚举中的 G1/G2/G3 均已实现", () => {
+  const implemented = ALL_GATES.filter(isGateImplemented).sort();
+  assert.deepEqual(implemented, [...ALL_GATES].sort());
+  assert.equal(isGateImplemented(GateType.PRODUCTION_GATE), true);
+  assert.equal(isGateImplemented(GateType.LAUNCH_GATE), true);
+  for (const gate of ALL_GATES) {
+    assert.doesNotThrow(() => assertGateImplemented(gate));
+  }
 });
 
-// 反例：逐门型参数化 —— 每个未实现门型都必须 422
-for (const gate of ALL_GATES) {
-  if (gate === GateType.RESEARCH_SAMPLING_GATE) continue;
-  test(`① 反例：未实现门型 ${gate} → 422`, () => {
-    assert.throws(
-      () => assertGateImplemented(gate),
-      (e: unknown) =>
-        e instanceof UnprocessableEntityError &&
-        (e as UnprocessableEntityError).statusCode === 422
-    );
-  });
-}
+test("① 反例：未来未知门型仍必须 fail-closed 422", () => {
+  const futureGate = "FUTURE_UNIMPLEMENTED_GATE" as GateType;
+  assert.equal(isGateImplemented(futureGate), false);
+  assert.throws(
+    () => assertGateImplemented(futureGate),
+    (e: unknown) =>
+      e instanceof UnprocessableEntityError &&
+      (e as UnprocessableEntityError).statusCode === 422
+  );
+});
 
 // ───────────────────────────────────────────────────────────────────────────
 // ③ 幂等命令范围

@@ -22,6 +22,14 @@ export interface LaunchPlanSnapshotInput {
   projectRevision: number;
   productId: string;
   productVersionId: string | null;
+  productionBasis?: {
+    projectStage: string;
+    g2PacketId: string;
+    productionRecordId: string;
+    productionRecordContentHash: string;
+    deliveredQuantity: number;
+    unit: string;
+  } | null;
   title: string;
   targetDate: Date | string | null;
   ownerId: string | null;
@@ -114,6 +122,16 @@ export function canonicalLaunchPlanSnapshot(input: LaunchPlanSnapshotInput) {
     projectRevision: input.projectRevision,
     productId: input.productId,
     productVersionId: input.productVersionId ?? null,
+    productionBasis: input.productionBasis
+      ? {
+          projectStage: input.productionBasis.projectStage,
+          g2PacketId: input.productionBasis.g2PacketId,
+          productionRecordId: input.productionBasis.productionRecordId,
+          productionRecordContentHash: input.productionBasis.productionRecordContentHash,
+          deliveredQuantity: input.productionBasis.deliveredQuantity,
+          unit: input.productionBasis.unit,
+        }
+      : null,
     title: input.title.trim(),
     targetDate: iso(input.targetDate),
     ownerId: input.ownerId ?? null,

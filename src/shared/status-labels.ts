@@ -315,6 +315,10 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   LAUNCH_MILESTONE_UPDATED: "更新上市里程碑",
   LAUNCH_APPROVED: "上市计划获准",
   FORMAL_G3_INVALIDATED: "正式 G3 授权 / 待审批快照失效",
+  PRODUCTION_PREPARED: "进入生产准备",
+  FORMAL_G2_INVALIDATED: "正式 G2 待审批快照失效",
+  PRODUCTION_STARTED: "确认实际生产开工",
+  PRODUCTION_DELIVERED: "确认生产交付",
   LAUNCH_APPROVAL_REVOKED: "撤销上市批准",
   LAUNCH_EXECUTED: "确认实际上市",
 };
