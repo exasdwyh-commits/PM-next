@@ -35,7 +35,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "user:create": "tsx scripts/create-user.ts",
     "test:governance": "tsx scripts/run-test.ts tests/regression-governance-convergence.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:golden": "node --import tsx --test tests/golden-product-cases.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

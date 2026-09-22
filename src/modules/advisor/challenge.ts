@@ -84,7 +84,7 @@ export function generateChallengeReport(input: ChallengeInput): ChallengeReport 
 
   const triggers = shouldTriggerScientificReview({
     claim: proposedClaim,
-    hasHealthClaim: /改善|降低|逆龄|预防|治疗|健康|功效|代谢|衰老|免疫|血糖|血压|肠道|肌肉/.test(proposedClaim),
+    hasHealthClaim: /改善|降低|逆龄|减龄|生物年龄|甲基化年龄|抗衰|预防|治疗|健康|功效|代谢|衰老|免疫|血糖|血压|肠道|肌肉|减肥/.test(proposedClaim),
     advisorVerdict: advisorVerdict ?? null,
     productPrice: targetPrice,
     evidenceConfidence:
@@ -171,7 +171,7 @@ export function generateChallengeReport(input: ChallengeInput): ChallengeReport 
   }
 
   const vetoData: string[] = [];
-  const hasMethylationClaim = /甲基化|生物年龄|逆龄|年轻/.test(proposedClaim);
+  const hasMethylationClaim = /甲基化|生物年龄|逆龄|减龄|年轻/.test(proposedClaim);
   if (hasMethylationClaim) {
     vetoData.push("若后续同批样本检测显示甲基化年龄无变化或上升，则停止扩大该宣称（需先取得真实检测结果）");
   }
