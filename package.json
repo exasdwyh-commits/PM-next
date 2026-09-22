@@ -45,7 +45,8 @@
     "test:harness": "node --import tsx --test tests/evaluation-harness.test.ts",
     "test:workforce": "tsx scripts/run-test.ts tests/regression-workforce-kernel.ts",
     "test:experience": "tsx scripts/run-test.ts tests/regression-harness-experience.ts",
-    "test:validation-decision": "node --import tsx --test tests/product-validation-decision.test.ts"
+    "test:validation-decision": "node --import tsx --test tests/product-validation-decision.test.ts",
+    "test:decision-intelligence": "node --import tsx --test tests/decision-intelligence.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
