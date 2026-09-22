@@ -15,6 +15,7 @@ on:
       - "src/modules/research/**"
       - "src/app/api/evidences/**"
       - "tests/golden-organization-loop.ts"
+      - "tests/golden-organization-multi-case.ts"
       - "package.json"
       - ".github/workflows/golden-organization-ci.yml"
   push:
@@ -32,6 +33,7 @@ on:
       - "src/modules/research/**"
       - "src/app/api/evidences/**"
       - "tests/golden-organization-loop.ts"
+      - "tests/golden-organization-multi-case.ts"
       - "package.json"
       - ".github/workflows/golden-organization-ci.yml"
 

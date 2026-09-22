@@ -133,3 +133,59 @@ npm run test:golden-org
 - G-ORG-03 · AKK 后生元：直播渠道 / 营销红线 / Claim 修正；
 - G-ORG-04 · HMB 老年营养：人群适配 / 体感目标 / 复购验证；
 - G-ORG-05 · 真实失败复盘：FrozenPrediction → D30/D90 Outcome → ExperienceLesson。
+
+
+### G-ORG-02 · 骆驼奶 + AOS 多档渠道规格
+
+新增组织级验收：
+
+```text
+高价值渠道 Signal
+  → Hermes PM
+  → Product / ProductVersion
+  → Red Team
+  → 299/12盒 与 499/24盒 独立渠道经济性
+  → Science Evidence UNKNOWN
+  → Product Potential = NEEDS_EVIDENCE
+  → FrozenPrediction
+```
+
+核心约束：
+
+- 两档规格必须分别计算价格/数量/渠道费用/贡献毛利，不能用一个总评分替代；
+- 两档渠道经济性都成立，也不能自动推导“AOS 成品功效成立”；
+- 没有匹配证据时必须保持 `UNKNOWN / NEEDS_EVIDENCE`；
+- 未产生 ProductOutcome 前 Harness 不得学习出成功标签。
+
+### G-ORG-03 · AKK 后生元直播渠道
+
+新增组织级验收：
+
+```text
+直播热度 Signal
+  → Hermes PM
+  → 299 直播规格
+  → Red Team
+  → Channel Economics PASS
+  → “瘦子菌帮助减肥” Marketing Gate FAIL
+  → Product Potential = BLOCKED
+  → 修正文案
+  → Marketing Gate PASS
+  → Finished-product validation UNKNOWN
+  → Product Potential = NEEDS_EVIDENCE
+```
+
+核心约束：
+
+- 高热度、高渠道适配、高毛利不能平均掉营销/科学硬门；
+- “减肥/瘦身/燃脂”进入 forbidden 后，不得再次被模型重新解释为卖点；
+- 修正违规 claim 只允许从 `BLOCKED` 改进为 `NEEDS_EVIDENCE`，不能直接跳到 PASS；
+- 直播转化、真实体感和复购仍需要真实结果回填。
+
+组织级 Golden Case 当前覆盖三种不同的开品失败模式：
+
+1. **AKG**：高客单 + 强功效承诺，科学硬门；
+2. **骆驼奶+AOS**：渠道规格成立但证据不足；
+3. **AKK**：渠道与经济性成立但营销红线阻断。
+
+这三种模式共同验证：Hermes 不以“综合加权分”覆盖硬门，也不把缺失事实补成乐观结论。
