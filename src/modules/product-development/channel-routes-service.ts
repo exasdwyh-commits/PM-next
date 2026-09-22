@@ -153,13 +153,169 @@ function parseDate(value: unknown, label: string): Date | null {
   return parsed;
 }
 
+export function isChannelRuleEffectiveAt(
+  rule: { effectiveFrom?: Date | null; effectiveUntil?: Date | null },
+  at: Date = new Date()
+): boolean {
+  const timestamp = at.getTime();
+  if (rule.effectiveFrom && rule.effectiveFrom.getTime() > timestamp) return false;
+  if (rule.effectiveUntil && rule.effectiveUntil.getTime() < timestamp) return false;
+  return true;
+}
+
 function routeStatusForEvaluation(
-  evaluation: ChannelSpecEvaluation
+  evaluation: ChannelSpecEvaluation,
+  ruleEffective: boolean
 ): ChannelSpecRouteStatus {
   if (!evaluation.feasible) return ChannelSpecRouteStatus.BLOCKED;
-  return evaluation.ruleStatus === "CONFIRMED"
+  return evaluation.ruleStatus === "CONFIRMED" && ruleEffective
     ? ChannelSpecRouteStatus.VALIDATION_READY
     : ChannelSpecRouteStatus.DRAFT;
+}
+
+function normalizedChannelTokens(value: string | null | undefined): string[] {
+  if (!value) return [];
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return [];
+  return [...new Set([
+    normalized,
+    ...normalized
+      .split(/[,、;；|/]+/)
+      .map((item) => item.trim())
+      .filter(Boolean),
+  ])];
+}
+
+export function deriveMarketValidationVerified(params: {
+  evidence: Array<{
+    nature: string;
+    verifyStatus: string;
+    validationStatus: string;
+    channel: string | null;
+  }>;
+  routeChannel?: { channelKey: string; label: string } | null;
+}): boolean {
+  const routeTokens = params.routeChannel
+    ? new Set([
+        ...normalizedChannelTokens(params.routeChannel.channelKey),
+        ...normalizedChannelTokens(params.routeChannel.label),
+      ])
+    : null;
+
+  return params.evidence.some((evidence) => {
+    if (
+      evidence.nature !== "REAL" ||
+      evidence.verifyStatus !== "VERIFIED" ||
+      evidence.validationStatus !== "VERIFIED_BY_LEAD"
+    ) {
+      return false;
+    }
+    if (!routeTokens) return true;
+    const evidenceTokens = normalizedChannelTokens(evidence.channel);
+    return evidenceTokens.some((token) => routeTokens.has(token));
+  });
+}
+
+export function validatePotentialDimensionEvidence(
+  dimensions: PotentialDimensionInput[],
+  evidenceRows: Array<{
+    id: string;
+    hash: string;
+    nature: string;
+    verifyStatus: string;
+    channel?: string | null;
+  }>,
+  routeChannel?: { channelKey: string; label: string } | null
+): void {
+  const verifiedEvidence = evidenceRows.filter(
+    (evidence) =>
+      evidence.nature === "REAL" &&
+      evidence.verifyStatus === "VERIFIED"
+  );
+  const verifiedEvidenceRefs = new Set(
+    verifiedEvidence.flatMap((evidence) => [
+      evidence.id,
+      evidence.hash,
+      `evidence:${evidence.id}`,
+    ])
+  );
+  const routeTokens = routeChannel
+    ? new Set([
+        ...normalizedChannelTokens(routeChannel.channelKey),
+        ...normalizedChannelTokens(routeChannel.label),
+      ])
+    : null;
+  const routeVerifiedRefs = new Set(
+    routeTokens
+      ? verifiedEvidence
+          .filter((evidence) =>
+            normalizedChannelTokens(evidence.channel).some((token) =>
+              routeTokens.has(token)
+            )
+          )
+          .flatMap((evidence) => [
+            evidence.id,
+            evidence.hash,
+            `evidence:${evidence.id}`,
+          ])
+      : []
+  );
+
+  for (const dimension of dimensions) {
+    if (
+      (dimension.evidenceState === "VERIFIED" ||
+        dimension.evidenceState === "SUPPORTED") &&
+      dimension.sourceRefs.length === 0
+    ) {
+      throw new UnprocessableEntityError(
+        `维度 ${dimension.key} 标记为 ${dimension.evidenceState} 时必须提供 sourceRefs`
+      );
+    }
+    if (
+      dimension.evidenceState === "VERIFIED" &&
+      !dimension.sourceRefs.some((ref) => verifiedEvidenceRefs.has(ref))
+    ) {
+      throw new UnprocessableEntityError(
+        `维度 ${dimension.key} 标记为 VERIFIED 时，至少一个 sourceRef 必须对应当前产品已核实的 REAL Evidence（支持 evidenceId / hash / evidence:<id>）`
+      );
+    }
+    if (
+      routeTokens &&
+      dimension.key === "CHANNEL_FIT" &&
+      dimension.evidenceState === "VERIFIED" &&
+      !dimension.sourceRefs.some((ref) => routeVerifiedRefs.has(ref))
+    ) {
+      throw new UnprocessableEntityError(
+        "路线级 CHANNEL_FIT 标记为 VERIFIED 时，至少一个 sourceRef 必须来自与该路线匹配的渠道 Evidence"
+      );
+    }
+  }
+}
+
+export function planChannelRuleSupersession(params: {
+  nextStatus: "ASSUMED" | "CONFIRMED";
+  activeRules: Array<{ id: string; status: ChannelRuleRecordStatus | string }>;
+}): { supersedesId: string | null; supersededIds: string[] } {
+  const currentConfirmed = params.activeRules.find(
+    (rule) => rule.status === ChannelRuleRecordStatus.CONFIRMED
+  );
+  const currentAssumed = params.activeRules.find(
+    (rule) => rule.status === ChannelRuleRecordStatus.ASSUMED
+  );
+
+  if (params.nextStatus === "ASSUMED") {
+    return {
+      supersedesId: currentAssumed?.id || null,
+      supersededIds: currentAssumed ? [currentAssumed.id] : [],
+    };
+  }
+
+  return {
+    supersedesId: currentConfirmed?.id || currentAssumed?.id || null,
+    supersededIds: params.activeRules
+      .filter((rule) => rule.status !== ChannelRuleRecordStatus.SUPERSEDED)
+      .map((rule) => rule.id),
+  };
 }
 
 export function buildChannelHardGates(params: {
@@ -169,6 +325,7 @@ export function buildChannelHardGates(params: {
     ruleVersionSnapshot: string;
   };
   currentRuleStatus?: ChannelRuleRecordStatus | string | null;
+  currentRuleEffective?: boolean;
 }): PotentialGateInput[] {
   const economics: PotentialGateInput = {
     key: "CHANNEL_ROUTE_ECONOMICS",
@@ -186,14 +343,21 @@ export function buildChannelHardGates(params: {
 
   if (
     params.route.ruleStatusSnapshot === ChannelRuleRecordStatus.CONFIRMED &&
-    params.currentRuleStatus === ChannelRuleRecordStatus.CONFIRMED
+    params.currentRuleStatus === ChannelRuleRecordStatus.CONFIRMED &&
+    params.currentRuleEffective !== false
   ) {
     ruleStatus = "PASS";
     ruleReason =
-      `渠道规则 ${params.route.ruleVersionSnapshot} 为已确认且仍有效的规则版本`;
+      `渠道规则 ${params.route.ruleVersionSnapshot} 为已确认且仍在生效窗口的规则版本`;
   } else if (params.currentRuleStatus === ChannelRuleRecordStatus.SUPERSEDED) {
     ruleReason =
       `渠道规则 ${params.route.ruleVersionSnapshot} 已被新版本替代，需要重新评估路线`;
+  } else if (
+    params.currentRuleStatus === ChannelRuleRecordStatus.CONFIRMED &&
+    params.currentRuleEffective === false
+  ) {
+    ruleReason =
+      `渠道规则 ${params.route.ruleVersionSnapshot} 不在当前生效窗口，需要重新确认渠道条件`;
   }
 
   return [
@@ -352,7 +516,7 @@ export async function listChannelRouteWorkspace(
   await requireProductRead(session, productId);
   const version = await loadProductVersion(session, productId);
 
-  const [rules, routes, assessments, canManageRules, canEditRoutes] = await Promise.all([
+  const [rules, routes, assessments, verifiedEvidence, canManageRules, canEditRoutes] = await Promise.all([
     prisma.channelRuleProfileRecord.findMany({
       where: {
         organizationId: session.organizationId,
@@ -374,6 +538,8 @@ export async function listChannelRouteWorkspace(
             label: true,
             version: true,
             status: true,
+            effectiveFrom: true,
+            effectiveUntil: true,
           },
         },
       },
@@ -397,6 +563,27 @@ export async function listChannelRouteWorkspace(
         },
       },
     }),
+    prisma.evidence.findMany({
+      where: {
+        project: {
+          productId,
+          organizationId: session.organizationId,
+        },
+        nature: "REAL",
+        verifyStatus: "VERIFIED",
+      },
+      orderBy: { obtainedAt: "desc" },
+      take: 30,
+      select: {
+        id: true,
+        hash: true,
+        source: true,
+        channel: true,
+        contentOrUri: true,
+        validationStatus: true,
+        obtainedAt: true,
+      },
+    }),
     isOrgAdmin(session),
     hasProductRole(session, productId, PRODUCT_WRITE_ROLES),
   ]);
@@ -410,9 +597,30 @@ export async function listChannelRouteWorkspace(
       currency: version.currency,
       isConfirmed: version.isConfirmed,
     },
-    rules,
-    routes,
+    rules: [...rules].sort((a, b) => {
+      if (a.status !== b.status) {
+        if (a.status === ChannelRuleRecordStatus.CONFIRMED) return -1;
+        if (b.status === ChannelRuleRecordStatus.CONFIRMED) return 1;
+      }
+      const channelCompare = a.channelKey.localeCompare(b.channelKey);
+      if (channelCompare !== 0) return channelCompare;
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    }),
+    routes: routes.map((route) => {
+      const ruleCurrentlyEffective = isChannelRuleEffectiveAt(
+        route.channelRuleProfile
+      );
+      return {
+        ...route,
+        ruleCurrentlyEffective,
+        needsReevaluation:
+          route.channelRuleProfile.status ===
+            ChannelRuleRecordStatus.SUPERSEDED ||
+          !ruleCurrentlyEffective,
+      };
+    }),
     assessments,
+    verifiedEvidence,
     canManageRules,
     canEditRoutes,
   };
@@ -506,14 +714,26 @@ export async function createChannelRuleProfile(
       );
     }
 
-    const previous = await tx.channelRuleProfileRecord.findFirst({
+    const activeRules = await tx.channelRuleProfileRecord.findMany({
       where: {
         organizationId: session.organizationId,
         channelKey,
         status: { not: ChannelRuleRecordStatus.SUPERSEDED },
       },
       orderBy: { createdAt: "desc" },
+      select: { id: true, status: true },
     });
+    const supersession = planChannelRuleSupersession({
+      nextStatus: status,
+      activeRules,
+    });
+
+    if (supersession.supersededIds.length > 0) {
+      await tx.channelRuleProfileRecord.updateMany({
+        where: { id: { in: supersession.supersededIds } },
+        data: { status: ChannelRuleRecordStatus.SUPERSEDED },
+      });
+    }
 
     const created = await tx.channelRuleProfileRecord.create({
       data: {
@@ -550,19 +770,12 @@ export async function createChannelRuleProfile(
         ) as Prisma.InputJsonValue,
         effectiveFrom,
         effectiveUntil,
-        supersedesId: previous?.id || null,
+        supersedesId: supersession.supersedesId,
         createdById: session.userId,
         confirmedById: status === "CONFIRMED" ? session.userId : null,
         confirmedAt: status === "CONFIRMED" ? new Date() : null,
       },
     });
-
-    if (previous) {
-      await tx.channelRuleProfileRecord.update({
-        where: { id: previous.id },
-        data: { status: ChannelRuleRecordStatus.SUPERSEDED },
-      });
-    }
 
     await createAuditEventInTx(tx, {
       actorId: session.userId,
@@ -575,7 +788,7 @@ export async function createChannelRuleProfile(
         version,
         status,
         sourceRefs,
-        supersedesId: previous?.id || null,
+        supersedesId: supersession.supersedesId,
       } as Prisma.InputJsonValue,
     });
 
@@ -670,11 +883,21 @@ export async function evaluateAndSaveChannelRoute(
     ),
   };
 
-  const evaluation = evaluateChannelSpecCandidate(
+  const baseEvaluation = evaluateChannelSpecCandidate(
     candidate,
     toChannelRuleProfile(ruleRow)
   );
-  const status = routeStatusForEvaluation(evaluation);
+  const ruleEffective = isChannelRuleEffectiveAt(ruleRow);
+  const evaluation: ChannelSpecEvaluation = ruleEffective
+    ? baseEvaluation
+    : {
+        ...baseEvaluation,
+        warnings: [
+          ...baseEvaluation.warnings,
+          "当前渠道规则不在生效时间窗口，经济性结果可保留但路线不能视为验证就绪",
+        ],
+      };
+  const status = routeStatusForEvaluation(evaluation, ruleEffective);
 
   return prisma.$transaction(async (tx) => {
     const previous = await tx.channelSpecRoute.findFirst({
@@ -776,7 +999,13 @@ export async function assessAndSaveProductPotential(
         },
         include: {
           channelRuleProfile: {
-            select: { status: true },
+            select: {
+              status: true,
+              channelKey: true,
+              label: true,
+              effectiveFrom: true,
+              effectiveUntil: true,
+            },
           },
         },
       })
@@ -806,12 +1035,26 @@ export async function assessAndSaveProductPotential(
     orderBy: { id: "asc" },
   });
 
-  const marketValidationVerified = evidenceRows.some(
-    (evidence) =>
-      evidence.nature === "REAL" &&
-      evidence.verifyStatus === "VERIFIED" &&
-      evidence.validationStatus === "VERIFIED_BY_LEAD"
+  validatePotentialDimensionEvidence(
+    dimensions,
+    evidenceRows,
+    route
+      ? {
+          channelKey: route.channelRuleProfile.channelKey,
+          label: route.channelRuleProfile.label,
+        }
+      : null
   );
+
+  const marketValidationVerified = deriveMarketValidationVerified({
+    evidence: evidenceRows,
+    routeChannel: route
+      ? {
+          channelKey: route.channelRuleProfile.channelKey,
+          label: route.channelRuleProfile.label,
+        }
+      : null,
+  });
 
   const systemGates = route
     ? buildChannelHardGates({
@@ -821,6 +1064,9 @@ export async function assessAndSaveProductPotential(
           ruleVersionSnapshot: route.ruleVersionSnapshot,
         },
         currentRuleStatus: route.channelRuleProfile.status,
+        currentRuleEffective: isChannelRuleEffectiveAt(
+          route.channelRuleProfile
+        ),
       })
     : [];
 
@@ -914,5 +1160,169 @@ export async function assessAndSaveProductPotential(
       marketValidationVerified,
       evidenceFingerprint: fingerprint,
     };
+  });
+}
+
+
+const ROUTE_TRANSITIONS: Partial<
+  Record<ChannelSpecRouteStatus, ChannelSpecRouteStatus[]>
+> = {
+  [ChannelSpecRouteStatus.VALIDATION_READY]: [
+    ChannelSpecRouteStatus.VALIDATING,
+    ChannelSpecRouteStatus.REJECTED,
+  ],
+  [ChannelSpecRouteStatus.VALIDATING]: [
+    ChannelSpecRouteStatus.CONFIRMED,
+    ChannelSpecRouteStatus.REJECTED,
+  ],
+};
+
+export async function transitionChannelRouteStatus(
+  session: SessionContext,
+  productId: string,
+  input: Record<string, unknown>
+) {
+  await requireProductRole(session, productId, PRODUCT_WRITE_ROLES);
+
+  const routeId = requireText(input.routeId, "routeId", 120);
+  const targetText = requireText(input.targetStatus, "targetStatus", 80);
+  const allowedTargetStatuses = new Set<ChannelSpecRouteStatus>([
+    ChannelSpecRouteStatus.VALIDATING,
+    ChannelSpecRouteStatus.CONFIRMED,
+    ChannelSpecRouteStatus.REJECTED,
+  ]);
+  const targetStatus = targetText as ChannelSpecRouteStatus;
+  if (!allowedTargetStatuses.has(targetStatus)) {
+    throw new UnprocessableEntityError("不支持的渠道路线目标状态");
+  }
+  const reason = optionalText(input.reason, 1000);
+
+  const route = await prisma.channelSpecRoute.findFirst({
+    where: {
+      id: routeId,
+      organizationId: session.organizationId,
+      productVersion: {
+        product: {
+          id: productId,
+          organizationId: session.organizationId,
+        },
+      },
+      status: { not: ChannelSpecRouteStatus.SUPERSEDED },
+    },
+    include: {
+      productVersion: {
+        select: {
+          id: true,
+          versionTag: true,
+          isConfirmed: true,
+        },
+      },
+      channelRuleProfile: {
+        select: {
+          status: true,
+          channelKey: true,
+          label: true,
+          effectiveFrom: true,
+          effectiveUntil: true,
+        },
+      },
+    },
+  });
+  if (!route) throw new NotFoundError("Channel route not found");
+
+  const allowed = ROUTE_TRANSITIONS[route.status] || [];
+  if (!allowed.includes(targetStatus)) {
+    throw new UnprocessableEntityError(
+      `渠道路线状态不能从 ${route.status} 变更为 ${targetStatus}`
+    );
+  }
+  if (targetStatus === ChannelSpecRouteStatus.REJECTED && !reason) {
+    throw new UnprocessableEntityError("否决渠道路线时必须填写原因");
+  }
+
+  if (
+    targetStatus === ChannelSpecRouteStatus.VALIDATING ||
+    targetStatus === ChannelSpecRouteStatus.CONFIRMED
+  ) {
+    if (!route.feasible) {
+      throw new UnprocessableEntityError(
+        "存在经济性硬阻断的路线不能进入验证或确认"
+      );
+    }
+    if (
+      route.ruleStatusSnapshot !== ChannelRuleRecordStatus.CONFIRMED ||
+      route.channelRuleProfile.status !== ChannelRuleRecordStatus.CONFIRMED
+    ) {
+      throw new UnprocessableEntityError(
+        "渠道规则未确认或已被替代，必须先按当前确认规则重算路线"
+      );
+    }
+    if (!isChannelRuleEffectiveAt(route.channelRuleProfile)) {
+      throw new UnprocessableEntityError(
+        "渠道规则不在当前生效窗口，不能进入验证或确认"
+      );
+    }
+  }
+
+  let marketValidationVerified = false;
+  if (targetStatus === ChannelSpecRouteStatus.CONFIRMED) {
+    if (!route.productVersion.isConfirmed) {
+      throw new UnprocessableEntityError(
+        `确认渠道路线前，产品版本 ${route.productVersion.versionTag} 必须先完成业务确认`
+      );
+    }
+
+    const evidenceRows = await prisma.evidence.findMany({
+      where: {
+        project: {
+          productId,
+          organizationId: session.organizationId,
+        },
+      },
+      select: {
+        nature: true,
+        verifyStatus: true,
+        validationStatus: true,
+        channel: true,
+      },
+    });
+    marketValidationVerified = deriveMarketValidationVerified({
+      evidence: evidenceRows,
+      routeChannel: {
+        channelKey: route.channelRuleProfile.channelKey,
+        label: route.channelRuleProfile.label,
+      },
+    });
+    if (!marketValidationVerified) {
+      throw new UnprocessableEntityError(
+        "确认渠道路线前，必须存在与该渠道匹配且由负责人确认的真实市场验证 Evidence"
+      );
+    }
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.channelSpecRoute.update({
+      where: { id: route.id },
+      data: { status: targetStatus },
+    });
+
+    await createAuditEventInTx(tx, {
+      actorId: session.userId,
+      action: "CHANNEL_SPEC_ROUTE_STATUS_CHANGED",
+      objectType: "ChannelSpecRoute",
+      objectId: route.id,
+      summary: `渠道路线 ${route.name}：${route.status} → ${targetStatus}`,
+      details: {
+        productId,
+        routeKey: route.routeKey,
+        revision: route.revision,
+        fromStatus: route.status,
+        toStatus: targetStatus,
+        reason,
+        marketValidationVerified,
+      } as Prisma.InputJsonValue,
+    });
+
+    return updated;
   });
 }

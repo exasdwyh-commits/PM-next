@@ -5,6 +5,7 @@ import {
   createChannelRuleProfile,
   evaluateAndSaveChannelRoute,
   listChannelRouteWorkspace,
+  transitionChannelRouteStatus,
 } from "@/modules/product-development/channel-routes-service";
 import { UnprocessableEntityError } from "@/shared/errors";
 import { handleApiError } from "@/shared/api-handler";
@@ -51,6 +52,11 @@ export async function POST(
       return NextResponse.json(
         await assessAndSaveProductPotential(session, productId, body),
         { status: 201 }
+      );
+    }
+    if (action === "TRANSITION_ROUTE") {
+      return NextResponse.json(
+        await transitionChannelRouteStatus(session, productId, body)
       );
     }
 

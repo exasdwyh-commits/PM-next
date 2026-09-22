@@ -194,12 +194,18 @@ Governance
 
 - 渠道规则是组织级资产，只有组织管理员可创建版本；
 - CONFIRMED 规则必须至少有一条来源引用；
-- 新规则版本自动把同渠道旧规则标记为 SUPERSEDED，但不会删除历史路线；
+- 新 ASSUMED 草案只替代旧草案，不会提前作废仍有效的 CONFIRMED 规则；
+- 新 CONFIRMED 版本发布后才替代同渠道上一版确认规则，并使旧规则路线进入“需重评”状态；
+- 数据库用 partial unique index 兜底并发写入：同组织+同渠道最多一条当前 CONFIRMED、最多一条当前 ASSUMED；
+- effectiveFrom / effectiveUntil 不在当前生效窗口时，规则不能把路线推进到验证就绪；
 - 产品路线由 OWNER / DECISION_MAKER 保存，每次重算形成新的 revision；
 - 路线保存确定性 evaluationSnapshot，模型不负责计算利润；
 - 路线经济性失败自动成为 CHANNEL_ROUTE_ECONOMICS = FAIL；
-- ASSUMED 或已被替代的渠道规则自动成为 CHANNEL_RULE_CONFIDENCE = UNKNOWN；
+- ASSUMED、已被替代、尚未生效或已过期的渠道规则自动让 CHANNEL_RULE_CONFIDENCE 保持 UNKNOWN；
+- 维度标记 VERIFIED 时，至少一个 sourceRef 必须对应当前产品已核实的 REAL Evidence，不能由 Agent 自报“已验证”；
 - marketValidationVerified 不接受前端或 Agent 自报，只从 REAL + VERIFIED + VERIFIED_BY_LEAD Evidence 推导；
+- 绑定渠道路线时，真实市场验证必须与该路线的 channelKey / label 匹配，不能拿私域证据去确认快手路线；
+- 路线生命周期受控：VALIDATION_READY → VALIDATING → CONFIRMED，确认前必须存在同渠道真实验证；也可保留原因进入 REJECTED；
 - PotentialAssessmentRecord 保存 evidenceFingerprint，便于后续判断证据变化后旧结论是否需要重跑。
 
 ---

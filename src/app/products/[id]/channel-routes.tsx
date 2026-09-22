@@ -58,11 +58,15 @@ type Route = {
   blockerCount: number;
   contributionMarginRate: string | number;
   requiredMaxProductCostPerUnit: string | number | null;
+  ruleCurrentlyEffective: boolean;
+  needsReevaluation: boolean;
   channelRuleProfile: {
     channelKey: string;
     label: string;
     version: string;
     status: string;
+    effectiveFrom: string | null;
+    effectiveUntil: string | null;
   };
 };
 
@@ -101,6 +105,15 @@ type Workspace = {
   rules: Rule[];
   routes: Route[];
   assessments: Assessment[];
+  verifiedEvidence: Array<{
+    id: string;
+    hash: string;
+    source: string;
+    channel: string | null;
+    contentOrUri: string;
+    validationStatus: string;
+    obtainedAt: string;
+  }>;
   canManageRules: boolean;
   canEditRoutes: boolean;
 };
@@ -116,7 +129,7 @@ const DIMENSIONS = [
 ] as const;
 
 const ROUTE_STATUS_LABEL: Record<string, string> = {
-  DRAFT: "待确认规则",
+  DRAFT: "规则待确认 / 待生效",
   BLOCKED: "硬阻断",
   VALIDATION_READY: "可进入验证",
   VALIDATING: "验证中",
@@ -200,6 +213,8 @@ export default function ChannelRoutesPanel({ productId }: { productId: string })
     returnRate: "",
     returnHandlingFeeRate: "",
     targetContributionMarginRate: "",
+    effectiveFrom: "",
+    effectiveUntil: "",
     constraints: "",
   });
 
@@ -217,6 +232,7 @@ export default function ChannelRoutesPanel({ productId }: { productId: string })
   });
 
   const [assessmentRouteId, setAssessmentRouteId] = React.useState("");
+  const [routeReasons, setRouteReasons] = React.useState<Record<string, string>>({});
   const [dimensions, setDimensions] = React.useState(
     DIMENSIONS.map(([key]) => ({
       key,
@@ -307,7 +323,7 @@ export default function ChannelRoutesPanel({ productId }: { productId: string })
           一个产品版本可以同时保留多套渠道规格。系统先检查价格带、组合数量、渠道费用与目标贡献毛利，再决定这条路线是否值得进入验证。
         </p>
         <p className="hermes-note">
-          这里的“通过”只表示当前规则下经济性可行，不等于批准上市；ASSUMED 渠道规则也不能冒充已确认事实。
+          这里的“通过”只表示当前规则下经济性可行，不等于批准上市；ASSUMED 渠道规则也不能冒充已确认事实。同一渠道的市场验证只作用于该渠道路线，不跨渠道借用。
         </p>
       </section>
 
@@ -350,8 +366,12 @@ export default function ChannelRoutesPanel({ productId }: { productId: string })
                         {route.channelRuleProfile.label} / {route.ruleVersionSnapshot}
                         {route.ruleStatusSnapshot === "ASSUMED" ? " · 假设" : " · 已确认"}
                       </Badge>
-                      {route.channelRuleProfile.status === "SUPERSEDED" ? (
-                        <Badge tone="danger">当前规则已更新 · 需重评</Badge>
+                      {route.needsReevaluation ? (
+                        <Badge tone="danger">
+                          {route.channelRuleProfile.status === "SUPERSEDED"
+                            ? "当前规则已更新 · 需重评"
+                            : "规则未生效或已过期 · 需重评"}
+                        </Badge>
                       ) : null}
                     </span>
                   </div>
@@ -395,6 +415,89 @@ export default function ChannelRoutesPanel({ productId }: { productId: string })
                   {warnings.length > 0 ? (
                     <div className="hermes-banner is-warn" style={{ marginTop: 10 }}>
                       {warnings.join("；")}
+                    </div>
+                  ) : null}
+                  {workspace.canEditRoutes &&
+                  (route.status === "VALIDATION_READY" || route.status === "VALIDATING") ? (
+                    <div className="hermes-row" style={{ marginTop: 10 }}>
+                      <div className="hermes-row-head">
+                        <strong className="hermes-row-title">路线验证状态</strong>
+                        <span className="hermes-note">
+                          只有同渠道真实 Evidence 被负责人确认后，路线才允许变成“已确认”。
+                        </span>
+                      </div>
+                      <label className="hermes-label">
+                        <span>否决原因（仅点“否决路线”时必填）</span>
+                        <input
+                          className="hermes-input"
+                          value={routeReasons[route.id] || ""}
+                          onChange={(event) =>
+                            setRouteReasons({
+                              ...routeReasons,
+                              [route.id]: event.target.value,
+                            })
+                          }
+                          placeholder="例如：达人机制变化、退货率超预期、规格体验差"
+                        />
+                      </label>
+                      <div className="hermes-inline-end" style={{ marginTop: 8 }}>
+                        {route.status === "VALIDATION_READY" ? (
+                          <button
+                            type="button"
+                            className="hermes-primary-btn hermes-btn-sm"
+                            disabled={busy}
+                            onClick={() =>
+                              run(
+                                {
+                                  action: "TRANSITION_ROUTE",
+                                  routeId: route.id,
+                                  targetStatus: "VALIDATING",
+                                },
+                                "路线已进入真实市场验证"
+                              )
+                            }
+                          >
+                            开始验证
+                          </button>
+                        ) : null}
+                        {route.status === "VALIDATING" ? (
+                          <button
+                            type="button"
+                            className="hermes-primary-btn hermes-btn-sm"
+                            disabled={busy}
+                            onClick={() =>
+                              run(
+                                {
+                                  action: "TRANSITION_ROUTE",
+                                  routeId: route.id,
+                                  targetStatus: "CONFIRMED",
+                                },
+                                "路线已由真实同渠道验证确认"
+                              )
+                            }
+                          >
+                            确认路线
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="hermes-outline-btn hermes-btn-sm"
+                          disabled={busy || !(routeReasons[route.id] || "").trim()}
+                          onClick={() =>
+                            run(
+                              {
+                                action: "TRANSITION_ROUTE",
+                                routeId: route.id,
+                                targetStatus: "REJECTED",
+                                reason: routeReasons[route.id],
+                              },
+                              "路线已否决并保留历史记录"
+                            )
+                          }
+                        >
+                          否决路线
+                        </button>
+                      </div>
                     </div>
                   ) : null}
                 </div>
@@ -579,7 +682,7 @@ export default function ChannelRoutesPanel({ productId }: { productId: string })
           </summary>
           <div className="hermes-row" style={{ marginTop: 12 }}>
             <div className="hermes-banner is-warn" style={{ marginBottom: 10 }}>
-              ASSUMED 可用于推演；CONFIRMED 必须填写真实来源引用。新版本会自动把同渠道旧规则标记为 SUPERSEDED。
+              ASSUMED 可用于推演；CONFIRMED 必须填写真实来源引用。新的 ASSUMED 草案只替代旧草案，不会提前作废当前 CONFIRMED 规则；新 CONFIRMED 版本发布后才替代旧确认规则。
             </div>
             <div className="hermes-form-grid">
               {[
@@ -598,6 +701,8 @@ export default function ChannelRoutesPanel({ productId }: { productId: string })
                 ["returnRate", "退货率 %", ""],
                 ["returnHandlingFeeRate", "退货处理费率 %", ""],
                 ["targetContributionMarginRate", "目标贡献毛利率 %", ""],
+                ["effectiveFrom", "生效起始时间（选填）", "2026-09-01"],
+                ["effectiveUntil", "生效截止时间（选填）", "2026-12-31"],
                 ["sourceRefs", "来源引用（逗号）", "合同/政策/确认记录"],
                 ["constraints", "其他约束（逗号）", "多盒机制,包邮"],
               ].map(([key, label, placeholder]) => (
@@ -669,6 +774,9 @@ export default function ChannelRoutesPanel({ productId }: { productId: string })
           <div className="hermes-row" style={{ marginTop: 12 }}>
             <div className="hermes-banner is-warn" style={{ marginBottom: 10 }}>
               这里的分数是“当前证据下的诊断指数”，不是成功概率。路线经济性失败会直接形成 Hard Gate，不能被其它高分平均掉；真实市场验证状态由 Evidence 自动推导。
+            </div>
+            <div className="hermes-note" style={{ marginBottom: 10 }}>
+              当前产品已有 {workspace.verifiedEvidence.length} 条 REAL + VERIFIED Evidence 可直接引用。维度选择 VERIFIED 时，必须至少引用其中一条，不能手工把假设升级成已验证事实。
             </div>
             <label className="hermes-label">
               <span>评估路线</span>
@@ -763,6 +871,37 @@ export default function ChannelRoutesPanel({ productId }: { productId: string })
                             setDimensions(next);
                           }}
                         />
+                        <select
+                          className="hermes-select"
+                          value=""
+                          disabled={workspace.verifiedEvidence.length === 0}
+                          onChange={(event) => {
+                            const ref = event.target.value;
+                            if (!ref) return;
+                            const existing = dimension.sourceRefs
+                              .split(",")
+                              .map((item) => item.trim())
+                              .filter(Boolean);
+                            const next = [...dimensions];
+                            next[index] = {
+                              ...dimension,
+                              sourceRefs: [...new Set([...existing, ref])].join(", "),
+                            };
+                            setDimensions(next);
+                          }}
+                          style={{ marginTop: 6 }}
+                        >
+                          <option value="">
+                            {workspace.verifiedEvidence.length > 0
+                              ? "添加已核实 Evidence…"
+                              : "暂无已核实 Evidence"}
+                          </option>
+                          {workspace.verifiedEvidence.map((evidence) => (
+                            <option key={evidence.id} value={evidence.id}>
+                              {(evidence.channel || "未标渠道") + " · " + evidence.source + " · " + evidence.id.slice(0, 8)}
+                            </option>
+                          ))}
+                        </select>
                       </label>
                     </div>
                   </div>
