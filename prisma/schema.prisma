@@ -111,6 +111,8 @@ model User {
    * scrypt 口令哈希（algo$N$r$p$salt$hash）。仅由管理员脚本/种子写入，不存在公共注册。
    */
   passwordHash   String?
+  /// Internal automation identity. System principals have no password/session login.
+  isSystem       Boolean  @default(false)
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -164,6 +166,7 @@ model User {
   // Decision Intelligence provenance
   decisionRunsCreated DecisionRun[] @relation("DecisionRunCreator")
 
+  @@index([organizationId, isSystem])
   @@index([organizationId])
 }
 

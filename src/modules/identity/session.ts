@@ -84,7 +84,11 @@ export async function authenticateUser(email: string, password: string): Promise
   assertLoginNotLocked(email);
 
   const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
-  const ok = !!user && user.isActive && verifyPassword(password, user.passwordHash);
+  const ok =
+    !!user &&
+    user.isActive &&
+    !user.isSystem &&
+    verifyPassword(password, user.passwordHash);
   if (!ok) {
     recordLoginFailure(email);
     throw new UnauthorizedError("Invalid credentials");
@@ -101,6 +105,9 @@ export async function createSession(userId: string, expiresInDays: number = 7): 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user || !user.isActive) {
     throw new UnauthorizedError("User not found or inactive");
+  }
+  if (user.isSystem) {
+    throw new ForbiddenError("System principals cannot create interactive sessions");
   }
 
   const rawToken = crypto.randomBytes(32).toString("hex");
@@ -152,7 +159,7 @@ export async function getServerSession(req: NextRequest): Promise<SessionContext
       where: { id: headerUserId },
     });
 
-    if (!user || !user.isActive) {
+    if (!user || !user.isActive || user.isSystem) {
       throw new UnauthorizedError("User does not exist or is inactive");
     }
 
@@ -194,8 +201,8 @@ export async function getServerSession(req: NextRequest): Promise<SessionContext
       throw new UnauthorizedError("Session has expired");
     }
 
-    if (!dbSession.user.isActive) {
-      throw new UnauthorizedError("User account has been deactivated");
+    if (!dbSession.user.isActive || dbSession.user.isSystem) {
+      throw new UnauthorizedError("User account is unavailable for interactive login");
     }
 
     return {
@@ -231,7 +238,9 @@ export async function getServerSessionFromContext(
       throw new ForbiddenError("Dev mock auth headers are strictly forbidden in production");
     }
     const user = await prisma.user.findUnique({ where: { id: headerUserId } });
-    if (!user || !user.isActive) throw new UnauthorizedError("User inactive or not found");
+    if (!user || !user.isActive || user.isSystem) {
+      throw new UnauthorizedError("User inactive or not found");
+    }
     if (headerOrgId && user.organizationId !== headerOrgId) throw new ForbiddenError("Org mismatch");
     return {
       userId: user.id,
@@ -248,7 +257,13 @@ export async function getServerSessionFromContext(
       where: { tokenHash },
       include: { user: true },
     });
-    if (dbSession && !dbSession.revokedAt && dbSession.expiresAt > new Date() && dbSession.user.isActive) {
+    if (
+      dbSession &&
+      !dbSession.revokedAt &&
+      dbSession.expiresAt > new Date() &&
+      dbSession.user.isActive &&
+      !dbSession.user.isSystem
+    ) {
       return {
         userId: dbSession.user.id,
         organizationId: dbSession.user.organizationId,
