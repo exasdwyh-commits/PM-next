@@ -10,6 +10,10 @@ import Icon from "@/components/icons";
 import { pickTopSignals, shouldRenderThemeLayer, themeGroupsForDisplay, type ThemeSignal } from "./theme-grouping";
 import { fmtDate, fmtDateTime } from "@/shared/datetime";
 import { labelEvidenceVerifyStatus } from "@/shared/status-labels";
+import {
+  AutomationTraceInline,
+  type AutomationTraceView,
+} from "@/components/automation-trace";
 
 interface Signal {
   id: string;
@@ -54,11 +58,13 @@ const EMPTY = {
 export default function OpportunitiesClient({
   signals,
   sources,
+  automationTraces,
   currentSession,
   runtime,
 }: {
   signals: Signal[];
   sources: Source[];
+  automationTraces: Record<string, AutomationTraceView[]>;
   currentSession: { userName: string; userEmail: string };
   runtime: { tone: "ok" | "warn" | "neutral"; label: string; detail: string };
 }) {
@@ -158,6 +164,7 @@ export default function OpportunitiesClient({
             </div>
             {s.summary && <div className="hermes-row-body">{s.summary}</div>}
             {s.valueReason && <div className="hermes-row-meta"><span>价值判断依据：{s.valueReason}</span></div>}
+            <AutomationTraceInline trace={automationTraces[s.id]?.[0]} />
             <div className="hermes-inline-end" style={{ marginTop: 8 }}>
               {s.url && (
                 <a

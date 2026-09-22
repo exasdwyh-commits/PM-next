@@ -14,6 +14,10 @@ import CostCalculator from "./cost-calculator";
 import { buildProductThemes, type ProductThemeInput } from "@/modules/workspace/briefing";
 import { fmtDate, fmtDateTime } from "@/shared/datetime";
 import {
+  AutomationTraceList,
+  type AutomationTraceView,
+} from "@/components/automation-trace";
+import {
   labelProjectStage,
   labelEvidenceVerifyStatus,
   labelValidationStatus,
@@ -75,10 +79,12 @@ const ANALYSIS_STEPS = [
 
 export default function ProductOverviewClient({
   overview,
+  automationTraces,
   currentSession,
   runtime,
 }: {
   overview: any;
+  automationTraces: AutomationTraceView[];
   currentSession: { userName: string; userEmail: string };
   runtime: { tone: "ok" | "warn" | "neutral"; label: string; detail: string };
 }) {
@@ -295,6 +301,18 @@ export default function ProductOverviewClient({
           </div>
         )}
       </section>
+
+      <Panel
+        eyebrow="AUTOMATION TRACE"
+        icon="nodes"
+        title="Hermes 自动响应"
+        sub="产品版本发布与真实证据核验后，系统如何判断、挑战与重新分派；未触发也会留下原因。"
+      >
+        <AutomationTraceList
+          traces={automationTraces}
+          emptyText="当前产品还没有由 ProductVersion 或 VERIFIED Evidence 触发的自动化记录。"
+        />
+      </Panel>
 
       <hr className="hermes-brief-divider" />
 

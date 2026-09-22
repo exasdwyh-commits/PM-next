@@ -106,6 +106,15 @@ export async function bootstrapDefaultAutopilots(session: SessionContext) {
       decisionSpecVersion: "v1",
       actionKind: AutopilotActionKind.WAKE_PM,
     },
+    {
+      key: "child_task_return",
+      name: "Child Result → Parent Agent",
+      description:
+        "专业 Agent 子任务进入终态后，把结果返回原父 Agent，创建独立复核任务，不改写原父任务状态。",
+      decisionKey: "workforce.resume_parent",
+      decisionSpecVersion: "v1",
+      actionKind: AutopilotActionKind.WAKE_ROUTED_AGENT,
+    },
   ] as const;
 
   return prisma.$transaction(async (tx) => {
@@ -488,9 +497,18 @@ export async function processAutopilotReceipt(
 
     switch (decision.execution.policy.action) {
       case "AUTO": {
-        if (decision.execution.engineResult.value !== true) {
+        const decisionValue = decision.execution.engineResult.value;
+        const isRoutedWake =
+          claimed.autopilot.actionKind === AutopilotActionKind.WAKE_ROUTED_AGENT;
+
+        if (!isRoutedWake && decisionValue !== true) {
           status = AutopilotEventStatus.SUPPRESSED;
           suppressionReason = "DECISION_FALSE";
+          break;
+        }
+        if (isRoutedWake && typeof decisionValue !== "string") {
+          status = AutopilotEventStatus.SUPPRESSED;
+          suppressionReason = "DECISION_ROUTE_MISSING";
           break;
         }
 
@@ -499,7 +517,9 @@ export async function processAutopilotReceipt(
             ? "hermes_pm"
             : claimed.autopilot.actionKind === AutopilotActionKind.WAKE_RED_TEAM
               ? "red_team"
-              : null;
+              : isRoutedWake && typeof decisionValue === "string"
+                ? decisionValue
+                : null;
         if (!targetCode) {
           throw new Error(
             `Unsupported Autopilot actionKind: ${claimed.autopilot.actionKind}`

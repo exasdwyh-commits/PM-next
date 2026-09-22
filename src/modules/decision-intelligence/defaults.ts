@@ -99,6 +99,21 @@ export function createDefaultDecisionSpecs(): DecisionSpecRegistry {
   });
 
   registry.register({
+    key: "workforce.resume_parent",
+    version: "v1",
+    outputType: "CHOICE",
+    riskClass: "LOW",
+    allowedEngines: ["RULES"],
+    allowedChoices: [...WORKFORCE_AGENT_CHOICES],
+    automation: {
+      autoPolicy: "RULES_ONLY",
+      escalationTarget: "AGENT",
+    },
+    description:
+      "Return a terminal delegated child result to the original parent Agent for review without mutating the original parent task state.",
+  });
+
+  registry.register({
     key: "workforce.task_priority",
     version: "v1",
     outputType: "SCORE",
@@ -242,6 +257,29 @@ export function createDefaultRulesDecisionEngine(): RulesDecisionEngine {
       reasonCodes: [
         verified ? "EVIDENCE_VERIFIED" : "EVIDENCE_NOT_VERIFIED",
         real ? "REAL_EVIDENCE" : "NON_REAL_EVIDENCE",
+      ],
+    };
+  });
+
+  engine.register("workforce.resume_parent", "v1", (spec, request) => {
+    const state = stateObject(request.state);
+    const raw =
+      typeof state.parentAgentCode === "string"
+        ? state.parentAgentCode.trim()
+        : "";
+    const allowed = spec.allowedChoices ?? [];
+    if (!allowed.includes(raw)) {
+      throw new Error("Invalid parentAgentCode for workforce.resume_parent");
+    }
+    return {
+      value: raw,
+      reasonCodes: [
+        "PARENT_AGENT_RESOLVED",
+        str(state, "childOutcome") === "SUCCEEDED"
+          ? "CHILD_SUCCEEDED"
+          : str(state, "childOutcome") === "FAILED"
+            ? "CHILD_FAILED"
+            : "CHILD_TERMINAL",
       ],
     };
   });

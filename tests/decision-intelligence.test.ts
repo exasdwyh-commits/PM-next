@@ -365,3 +365,34 @@ test("Decision Intelligence：只有 VERIFIED + REAL 证据自动唤醒 Hermes P
   });
   assert.equal(demo.engineResult.value, false);
 });
+
+
+test("Decision Intelligence：子任务终态只能路由回真实父 Agent，不允许伪造目标", async () => {
+  const { kernel } = buildDefaultKernel();
+
+  const routed = await kernel.decide({
+    decisionKey: "workforce.resume_parent",
+    state: {
+      parentAgentCode: "hermes_pm",
+      childOutcome: "SUCCEEDED",
+    },
+    contextRefs: ["agent-task:parent", "agent-task:child"],
+  });
+  assert.equal(routed.engineResult.value, "hermes_pm");
+  assert.equal(routed.policy.action, "AUTO");
+  assert.ok(routed.engineResult.reasonCodes.includes("PARENT_AGENT_RESOLVED"));
+  assert.ok(routed.engineResult.reasonCodes.includes("CHILD_SUCCEEDED"));
+
+  await assert.rejects(
+    () =>
+      kernel.decide({
+        decisionKey: "workforce.resume_parent",
+        state: {
+          parentAgentCode: "unknown_agent",
+          childOutcome: "FAILED",
+        },
+        contextRefs: ["agent-task:bad-parent"],
+      }),
+    /Invalid parentAgentCode/
+  );
+});

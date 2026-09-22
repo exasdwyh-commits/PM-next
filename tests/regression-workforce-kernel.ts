@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { AgentAccessMode, AgentTaskStatus, OrgRole } from "@prisma/client";
 import prisma from "../src/shared/db";
 import { assertTestDatabaseSafety } from "./test-safety";
+import { bootstrapDefaultAutopilots } from "../src/modules/autopilot";
 import {
   bootstrapDefaultWorkforce,
   createAgentTask,
@@ -82,6 +83,7 @@ async function main() {
 
     const first = await bootstrapDefaultWorkforce(adminSession);
     await bootstrapDefaultWorkforce(adminSession);
+    await bootstrapDefaultAutopilots(adminSession);
 
     assert.equal(await prisma.agent.count({ where: { organizationId: org.id } }), 6);
     assert.equal(await prisma.skill.count({ where: { organizationId: org.id } }), 6);
@@ -219,7 +221,56 @@ async function main() {
       where: { childTaskId: delegated.childTask.id },
     });
     assert.equal(delegationReloaded.status, "COMPLETED");
-    console.log("  ✔ Hermes PM → Research Agent handoff is traceable and completes");
+
+    const returnEvent = await prisma.businessEvent.findUniqueOrThrow({
+      where: {
+        organizationId_eventKey: {
+          organizationId: org.id,
+          eventKey: `agent-task:${delegated.childTask.id}:terminal`,
+        },
+      },
+      include: {
+        autopilotReceipt: {
+          include: {
+            decisionRun: true,
+            agentTask: { include: { agent: true } },
+          },
+        },
+      },
+    });
+    assert.equal(returnEvent.status, "DISPATCHED");
+    assert.equal(
+      returnEvent.autopilotReceipt?.decisionRun?.decisionKey,
+      "workforce.resume_parent"
+    );
+    assert.equal(
+      returnEvent.autopilotReceipt?.decisionRun?.resultJson &&
+        typeof returnEvent.autopilotReceipt.decisionRun.resultJson === "object" &&
+        !Array.isArray(returnEvent.autopilotReceipt.decisionRun.resultJson)
+        ? (returnEvent.autopilotReceipt.decisionRun.resultJson as any).value
+        : null,
+      "hermes_pm"
+    );
+    assert.equal(returnEvent.autopilotReceipt?.agentTask?.agent.code, "hermes_pm");
+    assert.match(
+      returnEvent.autopilotReceipt?.agentTask?.goal ?? "",
+      /Review returned child-agent result/
+    );
+    assert.notEqual(
+      returnEvent.autopilotReceipt?.agentTaskId,
+      runningTask.id,
+      "child return creates an independent review task instead of rewriting the parent task"
+    );
+
+    const parentUnchanged = await prisma.agentTask.findUniqueOrThrow({
+      where: { id: runningTask.id },
+    });
+    assert.equal(
+      parentUnchanged.status,
+      AgentTaskStatus.RUNNING,
+      "child completion must not silently mutate the original parent state"
+    );
+    console.log("  ✔ child completion returns to the original parent Agent as a new review task with DecisionRun provenance");
 
     console.log("▶ W5 waiting-human is explicit, not fake-success");
     const waiting = await finishAgentTask(adminSession, runningTask.id, {

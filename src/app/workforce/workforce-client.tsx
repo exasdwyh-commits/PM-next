@@ -7,6 +7,10 @@ import AppShell, { type RuntimeStatus } from "@/components/app-shell";
 import { Empty, Panel } from "@/components/ui";
 import { HeroBand, Kpi, KpiRow, Pill } from "@/components/cockpit";
 import Icon from "@/components/icons";
+import {
+  AutomationTraceList,
+  type AutomationTraceView,
+} from "@/components/automation-trace";
 
 type WorkforceOverview = {
   agents: Array<{
@@ -80,11 +84,13 @@ function workloadLabel(value: string) {
 
 export default function WorkforceClient({
   overview,
+  automationTraces,
   session,
   runtime,
   canBootstrap,
 }: {
   overview: WorkforceOverview;
+  automationTraces: AutomationTraceView[];
   session: { userId: string; userName: string; userEmail: string };
   runtime: RuntimeStatus;
   canBootstrap: boolean;
@@ -229,6 +235,17 @@ export default function WorkforceClient({
                   </div>
                 ))}
               </div>
+            </Panel>
+
+            <Panel
+              icon="nodes"
+              title="自动化因果链"
+              sub="真实业务事件 → Autopilot → DecisionRun → AgentTask。被抑制的判断也保留原因，不静默丢弃。"
+            >
+              <AutomationTraceList
+                traces={automationTraces}
+                emptyText="还没有业务事件驱动数字员工；手工任务不会伪装成自动化。"
+              />
             </Panel>
 
             <Panel

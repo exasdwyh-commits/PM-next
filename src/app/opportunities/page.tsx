@@ -5,6 +5,7 @@ import { listOrganizationSignals, listAvailableSources } from "@/modules/signal/
 import { getRuntimeStatus } from "@/shared/runtime-status";
 import { toSessionView } from "@/shared/session-view";
 import OpportunitiesClient from "./opportunities-client";
+import { mapAutomationTracesByAggregate } from "@/modules/automation-trace";
 
 export const dynamic = "force-dynamic";
 
@@ -23,11 +24,17 @@ export default async function OpportunitiesPage() {
     listOrganizationSignals(session),
     listAvailableSources(),
   ]);
+  const automationTraces = await mapAutomationTracesByAggregate(
+    session,
+    "SignalItem",
+    signals.map((signal) => signal.id)
+  );
 
   return (
     <OpportunitiesClient
       signals={JSON.parse(JSON.stringify(signals))}
       sources={JSON.parse(JSON.stringify(sources))}
+      automationTraces={JSON.parse(JSON.stringify(automationTraces))}
       currentSession={toSessionView(session)}
       runtime={getRuntimeStatus()}
     />

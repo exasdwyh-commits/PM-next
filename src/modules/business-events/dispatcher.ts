@@ -17,6 +17,7 @@ export const BUSINESS_EVENT_TYPES = {
   SIGNAL_CAPTURED: "SIGNAL_CAPTURED",
   PRODUCT_VERSION_PUBLISHED: "PRODUCT_VERSION_PUBLISHED",
   EVIDENCE_VERIFIED: "EVIDENCE_VERIFIED",
+  AGENT_CHILD_TERMINAL: "AGENT_CHILD_TERMINAL",
 } as const;
 
 type BusinessEventType =
@@ -96,6 +97,27 @@ function planForEvent(event: {
         },
         taskGoal:
           "Re-evaluate the affected product/project after newly verified evidence. Identify which assumptions, analyses, decisions or product specifications may now need review.",
+      };
+
+    case BUSINESS_EVENT_TYPES.AGENT_CHILD_TERMINAL:
+      return {
+        autopilotKey: "child_task_return",
+        state: {
+          parentAgentCode: payload.parentAgentCode ?? null,
+          parentTaskId: payload.parentTaskId ?? null,
+          childTaskId: payload.childTaskId ?? null,
+          childAgentCode: payload.childAgentCode ?? null,
+          childOutcome: payload.childOutcome ?? null,
+          reason: payload.reason ?? null,
+        },
+        taskGoal:
+          "Review returned child-agent result for parent task " +
+          String(payload.parentTaskId ?? "") +
+          ". Child " +
+          String(payload.childAgentCode ?? "agent") +
+          " finished with " +
+          String(payload.childOutcome ?? "UNKNOWN") +
+          ". Reconcile the result with the parent objective, decide whether to continue, redelegate, escalate, or close the parent work.",
       };
 
     default:

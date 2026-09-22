@@ -26,6 +26,10 @@ import {
   publishProductVersion,
 } from "../src/modules/products/service";
 import { POST as verifyEvidencePost } from "../src/app/api/evidences/[id]/verify/route";
+import {
+  listAutomationTraces,
+  mapAutomationTracesByAggregate,
+} from "../src/modules/automation-trace";
 
 async function makeOrg(label: string) {
   const tag = randomUUID();
@@ -446,6 +450,45 @@ async function main() {
       (error: any) => error?.statusCode === 409
     );
     console.log("  ✔ outbox worker crash recovery does not permit double-processing a live lease");
+
+    console.log("▶ B9 automation trace projection exposes causality without cross-tenant leakage");
+    const signalTraceMap = await mapAutomationTracesByAggregate(
+      a.session,
+      "SignalItem",
+      [signal.id, weakSignal.id]
+    );
+    const triggeredSignalTrace = signalTraceMap[signal.id]?.find(
+      (trace) => trace.eventKey === `signal:${signal.id}:captured`
+    );
+    const suppressedSignalTrace = signalTraceMap[weakSignal.id]?.find(
+      (trace) => trace.eventKey === `signal:${weakSignal.id}:captured`
+    );
+    assert.equal(triggeredSignalTrace?.agentTask?.agent.code, "hermes_pm");
+    assert.equal(
+      suppressedSignalTrace?.receipt?.status,
+      AutopilotEventStatus.SUPPRESSED
+    );
+    assert.ok(
+      suppressedSignalTrace?.decision?.reasonCodes.includes(
+        "VALUE_REASON_MISSING"
+      )
+    );
+
+    const productTraces = await listAutomationTraces(a.session, {
+      aggregateType: "ProductVersion",
+      aggregateIds: [version.id],
+    });
+    const versionTrace = productTraces.find(
+      (trace) => trace.eventKey === `product-version:${version.id}:published`
+    );
+    assert.equal(versionTrace?.agentTask?.agent.code, "red_team");
+
+    const foreignTrace = await listAutomationTraces(b.session, {
+      aggregateType: "SignalItem",
+      aggregateIds: [signal.id],
+    });
+    assert.equal(foreignTrace.length, 0);
+    console.log("  ✔ trace feed explains triggered/suppressed outcomes and stays tenant-scoped");
 
     console.log("\n✅ Business event outbox regression passed");
   } finally {

@@ -1657,6 +1657,7 @@ enum AutopilotStatus {
 enum AutopilotActionKind {
   WAKE_PM
   WAKE_RED_TEAM
+  WAKE_ROUTED_AGENT
 }
 
 enum AutopilotEventStatus {

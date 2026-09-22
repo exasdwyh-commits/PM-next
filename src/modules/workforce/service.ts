@@ -19,6 +19,7 @@ import {
 import { createAuditEventInTx } from "@/shared/audit";
 import { SessionContext, requireProjectRole } from "@/modules/identity/session";
 import { isOrgAdmin } from "@/modules/identity/admin";
+import { enqueueBusinessEventInTx } from "@/modules/business-events/outbox";
 
 const DEFAULT_AGENTS = [
   {
@@ -554,6 +555,18 @@ export async function createAgentTask(
           }
           break;
 
+        case "workforce.resume_parent":
+          if (
+            !result ||
+            typeof result.value !== "string" ||
+            result.value !== agent.code
+          ) {
+            throw new UnprocessableEntityError(
+              "Parent return decision result does not match the selected Agent"
+            );
+          }
+          break;
+
         default:
           throw new UnprocessableEntityError(
             "DecisionSpec is not allowed to directly trigger an AgentTask"
@@ -819,7 +832,7 @@ export async function finishAgentTask(
   taskId: string,
   input: { runId: string; outcome: AgentTaskOutcome; reason?: string | null }
 ) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     await tx.$queryRawUnsafe(
       'SELECT "id" FROM "AgentTask" WHERE "id" = $1 AND "organizationId" = $2 FOR UPDATE',
       taskId,
@@ -828,7 +841,17 @@ export async function finishAgentTask(
 
     const task = await tx.agentTask.findUnique({
       where: { id: taskId },
-      include: { agent: true },
+      include: {
+        agent: true,
+        parentTask: {
+          select: {
+            id: true,
+            goal: true,
+            agentId: true,
+            agent: { select: { id: true, code: true, name: true } },
+          },
+        },
+      },
     });
     if (!task || task.organizationId !== session.organizationId) {
       throw new NotFoundError("Agent task not found");
@@ -904,6 +927,8 @@ export async function finishAgentTask(
       } as Prisma.InputJsonValue,
     });
 
+    let returnEventId: string | null = null;
+
     if (task.parentTaskId) {
       await tx.agentDelegation.updateMany({
         where: { childTaskId: task.id },
@@ -916,8 +941,61 @@ export async function finishAgentTask(
                 : DelegationStatus.ACCEPTED,
         },
       });
+
+      // Only terminal child outcomes return control to the parent Agent.
+      // BLOCKED / WAITING_HUMAN are not completion and must not be disguised
+      // as a finished delegation.
+      if (
+        task.parentTask &&
+        (input.outcome === "SUCCEEDED" || input.outcome === "FAILED")
+      ) {
+        const event = await enqueueBusinessEventInTx(tx, {
+          organizationId: session.organizationId,
+          eventKey: `agent-task:${task.id}:terminal`,
+          eventType: "AGENT_CHILD_TERMINAL",
+          aggregateType: "AgentTask",
+          aggregateId: task.id,
+          payload: {
+            parentTaskId: task.parentTask.id,
+            parentTaskGoal: task.parentTask.goal,
+            parentAgentCode: task.parentTask.agent.code,
+            childTaskId: task.id,
+            childAgentCode: task.agent.code,
+            childOutcome: input.outcome,
+            reason: input.reason?.trim() || null,
+          },
+          contextRefs: [
+            `agent-task:${task.parentTask.id}`,
+            `agent-task:${task.id}`,
+            `agent-run:${run.id}`,
+          ],
+          createdById: session.userId,
+        });
+        returnEventId = event.id;
+      }
     }
 
-    return { task: updatedTask, run: updatedRun };
+    return {
+      task: updatedTask,
+      run: updatedRun,
+      returnEventId,
+    };
   });
+
+  if (result.returnEventId) {
+    // Dynamic import avoids a static cycle:
+    // workforce → dispatcher → autopilot → workforce.
+    // The outbox row is already durable, so dispatch failure is intentionally
+    // non-fatal and can be recovered by the outbox drain.
+    const { dispatchBusinessEvent } = await import(
+      "@/modules/business-events/dispatcher"
+    );
+    await dispatchBusinessEvent(
+      session.organizationId,
+      result.returnEventId,
+      { workerId: "child-return:" + taskId }
+    ).catch(() => null);
+  }
+
+  return { task: result.task, run: result.run };
 }
