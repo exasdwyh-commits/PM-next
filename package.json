@@ -39,7 +39,8 @@
     "test:golden": "node --import tsx --test tests/golden-product-cases.test.ts tests/golden-research-context.test.ts",
     "test:research-snapshot": "tsx scripts/run-test.ts tests/regression-research-snapshot.ts",
     "test:launch-auth": "node --import tsx --test tests/regression-launch-authorization.test.ts",
-    "test:g3": "tsx scripts/run-test.ts tests/regression-formal-g3.ts"
+    "test:g3": "tsx scripts/run-test.ts tests/regression-formal-g3.ts",
+    "test:potential": "node --import tsx --test tests/golden-product-potential.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
