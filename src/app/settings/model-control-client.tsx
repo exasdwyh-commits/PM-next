@@ -20,6 +20,7 @@ type Profile = {
   contextWindow: number | null;
   dataPolicyNote: string | null;
   isPreset: boolean;
+  runtimeConfigured: boolean;
 };
 
 type Policy = {
@@ -141,6 +142,9 @@ function ProfileEditor({
           {profile.qualityTier} · {profile.costTier}
         </span>
         <span className="hermes-chip">{profile.locality}</span>
+        <span className={`hermes-chip ${profile.runtimeConfigured ? "is-ok" : ""}`}>
+          {profile.runtimeConfigured ? "Runtime ready" : "Runtime missing"}
+        </span>
       </div>
       <div className="hermes-row-body">
         {profile.description || "未填写说明"}

@@ -14,7 +14,6 @@ import prisma from "@/shared/db";
 import { NotFoundError, UnprocessableEntityError } from "@/shared/errors";
 import { RunMode } from "@prisma/client";
 import { SessionContext } from "../identity/session";
-import { getRuntimeStatus } from "@/shared/runtime-status";
 import { getWorkspaceOverview } from "../workspace/overview";
 import { listProductBoard } from "../products/service";
 import {
@@ -35,6 +34,12 @@ import {
   isAdvisorLLMEnabled,
 } from "./llm";
 import type { ScientificEvidenceInput } from "../research/scientific-evidence";
+import { tryResolveGatewayPolicyForAgentCode } from "@/modules/model-control/service";
+import {
+  executePersistedModelGateway,
+  hasEnabledPolicyCandidate,
+  type ModelTaskClass,
+} from "@/modules/model-gateway";
 
 export async function listConversations(
   session: SessionContext,
@@ -538,6 +543,22 @@ async function runTool(session: SessionContext, intent: Intent, ctx: ToolContext
   }
 }
 
+function advisorModelRouteForIntent(intent: Intent): {
+  agentCode: string;
+  taskClass: ModelTaskClass;
+} {
+  if (intent === "CHALLENGE_THESIS") {
+    return { agentCode: "red_team", taskClass: "RED_TEAM" };
+  }
+  if (intent === "KNOWLEDGE_SEARCH") {
+    return { agentCode: "research_agent", taskClass: "QUICK_RESEARCH" };
+  }
+  if (intent === "PROPOSE_FIELD_CHANGE" || intent === "PROPOSE_CREATE_WORK_ITEM") {
+    return { agentCode: "hermes_pm", taskClass: "QUICK_CLASSIFY" };
+  }
+  return { agentCode: "hermes_pm", taskClass: "SUMMARIZATION" };
+}
+
 export async function sendMessage(
   session: SessionContext,
   conversationId: string,
@@ -552,74 +573,114 @@ export async function sendMessage(
     throw new NotFoundError("Conversation not found");
   }
 
-  const runtime = getRuntimeStatus();
-  // P4：LLM 开关（默认关闭）。启用且模型已配置时本轮走 LLM 润色路径。
-  const llmEnabled = isAdvisorLLMEnabled();
+  const intent = routeIntent(text, !!convo.productId);
+  const modelRoute = advisorModelRouteForIntent(intent);
   const startedAt = new Date();
 
-  // TASK-017：如果提供了 runId，使用已有的 run；否则创建新的
+  let gatewayPlan: Awaited<ReturnType<typeof tryResolveGatewayPolicyForAgentCode>> = null;
+  let gatewayResolutionError: string | null = null;
+  try {
+    gatewayPlan = await tryResolveGatewayPolicyForAgentCode({
+      organizationId: session.organizationId,
+      agentCode: modelRoute.agentCode,
+      taskClass: modelRoute.taskClass,
+    });
+  } catch (error: unknown) {
+    gatewayResolutionError = error instanceof Error ? error.message : String(error);
+  }
+
+  const gatewayReady =
+    !!gatewayPlan &&
+    hasEnabledPolicyCandidate({
+      policy: gatewayPlan.policy,
+      profiles: gatewayPlan.profiles,
+    });
+
+  // Compatibility bridge: legacy Advisor env may run only when no Model Control
+  // binding exists. Once a binding exists, it is authoritative and must not be
+  // bypassed by a hidden legacy model.
+  const legacyEnabled = !gatewayPlan && !gatewayResolutionError && isAdvisorLLMEnabled();
+  const modelPlanned = gatewayReady || legacyEnabled;
+
+  const toolWhitelist = [
+    "workspace.overview",
+    "workspace.pendingDecisions",
+    "products.board",
+    "advisor.pendingProposals",
+    "advisor.proposeFieldChange",
+    "advisor.proposeWorkItem",
+    "advisor.challenge",
+    "knowledge.search",
+  ];
+
   let run;
   if (options?.runId) {
-    // 认领已有的 QUEUED 运行
     const { claimRun } = await import("./runs");
-    const claimed = await claimRun({ session, runId: options.runId });
-    
-    // 获取完整的 run 记录
-    run = await prisma.agentRun.findUnique({
-      where: { id: options.runId },
-    });
-    if (!run) {
-      throw new NotFoundError("AgentRun not found");
-    }
-    
-    // 更新 run 的实际执行信息
-    await prisma.agentRun.update({
+    await claimRun({ session, runId: options.runId });
+
+    run = await prisma.agentRun.findUnique({ where: { id: options.runId } });
+    if (!run) throw new NotFoundError("AgentRun not found");
+
+    run = await prisma.agentRun.update({
       where: { id: options.runId },
       data: {
         conversationId,
+        agentId: gatewayPlan?.agent.id || null,
         goal: text.slice(0, 200),
-        toolWhitelist: [
-          "workspace.overview",
-          "workspace.pendingDecisions",
-          "products.board",
-          "advisor.pendingProposals",
-          "advisor.proposeFieldChange",
-          "advisor.proposeWorkItem",
-          "advisor.challenge",
-          "knowledge.search",
-        ],
+        runMode: modelPlanned ? RunMode.LLM : RunMode.TEST_STUB,
+        provider: null,
+        modelId: null,
+        promptTemplateVersion: modelPlanned
+          ? ADVISOR_LLM_SYSTEM_PROMPT_VERSION
+          : "deterministic-tools/v1",
+        toolWhitelist,
+        contextSnapshot: {
+          capturedAt: startedAt.toISOString(),
+          organizationId: session.organizationId,
+          permissionScope: "own organization only",
+          llmEnabled: modelPlanned,
+          modelBackend: gatewayReady
+            ? "MODEL_GATEWAY"
+            : legacyEnabled
+              ? "LEGACY_ADVISOR_LLM"
+              : "DETERMINISTIC_TOOL",
+          modelTaskClass: modelRoute.taskClass,
+          modelAgentCode: modelRoute.agentCode,
+          modelPolicyKey: gatewayPlan?.policy.id || null,
+          gatewayResolutionError,
+        },
       },
     });
   } else {
-    // 创建新的 RUNNING 状态的 AgentRun
     run = await prisma.agentRun.create({
       data: {
         organizationId: session.organizationId,
         conversationId,
         userId: session.userId,
+        agentId: gatewayPlan?.agent.id || null,
         goal: text.slice(0, 200),
         status: "RUNNING",
-        // P4：LLM 开关打开时 runMode=LLM；默认仍为 TEST_STUB（确定性工具）
-        runMode: llmEnabled ? RunMode.LLM : RunMode.TEST_STUB,
-        provider: runtime.provider,
-        modelId: runtime.modelId,
-        promptTemplateVersion: llmEnabled ? ADVISOR_LLM_SYSTEM_PROMPT_VERSION : "deterministic-tools/v1",
-        toolWhitelist: [
-          "workspace.overview",
-          "workspace.pendingDecisions",
-          "products.board",
-          "advisor.pendingProposals",
-          "advisor.proposeFieldChange",
-          "advisor.proposeWorkItem",
-          "advisor.challenge",
-          "knowledge.search",
-        ],
+        runMode: modelPlanned ? RunMode.LLM : RunMode.TEST_STUB,
+        provider: null,
+        modelId: null,
+        promptTemplateVersion: modelPlanned
+          ? ADVISOR_LLM_SYSTEM_PROMPT_VERSION
+          : "deterministic-tools/v1",
+        toolWhitelist,
         contextSnapshot: {
           capturedAt: startedAt.toISOString(),
           organizationId: session.organizationId,
           permissionScope: "own organization only",
-          modelConfigured: runtime.modelConfigured,
-          llmEnabled,
+          llmEnabled: modelPlanned,
+          modelBackend: gatewayReady
+            ? "MODEL_GATEWAY"
+            : legacyEnabled
+              ? "LEGACY_ADVISOR_LLM"
+              : "DETERMINISTIC_TOOL",
+          modelTaskClass: modelRoute.taskClass,
+          modelAgentCode: modelRoute.agentCode,
+          modelPolicyKey: gatewayPlan?.policy.id || null,
+          gatewayResolutionError,
         },
         startedAt,
         costStatus: "unknown",
@@ -627,10 +688,8 @@ export async function sendMessage(
     });
   }
 
-  const intent = routeIntent(text, !!convo.productId);
   const ctx: ToolContext = { conversationId, productId: convo.productId ?? null, text };
-  // 多轮上下文：取本轮之前的会话历史（USER/ASSISTANT），供 LLM 理解追问与指代。
-  // 历史读取失败不阻断主链路 —— 退化为单轮，只是润色少了背景。
+
   let historyTurns = 0;
   let conversationHistory: { role: string; content: string }[] = [];
   try {
@@ -639,57 +698,117 @@ export async function sendMessage(
       orderBy: { createdAt: "asc" },
       select: { role: true, content: true },
     });
-    conversationHistory = historyRows.map((m) => ({ role: m.role, content: m.content }));
+    conversationHistory = historyRows.map((message) => ({
+      role: message.role,
+      content: message.content,
+    }));
     historyTurns = conversationHistory.length;
   } catch {
     conversationHistory = [];
   }
 
-  // 当前 USER 消息尚未写入历史；LLM 本轮问题由 buildAdvisorLLMMessages 单独注入一次。
   await prisma.message.create({
     data: { conversationId, role: "USER", content: text, runId: run.id },
   });
 
   let result: ToolResult;
   let failed = false;
-  let errorReason: string | null = null;
+  let errorReason: string | null = gatewayResolutionError
+    ? `Model Gateway 配置解析失败，已使用确定性工具：${gatewayResolutionError}`
+    : null;
   let llmUsage: {
     promptTokens?: number;
     completionTokens?: number;
     totalTokens?: number;
   } | null = null;
   let llmModelId: string | null = null;
+  let actualProvider: string | null = null;
+  let modelRunId: string | null = null;
   let llmAttempted = false;
+  let modelOutputUsed = false;
+  let executionBackend: "MODEL_GATEWAY" | "LEGACY_ADVISOR_LLM" | "DETERMINISTIC_TOOL" =
+    "DETERMINISTIC_TOOL";
+
   try {
     result = await runTool(session, intent, ctx);
 
-    // P4 接入点：LLM 只负责把白名单工具的结构化结果转成自然语言；
-    // 未启用（默认）时 llmClient 为 null，行为与既有确定性路径完全一致。
-    // LLM 失败时回落工具原文，并把失败原因写进 AgentRun.errorReason（诚实留痕）。
-    const llmClient = createAdvisorLLMClient();
-    llmAttempted = !!llmClient;
-    if (llmClient) {
+    const llmMessages = buildAdvisorLLMMessages({
+      history: conversationHistory,
+      currentQuery: text,
+      toolKey: result.toolKey,
+      toolResultText: result.text,
+    });
+
+    if (gatewayReady && gatewayPlan) {
+      llmAttempted = true;
+      executionBackend = "MODEL_GATEWAY";
       try {
-        const llmMessages = buildAdvisorLLMMessages({
-          history: conversationHistory,
-          currentQuery: text,
-          toolKey: result.toolKey,
-          toolResultText: result.text,
+        const gatewayExecution = await executePersistedModelGateway({
+          organizationId: session.organizationId,
+          agentRunId: run.id,
+          policy: gatewayPlan.policy,
+          profiles: gatewayPlan.profiles,
+          request: {
+            taskClass: modelRoute.taskClass,
+            messages: llmMessages,
+            metadata: {
+              source: "advisor",
+              conversationId,
+              intent,
+            },
+          },
+          requestMeta: {
+            source: "advisor",
+            intent,
+            historyTurns,
+          },
         });
-        const llmResult = await llmClient.chat(llmMessages);
-        if (llmResult.text.trim()) {
+
+        modelRunId = gatewayExecution.modelRunId;
+        const gatewayResult = gatewayExecution.result;
+        result = { ...result, text: gatewayResult.text };
+        modelOutputUsed = true;
+        llmModelId = gatewayResult.resolvedModelId;
+        actualProvider = gatewayResult.provider;
+        llmUsage = gatewayResult.usage
+          ? {
+              promptTokens: gatewayResult.usage.inputTokens,
+              completionTokens: gatewayResult.usage.outputTokens,
+              totalTokens: gatewayResult.usage.totalTokens,
+            }
+          : null;
+      } catch (modelError: unknown) {
+        errorReason =
+          "Model Gateway 调用失败已回落工具原文：" +
+          (modelError instanceof Error ? modelError.message : String(modelError));
+      }
+    } else if (legacyEnabled) {
+      const llmClient = createAdvisorLLMClient();
+      llmAttempted = !!llmClient;
+      executionBackend = llmClient ? "LEGACY_ADVISOR_LLM" : "DETERMINISTIC_TOOL";
+      if (llmClient) {
+        actualProvider = process.env.ADVISOR_MODEL_PROVIDER?.trim() || "openai-compatible";
+        try {
+          const llmResult = await llmClient.chat(llmMessages);
           result = { ...result, text: llmResult.text };
+          modelOutputUsed = true;
           llmUsage = llmResult.usage;
           llmModelId = llmResult.modelId;
+        } catch (llmErr: unknown) {
+          errorReason =
+            "LLM 润色失败已回落工具原文：" +
+            (llmErr instanceof Error ? llmErr.message : String(llmErr));
         }
-      } catch (llmErr: any) {
-        errorReason = `LLM 润色失败已回落工具原文：${llmErr?.message || llmErr}`;
       }
     }
-  } catch (e: any) {
+  } catch (error: unknown) {
     failed = true;
-    errorReason = e?.message || "工具执行失败";
-    result = { toolKey: "none", text: `执行失败：${errorReason}`, citations: [] };
+    errorReason = error instanceof Error ? error.message : "工具执行失败";
+    result = {
+      toolKey: "none",
+      text: `执行失败：${errorReason}`,
+      citations: [],
+    };
   }
 
   const finishedAt = new Date();
@@ -712,7 +831,6 @@ export async function sendMessage(
     },
   });
 
-  // 留痕：把提议挂到本轮 AgentRun 上，便于从运行记录追到具体提议
   if (result.proposal?.proposalId) {
     await prisma.actionProposal.update({
       where: { id: result.proposal.proposalId },
@@ -720,15 +838,23 @@ export async function sendMessage(
     });
   }
 
-  const header = llmEnabled
+  const header = modelOutputUsed
     ? ""
-    : runtime.modelConfigured
-      ? "（注意：已配置模型端点，但本轮仍由确定性工具回答，模型接入尚未实现）\n\n"
-      : "（本轮未接入语言模型，以下为按白名单工具查得的真实数据）\n\n";
+    : llmAttempted
+      ? "（模型调用失败，本轮已安全回落到确定性工具结果）\n\n"
+      : gatewayPlan && !gatewayReady
+        ? "（模型策略已配置但暂无启用的候选 Profile，本轮使用确定性工具结果）\n\n"
+        : "（本轮未接入语言模型，以下为按白名单工具查得的真实数据）\n\n";
 
-  // 挑战报告存进 citations 数组：kind="challenge-report" 的条目携带完整 report
   const citationsWithReport: any[] = result.challengeReport
-    ? [{ kind: "challenge-report", ref: ctx.productId, title: "挑战报告", report: result.challengeReport }]
+    ? [
+        {
+          kind: "challenge-report",
+          ref: ctx.productId,
+          title: "挑战报告",
+          report: result.challengeReport,
+        },
+      ]
     : result.citations;
 
   const assistantMsg = await prisma.message.create({
@@ -741,23 +867,45 @@ export async function sendMessage(
     },
   });
 
+  const usageJson = llmUsage
+    ? {
+        promptTokens: llmUsage.promptTokens,
+        completionTokens: llmUsage.completionTokens,
+        totalTokens: llmUsage.totalTokens,
+        modelId: llmModelId,
+        historyTurns,
+        backend: executionBackend,
+        modelRunId,
+        policyKey: gatewayPlan?.policy.id || null,
+      }
+    : llmAttempted
+      ? {
+          note: "模型已调用，但 provider 未返回 usage 或调用失败",
+          modelId: llmModelId,
+          historyTurns,
+          backend: executionBackend,
+          modelRunId,
+          policyKey: gatewayPlan?.policy.id || null,
+        }
+      : {
+          note: "未接入模型，无 token 计量",
+          historyTurns,
+          backend: executionBackend,
+          policyKey: gatewayPlan?.policy.id || null,
+        };
+
   await prisma.agentRun.update({
     where: { id: run.id },
     data: {
       status: failed ? "FAILED" : "SUCCEEDED",
+      runMode: llmAttempted ? RunMode.LLM : RunMode.TEST_STUB,
+      provider: actualProvider,
+      modelId: llmModelId,
       finishedAt,
       durationMs,
       outputMessageId: assistantMsg.id,
       errorReason,
-      // P4：LLM 实际产出时如实计量 token；provider 未返回 usage 与未调用模型要区分留痕。
-      // historyTurns 留痕本轮注入了几轮历史（0=单轮；读取失败也如实为 0）。
-      usageJson: (
-        llmUsage
-          ? { promptTokens: llmUsage.promptTokens, completionTokens: llmUsage.completionTokens, totalTokens: llmUsage.totalTokens, modelId: llmModelId, historyTurns }
-          : llmAttempted
-            ? { note: "模型已调用，但 provider 未返回 usage", modelId: llmModelId, historyTurns }
-            : { note: "未接入模型，无 token 计量", historyTurns }
-      ) as any,
+      usageJson: usageJson as any,
       costStatus: "unknown",
     },
   });
@@ -770,5 +918,10 @@ export async function sendMessage(
     },
   });
 
-  return { runId: run.id, message: assistantMsg, proposal: result.proposal ?? null };
+  return {
+    runId: run.id,
+    message: assistantMsg,
+    proposal: result.proposal ?? null,
+    modelRunId,
+  };
 }

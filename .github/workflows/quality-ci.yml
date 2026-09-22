@@ -27,6 +27,7 @@ jobs:
       - run: npm run test:potential
       - run: npm run test:model-gateway
       - run: npm run test:model-control
+      - run: npm run test:model-runtime
       - run: npm run test:harness
       - run: npm run test:validation-decision
       - run: npm run test:decision-intelligence

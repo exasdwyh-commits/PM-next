@@ -124,3 +124,60 @@ Synthesis / decision review
 
 只有 PRODUCT_ANALYSIS / STRATEGIC_CONSULTING / RED_TEAM / DECISION_REVIEW 等高价值任务允许进入，
 并且每个阶段仍受自己的 ModelPolicy、预算和 Governance 约束。
+
+
+## Runtime V2：真实调用如何接通
+
+Model Control Center 只保存非秘密路由元数据。Provider 运行时由部署环境显式提供。
+
+假设 Profile.provider = `agnes`，运行时读取：
+
+```bash
+MODEL_PROVIDER_AGNES_BASE_URL=https://your-openai-compatible-endpoint/v1
+MODEL_PROVIDER_AGNES_API_KEY=...
+MODEL_PROVIDER_AGNES_TIMEOUT_MS=30000
+MODEL_PROVIDER_AGNES_MAX_TOKENS=1024
+MODEL_PROVIDER_AGNES_TEMPERATURE=0.2
+```
+
+Provider 名会转换为大写环境变量 token，非字母数字字符转换为下划线。例如：
+
+- `deepseek` → `MODEL_PROVIDER_DEEPSEEK_*`
+- `local-vllm` → `MODEL_PROVIDER_LOCAL_VLLM_*`
+
+没有对应 `BASE_URL` 时，设置页显示 `Runtime missing`；即便 Profile 元数据存在，也不会假装可调用。
+
+### 旧 Advisor 兼容桥
+
+旧的 `ADVISOR_LLM_*` 继续保留，但只在当前任务**没有 Model Control 绑定**时使用。
+
+一旦存在 Agent × TaskClass 绑定，Model Control 就是权威路径：
+
+- Profile 未启用 → 使用确定性工具，不偷跑旧模型；
+- Provider Runtime 缺失 → ModelRun 记录 CONFIG 失败，不偷切其它隐藏模型；
+- 模型失败 → 只按该 Policy 明确候选 fallback；
+- Policy 全部失败 → 顾问回落确定性工具结果，业务数据仍可用。
+
+### ModelRun
+
+每次通过 Model Gateway 的真实模型执行会生成独立 ModelRun，记录：
+
+- taskClass；
+- policyKey / policyVersion；
+- 实际 profileKey / provider / modelId；
+- attempts；
+- routingSkips；
+- usage；
+- errorReason；
+- duration。
+
+ModelRun 不保存 API Key，也不复制完整 prompt。业务上下文继续由 AgentRun / Message 管理，避免重复存储敏感文本。
+
+### Advisor 的默认任务分流
+
+- 普通状态解释 → Hermes PM / SUMMARIZATION；
+- 知识检索解释 → Research Agent / QUICK_RESEARCH；
+- 修改/建任务提议的语言解释 → Hermes PM / QUICK_CLASSIFY；
+- 证伪挑战 → Red Team / RED_TEAM。
+
+这意味着日常顾问不会默认占用 Frontier；只有明确的高价值任务才进入更强策略。

@@ -65,6 +65,7 @@ model Organization {
   modelProfiles       ModelProfileConfig[]
   modelPolicies       ModelPolicyConfig[]
   modelPolicyBindings AgentModelPolicyBinding[]
+  modelRuns           ModelRun[]
 }
 
 /**
@@ -1256,11 +1257,49 @@ model AgentRun {
   toolCalls    ToolCall[]
   proposals    ActionProposal[]
   delegations AgentDelegation[] @relation("DelegationSourceRun")
+  modelRuns    ModelRun[]
 
   @@index([organizationId])
   @@index([conversationId])
   @@index([agentId])
   @@index([agentTaskId])
+  @@index([status])
+}
+
+enum ModelRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+model ModelRun {
+  id             String         @id @default(uuid())
+  organizationId String
+  agentRunId     String?
+  taskClass      String
+  policyKey      String
+  policyVersion  String
+  profileKey     String?
+  provider       String?
+  modelId        String?
+  status         ModelRunStatus @default(RUNNING)
+  attempts       Json?
+  routingSkips   Json?
+  usageJson      Json?
+  requestMeta    Json?
+  errorReason    String?
+  startedAt      DateTime       @default(now())
+  finishedAt     DateTime?
+  durationMs     Int?
+  createdAt      DateTime       @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  agentRun     AgentRun?     @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([agentRunId])
+  @@index([policyKey, policyVersion])
+  @@index([profileKey])
   @@index([status])
 }
 

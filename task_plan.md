@@ -17,49 +17,50 @@ PM-next 已经不再处于旧的 TASK-017 / 产品中心补页面阶段。当前
 
 旧版 TASK-016～TASK-045 计划只保留历史参考价值，不再作为当前执行顺序。
 
-## 当前进行中
+## 已完成
 
 ### M1 · Model Control Center V1
 
-目标：把 Model Gateway 从代码内核推进为可配置控制平面。
+已合入 main（PR #29）：
 
-范围：
+- 组织级 ModelProfile / ModelPolicy 持久化；
+- Agent × TaskClass → Policy 绑定；
+- 官方推荐模板与自定义配置；
+- 设置页模型控制中心；
+- API Key 不入数据库；
+- Profile 默认禁用，禁止假装模型已接通；
+- Model Control tests 已进入 Quality CI。
 
-1. 组织级 ModelProfile 持久化；
-2. 组织级 ModelPolicy 持久化；
-3. Agent × TaskClass → Policy 绑定；
-4. 官方推荐模板；
-5. 设置页可配置 Profile / Policy / Agent 绑定；
-6. API Key 不入数据库；
-7. 模板默认禁用，禁止假装模型已经接通；
-8. 新增独立回归测试并进入 Quality CI。
-
-验收：
-
-- 安装模板不会产生真实模型调用；
-- 已配置的 provider/modelId 不会被重复安装模板覆盖；
-- cloudAllowed=false 不能引用 CLOUD Profile；
-- Agent 绑定 TaskClass 与 Policy TaskClass 不一致时拒绝；
-- Strategic / Red Team 官方策略强制 REASONING；
-- typecheck / lint / build / Model Control tests 全绿。
-
-## 下一阶段
+## 当前进行中
 
 ### M2 · Model Gateway Runtime Integration
 
-1. 把现有 AdvisorLLMClient 包装为 ModelProviderPlugin；
-2. 执行前按 Agent × TaskClass 解析 ModelPolicy；
-3. ModelGateway 接管真实 provider 路由；
+本阶段正在把“配置平面”接到“真实执行平面”：
+
+1. Provider Runtime：部署环境提供 endpoint / secret，数据库不持久化 API Key；
+2. Advisor 按意图映射 Agent × TaskClass；
+3. ModelGateway 接管真实 provider 路由与策略内 fallback；
 4. 新增 ModelRun 持久化：
    - policyKey / version
    - profileKey
    - provider / modelId
-   - attempts / fallback
+   - attempts / routing skips
    - usage
-   - latency
-   - failure kind
-5. AgentRun.provider/modelId 只记录实际执行结果；
-6. 未配置 Provider 时 fail closed，不回退到未知模型。
+   - latency / error
+5. AgentRun.provider/modelId 只写实际成功执行；
+6. 已存在 Model Control 绑定时禁止旧 Advisor 模型旁路；
+7. 模型不可用时回落确定性工具结果，不影响真实业务查询。
+
+验收：
+
+- Provider 未配置时明确 CONFIG 失败；
+- 429 / timeout 等运行故障按 Gateway failure policy 处理；
+- Content Policy / BAD_REQUEST / CONFIG 不通过换模型绕过；
+- 每次 Gateway 调用都有 ModelRun；
+- 旧 ADVISOR_LLM_* 在无新绑定时保持兼容；
+- Quality / Golden / Governance / Workforce 等 CI 全绿。
+
+## 下一阶段
 
 ### M3 · Cost & Intelligence Tiers
 

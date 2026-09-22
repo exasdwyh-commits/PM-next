@@ -227,6 +227,11 @@ export const MODEL_POLICY_PRESETS: ModelPolicyPreset[] = [
 ];
 
 export const AGENT_MODEL_BINDING_PRESETS: AgentModelBindingPreset[] = [
+  // Hermes PM can choose a cheap routine policy for ordinary cockpit/advisor work
+  // and reserve Frontier for explicit strategic consulting.
+  { agentCode: "hermes_pm", taskClass: "QUICK_CLASSIFY", policyKey: "routine-quick-classify" },
+  { agentCode: "hermes_pm", taskClass: "QUICK_RESEARCH", policyKey: "routine-quick-research" },
+  { agentCode: "hermes_pm", taskClass: "SUMMARIZATION", policyKey: "routine-summarization" },
   { agentCode: "hermes_pm", taskClass: "STRATEGIC_CONSULTING", policyKey: "strategic-consulting" },
   { agentCode: "product_agent", taskClass: "PRODUCT_ANALYSIS", policyKey: "strategic-product-analysis" },
   { agentCode: "research_agent", taskClass: "QUICK_RESEARCH", policyKey: "routine-quick-research" },

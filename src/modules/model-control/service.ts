@@ -4,6 +4,7 @@ import { createAuditEventInTx } from "@/shared/audit";
 import { ForbiddenError, NotFoundError, UnprocessableEntityError } from "@/shared/errors";
 import { isOrgAdmin } from "@/modules/identity/admin";
 import type { SessionContext } from "@/modules/identity/session";
+import { isProviderRuntimeConfigured } from "@/modules/model-gateway/provider-runtime";
 import type {
   ModelCapability,
   ModelPolicy,
@@ -103,7 +104,10 @@ export async function getModelControlOverview(session: SessionContext) {
   ]);
 
   return {
-    profiles,
+    profiles: profiles.map((profile) => ({
+      ...profile,
+      runtimeConfigured: isProviderRuntimeConfigured(profile.provider),
+    })),
     policies,
     agents,
     bindings,
@@ -610,4 +614,45 @@ export async function resolveGatewayPolicyForAgent(params: {
   };
 
   return { policy, profiles };
+}
+
+
+export async function tryResolveGatewayPolicyForAgentCode(params: {
+  organizationId: string;
+  agentCode: string;
+  taskClass: ModelTaskClass;
+}): Promise<
+  | {
+      agent: { id: string; code: string; name: string };
+      policy: ModelPolicy;
+      profiles: ModelProfile[];
+    }
+  | null
+> {
+  const agent = await prisma.agent.findFirst({
+    where: {
+      organizationId: params.organizationId,
+      code: params.agentCode,
+      status: "ACTIVE",
+    },
+    select: { id: true, code: true, name: true },
+  });
+  if (!agent) return null;
+
+  const binding = await prisma.agentModelPolicyBinding.findFirst({
+    where: {
+      organizationId: params.organizationId,
+      agentId: agent.id,
+      taskClass: params.taskClass,
+    },
+    select: { id: true },
+  });
+  if (!binding) return null;
+
+  const resolved = await resolveGatewayPolicyForAgent({
+    organizationId: params.organizationId,
+    agentId: agent.id,
+    taskClass: params.taskClass,
+  });
+  return { agent, ...resolved };
 }
