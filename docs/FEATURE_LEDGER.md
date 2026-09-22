@@ -1,70 +1,66 @@
-# HERMES 功能台账与 P1 覆盖状态对照表
+# HERMES 功能台账
 
-日期：2026-09-08  
-依据：《HERMES_功能清单与现有能力映射_2026-09-07.md》F01–F34、J01–J03、《HERMES_B01_审查与修复执行包_2026-09-07.md》与 P1 实施规划
+更新时间：2026-09-23  
+用途：历史 F01–F34 / J01–J03 能力映射。此表是 roadmap coverage，不等同于当前 release blocker。
 
----
+状态：
+- DONE：当前定义的核心能力已落地并有回归
+- PARTIAL：已有可用能力，但原始大定义仍有扩展空间
+- NOT_STARTED：当前版本未做
+- BOUNDARY_ONLY：仅保留边界/投影契约
 
-## 1. 交付状态与阶段定义
+| ID | 功能 | 状态 | 当前实现 |
+| --- | --- | --- | --- |
+| F01 | 角色矩阵 | DONE | ProjectMember / Role / 权限与越权回归 |
+| F02 | 新品/固定产品与项目空间 | DONE | Product / Project 持久化 |
+| F03 | 里程碑、依赖、进度、阻塞 | PARTIAL | 阶段、Launch milestones、Workforce 状态已具备；完整甘特仍可扩展 |
+| F04 | 版本化反馈闭环 | DONE | collaboration + review/disposition |
+| F05 | 授权内自动工作与回执 | DONE | Workforce + Autopilot + durable receipts + review return |
+| F06 | 主要决策门 | DONE | G1 研发/打样、G2 生产投入、G3 上市授权均正式实现 |
+| F07 | Evidence 入库/来源/性质/去重 | DONE | Evidence / claims / REAL-DEMO / verify status |
+| F08 | GPT 网页日常任务导入契约 | NOT_STARTED | 下一版本外部采集 |
+| F09 | 日机会信号 | PARTIAL | SignalSource / SignalItem / manual+injected / Autopilot；外部源仍可扩展 |
+| F10 | 周爆品推荐池 | NOT_STARTED | 下一版本 |
+| F11 | 蝉妈妈接入 | NOT_STARTED | 下一版本 |
+| F12 | 精选联盟/快手小店接入 | NOT_STARTED | 下一版本 |
+| F13 | 需求语义与禁止项 | DONE | requirement parser |
+| F14 | 深度机会/竞品/用户/技术研究 | DONE | research + evidence-grounded analysis |
+| F15 | 可比路线与修订 | DONE | product routes / research alternatives |
+| F16 | 同版本报告/证据/建议包 | DONE | product suggestion + version binding |
+| F17 | 产品定义/规格/验证清单 | DONE | ProductVersion + suggestion package |
+| F18 | 竞品/组合装/可比价格 | DONE | cost engine / market research |
+| F19 | 费用、利润、成本反推 | DONE | deterministic cost engine |
+| F20 | 估算/报价/BOM/目标成本差 | PARTIAL | G2 SUPPLIER_QUOTE + budget 已落地；完整 BOM variance 可扩展 |
+| F21 | 包装简报/版本/审核 | PARTIAL | PACKAGING_BRIEF 当前版本 + reviewStatus + contentVersion；完整设计文件流可扩展 |
+| F22 | 询价/打样/合规资料包与待回复 | PARTIAL | G2 会显式暴露缺失生产成果；完整 supplier packet 仍可扩展 |
+| F23 | 工厂反馈与冲突处理 | PARTIAL | 报价/专业确认可结构化入库；专用工厂协同流仍可扩展 |
+| F24 | 样品版本/评价/重验 | DONE | SAMPLE_ROUND、当前版本、PASS、accepted REAL、重新送审语义 |
+| F25 | 法规/平台/达人/企业规则版本 | PARTIAL | ChannelRuleProfileRecord 已版本化；完整多类规则库仍可扩展 |
+| F26 | 动态检查项 | PARTIAL | Product Hard Gates + G2/G3 required checks；通用 checklist generator 可扩展 |
+| F27 | 检测报告/批次/临期 | NOT_STARTED | 下一版本质量管理 |
+| F28 | 硬阻断/风险/未知复核 | DONE | Product Hard Gates + fail-closed Governance + G2/G3 blockers |
+| F29 | 渠道确认/版本/数量/价格/交期 | PARTIAL | ChannelSpecRoute + confirmed rules；专用锁单确认记录可扩展 |
+| F30 | 定版与生产决策包 | DONE | Formal G2 DecisionPacket 冻结版本、成果、预算、scopeHash、fingerprint |
+| F31 | 生产任务/数量/交期/反馈/异常 | PARTIAL | PRODUCTION_PLAN + start + PRODUCTION_RECORD + delivery；更细异常工单可扩展 |
+| F32 | 交付归档/遗留/经验 | PARTIAL | Delivery + Audit + Experience Loop；专用结项归档 UI 可扩展 |
+| F33 | 负责人工作台/决策总览 | DONE | Workbench / Product / Workforce / Gate UI |
+| F34 | 导出/历史恢复/运营诊断 | PARTIAL | 审计、版本历史、Model/Workforce/Autopilot 可观测；角色化导出仍可扩展 |
+| J01 | 企业资料问答 | BOUNDARY_ONLY | Jarvis read-only boundary |
+| J02 | 项目决策参谋 | BOUNDARY_ONLY | Jarvis read-only boundary |
+| J03 | 跨项目经验比较 | BOUNDARY_ONLY | Jarvis read-only boundary |
 
-- **P0 / B01-R1 / B01-R2 (已全部通过)**：
-  - R2-01: 阻断生产环境无凭证会话签发，仅在受控开发模式下开放模拟登录；
-  - R2-02: 研发打样门基线校验与变更拦截，禁止空成果/缺件审批通过，引入项目乐观锁版本守卫；
-  - R2-03: 市场研究事实标杆严格绑定已核实证据片段，无证据时阻断虚构商业事实并显式记录缺口；
-  - R2-04: 测试安全加固，所有测试入口（A01-A12, db, r1, p1, r2）严格绑定独立测试库 `hermes_next_test`，零污染开发库；
-  - R2-05: 建议修订发布版本引入内容指纹与原子事务保证；
-  - R2-06: 佣金/营销/预算硬编码改为可配置业务输入，未输入项作为未确认假设保留；
-  - R2-07: 纠正测试指标属性名称并对齐业务定义。
-- **P1 阶段 (已实现并完成端到端测试与反例复验)**：
-  - **F13 (DONE)**：需求语义解析与否定约束硬隔离（禁止剂型、禁止宣称、不添加严格存为 forbidden，杜绝反向污染为偏好）。
-  - **F07 / F14 / F15 (DONE)**：真实资料接入、标杆竞品与痛点分析（严守无依据不捏造事实）、A/B/C 三条可比选型路线。
-  - **F18 / F19 (DONE)**：机械确定性六层成本计算引擎与供货定价反推（纯函数计算，同输入同输出，AI 不参与数值计算）。
-  - **F16 / F17 / F33 (DONE)**：同版本产品建议包组装、不可变版本发布（单一原子事务）、与研发打样门无缝对接。
-- **待后续包交付 (P2 / P3 / J)**：
-  - **P2 (NEXT)**：工厂回复、样品试制、包装审核、规则库硬门、渠道确认单、生产放行门 (F20–F32)。
-  - **P3**：GPT 网页日常任务契约、蝉妈妈深度日常抓取、爆品周推荐池 (F08–F12)。
-  - **J**：贾维斯独立参谋读取投影 (J01–J03)。
+## 当前 release 判定
 
----
+当前版本的 release blocker 已经不再由“F01-F34 是否全部 DONE”决定。
 
-## 2. 完整 34 项功能映射台账 (F01 - F34 & J01 - J03)
+当前版本正式冻结的主闭环是：
 
-| ID | 功能名称与交付说明 | 所属阶段 | 当前状态 | 对应代码位置与测试证据 |
-| :--- | :--- | :--- | :--- | :--- |
-| **F01** | 项目负责人、指定决策人、反馈者和浏览者角色矩阵 | P1 | **DONE** | `src/modules/identity/session.ts`，角色防自批与防越权已通过 R01/R02 验证 |
-| **F02** | 新品/固定产品入口及可恢复项目空间 | P1 | **DONE** | `src/modules/projects/service.ts`，新品与固定产品持久化创建与恢复 |
-| **F03** | 里程碑、依赖、实际进度、阻塞和提醒 | P1 | **PARTIAL** | UI 展示 5 阶段状态管道，详细甘特依赖留待后续阶段扩展 |
-| **F04** | 版本化意见与负责人采纳/拒绝/待补充闭环 | P1 | **DONE** | `src/modules/collaboration/service.ts`，支持版本化反馈及立项派工闭环 |
-| **F05** | 授权内自动工作、超界请求和运行回执 | P1 | **PARTIAL** | 基础回执与状态流转完成 (`src/modules/work/service.ts`)，长耗时自动编排留至 P1 扩展 |
-| **F06** | 两个主要决策门、决定范围与版本 | P1/P2 | **PARTIAL (门1已完成)** | 研发打样门完整就绪并通过 R04–R07 验证；生产放行门属于 P2 范围 |
-| **F07** | 资料入库、来源、时间、数据性质与去重 | P1 | **DONE** | `src/modules/evidence/service.ts`，支持哈希验重、REAL/DEMO 隔离、受控附件上传 |
-| **F08** | GPT 网页日常任务结果导入契约 | P3 | **NOT_STARTED** | 留待 P3 包开发 |
-| **F09** | 日机会线索：政策、刚需、事件、原料技术 | P3 | **NOT_STARTED** | 留待 P3 包开发 |
-| **F10** | 周爆品跟进推荐 | P3 | **NOT_STARTED** | 留待 P3 包开发 |
-| **F11** | 蝉妈妈接入与来源状态 | P3 | **NOT_STARTED** | 留待 P3 包接入（已具备 cmm-api skill 契约备选） |
-| **F12** | 精选联盟/快手小店资料接入 | P3 | **NOT_STARTED** | 留待 P3 包接入 |
-| **F13** | 需求原文、允许/禁止项、渠道、人群和单位 | P1 | **DONE** | `src/modules/research/requirement-parser.ts`，否定语义识别为 forbidden，测试已通过 |
-| **F14** | 深度机会/竞品/用户/技术研究与反证 | P1 | **DONE** | `src/modules/research/market-research.ts`，标杆竞品、价格带与痛点分析完成 |
-| **F15** | 可比路线、负责人选型与修订 | P1 | **DONE** | `src/modules/research/market-research.ts`，3 条可比路线生成，严格避开红线 |
-| **F16** | 同一版本的报告、证据及产品建议包 | P1 | **DONE** | `src/modules/products/product-suggestion.ts`，同版本聚合研究、成本与规格简报 |
-| **F17** | 产品定义、规格、技术建议、体验目标、验证清单 | P1 | **DONE** | `src/modules/products/product-suggestion.ts`，发布为正式不可变版本 |
-| **F18** | 竞品机制、组合装、优惠及可比价格 | P1 | **DONE** | `src/modules/cost-engine/`，标杆竞品价格带与可比价格分析 |
-| **F19** | 佣金售后等费用、利润目标与成本反推 | P1 | **DONE** | `src/modules/cost-engine/`，机械确定性六层成本计算引擎，100% 纯函数算力核验 |
-| **F20** | 估算、报价、BOM与目标成本差异 | P2 | **NOT_STARTED** | 属于 P2 生产放行包范围 |
-| **F21** | 包装简报、文件版本、审核与定稿 | P2 | **NOT_STARTED** | 属于 P2 包装与设计放行范围 |
-| **F22** | 询价/打样/合规问题资料包与待回复清单 | P2 | **NOT_STARTED** | 属于 P2 工厂对接范围 |
-| **F23** | 工厂反馈回传、来源和冲突处理 | P2 | **NOT_STARTED** | 属于 P2 工厂对接范围 |
-| **F24** | 样品版本、评价、修正与重新验收 | P2 | **NOT_STARTED** | 属于 P2 样品试制范围 |
-| **F25** | 法规/平台/达人/企业规则来源与版本 | P2 | **NOT_STARTED** | 属于 P2 合规门禁范围 |
-| **F26** | 按产品、工厂、包装、渠道生成检查项 | P2 | **NOT_STARTED** | 属于 P2 合规门禁范围 |
-| **F27** | 报告日期、检测范围、产品批次及临期提醒 | P2 | **NOT_STARTED** | 属于 P2 质检管理范围 |
-| **F28** | 硬性阻断、普通风险处置、未知复核 | P2 | **NOT_STARTED** | 属于 P2 生产放行门范围 |
-| **F29** | 渠道确认人、版本、数量、价格、交期与依据 | P2 | **NOT_STARTED** | 属于 P2 渠道锁单范围 |
-| **F30** | 定版与生产决策包 | P2 | **NOT_STARTED** | 属于 P2 生产决策门范围 |
-| **F31** | 本次生产任务、约定数量、交期、实际反馈和异常 | P2 | **NOT_STARTED** | 属于 P2 生产跟进范围 |
-| **F32** | 交付归档、遗留事项和经验资料 | P2/P3 | **NOT_STARTED** | 属于 P2 结项归档范围 |
-| **F33** | 负责人工作台与决策层总览 | P1/P3 | **DONE** | 负责人可查看并采纳产品建议包，一键联动生成研发打样门草稿 |
-| **F34** | 角色化导出、历史恢复和基础运营诊断 | P3 | **NOT_STARTED** | 属于 P3 运维诊断范围 |
-| **J01** | 企业资料问答与来源 | J | **BOUNDARY_ONLY** | `src/modules/jarvis/index.ts` 定义投影边界，不混淆业务状态 |
-| **J02** | 项目决策参谋与版本解释 | J | **BOUNDARY_ONLY** | 定义只读边界，待贾维斯独立开发 |
-| **J03** | 跨项目可比方案与经验比较 | J | **BOUNDARY_ONLY** | 定义只读边界，待贾维斯独立开发 |
+Evidence / Product Potential
+→ Channel Route
+→ G1
+→ G2
+→ Production execution / delivery
+→ G3
+→ Workforce / Autopilot / Experience
+
+F20-F32 中未覆盖的供应商协同、质检、渠道锁单和结项运营细节属于下一版本扩展，不应在本地最终修复阶段扩大 scope。

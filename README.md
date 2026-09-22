@@ -2,12 +2,15 @@
 
 企业新品研发、决策治理与 Agent 协作系统。
 
-## 当前状态：进入收尾冻结（2026-09-22）
+## 当前状态：线上实现收口 / 本地最终验收
 
-当前 main 已达到“线上代码收口、本地最终验收与修复”的阶段，不再建议继续在线追加大功能。
+日期：2026-09-23  
+运行时代码基线：`f0507464`
 
-最后一个运行时代码基线：f5e5b780
-该基线已通过以下 GitHub Actions：
+当前版本已经停止线上功能扩张，进入本地真实环境验收与 P0/P1 修复阶段。
+
+`f0507464` 在 main 上通过 8 条核心 CI：
+
 - Quality CI
 - Governance CI
 - Workforce CI
@@ -17,121 +20,104 @@
 - Business Event CI
 - Golden Organization CI
 
-Quality CI 同时通过：
-- Golden / Product Potential / Channel Route
-- Model Gateway / Model Control / Model Runtime
-- Evaluation Harness / Validation Decision / Decision Intelligence / Launch Authorization
-- TypeScript typecheck
-- ESLint
-- Next.js production build
+其中 Quality CI 已通过 typecheck、ESLint、Next.js production build；Governance CI 已通过 Formal G2、Formal G3、structured artifacts、gate boundaries、迁移和治理回归。
 
-最终状态、验收边界和本地接手方式见：
-- docs/PROJECT_CLOSEOUT_2026-09-22.md
-- docs/FINAL_ACCEPTANCE_2026-09-22.md
-- docs/LOCAL_HANDOFF_2026-09-22.md
+## 当前版本的核心闭环
 
-历史的 docs/PROJECT_COMPLETION_2026-09-20.md、B01_ACCEPTANCE_REPORT.md、P1_ACCEPTANCE_REPORT.md 继续保留作为阶段证据，不再代表 2026-09-22 的最终状态。
+### 1. 产品判断
+- Evidence / Validation
+- Product Potential V2
+- Hard Gates
+- Channel Spec Fit
+- 渠道经济性
+- PotentialAssessment 快照
 
-## 当前已经形成的核心能力
+### 2. 多渠道规格
+- 一个 ProductVersion 多个 ChannelSpecRoute
+- revision / supersedes
+- ASSUMED / CONFIRMED / SUPERSEDED 渠道规则
+- channel-scoped evidence
+- VERIFIED + REAL + VERIFIED_BY_LEAD 约束
 
-1. 产品决策与产品潜力
-   - Hard Gates
-   - Evidence State / Validation
-   - Channel Spec Fit
-   - 渠道经济性与贡献毛利
-   - Product Potential / PotentialAssessment 快照
+### 3. 三门决策闭环
+- G1：研发 / 打样授权
+- G2：正式生产投入授权
+- G3：正式上市授权
 
-2. 渠道规格路线
-   - 同一 ProductVersion 可维护多个 ChannelSpecRoute
-   - 路线 revision / supersedes
-   - ASSUMED / CONFIRMED / SUPERSEDED 渠道规则生命周期
-   - VERIFIED + REAL + VERIFIED_BY_LEAD 证据约束
-   - 渠道规则变化后的重新验证
+G2 明确区分“批准生产投入”和“真实开工”：
+- 报价、样品、专业确认、包装、生产计划必须是当前版本、已验收、REAL 的结构化成果；
+- Owner 不可自批，必须由指定 Decision Maker 决策；
+- G2 批准后仍处于 PRODUCTION_PREP；
+- 真实开工是独立动作；
+- PRODUCTION_RECORD 验收后才能确认交付；
+- G3 会校验生产交付依据。
 
-3. Model Control / Model Gateway
-   - Agent × TaskClass → ModelPolicy
-   - 可插拔 ModelProfile
-   - Provider Runtime
-   - 显式 fallback
-   - fail closed
-   - ModelRun provenance
-   - API Key 不入数据库
+详见 `docs/FORMAL_G2_PRODUCTION_GATE.md` 与 `docs/FORMAL_G3_LAUNCH_GATE.md`。
 
-4. Autonomous Workforce
-   - Agent / Skill / Squad / Delegation
-   - 任务开始、完成、回传、复核
-   - Result Summary
-   - Parent Action
-   - Home activity brief
+### 4. 模型控制
+- ModelProfile / ModelPolicy
+- Agent × TaskClass → Policy
+- Provider Runtime
+- 显式 fallback / fail closed
+- ModelRun provenance
+- API Key 不入数据库
 
-5. Decision Intelligence / Governance
-   - 版本化决策规范
-   - Rule Engine
-   - Policy Gate
-   - DecisionRun provenance
-   - System Principal
-   - Launch Authorization
+### 5. Autonomous Workforce
+- Agent / Skill / Squad / Delegation
+- task start / finish / review return
+- result summary / parent action
+- activity brief
 
-6. Autopilot / Business Events
-   - durable wakeup
-   - leases / cooldown
-   - Business Event Outbox
-   - 自动化因果链
-   - Agent child result return
+### 6. Decision / Governance / Autopilot
+- Decision Intelligence
+- Policy Gate / DecisionRun
+- System Principal
+- Autopilot durable wakeup
+- Business Event Outbox
+- Automation Causality
+- child result return
 
-7. Evaluation Harness / Experience Loop
-   - 冻结预测
-   - 真实 outcome 回写
-   - calibration / experience persistence
-   - Golden Organization 多案例回归
+### 7. Harness / Experience
+- 冻结预测
+- 真实 outcome
+- calibration / experience persistence
+- AKG、骆驼奶+AOS、AKK 多案例 Golden Organization 回归
 
-## 当前不再作为收尾阻塞项的内容
+## 当前版本不再扩展
 
-以下内容属于后续增强，不应在本地最终修复阶段扩 scope：
-- M4 Cost & Intelligence Tiers 的进一步自动预算策略
+以下进入下一版本，不属于本地最终修复范围：
+
+- M4 Cost & Intelligence Tiers
 - M5 Controlled Mixture of Agents
-- Jev / Judgment Engine 等高速判断层
-- P3 外部趋势采集与第三方数据源
-- 手机端专门适配
-- 更大规模 UI 美化和视觉重构
+- Jev / Judgment Engine
+- 更完整的 P3 外部趋势采集与第三方数据源
+- 手机端专项适配
+- 大规模视觉重构
 
-先完成本地真实环境验收，再决定后续版本。
+父 Issue #11 保留为下一版本 Intelligence / MoA backlog。
 
-## 历史开放 PR
+## 仓库收口状态
 
-仓库仍有两个历史 PR：
-- #21 Autopilot V1
-- #8 Formal G2 production gate
-
-两者都已与当前 main 分叉，main 已包含后续 Autopilot、Decision、Governance、Model Gateway、Channel Route 等新实现。不要直接合并。应在本地验收完成后做差异审查，再关闭或抽取仍有价值的最小改动。
+历史 PR #8（旧 G2）和 #21（旧 Autopilot）已经关闭。  
+Formal G2 已通过 PR #33 按当前 main 架构重新移植并合入。  
+旧 Phase 1 Intelligence Issue #13 已按新 Model Control 架构标记 superseded。
 
 ## 本地同步
 
-建议严格从 main 开始：
+```bash
+git fetch --all --prune
+git switch main
+git pull --ff-only origin main
+npm ci
+npx prisma generate
+```
 
-    git fetch --all --prune
-    git switch main
-    git pull --ff-only origin main
-    npm ci
-    npx prisma generate
+完整本地验收见：
 
-数据库、环境变量和最终验收步骤见 docs/LOCAL_HANDOFF_2026-09-22.md。
+- `docs/PROJECT_CLOSEOUT_2026-09-22.md`
+- `docs/FINAL_ACCEPTANCE_2026-09-22.md`
+- `docs/LOCAL_HANDOFF_2026-09-22.md`
 
-## 常用命令
+应用默认端口：`3100`。
 
-    npm run dev
-    npm run typecheck
-    npm run lint
-    npm run build
-    npm run test:golden-org
-    npm run test:channel-routes
-    npm run test:model-control
-    npm run test:model-runtime
-    npm run test:governance
-    npm run test:workforce
-    npm run test:autopilot
-    npm run test:business-events
-
-应用默认端口：3100。
-
-本项目现阶段的目标不是继续扩大功能面，而是保持主干稳定、完成本地真实环境验收、只修复阻断交付的问题。
+当前阶段目标只有一个：保持基线稳定，在本地完成真实数据库、真实 provider 和真实业务链验收，只修 P0/P1。

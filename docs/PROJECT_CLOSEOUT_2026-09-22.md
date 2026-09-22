@@ -1,93 +1,105 @@
 # PM-next 项目收尾说明
 
-日期：2026-09-22
-阶段：Online Closeout / Local Finalization
+日期：2026-09-23  
+阶段：Online Implementation Complete / Local Finalization  
+运行时代码基线：`f0507464`
 
 ## 一、收尾结论
 
-PM-next 已经达到适合停止线上功能扩张、转入本地最终修复的阶段。
+PM-next 本轮线上实现已经收口。
 
-最后一个运行时代码提交：
-f5e5b780 — Channel Route V1 hardening: evidence-scoped validation and governed lifecycle
+当前主干不再只是“产品中心 + Agent 骨架”，而是形成了可审计、可治理、可替换模型、可自动委派，并覆盖研发打样、生产投入与上市授权的完整产品研发决策骨架。
 
-该提交之后不建议继续在线新增大的业务能力。当前最重要的工作是把真实环境、真实数据库、真实 provider 和关键浏览器路径在本地跑一遍，修掉最后的 P0/P1。
+`f0507464` 已在 main 上通过 8 条核心 CI。后续应转入本地真实环境验收，只修 P0/P1。
 
-## 二、为什么现在应该收尾
+## 二、本轮完成的闭环
 
-过去一轮已经把系统从“产品中心 + 基础 Agent”推进为完整的受治理 AI 产品负责人骨架：
-- 产品潜力判断不再是单一总分，已经有 Hard Gate、Evidence State 和 Validation；
-- 同产品多渠道规格已成为持久化业务对象；
-- Model Control 与 Runtime 已接通；
-- Agent / Skill / Squad / Delegation 已形成 Workforce；
-- Decision Intelligence、Governance、Launch Authorization 已有独立回归；
-- Autopilot 已由业务事件驱动，并记录 durable receipt、lease、cooldown 与 causality；
-- Experience Loop 能把冻结预测和真实结果关联；
-- AKG、骆驼奶+AOS、AKK 已进入 Golden Organization 多案例回归。
+### 产品判断
+Evidence → Product Potential → Hard Gate → Validation → Channel Route → Outcome / Experience。
 
-继续在线堆功能的边际价值已经低于本地真实验收。
+### 模型执行
+Agent × TaskClass → ModelPolicy → Provider Runtime → ModelRun → fallback / fail closed。
+
+### Agent 协作
+Agent / Skill / Squad / Delegation → Result → Review Return → Parent Action。
+
+### 自治
+Business Event → Outbox → Autopilot → DecisionRun → AgentTask → Causality / Receipt。
+
+### 三门治理
+- G1：研发 / 打样授权
+- G2：生产投入授权
+- G3：上市授权
+
+G2 当前已经正式进入 main，并确保：
+- 当前确认 ProductVersion；
+- 真实且已验收的结构化生产成果；
+- 样品 / 报价 / 包装 / 专业确认 / 生产计划冻结；
+- 独立决策人；
+- scopeHash / productionFingerprint 漂移失效；
+- G2 批准与真实开工分离；
+- Production Record 与交付分离；
+- G3 不能绕过生产依据。
 
 ## 三、冻结范围
 
-冻结以下核心域：
+除 P0/P1 修复外，不再修改这些核心契约：
+
 - identity / auth / tenancy
 - products / product versions
-- evidence
+- evidence / validation
 - product potential
 - channel routes
-- model control
-- model gateway runtime
+- decisions / G1 / G2 / G3
+- production lifecycle
+- model control / model gateway runtime
 - workforce
 - decision intelligence
 - evaluation harness
 - governance
-- autopilot
-- business event outbox
+- autopilot / business event outbox
 - automation trace
 
-除修复缺陷外，不再改变核心数据契约。
+## 四、不属于当前收尾 blocker
 
-## 四、当前非阻断项
+- M4 intelligence / cost tier 自动化
+- M5 Controlled MoA
+- Jev / Judgment Engine
+- P3 大规模外部趋势与第三方数据采集
+- 手机端专项适配
+- 视觉大改版
 
-以下不是本次收尾 blocker：
-- M4 智力/成本分层的进一步自动化；
-- M5 Controlled MoA；
-- Jev Judgment Engine；
-- P3 外部趋势采集；
-- 第三方数据源深度接入；
-- 手机端专项适配；
-- 大规模视觉升级。
+这些属于下一版本，不允许在本地修复阶段扩大 scope。
 
-这些全部进入下一版本，不允许在本地收尾阶段顺手扩 scope。
+## 五、仓库清理
 
-## 五、历史 PR
+已完成：
+- PR #33 合并：Formal G2 on current main
+- PR #8 关闭：旧 G2 分支被 #33 替代
+- PR #21 关闭：旧 Autopilot 分支被 current main 替代
+- Issue #13 关闭：旧 Phase 1 Intelligence 设计被 Model Control / Runtime 架构替代
+- Issue #11 保留：下一版本 Adaptive Intelligence / MoA backlog
 
-PR #21 与 PR #8 都是旧设计时期分支，并已与当前 main 分叉。
+## 六、正式交付入口
 
-处理原则：
-- 不直接 merge；
-- 不以“PR 还开着”判断系统尚未完成；
-- 本地验收结束后再进行差异审查；
-- 如果 main 已覆盖其意图，关闭；
-- 如果仍有独立价值，只抽取最小变更并重新测试。
+- `README.md`
+- `task_plan.md`
+- `docs/PROJECT_CLOSEOUT_2026-09-22.md`
+- `docs/FINAL_ACCEPTANCE_2026-09-22.md`
+- `docs/LOCAL_HANDOFF_2026-09-22.md`
+- `docs/FORMAL_G2_PRODUCTION_GATE.md`
+- `docs/FORMAL_G3_LAUNCH_GATE.md`
 
-## 六、最终交付物
-
-收尾后的正式入口：
-- README.md：当前状态和入口；
-- task_plan.md：冻结后的执行计划；
-- docs/PROJECT_CLOSEOUT_2026-09-22.md：本文件；
-- docs/FINAL_ACCEPTANCE_2026-09-22.md：最终验收基线；
-- docs/LOCAL_HANDOFF_2026-09-22.md：本地同步和修复手册。
-
-旧阶段验收文档继续保留，仅作为历史证据。
+旧 B01/P1 验收文档继续保留作为历史证据，不再代表当前最终状态。
 
 ## 七、下一步
 
 本地完成最终验收后：
-1. 只修 P0/P1；
-2. 重新跑最终门禁；
-3. 将剩余问题记录为 accepted debt 或 next-version backlog；
-4. 再考虑打 v0.1.0-rc1 / v0.1.0 标签；
-5. 然后再开启 M4/M5/Jev 等下一阶段。
 
-当前阶段的关键词是：稳定、复验、修复、冻结，而不是继续扩功能。
+1. 只修 P0/P1；
+2. 重跑最终门禁；
+3. 剩余 P2 记为 accepted debt / next-version backlog；
+4. 无阻断后再打 `v0.1.0-rc1`；
+5. 然后开启 M4/M5/Jev/P3 等下一版本工作。
+
+当前版本不再需要线上继续堆功能。
