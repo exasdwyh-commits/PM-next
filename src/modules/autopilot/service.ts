@@ -476,6 +476,20 @@ export async function processAutopilotReceipt(
         )
       : [];
 
+    const taskContextSnapshot = {
+      schemaVersion: "autopilot-task-context/v1",
+      event: {
+        receiptId: claimed.id,
+        eventKey: claimed.eventKey,
+        eventType: claimed.eventType,
+        sourceType: claimed.sourceType,
+        sourceId: claimed.sourceId,
+      },
+      state: payload.state ?? null,
+      criteria: payload.criteria ?? null,
+      contextRefs: refs,
+    } as Prisma.InputJsonValue;
+
     const decision = await decideAndPersist(
       principal,
       buildDefaultKernel(),
@@ -530,6 +544,7 @@ export async function processAutopilotReceipt(
         const task = await createAgentTask(principal, {
           agentId: target.id,
           goal: claimed.taskGoal,
+          contextSnapshot: taskContextSnapshot,
           triggerType: AgentTriggerType.EVENT,
           triggerRef:
             claimed.sourceId ??
@@ -546,6 +561,7 @@ export async function processAutopilotReceipt(
         const task = await createAgentTask(principal, {
           agentId: hermes.id,
           goal: "Review escalated Autopilot decision: " + claimed.taskGoal,
+          contextSnapshot: taskContextSnapshot,
           triggerType: AgentTriggerType.EVENT,
           triggerRef:
             claimed.sourceId ??

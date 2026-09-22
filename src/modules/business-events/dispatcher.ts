@@ -105,9 +105,11 @@ function planForEvent(event: {
         state: {
           parentAgentCode: payload.parentAgentCode ?? null,
           parentTaskId: payload.parentTaskId ?? null,
+          parentTaskGoal: payload.parentTaskGoal ?? null,
           childTaskId: payload.childTaskId ?? null,
           childAgentCode: payload.childAgentCode ?? null,
           childOutcome: payload.childOutcome ?? null,
+          resultSummary: payload.resultSummary ?? null,
           reason: payload.reason ?? null,
         },
         taskGoal:
@@ -117,7 +119,10 @@ function planForEvent(event: {
           String(payload.childAgentCode ?? "agent") +
           " finished with " +
           String(payload.childOutcome ?? "UNKNOWN") +
-          ". Reconcile the result with the parent objective, decide whether to continue, redelegate, escalate, or close the parent work.",
+          (typeof payload.resultSummary === "string" && payload.resultSummary.trim()
+            ? ". Result summary: " + payload.resultSummary.trim()
+            : "") +
+          ". Reconcile the result with the parent objective, decide whether to accept, redelegate, escalate, or close the parent work.",
       };
 
     default:

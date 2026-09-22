@@ -1,6 +1,7 @@
 import {
   AgentAccessMode,
   AgentLifecycleStatus,
+  AgentRunStatus,
   AgentTaskStatus,
   AgentTriggerType,
   DelegationStatus,
@@ -325,7 +326,7 @@ export async function getWorkforceOverview(session: SessionContext) {
   });
   const visibleAgentIds = agents.map((agent) => agent.id);
 
-  const [squads, taskGroups, waitingTasks] = await Promise.all([
+  const [squads, taskGroups, waitingTasks, returnReviewRows] = await Promise.all([
     prisma.squad.findMany({
       where: {
         organizationId: session.organizationId,
@@ -367,7 +368,36 @@ export async function getWorkforceOverview(session: SessionContext) {
         workItem: { select: { id: true, title: true, projectId: true } },
       },
     }),
+    prisma.agentTask.findMany({
+      where: {
+        organizationId: session.organizationId,
+        agentId: { in: visibleAgentIds },
+        status: {
+          in: [AgentTaskStatus.QUEUED, AgentTaskStatus.WAITING_HUMAN],
+        },
+        triggerDecisionRun: {
+          is: { decisionKey: "workforce.resume_parent" },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 12,
+      select: {
+        id: true,
+        goal: true,
+        status: true,
+        blockedReason: true,
+        contextSnapshot: true,
+        createdAt: true,
+        updatedAt: true,
+        agent: { select: { id: true, code: true, name: true } },
+        triggerDecisionRun: {
+          select: { id: true, decisionKey: true, specVersion: true },
+        },
+      },
+    }),
   ]);
+
+  const returnReviewIds = new Set(returnReviewRows.map((task) => task.id));
 
   const counts = new Map<string, Partial<Record<AgentTaskStatus, number>>>();
   for (const row of taskGroups) {
@@ -408,7 +438,18 @@ export async function getWorkforceOverview(session: SessionContext) {
           visibleAgentIds.includes(member.agentId)
       ),
     })),
-    waitingTasks,
+    waitingTasks: waitingTasks.filter((task) => !returnReviewIds.has(task.id)),
+    returnReviews: returnReviewRows.map((task) => ({
+      id: task.id,
+      goal: task.goal,
+      status: task.status,
+      blockedReason: task.blockedReason,
+      createdAt: task.createdAt,
+      updatedAt: task.updatedAt,
+      agent: task.agent,
+      decisionRun: task.triggerDecisionRun,
+      returned: returnReviewState(task.contextSnapshot),
+    })),
   };
 }
 
@@ -830,7 +871,12 @@ export type AgentTaskOutcome =
 export async function finishAgentTask(
   session: SessionContext,
   taskId: string,
-  input: { runId: string; outcome: AgentTaskOutcome; reason?: string | null }
+  input: {
+    runId: string;
+    outcome: AgentTaskOutcome;
+    reason?: string | null;
+    resultSummary?: string | null;
+  }
 ) {
   const result = await prisma.$transaction(async (tx) => {
     await tx.$queryRawUnsafe(
@@ -871,6 +917,20 @@ export async function finishAgentTask(
       throw new UnprocessableEntityError("runId does not belong to this agent task");
     }
 
+    const resultSummary = input.resultSummary?.trim() || null;
+    if (
+      task.parentTaskId &&
+      input.outcome === "SUCCEEDED" &&
+      !resultSummary
+    ) {
+      throw new UnprocessableEntityError(
+        "Delegated child task must return a non-empty resultSummary before SUCCEEDED"
+      );
+    }
+    if (resultSummary && resultSummary.length > 4000) {
+      throw new UnprocessableEntityError("resultSummary must be <= 4000 characters");
+    }
+
     const taskStatus =
       input.outcome === "SUCCEEDED"
         ? AgentTaskStatus.SUCCEEDED
@@ -907,6 +967,10 @@ export async function finishAgentTask(
           input.outcome === "FAILED"
             ? input.reason?.trim() || "Agent task failed"
             : null,
+        outputSummary:
+          input.outcome === "SUCCEEDED" || input.outcome === "FAILED"
+            ? resultSummary
+            : run.outputSummary,
         finishedAt: now,
         durationMs: run.startedAt
           ? Math.max(0, now.getTime() - run.startedAt.getTime())
@@ -924,6 +988,7 @@ export async function finishAgentTask(
         runId: run.id,
         outcome: input.outcome,
         reason: input.reason ?? null,
+        resultSummary,
       } as Prisma.InputJsonValue,
     });
 
@@ -962,6 +1027,7 @@ export async function finishAgentTask(
             childTaskId: task.id,
             childAgentCode: task.agent.code,
             childOutcome: input.outcome,
+            resultSummary,
             reason: input.reason?.trim() || null,
           },
           contextRefs: [
@@ -998,4 +1064,364 @@ export async function finishAgentTask(
   }
 
   return { task: result.task, run: result.run };
+}
+
+
+function objectJson(value: Prisma.JsonValue | null | undefined): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function returnReviewState(contextSnapshot: Prisma.JsonValue | null | undefined) {
+  const context = objectJson(contextSnapshot);
+  const state = objectJson(
+    (context.state ?? null) as Prisma.JsonValue | null
+  );
+  return {
+    parentTaskId:
+      typeof state.parentTaskId === "string" ? state.parentTaskId : null,
+    parentTaskGoal:
+      typeof state.parentTaskGoal === "string" ? state.parentTaskGoal : null,
+    childTaskId:
+      typeof state.childTaskId === "string" ? state.childTaskId : null,
+    childAgentCode:
+      typeof state.childAgentCode === "string" ? state.childAgentCode : null,
+    childOutcome:
+      typeof state.childOutcome === "string" ? state.childOutcome : null,
+    resultSummary:
+      typeof state.resultSummary === "string" ? state.resultSummary : null,
+    reason:
+      typeof state.reason === "string" ? state.reason : null,
+  };
+}
+
+export type ReturnedChildReviewAction =
+  | "ACCEPT_RESULT"
+  | "CONTINUE_DELEGATION"
+  | "ESCALATE_HUMAN"
+  | "CLOSE_PARENT";
+
+export interface ResolveReturnedChildReviewInput {
+  action: ReturnedChildReviewAction;
+  reason?: string | null;
+  toAgentId?: string | null;
+  goal?: string | null;
+}
+
+export async function resolveReturnedChildReview(
+  session: SessionContext,
+  reviewTaskId: string,
+  input: ResolveReturnedChildReviewInput
+) {
+  const review = await prisma.agentTask.findUnique({
+    where: { id: reviewTaskId },
+    include: {
+      agent: true,
+      triggerDecisionRun: {
+        select: { id: true, decisionKey: true },
+      },
+    },
+  });
+  if (!review || review.organizationId !== session.organizationId) {
+    throw new NotFoundError("Return review task not found");
+  }
+  await assertCanInvokeAgent(session, review.agent);
+  if (review.triggerDecisionRun?.decisionKey !== "workforce.resume_parent") {
+    throw new UnprocessableEntityError(
+      "Agent task is not a returned-child review task"
+    );
+  }
+  if (
+    review.status === AgentTaskStatus.SUCCEEDED ||
+    review.status === AgentTaskStatus.FAILED ||
+    review.status === AgentTaskStatus.CANCELLED
+  ) {
+    throw new ConflictError("Return review task is already terminal");
+  }
+
+  const returnState = returnReviewState(review.contextSnapshot);
+  if (!returnState.parentTaskId || !returnState.childTaskId) {
+    throw new UnprocessableEntityError(
+      "Return review task is missing parent/child provenance"
+    );
+  }
+  const originalParentTaskId = returnState.parentTaskId;
+  const returnedChildTaskId = returnState.childTaskId;
+
+  const reason = input.reason?.trim() || null;
+
+  if (input.action === "CONTINUE_DELEGATION") {
+    const toAgentId = input.toAgentId?.trim();
+    const goal = input.goal?.trim();
+    if (!toAgentId || !goal || !reason) {
+      throw new UnprocessableEntityError(
+        "CONTINUE_DELEGATION requires toAgentId, goal and reason"
+      );
+    }
+
+    const delegated = await delegateAgentTask(session, {
+      parentTaskId: review.id,
+      toAgentId,
+      goal,
+      reason,
+    });
+
+    const resolved = await prisma.$transaction(async (tx) => {
+      const updated = await tx.agentTask.update({
+        where: { id: review.id },
+        data: {
+          status: AgentTaskStatus.SUCCEEDED,
+          completedAt: new Date(),
+          blockedReason: null,
+        },
+      });
+      await createAuditEventInTx(tx, {
+        actorId: session.userId,
+        action: "AGENT_RETURN_REVIEW_REDELEGATED",
+        objectType: "AgentTask",
+        objectId: review.id,
+        summary: "子 Agent 结果已复核，并继续委派后续工作",
+        details: {
+          parentTaskId: originalParentTaskId,
+          returnedChildTaskId: returnedChildTaskId,
+          delegatedChildTaskId: delegated.childTask.id,
+          toAgentId,
+          goal,
+          reason,
+        } as Prisma.InputJsonValue,
+      });
+      return updated;
+    });
+
+    return {
+      action: input.action,
+      reviewTask: resolved,
+      childTask: delegated.childTask,
+      delegation: delegated.delegation,
+    };
+  }
+
+  let followUpReturnEventId: string | null = null;
+
+  const resolved = await prisma.$transaction(async (tx) => {
+    await tx.$queryRawUnsafe(
+      'SELECT "id" FROM "AgentTask" WHERE "id" = $1 AND "organizationId" = $2 FOR UPDATE',
+      review.id,
+      session.organizationId
+    );
+
+    const currentReview = await tx.agentTask.findUnique({
+      where: { id: review.id },
+      include: {
+        agent: true,
+        triggerDecisionRun: {
+          select: { decisionKey: true },
+        },
+      },
+    });
+    if (
+      !currentReview ||
+      currentReview.organizationId !== session.organizationId ||
+      currentReview.triggerDecisionRun?.decisionKey !== "workforce.resume_parent"
+    ) {
+      throw new NotFoundError("Return review task not found");
+    }
+    if (
+      currentReview.status === AgentTaskStatus.SUCCEEDED ||
+      currentReview.status === AgentTaskStatus.FAILED ||
+      currentReview.status === AgentTaskStatus.CANCELLED
+    ) {
+      throw new ConflictError("Return review task is already terminal");
+    }
+
+    if (input.action === "ESCALATE_HUMAN") {
+      if (!reason) {
+        throw new UnprocessableEntityError(
+          "ESCALATE_HUMAN requires a reason"
+        );
+      }
+      const updated = await tx.agentTask.update({
+        where: { id: currentReview.id },
+        data: {
+          status: AgentTaskStatus.WAITING_HUMAN,
+          blockedReason: reason,
+          completedAt: null,
+        },
+      });
+      await createAuditEventInTx(tx, {
+        actorId: session.userId,
+        action: "AGENT_RETURN_REVIEW_ESCALATED",
+        objectType: "AgentTask",
+        objectId: currentReview.id,
+        summary: "子 Agent 返回结果升级为人工判断",
+        details: {
+          parentTaskId: originalParentTaskId,
+          childTaskId: returnedChildTaskId,
+          reason,
+        } as Prisma.InputJsonValue,
+      });
+      return { reviewTask: updated, parentTask: null };
+    }
+
+    if (input.action === "ACCEPT_RESULT") {
+      const updated = await tx.agentTask.update({
+        where: { id: currentReview.id },
+        data: {
+          status: AgentTaskStatus.SUCCEEDED,
+          completedAt: new Date(),
+          blockedReason: null,
+        },
+      });
+      await createAuditEventInTx(tx, {
+        actorId: session.userId,
+        action: "AGENT_RETURN_REVIEW_ACCEPTED",
+        objectType: "AgentTask",
+        objectId: currentReview.id,
+        summary: "接受子 Agent 返回结果，父工作保持原状态继续推进",
+        details: {
+          parentTaskId: originalParentTaskId,
+          childTaskId: returnedChildTaskId,
+          resultSummary: returnState.resultSummary,
+          reason,
+        } as Prisma.InputJsonValue,
+      });
+      return { reviewTask: updated, parentTask: null };
+    }
+
+    if (input.action !== "CLOSE_PARENT") {
+      throw new UnprocessableEntityError("Unsupported return review action");
+    }
+    if (!reason) {
+      throw new UnprocessableEntityError(
+        "CLOSE_PARENT requires a closure reason"
+      );
+    }
+
+    await tx.$queryRawUnsafe(
+      'SELECT "id" FROM "AgentTask" WHERE "id" = $1 AND "organizationId" = $2 FOR UPDATE',
+      originalParentTaskId,
+      session.organizationId
+    );
+    const parent = await tx.agentTask.findUnique({
+      where: { id: originalParentTaskId },
+      include: {
+        agent: true,
+        parentTask: {
+          select: {
+            id: true,
+            goal: true,
+            agent: { select: { code: true } },
+          },
+        },
+      },
+    });
+    if (!parent || parent.organizationId !== session.organizationId) {
+      throw new NotFoundError("Original parent task not found");
+    }
+    await assertCanInvokeAgent(session, parent.agent);
+    if (
+      parent.status === AgentTaskStatus.SUCCEEDED ||
+      parent.status === AgentTaskStatus.FAILED ||
+      parent.status === AgentTaskStatus.CANCELLED
+    ) {
+      throw new ConflictError("Original parent task is already terminal");
+    }
+
+    const now = new Date();
+    const closedParent = await tx.agentTask.update({
+      where: { id: parent.id },
+      data: {
+        status: AgentTaskStatus.SUCCEEDED,
+        completedAt: now,
+        blockedReason: null,
+      },
+    });
+    await tx.agentRun.updateMany({
+      where: {
+        organizationId: session.organizationId,
+        agentTaskId: parent.id,
+        status: {
+          in: [
+            AgentRunStatus.QUEUED,
+            AgentRunStatus.RUNNING,
+            AgentRunStatus.WAITING_CONFIRMATION,
+          ],
+        },
+      },
+      data: {
+        status: AgentRunStatus.SUCCEEDED,
+        finishedAt: now,
+        errorReason: null,
+      },
+    });
+    const closedReview = await tx.agentTask.update({
+      where: { id: currentReview.id },
+      data: {
+        status: AgentTaskStatus.SUCCEEDED,
+        completedAt: now,
+        blockedReason: null,
+      },
+    });
+
+    await createAuditEventInTx(tx, {
+      actorId: session.userId,
+      action: "AGENT_PARENT_TASK_CLOSED_FROM_RETURN",
+      objectType: "AgentTask",
+      objectId: parent.id,
+      summary: "基于子 Agent 返回结果关闭父工作",
+      details: {
+        reviewTaskId: currentReview.id,
+        returnedChildTaskId: returnedChildTaskId,
+        resultSummary: returnState.resultSummary,
+        closureReason: reason,
+      } as Prisma.InputJsonValue,
+    });
+
+    if (parent.parentTask) {
+      const parentReturnEvent = await enqueueBusinessEventInTx(tx, {
+        organizationId: session.organizationId,
+        eventKey: `agent-task:${parent.id}:terminal`,
+        eventType: "AGENT_CHILD_TERMINAL",
+        aggregateType: "AgentTask",
+        aggregateId: parent.id,
+        payload: {
+          parentTaskId: parent.parentTask.id,
+          parentTaskGoal: parent.parentTask.goal,
+          parentAgentCode: parent.parentTask.agent.code,
+          childTaskId: parent.id,
+          childAgentCode: parent.agent.code,
+          childOutcome: "SUCCEEDED",
+          resultSummary: reason,
+          reason: "Closed by returned-child review",
+        },
+        contextRefs: [
+          `agent-task:${parent.parentTask.id}`,
+          `agent-task:${parent.id}`,
+          `agent-task:${currentReview.id}`,
+        ],
+        createdById: session.userId,
+      });
+      followUpReturnEventId = parentReturnEvent.id;
+    }
+
+    return { reviewTask: closedReview, parentTask: closedParent };
+  });
+
+  if (followUpReturnEventId) {
+    const { dispatchBusinessEvent } = await import(
+      "@/modules/business-events/dispatcher"
+    );
+    await dispatchBusinessEvent(
+      session.organizationId,
+      followUpReturnEventId,
+      { workerId: "parent-close-return:" + reviewTaskId }
+    ).catch(() => null);
+  }
+
+  return {
+    action: input.action,
+    reviewTask: resolved.reviewTask,
+    parentTask: resolved.parentTask,
+  };
 }

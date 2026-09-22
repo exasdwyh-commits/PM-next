@@ -1235,6 +1235,8 @@ model AgentRun {
   usageJson      Json?
   costStatus     String         @default("unknown")
   errorReason    String?
+  /// 一次运行的可读交付摘要。委派子任务 SUCCEEDED 时必须非空，用于可靠返回父 Agent。
+  outputSummary   String?
   outputMessageId String?
   /// 与既有 RunReceipt 关联而非竞争（蓝图 §7）
   receiptId      String?

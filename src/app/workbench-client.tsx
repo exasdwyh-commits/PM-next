@@ -25,6 +25,10 @@ import {
 } from "@/modules/workspace/briefing";
 import { fmtDate, fmtDateTime } from "@/shared/datetime";
 import { labelProductLifecycleStage } from "@/shared/status-labels";
+import {
+  AutomationTraceList,
+  type AutomationTraceView,
+} from "@/components/automation-trace";
 
 /**
  * 首页 · 产品中心驾驶舱（2026-09-19 重写）
@@ -67,6 +71,30 @@ interface Overview {
   degradedNote?: string | null;
 }
 
+interface WorkforceActivity {
+  generatedAt: string;
+  since: string;
+  windowHours: number;
+  eventCount: number;
+  triggeredCount: number;
+  suppressedCount: number;
+  waitingPolicyCount: number;
+  failedCount: number;
+  waitingHumanCount: number;
+  returnReviewCount: number;
+  attentionCount: number;
+  attentionItems: Array<{
+    id: string;
+    kind: "RETURN_REVIEW" | "WAITING_HUMAN" | "POLICY_WAITING";
+    title: string;
+    detail: string;
+    agentName: string;
+    updatedAt: string;
+    href: string;
+  }>;
+  recentTraces: AutomationTraceView[];
+}
+
 /** 信号价值分级标签：与 /opportunities 页保持同一口径（不新造词汇）。 */
 const TIER_LABEL: Record<string, { label: string; tone: "ok" | "info" | "neutral" }> = {
   high: { label: "高价值", tone: "ok" },
@@ -106,12 +134,14 @@ function kindTone(d: BriefDecisionItem): "warn" | "danger" | "info" {
 
 export default function WorkbenchClient({
   overview,
+  workforceActivity,
   allUsers,
   currentSession,
   runtime,
   mockAuth = false,
 }: {
   overview: Overview;
+  workforceActivity: WorkforceActivity;
   allUsers: { id: string; name: string; email: string }[];
   currentSession: { userId: string; userName: string; userEmail: string };
   runtime: { tone: "ok" | "warn" | "neutral"; label: string; detail: string };
@@ -258,6 +288,20 @@ export default function WorkbenchClient({
         />
       </KpiRow>
 
+      <div className="hermes-stage-band">
+        <span className="hermes-stage-band-label">Hermes 最近 {workforceActivity.windowHours} 小时</span>
+        <span>感知 {workforceActivity.eventCount} 个业务事件</span>
+        <span>自动触发 {workforceActivity.triggeredCount} 个任务</span>
+        <span>抑制 {workforceActivity.suppressedCount} 次不必要动作</span>
+        <span>
+          等你处理 {workforceActivity.attentionCount} 项
+          {workforceActivity.failedCount > 0 ? ` · 自动化失败 ${workforceActivity.failedCount}` : ""}
+        </span>
+        <Link href="/workforce" className="hermes-link">
+          查看自动团队 <Icon name="arrow" size={13} />
+        </Link>
+      </div>
+
       {/* 阶段分布：全宽细带，承担旧版「产品阶段推进」的能力，不占主栅格列宽 */}
       <div className="hermes-stage-band">
         <span className="hermes-stage-band-label">产品阶段分布</span>
@@ -280,6 +324,24 @@ export default function WorkbenchClient({
                   </p>
                 ))}
               </div>
+            </Panel>
+          </section>
+
+          <section>
+            <Panel
+              icon="nodes"
+              title="Hermes 自动工作"
+              sub={`最近 ${workforceActivity.windowHours} 小时 · 真实业务事件驱动，不把手工任务算成自动化`}
+              actions={
+                <Link href="/workforce" className="hermes-link">
+                  查看完整因果链 <Icon name="arrow" size={13} />
+                </Link>
+              }
+            >
+              <AutomationTraceList
+                traces={workforceActivity.recentTraces.slice(0, 5)}
+                emptyText="最近 24 小时还没有业务事件驱动数字员工。"
+              />
             </Panel>
           </section>
 
@@ -375,6 +437,47 @@ export default function WorkbenchClient({
         </div>
 
         <aside className="hermes-cockpit-side">
+          <Panel
+            icon="bell"
+            title="Hermes 等你"
+            sub={
+              workforceActivity.attentionCount > 0
+                ? `结果复核 ${workforceActivity.returnReviewCount} · 人工判断 ${workforceActivity.waitingHumanCount + workforceActivity.waitingPolicyCount}`
+                : "当前没有数字员工等待你的判断"
+            }
+          >
+            {workforceActivity.attentionItems.length > 0 ? (
+              <div className="hermes-list">
+                {workforceActivity.attentionItems.map((item) => (
+                  <div className="hermes-row is-flat" key={item.kind + ":" + item.id}>
+                    <div className="hermes-row-head">
+                      <strong className="hermes-row-title">{item.title}</strong>
+                      <Pill tone={item.kind === "RETURN_REVIEW" ? "info" : "warn"}>
+                        {item.kind === "RETURN_REVIEW"
+                          ? "结果待复核"
+                          : item.kind === "POLICY_WAITING"
+                            ? "策略门等待"
+                            : "等你拍板"}
+                      </Pill>
+                    </div>
+                    <div className="hermes-row-meta">
+                      <span>{item.agentName}</span>
+                      <span>{fmtDateTime(item.updatedAt)}</span>
+                    </div>
+                    <div className="hermes-row-body">{item.detail}</div>
+                    <div style={{ marginTop: 8 }}>
+                      <Link href={item.href} className="hermes-link">
+                        去处理 <Icon name="arrow" size={13} />
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <Empty>当前没有专业 Agent 返回结果或人工判断请求。</Empty>
+            )}
+          </Panel>
+
           {/* ── 今日重点：队列除首件外的其余事项，默认 4 件、可展开 ───── */}
           <Panel
             icon="target"

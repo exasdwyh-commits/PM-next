@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppShell, { type RuntimeStatus } from "@/components/app-shell";
-import { Empty, Panel } from "@/components/ui";
+import { Empty, Modal, Panel } from "@/components/ui";
 import { HeroBand, Kpi, KpiRow, Pill } from "@/components/cockpit";
 import Icon from "@/components/icons";
 import {
@@ -56,6 +56,25 @@ type WorkforceOverview = {
     agent: { id: string; code: string; name: string };
     workItem: { id: string; title: string; projectId: string } | null;
   }>;
+  returnReviews: Array<{
+    id: string;
+    goal: string;
+    status: string;
+    blockedReason: string | null;
+    createdAt: string;
+    updatedAt: string;
+    agent: { id: string; code: string; name: string };
+    decisionRun: { id: string; decisionKey: string; specVersion: string } | null;
+    returned: {
+      parentTaskId: string | null;
+      parentTaskGoal: string | null;
+      childTaskId: string | null;
+      childAgentCode: string | null;
+      childOutcome: string | null;
+      resultSummary: string | null;
+      reason: string | null;
+    };
+  }>;
 };
 
 function availabilityTone(value: string): "ok" | "warn" | "neutral" {
@@ -98,6 +117,17 @@ export default function WorkforceClient({
   const router = useRouter();
   const [bootstrapping, setBootstrapping] = React.useState(false);
   const [bootstrapError, setBootstrapError] = React.useState<string | null>(null);
+  const [reviewBusyId, setReviewBusyId] = React.useState<string | null>(null);
+  const [reviewError, setReviewError] = React.useState<string | null>(null);
+  const [reviewModal, setReviewModal] = React.useState<{
+    mode: "delegate" | "escalate" | "close";
+    review: WorkforceOverview["returnReviews"][number];
+  } | null>(null);
+  const [reviewForm, setReviewForm] = React.useState({
+    toAgentId: "",
+    goal: "",
+    reason: "",
+  });
 
   const activeAgents = overview.agents.filter((agent) => agent.status === "ACTIVE").length;
   const working = overview.agents.filter(
@@ -127,6 +157,52 @@ export default function WorkforceClient({
     } finally {
       setBootstrapping(false);
     }
+  }
+
+  async function reviewAction(
+    reviewId: string,
+    action: "ACCEPT_RESULT" | "CONTINUE_DELEGATION" | "ESCALATE_HUMAN" | "CLOSE_PARENT",
+    extra: Record<string, string> = {}
+  ) {
+    setReviewBusyId(reviewId);
+    setReviewError(null);
+    try {
+      const response = await fetch(
+        `/api/workforce/tasks/${reviewId}/review-return`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, ...extra }),
+        }
+      );
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(body?.error || body?.message || "复核动作失败");
+      }
+      setReviewModal(null);
+      setReviewForm({ toAgentId: "", goal: "", reason: "" });
+      router.refresh();
+    } catch (error) {
+      setReviewError(error instanceof Error ? error.message : "复核动作失败");
+    } finally {
+      setReviewBusyId(null);
+    }
+  }
+
+  function openReviewModal(
+    mode: "delegate" | "escalate" | "close",
+    review: WorkforceOverview["returnReviews"][number]
+  ) {
+    setReviewError(null);
+    setReviewForm({
+      toAgentId: "",
+      goal:
+        mode === "delegate"
+          ? `继续处理：${review.returned.parentTaskGoal || review.goal}`
+          : "",
+      reason: "",
+    });
+    setReviewModal({ mode, review });
   }
 
   return (
@@ -238,6 +314,85 @@ export default function WorkforceClient({
             </Panel>
 
             <Panel
+              icon="check"
+              title="结果待复核"
+              sub="专业 Agent 返回结果后由原父 Agent 复核；接受、继续委派、升级人工和关闭父工作都会留痕。"
+            >
+              {overview.returnReviews.length > 0 ? (
+                <div className="hermes-list">
+                  {overview.returnReviews.map((review) => (
+                    <div className="hermes-row" key={review.id}>
+                      <div className="hermes-row-head">
+                        <strong className="hermes-row-title">
+                          {review.returned.parentTaskGoal || review.goal}
+                        </strong>
+                        <Pill tone={review.status === "WAITING_HUMAN" ? "warn" : "info"}>
+                          {review.agent.name} 复核
+                        </Pill>
+                      </div>
+                      <div className="hermes-row-meta">
+                        <span>子 Agent {review.returned.childAgentCode || "未知"}</span>
+                        <span>结果 {review.returned.childOutcome || "未知"}</span>
+                        <span>
+                          {review.decisionRun
+                            ? `${review.decisionRun.decisionKey}@${review.decisionRun.specVersion}`
+                            : "无 DecisionRun"}
+                        </span>
+                      </div>
+                      <div className="hermes-row-body">
+                        <strong>返回摘要</strong>
+                        <div style={{ marginTop: 5 }}>
+                          {review.returned.resultSummary || review.returned.reason || "没有可读结果摘要。"}
+                        </div>
+                      </div>
+                      {review.blockedReason ? (
+                        <div className="hermes-note" style={{ marginTop: 8 }}>
+                          人工判断原因：{review.blockedReason}
+                        </div>
+                      ) : null}
+                      <div className="hermes-inline" style={{ marginTop: 10 }}>
+                        <button
+                          type="button"
+                          className="hermes-primary-btn hermes-btn-sm"
+                          disabled={reviewBusyId === review.id}
+                          onClick={() => reviewAction(review.id, "ACCEPT_RESULT")}
+                        >
+                          接受结果
+                        </button>
+                        <button
+                          type="button"
+                          className="hermes-outline-btn hermes-btn-sm"
+                          disabled={reviewBusyId === review.id}
+                          onClick={() => openReviewModal("delegate", review)}
+                        >
+                          继续委派
+                        </button>
+                        <button
+                          type="button"
+                          className="hermes-outline-btn hermes-btn-sm"
+                          disabled={reviewBusyId === review.id}
+                          onClick={() => openReviewModal("escalate", review)}
+                        >
+                          升级人工
+                        </button>
+                        <button
+                          type="button"
+                          className="hermes-ghost-btn hermes-btn-sm"
+                          disabled={reviewBusyId === review.id}
+                          onClick={() => openReviewModal("close", review)}
+                        >
+                          关闭父工作
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <Empty>当前没有专业 Agent 返回结果等待复核。</Empty>
+              )}
+            </Panel>
+
+            <Panel
               icon="nodes"
               title="自动化因果链"
               sub="真实业务事件 → Autopilot → DecisionRun → AgentTask。被抑制的判断也保留原因，不静默丢弃。"
@@ -341,6 +496,139 @@ export default function WorkforceClient({
           </aside>
         </div>
       )}
+      {reviewModal ? (
+        <Modal
+          eyebrow="RETURN REVIEW"
+          title={
+            reviewModal.mode === "delegate"
+              ? "继续委派"
+              : reviewModal.mode === "escalate"
+                ? "升级人工判断"
+                : "关闭父工作"
+          }
+          sub={
+            reviewModal.mode === "delegate"
+              ? "为下一位专业 Agent 明确目标与委派理由。"
+              : reviewModal.mode === "escalate"
+                ? "说明为什么现有证据不足以让 Agent 自主继续。"
+                : "这是人工确认的工作流终态；请写清关闭依据。"
+          }
+          onClose={() => setReviewModal(null)}
+        >
+          {reviewError ? (
+            <div className="hermes-banner is-danger" style={{ marginBottom: 12 }}>
+              {reviewError}
+            </div>
+          ) : null}
+          <div className="hermes-note" style={{ marginBottom: 12 }}>
+            子 Agent 返回：{reviewModal.review.returned.resultSummary || reviewModal.review.returned.reason || "无摘要"}
+          </div>
+          <div className="hermes-form-grid">
+            {reviewModal.mode === "delegate" ? (
+              <>
+                <label className="hermes-label">
+                  <span>下一位 Agent</span>
+                  <select
+                    className="hermes-select"
+                    value={reviewForm.toAgentId}
+                    onChange={(e) =>
+                      setReviewForm((current) => ({
+                        ...current,
+                        toAgentId: e.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">选择专业 Agent</option>
+                    {overview.agents
+                      .filter(
+                        (agent) =>
+                          agent.status === "ACTIVE" &&
+                          agent.id !== reviewModal.review.agent.id
+                      )
+                      .map((agent) => (
+                        <option key={agent.id} value={agent.id}>
+                          {agent.name} · {agent.roleKey}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <label className="hermes-label">
+                  <span>后续目标</span>
+                  <textarea
+                    rows={3}
+                    className="hermes-textarea"
+                    value={reviewForm.goal}
+                    onChange={(e) =>
+                      setReviewForm((current) => ({
+                        ...current,
+                        goal: e.target.value,
+                      }))
+                    }
+                  />
+                </label>
+              </>
+            ) : null}
+            <label className="hermes-label">
+              <span>
+                {reviewModal.mode === "delegate"
+                  ? "委派理由"
+                  : reviewModal.mode === "escalate"
+                    ? "升级原因"
+                    : "关闭依据"}
+              </span>
+              <textarea
+                rows={3}
+                className="hermes-textarea"
+                value={reviewForm.reason}
+                onChange={(e) =>
+                  setReviewForm((current) => ({
+                    ...current,
+                    reason: e.target.value,
+                  }))
+                }
+              />
+            </label>
+            <div className="hermes-modal-actions">
+              <button
+                type="button"
+                className="hermes-outline-btn"
+                onClick={() => setReviewModal(null)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="hermes-primary-btn"
+                disabled={
+                  reviewBusyId === reviewModal.review.id ||
+                  !reviewForm.reason.trim() ||
+                  (reviewModal.mode === "delegate" &&
+                    (!reviewForm.toAgentId || !reviewForm.goal.trim()))
+                }
+                onClick={() =>
+                  reviewAction(
+                    reviewModal.review.id,
+                    reviewModal.mode === "delegate"
+                      ? "CONTINUE_DELEGATION"
+                      : reviewModal.mode === "escalate"
+                        ? "ESCALATE_HUMAN"
+                        : "CLOSE_PARENT",
+                    reviewModal.mode === "delegate"
+                      ? {
+                          toAgentId: reviewForm.toAgentId,
+                          goal: reviewForm.goal,
+                          reason: reviewForm.reason,
+                        }
+                      : { reason: reviewForm.reason }
+                  )
+                }
+              >
+                {reviewBusyId === reviewModal.review.id ? "处理中…" : "确认"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      ) : null}
     </AppShell>
   );
 }

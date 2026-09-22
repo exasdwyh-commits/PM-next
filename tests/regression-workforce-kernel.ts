@@ -4,12 +4,14 @@ import { AgentAccessMode, AgentTaskStatus, OrgRole } from "@prisma/client";
 import prisma from "../src/shared/db";
 import { assertTestDatabaseSafety } from "./test-safety";
 import { bootstrapDefaultAutopilots } from "../src/modules/autopilot";
+import { getWorkforceActivityBrief } from "../src/modules/workforce/activity-brief";
 import {
   bootstrapDefaultWorkforce,
   createAgentTask,
   delegateAgentTask,
   finishAgentTask,
   getWorkforceOverview,
+  resolveReturnedChildReview,
   startAgentTask,
 } from "../src/modules/workforce/service";
 
@@ -207,15 +209,27 @@ async function main() {
     assert.equal(delegated.delegation.sourceRunId, startedParent.run.id);
 
     const startedChild = await startAgentTask(adminSession, delegated.childTask.id);
+    await assert.rejects(
+      finishAgentTask(adminSession, delegated.childTask.id, {
+        runId: startedChild.run.id,
+        outcome: "SUCCEEDED",
+      }),
+      (error: any) => error?.statusCode === 422
+    );
+
+    const childSummary =
+      "Verified three channel interviews; demand signal is real but sample size remains small. Recommend one controlled validation round before changing the product baseline.";
     const completedChild = await finishAgentTask(
       adminSession,
       delegated.childTask.id,
       {
         runId: startedChild.run.id,
         outcome: "SUCCEEDED",
+        resultSummary: childSummary,
       }
     );
     assert.equal(completedChild.task.status, AgentTaskStatus.SUCCEEDED);
+    assert.equal(completedChild.run.outputSummary, childSummary);
 
     const delegationReloaded = await prisma.agentDelegation.findUniqueOrThrow({
       where: { childTaskId: delegated.childTask.id },
@@ -256,6 +270,15 @@ async function main() {
       returnEvent.autopilotReceipt?.agentTask?.goal ?? "",
       /Review returned child-agent result/
     );
+    const returnContext =
+      returnEvent.autopilotReceipt?.agentTask?.contextSnapshot &&
+      typeof returnEvent.autopilotReceipt.agentTask.contextSnapshot === "object" &&
+      !Array.isArray(returnEvent.autopilotReceipt.agentTask.contextSnapshot)
+        ? (returnEvent.autopilotReceipt.agentTask.contextSnapshot as any)
+        : null;
+    assert.equal(returnContext?.state?.resultSummary, childSummary);
+    assert.equal(returnContext?.state?.parentTaskId, runningTask.id);
+    assert.equal(returnContext?.state?.childTaskId, delegated.childTask.id);
     assert.notEqual(
       returnEvent.autopilotReceipt?.agentTaskId,
       runningTask.id,
@@ -270,11 +293,38 @@ async function main() {
       AgentTaskStatus.RUNNING,
       "child completion must not silently mutate the original parent state"
     );
-    console.log("  ✔ child completion returns to the original parent Agent as a new review task with DecisionRun provenance");
+
+    const reviewTaskId = returnEvent.autopilotReceipt?.agentTaskId;
+    assert.ok(reviewTaskId);
+    const overviewWithReview = await getWorkforceOverview(adminSession);
+    const visibleReview = overviewWithReview.returnReviews.find(
+      (review) => review.id === reviewTaskId
+    );
+    assert.ok(visibleReview);
+    assert.equal(visibleReview.returned.resultSummary, childSummary);
+
+    const closed = await resolveReturnedChildReview(
+      adminSession,
+      reviewTaskId!,
+      {
+        action: "CLOSE_PARENT",
+        reason:
+          "Research result is sufficient for this work item; close the parent analysis without changing the governed product baseline.",
+      }
+    );
+    assert.equal(closed.reviewTask.status, AgentTaskStatus.SUCCEEDED);
+    assert.equal(closed.parentTask?.status, AgentTaskStatus.SUCCEEDED);
+
+    const closedParentRun = await prisma.agentRun.findUniqueOrThrow({
+      where: { id: startedParent.run.id },
+    });
+    assert.equal(closedParentRun.status, "SUCCEEDED");
+    console.log("  ✔ child result is readable, reviewable, and can close the parent without touching business governance");
 
     console.log("▶ W5 waiting-human is explicit, not fake-success");
-    const waiting = await finishAgentTask(adminSession, runningTask.id, {
-      runId: startedParent.run.id,
+    const startedQueued = await startAgentTask(adminSession, queuedTask.id);
+    const waiting = await finishAgentTask(adminSession, queuedTask.id, {
+      runId: startedQueued.run.id,
       outcome: "WAITING_HUMAN",
       reason: "Need approval before changing the product baseline",
     });
@@ -289,8 +339,20 @@ async function main() {
     const hermesOverview = overview.agents.find((agent) => agent.code === "hermes_pm");
     assert.ok(hermesOverview);
     assert.equal(hermesOverview.presence.waitingHuman, 1);
-    assert.equal(hermesOverview.presence.workload, "QUEUED");
-    console.log("  ✔ human decision gate is visible in workforce presence");
+    assert.equal(hermesOverview.presence.workload, "IDLE");
+
+    const activityBrief = await getWorkforceActivityBrief(adminSession);
+    assert.ok(activityBrief.eventCount >= 1);
+    assert.ok(activityBrief.triggeredCount >= 1);
+    assert.equal(activityBrief.waitingHumanCount, 1);
+    assert.equal(activityBrief.returnReviewCount, 0);
+    assert.ok(
+      activityBrief.attentionItems.some(
+        (item) =>
+          item.kind === "WAITING_HUMAN" && item.id === queuedTask.id
+      )
+    );
+    console.log("  ✔ human decision gate and 24h Hermes activity brief expose real attention");
 
     console.log("▶ W6 tenant isolation blocks cross-org agent ids");
     await bootstrapDefaultWorkforce(outsiderSession);
@@ -321,6 +383,7 @@ async function main() {
             "AGENT_TASK_STARTED",
             "AGENT_TASK_DELEGATED",
             "AGENT_TASK_FINISHED",
+            "AGENT_PARENT_TASK_CLOSED_FROM_RETURN",
           ],
         },
       },
