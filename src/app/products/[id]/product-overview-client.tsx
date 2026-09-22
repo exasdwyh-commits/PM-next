@@ -11,6 +11,7 @@ import { ProgressRing, ScoreBar } from "@/components/viz";
 import RevisionPanel from "./revision-panel";
 import LaunchTab from "./launch-tab";
 import CostCalculator from "./cost-calculator";
+import ChannelRoutesPanel from "./channel-routes";
 import { buildProductThemes, type ProductThemeInput } from "@/modules/workspace/briefing";
 import { fmtDate, fmtDateTime } from "@/shared/datetime";
 import {
@@ -47,7 +48,7 @@ const WEIGHTS: Record<string, number> = {
   LAUNCH_READINESS: 10,
 };
 
-type TabKey = "overview" | "analysis" | "version" | "cost" | "validation" | "launch";
+type TabKey = "overview" | "analysis" | "version" | "channel" | "cost" | "validation" | "launch";
 
 const NATURE_BADGE: Record<string, { tone: "ok" | "warn" | "neutral"; label: string }> = {
   fact: { tone: "ok", label: "已有依据" },
@@ -111,7 +112,7 @@ export default function ProductOverviewClient({
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const urlTab = params.get("tab") as TabKey | null;
-      if (urlTab && ["overview", "analysis", "version", "cost", "validation", "launch"].includes(urlTab)) {
+      if (urlTab && ["overview", "analysis", "version", "channel", "cost", "validation", "launch"].includes(urlTab)) {
         setTab(urlTab);
       }
     }
@@ -898,6 +899,7 @@ export default function ProductOverviewClient({
           { key: "overview", label: "总览" },
           { key: "analysis", label: "分析与评分" },
           { key: "version", label: "方案与版本" },
+          { key: "channel", label: "渠道路线" },
           { key: "cost", label: "成本与供应" },
           { key: "validation", label: "验证与风险" },
           { key: "launch", label: "上市计划" },
@@ -910,6 +912,7 @@ export default function ProductOverviewClient({
         {tab === "overview" && overviewTab}
         {tab === "analysis" && analysisTab}
         {tab === "version" && versionTab}
+        {tab === "channel" && <ChannelRoutesPanel productId={p.id} />}
         {tab === "cost" && costTab}
         {tab === "validation" && validationTab}
         {tab === "launch" && <LaunchTab productId={p.id} onChanged={() => router.refresh()} />}

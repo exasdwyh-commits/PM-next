@@ -31,38 +31,48 @@ PM-next 已经不再处于旧的 TASK-017 / 产品中心补页面阶段。当前
 - Profile 默认禁用，禁止假装模型已接通；
 - Model Control tests 已进入 Quality CI。
 
-## 当前进行中
-
 ### M2 · Model Gateway Runtime Integration
 
-本阶段正在把“配置平面”接到“真实执行平面”：
+已合入 main（PR #30）：
 
-1. Provider Runtime：部署环境提供 endpoint / secret，数据库不持久化 API Key；
-2. Advisor 按意图映射 Agent × TaskClass；
-3. ModelGateway 接管真实 provider 路由与策略内 fallback；
-4. 新增 ModelRun 持久化：
-   - policyKey / version
-   - profileKey
-   - provider / modelId
-   - attempts / routing skips
-   - usage
-   - latency / error
-5. AgentRun.provider/modelId 只写实际成功执行；
-6. 已存在 Model Control 绑定时禁止旧 Advisor 模型旁路；
-7. 模型不可用时回落确定性工具结果，不影响真实业务查询。
+- Provider Runtime 使用部署环境 endpoint / secret，API Key 不入数据库；
+- Advisor 按意图映射 Agent × TaskClass；
+- ModelGateway 已接管真实 provider 路由与策略内 fallback；
+- ModelRun 持久化 policy/profile/provider/model/usage/attempts/routing skips；
+- AgentRun.provider/modelId 记录实际执行结果；
+- Model Control 绑定存在时禁止旧 Advisor 模型旁路；
+- 模型不可用时安全回落确定性工具结果；
+- Quality / Golden / Governance / Workforce 等 CI 全绿。
+
+## 当前进行中
+
+### M3 · Product Route Persistence V1
+
+目标：让“同一个产品针对不同渠道形成不同规格路线”成为正式业务对象，而不是备注或单一总分。
+
+范围：
+
+- 组织级 ChannelRuleProfileRecord，区分 ASSUMED / CONFIRMED / SUPERSEDED；
+- ProductVersion 下可保存多个 ChannelSpecRoute；
+- 路线修改形成 revision + supersedes 链，不覆盖历史；
+- 确定性计算渠道费用、履约成本、贡献毛利与可承受最高单元成本；
+- 渠道经济性失败自动形成 Hard Gate；
+- 已确认渠道规则被新版本替代后，旧路线重新进入 NEEDS_EVIDENCE；
+- PotentialAssessmentRecord append-only 保存诊断快照与 evidenceFingerprint；
+- 真实市场验证只能从 VERIFIED + REAL + VERIFIED_BY_LEAD Evidence 推导；
+- 产品详情新增“渠道路线”工作台。
 
 验收：
 
-- Provider 未配置时明确 CONFIG 失败；
-- 429 / timeout 等运行故障按 Gateway failure policy 处理；
-- Content Policy / BAD_REQUEST / CONFIG 不通过换模型绕过；
-- 每次 Gateway 调用都有 ModelRun；
-- 旧 ADVISOR_LLM_* 在无新绑定时保持兼容；
-- Quality / Golden / Governance / Workforce 等 CI 全绿。
+- 高需求/高差异化不能抵消渠道经济性硬失败；
+- ASSUMED 渠道规则不能得到已确认路线结论；
+- 新渠道规则版本不会删除旧路线历史；
+- 299/12盒、499/24盒可作为同一 ProductVersion 的独立路线比较；
+- Prisma migrate deploy、typecheck、lint、build、Channel Route tests、Golden Organization 全绿。
 
 ## 下一阶段
 
-### M3 · Cost & Intelligence Tiers
+### M4 · Cost & Intelligence Tiers
 
 按任务价值分层，而不是“全员永远最强模型”：
 
@@ -74,7 +84,7 @@ PM-next 已经不再处于旧的 TASK-017 / 产品中心补页面阶段。当前
 
 MiMo 等新模型作为可插拔 Profile 进入评测，不写死为系统依赖。
 
-### M4 · Controlled Mixture of Agents
+### M5 · Controlled Mixture of Agents
 
 MoA 只用于高价值任务，不做无差别多模型并发：
 
@@ -92,19 +102,6 @@ Primary analysis
 - 成本预算；
 - 独立上下文或防锚定机制；
 - Harness 对比单模型与 MoA 的真实收益。
-
-### M5 · Product Route Persistence
-
-把 PRODUCT_POTENTIAL_V2 文档中的下一阶段模型正式落库：
-
-- ChannelRuleProfile；
-- ProductRoute / ChannelSpecRoute；
-- PotentialAssessment；
-- supersedes 链；
-- 真实渠道规则 CONFIRMED / ASSUMED；
-- 每个渠道路线独立成本、利润和验证状态。
-
-目标不是增加“一个总分”，而是让开品判断可解释、可追溯、可复盘。
 
 ## 需要收口的历史分支 / PR
 

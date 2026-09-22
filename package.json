@@ -53,7 +53,8 @@
     "test:business-events": "tsx scripts/run-test.ts tests/regression-business-events.ts",
     "test:golden-org": "tsx scripts/run-test.ts tests/golden-organization-loop.ts && tsx scripts/run-test.ts tests/golden-organization-multi-case.ts",
     "test:model-control": "node --import tsx --test tests/model-control.test.ts",
-    "test:model-runtime": "node --import tsx --test tests/model-provider-runtime.test.ts"
+    "test:model-runtime": "node --import tsx --test tests/model-provider-runtime.test.ts",
+    "test:channel-routes": "node --import tsx --test tests/channel-route-persistence.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

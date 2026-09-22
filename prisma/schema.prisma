@@ -66,6 +66,11 @@ model Organization {
   modelPolicies       ModelPolicyConfig[]
   modelPolicyBindings AgentModelPolicyBinding[]
   modelRuns           ModelRun[]
+
+  // Channel-specific product development routes
+  channelRuleProfiles  ChannelRuleProfileRecord[]
+  channelSpecRoutes    ChannelSpecRoute[]
+  potentialAssessments PotentialAssessmentRecord[]
 }
 
 /**
@@ -373,9 +378,163 @@ model ProductVersion {
   analysisRuns    AnalysisRun[]
   artifacts       Artifact[]
   frozenPredictions FrozenPrediction[]
+  channelSpecRoutes ChannelSpecRoute[]
+  potentialAssessments PotentialAssessmentRecord[]
 
   @@unique([productId, versionTag])
   @@index([productId])
+}
+
+// =============================================================
+// 3.5 Channel Route & Product Potential Persistence
+//     Same ProductVersion may have multiple channel-specific routes.
+//     Rules and assessments are versioned snapshots; unknowns remain explicit.
+// =============================================================
+
+enum ChannelRuleRecordStatus {
+  ASSUMED
+  CONFIRMED
+  SUPERSEDED
+}
+
+enum ChannelSpecRouteStatus {
+  DRAFT
+  BLOCKED
+  VALIDATION_READY
+  VALIDATING
+  CONFIRMED
+  REJECTED
+  SUPERSEDED
+}
+
+enum ProductPotentialVerdict {
+  BLOCKED
+  NEEDS_EVIDENCE
+  DEPRIORITIZE
+  VALIDATE
+  PRIORITIZE_FOR_VALIDATION
+}
+
+enum PotentialConfidenceBand {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model ChannelRuleProfileRecord {
+  id                           String                  @id @default(uuid())
+  organizationId               String
+  channelKey                   String
+  label                        String
+  version                      String
+  status                       ChannelRuleRecordStatus @default(ASSUMED)
+  sourceRefs                   Json
+  minRetailPrice               Decimal?                @db.Decimal(12, 2)
+  maxRetailPrice               Decimal?                @db.Decimal(12, 2)
+  minBundleQuantity            Int?
+  maxBundleQuantity            Int?
+  allowedUnitLabels            Json?
+  commissionRate               Decimal                 @db.Decimal(7, 3)
+  platformFeeRate              Decimal                 @db.Decimal(7, 3)
+  marketingRate               Decimal                 @db.Decimal(7, 3)
+  managementFeeRate            Decimal                 @db.Decimal(7, 3)
+  returnRate                   Decimal                 @db.Decimal(7, 3)
+  returnHandlingFeeRate        Decimal                 @db.Decimal(7, 3)
+  targetContributionMarginRate Decimal                 @db.Decimal(7, 3)
+  constraints                  Json?
+  effectiveFrom                DateTime?
+  effectiveUntil               DateTime?
+  supersedesId                 String?
+  createdById                  String
+  confirmedById                String?
+  confirmedAt                  DateTime?
+  createdAt                    DateTime                @default(now())
+  updatedAt                    DateTime                @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  routes       ChannelSpecRoute[]
+  supersedes   ChannelRuleProfileRecord? @relation("ChannelRuleSupersedes", fields: [supersedesId], references: [id], onDelete: SetNull)
+  supersededBy ChannelRuleProfileRecord[] @relation("ChannelRuleSupersedes")
+
+  @@unique([organizationId, channelKey, version])
+  @@index([organizationId, channelKey, status])
+  @@index([supersedesId])
+}
+
+model ChannelSpecRoute {
+  id                            String                 @id @default(uuid())
+  organizationId                String
+  productVersionId              String
+  channelRuleProfileId          String
+  routeKey                      String
+  revision                      Int                    @default(1)
+  name                          String
+  status                        ChannelSpecRouteStatus @default(DRAFT)
+  retailPrice                   Decimal                @db.Decimal(12, 2)
+  bundleQuantity                Int
+  unitLabel                     String
+  packageSpec                   String?
+  productCostPerUnit            Decimal                @db.Decimal(12, 2)
+  packagingCostPerOrder         Decimal                @db.Decimal(12, 2)
+  freightCostPerOrder           Decimal                @db.Decimal(12, 2)
+  currency                      String                 @default("CNY")
+  ruleStatusSnapshot            ChannelRuleRecordStatus
+  ruleVersionSnapshot           String
+  evaluationSnapshot            Json
+  feasible                      Boolean
+  blockerCount                  Int                    @default(0)
+  contributionMarginRate        Decimal                @db.Decimal(9, 3)
+  requiredMaxProductCostPerUnit Decimal?               @db.Decimal(12, 2)
+  supersedesId                  String?
+  createdById                   String
+  createdAt                     DateTime               @default(now())
+
+  organization       Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  productVersion     ProductVersion           @relation(fields: [productVersionId], references: [id], onDelete: Cascade)
+  channelRuleProfile ChannelRuleProfileRecord @relation(fields: [channelRuleProfileId], references: [id])
+  assessments        PotentialAssessmentRecord[]
+  supersedes         ChannelSpecRoute?        @relation("ChannelRouteSupersedes", fields: [supersedesId], references: [id], onDelete: SetNull)
+  supersededBy       ChannelSpecRoute[]        @relation("ChannelRouteSupersedes")
+
+  @@unique([productVersionId, routeKey, revision])
+  @@index([organizationId, createdAt])
+  @@index([productVersionId, status])
+  @@index([channelRuleProfileId])
+  @@index([supersedesId])
+}
+
+model PotentialAssessmentRecord {
+  id                    String                   @id @default(uuid())
+  organizationId        String
+  productVersionId      String
+  channelRouteId        String?
+  ruleVersion           String
+  dimensionSnapshot     Json
+  gateSnapshot          Json
+  evidenceFingerprint   String
+  marketValidationVerified Boolean               @default(false)
+  verdict               ProductPotentialVerdict
+  diagnosticIndex       Decimal?                 @db.Decimal(7, 2)
+  coverageRatio         Decimal                  @db.Decimal(7, 4)
+  verifiedCoverageRatio Decimal                  @db.Decimal(7, 4)
+  confidenceBand        PotentialConfidenceBand
+  reasons               Json
+  blockers              Json
+  unknownGates          Json
+  supersedesId          String?
+  createdById           String
+  createdAt             DateTime                 @default(now())
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  productVersion ProductVersion @relation(fields: [productVersionId], references: [id], onDelete: Cascade)
+  channelRoute   ChannelSpecRoute? @relation(fields: [channelRouteId], references: [id], onDelete: SetNull)
+  supersedes     PotentialAssessmentRecord? @relation("PotentialAssessmentSupersedes", fields: [supersedesId], references: [id], onDelete: SetNull)
+  supersededBy   PotentialAssessmentRecord[] @relation("PotentialAssessmentSupersedes")
+
+  @@index([organizationId, createdAt])
+  @@index([productVersionId, createdAt])
+  @@index([channelRouteId, createdAt])
+  @@index([supersedesId])
 }
 
 // -------------------------------------------------------------

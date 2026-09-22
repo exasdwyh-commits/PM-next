@@ -142,11 +142,11 @@ Governance
 
 ---
 
-## 4. 下一阶段数据模型
+## 4. 已落地：渠道路线持久化 V1
 
-待 V2 纯函数通过 Golden Cases 后，再增加持久化对象：
+纯函数 Golden Cases 之后，以下对象已进入正式数据模型与产品详情“渠道路线”工作台：
 
-### ChannelRuleProfile
+### ChannelRuleProfileRecord
 
 - organizationId
 - channelKey
@@ -160,7 +160,7 @@ Governance
 - target contribution margin
 - packaging/fulfillment constraints
 
-### ProductRoute / ChannelSpecRoute
+### ChannelSpecRoute
 
 同一个 ProductVersion 可以有多个渠道路线：
 
@@ -175,7 +175,7 @@ Governance
 
 不要把“一个产品 = 一个全球规格”写死。
 
-### PotentialAssessment
+### PotentialAssessmentRecord
 
 - productVersionId
 - channelRouteId?
@@ -189,6 +189,18 @@ Governance
 - createdAt
 
 历史评估不可覆盖，新评估通过 supersedes 链关联。
+
+### V1 已实现的业务保护
+
+- 渠道规则是组织级资产，只有组织管理员可创建版本；
+- CONFIRMED 规则必须至少有一条来源引用；
+- 新规则版本自动把同渠道旧规则标记为 SUPERSEDED，但不会删除历史路线；
+- 产品路线由 OWNER / DECISION_MAKER 保存，每次重算形成新的 revision；
+- 路线保存确定性 evaluationSnapshot，模型不负责计算利润；
+- 路线经济性失败自动成为 CHANNEL_ROUTE_ECONOMICS = FAIL；
+- ASSUMED 或已被替代的渠道规则自动成为 CHANNEL_RULE_CONFIDENCE = UNKNOWN；
+- marketValidationVerified 不接受前端或 Agent 自报，只从 REAL + VERIFIED + VERIFIED_BY_LEAD Evidence 推导；
+- PotentialAssessmentRecord 保存 evidenceFingerprint，便于后续判断证据变化后旧结论是否需要重跑。
 
 ---
 
