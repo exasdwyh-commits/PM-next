@@ -19,7 +19,8 @@ import { pickBusinessInput, writeStructuredArtifact, WriteStructuredArtifactPara
 function toStructuredWrite(
   art: { content: string; schemaVersion?: string | null },
   ctx: { organizationId: string; projectId: string; productVersionId: string | null },
-  session: SessionContext
+  session: SessionContext,
+  runMode: RunMode
 ): { businessInput: Record<string, unknown>; envelope: WriteStructuredArtifactParams["envelope"] } {
   let parsed: unknown;
   try {
@@ -53,8 +54,8 @@ function toStructuredWrite(
       projectId: ctx.projectId,
       productVersionId: ctx.productVersionId,
       sourceRefs: (obj.sourceRefs ?? []) as readonly Record<string, unknown>[],
-      // 类型层面强转；值级合法性（REAL/DEMO、数组形态、币种、非负等）由 writeStructuredArtifact 内校验兜底 → 422
-      dataNature: obj.dataNature as "REAL" | "DEMO",
+      // dataNature 由运行方式服务端推导（TEST_STUB→DEMO，其余→REAL），不信任请求体（契约 A 节 / 回归 ④）
+      dataNature: runMode === RunMode.TEST_STUB ? "DEMO" : "REAL",
       assumptions: (obj.assumptions ?? []) as readonly string[],
       missingInputs: (obj.missingInputs ?? []) as readonly string[],
       recordedBy: session.userId,
@@ -238,7 +239,8 @@ export async function submitWork(
                 projectId: workItem.projectId,
                 productVersionId: workItem.project.productVersionId,
               },
-              session
+              session,
+              params.runMode
             );
             const a = await writeStructuredArtifact(tx, {
               type: art.type,
@@ -318,7 +320,8 @@ export async function submitWork(
               projectId: workItem.projectId,
               productVersionId: workItem.project.productVersionId,
             },
-            session
+            session,
+            params.runMode
           );
           const a = await writeStructuredArtifact(tx, {
             type: art.type,
