@@ -4,7 +4,7 @@
  * 与前两套 HTTP 验收的分工：
  * - `acceptance-b01-http.ts`：场景化端到端越权旅程（含状态机与幂等）。
  * - `acceptance-product-center.test.ts`：产品级写路径与项目详情下发字段白名单。
- * - 本套：**穷举登记**。43 条路由 × 60 个方法全部过一遍，重点不是"某个场景对不对"，
+ * - 本套：**穷举登记**。57 条路由 × 77 个方法全部过一遍，重点不是"某个场景对不对"，
  *   而是"有没有哪条路由没被登记"以及"未授权身份有没有拿到成功响应或产生跨租户写入"。
  *
  * 断言：
@@ -48,8 +48,8 @@ const BASE = process.env.BASE_URL || "http://127.0.0.1:3110";
 const RUN_TAG = `mx${Date.now()}`;
 const PASSWORD = `Mx-${crypto.randomBytes(6).toString("hex")}!`;
 const MARK = CROSS_TENANT_MARKER;
-const BASELINE_ROUTES = 44;
-const BASELINE_METHODS = 61;
+const BASELINE_ROUTES = 57;
+const BASELINE_METHODS = 77;
 
 let passed = 0;
 const failures: string[] = [];
@@ -330,6 +330,36 @@ async function main() {
   const planA = await prisma.launchPlan.create({
     data: { organizationId: orgA.id, productId: productA.id, projectId: projectA.id, title: `${MARK} 上市计划`, ownerId: ownerA.id },
   });
+  // 顾问交互运行夹具：同组织可读、仅发起人可取消
+  const agentRunA = await prisma.agentRun.create({
+    data: {
+      organizationId: orgA.id,
+      userId: ownerA.id,
+      goal: `${MARK} 交互运行`,
+      status: "QUEUED",
+    },
+  });
+  // 数字员工 + 任务夹具：OWNER_ONLY，证明非 owner 不可 invoke（404）
+  const agentA = await prisma.agent.create({
+    data: {
+      organizationId: orgA.id,
+      code: `${RUN_TAG}-agent`,
+      name: `${MARK} 数字员工`,
+      roleKey: "pm",
+      accessMode: "OWNER_ONLY",
+      ownerId: ownerA.id,
+      status: "ACTIVE",
+    },
+  });
+  const agentTaskA = await prisma.agentTask.create({
+    data: {
+      organizationId: orgA.id,
+      agentId: agentA.id,
+      goal: `${MARK} 数字员工任务`,
+      status: "QUEUED",
+      availableAt: new Date(0),
+    },
+  });
 
   const uploadDir = path.join(process.cwd(), ".uploads");
   await fs.promises.mkdir(uploadDir, { recursive: true });
@@ -340,6 +370,7 @@ async function main() {
    * 注：Next 路由把参数一律命名为 id/planId/runId，语义要靠路径前缀区分。
    */
   const RESOLVERS: Array<[RegExp, string]> = [
+    [/^\/api\/agent-runs\//, agentRunA.id],
     [/^\/api\/attachments\//, evidenceA.id],
     [/^\/api\/conversations\//, convA.id],
     [/^\/api\/decision-packets\//, packetA.id],
@@ -352,6 +383,7 @@ async function main() {
     [/^\/api\/proposals\//, propA.id],
     [/^\/api\/research-runs\//, runA.id],
     [/^\/api\/work-items\//, workItemA.id],
+    [/^\/api\/workforce\/tasks\//, agentTaskA.id],
   ];
   const expand = (template: string): string => {
     if (!template.includes("{")) return template;
@@ -470,7 +502,7 @@ async function main() {
 
     // 顺序按外键依赖：先删引用方，再删被引用方
     // AnalysisRun.productVersionId / LaunchPlan.projectId·productId / Project.ownerId
-    // / AuditEvent.actorId 均为 restrict，必须显式先删
+    // / AuditEvent.actorId / AgentRun.userId / AgentTask.agentId 均为 restrict，必须显式先删
     await prisma.analysisRun.deleteMany({ where: { productVersion: { product: { organizationId: { in: orgIds } } } } });
     await prisma.launchPlan.deleteMany({ where: { organizationId: { in: orgIds } } });
     await prisma.artifact.deleteMany({ where: { workItem: { projectId: { in: projectIds } } } });
@@ -484,6 +516,14 @@ async function main() {
     await prisma.knowledgeDocument.deleteMany({ where: { organizationId: { in: orgIds } } });
     await prisma.knowledgeSource.deleteMany({ where: { organizationId: { in: orgIds } } });
     await prisma.auditEvent.deleteMany({ where: { actorId: { in: userIds } } });
+    await prisma.agentDelegation.deleteMany({ where: { organizationId: { in: orgIds } } });
+    await prisma.agentRun.deleteMany({ where: { organizationId: { in: orgIds } } });
+    await prisma.agentTask.deleteMany({ where: { organizationId: { in: orgIds } } });
+    await prisma.squadMember.deleteMany({ where: { squad: { organizationId: { in: orgIds } } } });
+    await prisma.squad.deleteMany({ where: { organizationId: { in: orgIds } } });
+    await prisma.agentSkill.deleteMany({ where: { agent: { organizationId: { in: orgIds } } } });
+    await prisma.skill.deleteMany({ where: { organizationId: { in: orgIds } } });
+    await prisma.agent.deleteMany({ where: { organizationId: { in: orgIds } } });
     await prisma.organizationMember.deleteMany({ where: { organizationId: { in: orgIds } } });
     await prisma.user.deleteMany({ where: { organizationId: { in: orgIds } } });
     await prisma.organization.deleteMany({ where: { id: { in: orgIds } } });

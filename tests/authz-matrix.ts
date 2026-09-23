@@ -632,6 +632,143 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     body: {},
     validationFirst: true,
   },
+
+  // ---------- 顾问交互运行 ----------
+  {
+    path: "/api/agent-runs",
+    method: "POST",
+    authz: "创建交互式运行：登录即可在本组织建 QUEUED 运行；跨组织不得写入他组织",
+    expect: { anon: [401], foreign: [201], outsider: [201], viewer: [201] },
+    ownerGate: [201],
+    body: { purpose: "ADVISOR_MESSAGE" },
+    phase: 3,
+  },
+  {
+    path: "/api/agent-runs/{runId}",
+    method: "GET",
+    authz: "运行状态：同组织可读（不校验发起人）；跨组织 404 不泄露存在性",
+    expect: { anon: [401], foreign: [404], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+  },
+  {
+    path: "/api/agent-runs/{runId}/cancel",
+    method: "POST",
+    authz: "取消运行：仅发起人；跨组织 404，同组织非发起人 403",
+    expect: { anon: [401], foreign: [404], outsider: [403], viewer: [403] },
+    ownerGate: [200],
+  },
+
+  // ---------- 模型控制中心 ----------
+  {
+    path: "/api/model-control",
+    method: "GET",
+    authz: "模型控制总览：登录即可读（canManage 标记区分管理入口）；数据按组织隔离",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    crossTenant: true,
+  },
+  {
+    path: "/api/model-control",
+    method: "POST",
+    authz: "安装模型控制预设：仅组织管理员（OrganizationMember.role = ORG_ADMIN）",
+    expect: { anon: [401], foreign: [403], outsider: [403], viewer: [403] },
+    ownerGate: [201],
+    body: { action: "INSTALL_PRESETS" },
+  },
+
+  // ---------- 渠道路线 ----------
+  {
+    path: "/api/products/{id}/channel-routes",
+    method: "GET",
+    authz: "渠道路线工作台：产品读口径（同组织可读）；跨组织 404",
+    expect: { anon: [401], foreign: [404], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+  },
+  {
+    path: "/api/products/{id}/channel-routes",
+    method: "POST",
+    authz: "CREATE_RULE：渠道规则属组织级资产，仅组织管理员；非管理员 403 先于字段校验",
+    expect: { anon: [401], foreign: [403], outsider: [403], viewer: [403] },
+    ownerGate: [422],
+    body: { action: "CREATE_RULE" },
+  },
+
+  // ---------- 成本情景 ----------
+  {
+    path: "/api/products/{id}/cost-scenarios",
+    method: "GET",
+    authz: "成本情景列表：产品读口径（同组织可读）；跨组织 404",
+    expect: { anon: [401], foreign: [404], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+  },
+  {
+    path: "/api/products/{id}/cost-scenarios",
+    method: "POST",
+    authz: "保存成本情景：需产品写角色（OWNER/DECISION_MAKER）；空 body 在门禁之后 422",
+    expect: { anon: [401], foreign: [404], outsider: [403], viewer: [403] },
+    ownerGate: [422],
+    body: {},
+  },
+
+  // ---------- 数字员工（Workforce） ----------
+  {
+    path: "/api/workforce",
+    method: "GET",
+    authz: "数字员工总览：登录即可读（按组织与可见性过滤）；数据按组织隔离",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    crossTenant: true,
+  },
+  {
+    path: "/api/workforce/bootstrap",
+    method: "POST",
+    authz: "引导默认数字员工：仅组织管理员",
+    expect: { anon: [401], foreign: [403], outsider: [403], viewer: [403] },
+    ownerGate: [201],
+  },
+  {
+    path: "/api/workforce/tasks",
+    method: "POST",
+    authz: "创建数字员工任务：登录后先校验 body；缺 agentId/goal 在鉴权结论前 422",
+    expect: { anon: [401], foreign: [422], outsider: [422], viewer: [422] },
+    ownerGate: [422],
+    body: {},
+    validationFirst: true,
+  },
+  {
+    path: "/api/workforce/tasks/{id}/start",
+    method: "POST",
+    authz: "启动任务：跨组织 404；OWNER_ONLY 数字员工非 owner 不可见（404）；owner 可启动 QUEUED",
+    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
+    ownerGate: [200],
+  },
+  {
+    path: "/api/workforce/tasks/{id}/delegate",
+    method: "POST",
+    authz: "委派任务：先校验 body（toAgentId/goal/reason），缺字段 422",
+    expect: { anon: [401], foreign: [422], outsider: [422], viewer: [422] },
+    ownerGate: [422],
+    body: {},
+    validationFirst: true,
+  },
+  {
+    path: "/api/workforce/tasks/{id}/finish",
+    method: "POST",
+    authz: "结束任务：先校验 body（runId/outcome），缺字段 422",
+    expect: { anon: [401], foreign: [422], outsider: [422], viewer: [422] },
+    ownerGate: [422],
+    body: {},
+    validationFirst: true,
+  },
+  {
+    path: "/api/workforce/tasks/{id}/review-return",
+    method: "POST",
+    authz: "审查返回子任务：先校验 body（action），缺/非法 422",
+    expect: { anon: [401], foreign: [422], outsider: [422], viewer: [422] },
+    ownerGate: [422],
+    body: {},
+    validationFirst: true,
+  },
 ];
 
 /**
