@@ -121,7 +121,14 @@ export async function decideAndPersist(
         criteriaHash,
         contextRefs: asJson(contextRefs),
         language: request.language ?? null,
-        resultJson: asJson({ value: execution.engineResult.value }),
+        resultJson: asJson({
+          value: execution.engineResult.value,
+          providerKey: execution.engineResult.providerKey ?? null,
+          providerVersion: execution.engineResult.providerVersion ?? null,
+          abstained: execution.engineResult.abstained ?? false,
+          providerInputFingerprint:
+            execution.engineResult.inputFingerprint ?? null,
+        }),
         confidence: execution.engineResult.confidence,
         distribution: execution.engineResult.distribution
           ? asJson(execution.engineResult.distribution)
@@ -153,6 +160,9 @@ export async function decideAndPersist(
         specVersion: execution.spec.version,
         engine: execution.engineResult.engine,
         engineVersion: execution.engineResult.engineVersion,
+        providerKey: execution.engineResult.providerKey ?? null,
+        providerVersion: execution.engineResult.providerVersion ?? null,
+        abstained: execution.engineResult.abstained ?? false,
         policyAction: execution.policy.action,
         inputHash,
         contextRefs,
