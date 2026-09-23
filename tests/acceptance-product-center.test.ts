@@ -596,6 +596,10 @@ async function main() {
   await prisma.productVersion.deleteMany({ where: { productId: product.id } });
   await prisma.productVersion.deleteMany({ where: { productId: projectlessProduct.id } });
   await prisma.product.deleteMany({ where: { id: { in: [product.id, projectlessProduct.id] } } });
+  // AuditEvent.actorId 为 RESTRICT，须先清夹具审计行再删用户（与 acceptance-b01-http / authz-matrix 一致）
+  await prisma.auditEvent.deleteMany({
+    where: { actorId: { in: [ownerA.id, viewerA.id, outsiderA.id, foreignB.id] } },
+  });
   await prisma.user.deleteMany({
     where: { id: { in: [ownerA.id, viewerA.id, outsiderA.id, foreignB.id] } },
   });
