@@ -710,6 +710,47 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     body: {},
   },
 
+  // ---------- 生产门禁（G2 / 开工 / 交付） ----------
+  {
+    path: "/api/projects/{id}/production",
+    method: "GET",
+    authz: "生产上下文：项目成员可读；先 requireProjectRole 再 assertProjectVisible",
+    expect: { anon: [401], foreign: [403], outsider: [403], viewer: [200] },
+    ownerGate: [200],
+  },
+  {
+    path: "/api/projects/{id}/production/prepare",
+    method: "POST",
+    authz: "整理生产决策材料：仅项目 OWNER；阶段门禁在角色校验之后",
+    expect: { anon: [401], foreign: [403], outsider: [403], viewer: [403] },
+    ownerGate: "NOT_DENIED",
+  },
+  {
+    path: "/api/projects/{id}/production/g2",
+    method: "POST",
+    authz: "正式 G2 报批：仅项目 OWNER；缺材料时 409/422 属门禁已开",
+    expect: { anon: [401], foreign: [403], outsider: [403], viewer: [403] },
+    ownerGate: "NOT_DENIED",
+  },
+  {
+    path: "/api/projects/{id}/production/start",
+    method: "POST",
+    authz: "确认开工：note 校验先于 requireProjectRole（validationFirst）；带 note 后仅 OWNER 过门",
+    expect: { anon: [401], foreign: [403], outsider: [403], viewer: [403] },
+    ownerGate: "NOT_DENIED",
+    body: { note: "矩阵开工探测" },
+    validationFirst: true,
+  },
+  {
+    path: "/api/projects/{id}/production/deliver",
+    method: "POST",
+    authz: "确认交付：note 校验先于 requireProjectRole（validationFirst）；带 note 后仅 OWNER 过门",
+    expect: { anon: [401], foreign: [403], outsider: [403], viewer: [403] },
+    ownerGate: "NOT_DENIED",
+    body: { note: "矩阵交付探测" },
+    validationFirst: true,
+  },
+
   // ---------- 数字员工（Workforce） ----------
   {
     path: "/api/workforce",

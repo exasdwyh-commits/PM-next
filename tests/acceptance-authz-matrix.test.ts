@@ -4,7 +4,7 @@
  * 与前两套 HTTP 验收的分工：
  * - `acceptance-b01-http.ts`：场景化端到端越权旅程（含状态机与幂等）。
  * - `acceptance-product-center.test.ts`：产品级写路径与项目详情下发字段白名单。
- * - 本套：**穷举登记**。57 条路由 × 77 个方法全部过一遍，重点不是"某个场景对不对"，
+ * - 本套：**穷举登记**。62 条路由 × 82 个方法全部过一遍，重点不是"某个场景对不对"，
  *   而是"有没有哪条路由没被登记"以及"未授权身份有没有拿到成功响应或产生跨租户写入"。
  *
  * 断言：
@@ -48,8 +48,8 @@ const BASE = process.env.BASE_URL || "http://127.0.0.1:3110";
 const RUN_TAG = `mx${Date.now()}`;
 const PASSWORD = `Mx-${crypto.randomBytes(6).toString("hex")}!`;
 const MARK = CROSS_TENANT_MARKER;
-const BASELINE_ROUTES = 57;
-const BASELINE_METHODS = 77;
+const BASELINE_ROUTES = 62;
+const BASELINE_METHODS = 82;
 
 let passed = 0;
 const failures: string[] = [];
