@@ -135,3 +135,25 @@ npm run test:golden-org
 - P0/P1 收尾
 
 完成本地真实数据库、真实 provider 和关键浏览器业务链验收后，可再冻结为正式 v0.1.0。
+
+
+## 10. 2026-09-23 RC1 复验记录
+
+为避免 path filter 只运行 Quality CI，曾使用临时 validation 分支修改无害 package 元数据，触发完整 8-workflow 矩阵。
+
+结果：
+- 8 条 workflow 均被 GitHub 创建；
+- 所有 job 在任何 step 开始前即失败；
+- job step 列表为空；
+- job log 不可获取（BlobNotFound）；
+- 单独重跑 Quality CI 仍复现相同的 pre-step failure。
+
+因此这次失败不能判定为 RC1 代码/测试回归，当前证据更符合 GitHub Actions runner / account / startup 层阻断。
+
+跟踪：
+- Issue #42 — `[RC1 Infra] GitHub Actions jobs fail before runner steps`
+- 临时验证 PR #40 / #41 已关闭且未合并；
+- `release/v0.1.0-rc1` 未合入任何 validation 触发改动。
+
+交付口径保持不变：
+RC1 的运行时代码沿用此前通过核心 CI 的 `f0507464` 基线；正式 v0.1.0 冻结前，应在 Actions runner 恢复后补跑完整矩阵，并完成本地真实环境验收。
