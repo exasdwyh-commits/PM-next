@@ -6,6 +6,10 @@ on:
       - "prisma/**"
       - "src/modules/decision-intelligence/**"
       - "src/modules/workforce/**"
+      - "services/judgment-runtime/**"
+      - "tests/laya-shadow-runtime.test.ts"
+      - "tests/fixtures/judgment/**"
+      - "scripts/run-judgment-shadow-benchmark.ts"
       - "tests/regression-decision-run.ts"
       - "tests/regression-system-principal.ts"
       - "package.json"
@@ -16,6 +20,10 @@ on:
       - "prisma/**"
       - "src/modules/decision-intelligence/**"
       - "src/modules/workforce/**"
+      - "services/judgment-runtime/**"
+      - "tests/laya-shadow-runtime.test.ts"
+      - "tests/fixtures/judgment/**"
+      - "scripts/run-judgment-shadow-benchmark.ts"
       - "tests/regression-decision-run.ts"
       - "package.json"
       - ".github/workflows/decision-ci.yml"
@@ -68,6 +76,8 @@ jobs:
 
       - run: npx prisma generate
       - run: npm run typecheck
+      - run: npm run test:laya-shadow
+      - run: python3 -m py_compile services/judgment-runtime/service.py
       - run: npx prisma migrate deploy
       - run: npm run test:decision-run
       - run: npm run test:system-principal

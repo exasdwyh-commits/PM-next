@@ -9,6 +9,8 @@ import type {
 
 export interface JudgmentProviderDecision {
   value: DecisionValue;
+  /** Per-run runtime/checkpoint provenance; falls back to provider.version. */
+  providerVersion?: string;
   confidence?: number | null;
   distribution?: Record<string, number> | null;
   reasonCodes?: string[];
@@ -71,6 +73,7 @@ export class DecisionEngineProviderAdapter implements JudgmentProvider {
       benchmarkProfile: result.benchmarkProfile,
       abstained: result.abstained ?? false,
       inputFingerprint: result.inputFingerprint ?? null,
+      providerVersion: result.providerVersion ?? result.engineVersion,
     };
   }
 }

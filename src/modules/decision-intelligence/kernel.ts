@@ -78,7 +78,7 @@ export class DecisionIntelligenceKernel {
       engine: provider.kind,
       engineVersion: provider.version,
       providerKey: provider.key,
-      providerVersion: provider.version,
+      providerVersion: providerResult.providerVersion ?? provider.version,
       value: providerResult.value,
       confidence: providerResult.confidence ?? null,
       distribution: providerResult.distribution ?? null,
