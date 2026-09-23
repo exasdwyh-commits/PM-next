@@ -2,6 +2,11 @@
 
 企业新品研发、决策治理与 Agent 协作系统。
 
+> **稳定交付分支：`release/v0.1.0-rc1`**  
+> 本分支已与 VNext / Laya 实验研发隔离。用于本地部署、验收、ToB Demo 与 P0/P1 收尾。  
+> 交付说明：`docs/DELIVERY_RELEASE_V0.1.0_RC1.md`
+
+
 ## 当前状态：线上实现收口 / 本地最终验收
 
 日期：2026-09-23  
@@ -106,8 +111,8 @@ Formal G2 已通过 PR #33 按当前 main 架构重新移植并合入。
 
 ```bash
 git fetch --all --prune
-git switch main
-git pull --ff-only origin main
+git switch release/v0.1.0-rc1
+git pull --ff-only origin release/v0.1.0-rc1
 npm ci
 npx prisma generate
 ```
