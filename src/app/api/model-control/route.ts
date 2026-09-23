@@ -9,6 +9,7 @@ import {
 } from "@/modules/model-control/service";
 import { UnprocessableEntityError } from "@/shared/errors";
 import { handleApiError } from "@/shared/api-handler";
+import { readJsonObjectBody } from "@/shared/request-body";
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,12 +23,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(req);
-    const body = await req.json().catch(() => null);
-    if (!body || typeof body !== "object" || Array.isArray(body)) {
-      throw new UnprocessableEntityError("请求体必须是 JSON 对象");
-    }
-
-    const action = String((body as Record<string, unknown>).action || "");
+    const body = await readJsonObjectBody(req);
+    const action = String(body.action || "");
     if (action === "INSTALL_PRESETS") {
       return NextResponse.json(
         await installRecommendedModelControlPresets(session),
