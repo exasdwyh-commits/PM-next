@@ -422,6 +422,7 @@ export async function getProductRndProgramStatus(
           schemaVersion: true,
           contentVersion: true,
           reviewStatus: true,
+          content: true,
           createdAt: true,
         },
       },
@@ -448,7 +449,47 @@ export async function getProductRndProgramStatus(
         status: task.status,
         latestRun: task.runs[0] ?? null,
       })) ?? [],
-    latestReport: workItem.artifacts[0] ?? null,
+    latestReport: (() => {
+      const artifact = workItem.artifacts[0];
+      if (!artifact) return null;
+      let preview: {
+        summary?: string;
+        verificationStatus?: string;
+        unknowns?: string[];
+        risks?: string[];
+        decisionsRequired?: string[];
+      } | null = null;
+      try {
+        const parsed = JSON.parse(artifact.content) as Record<string, unknown>;
+        preview = {
+          summary:
+            typeof parsed.summary === "string" ? parsed.summary : undefined,
+          verificationStatus:
+            typeof parsed.verificationStatus === "string"
+              ? parsed.verificationStatus
+              : undefined,
+          unknowns: Array.isArray(parsed.unknowns)
+            ? parsed.unknowns.filter(
+                (item): item is string => typeof item === "string"
+              ).slice(0, 8)
+            : [],
+          risks: Array.isArray(parsed.risks)
+            ? parsed.risks.filter(
+                (item): item is string => typeof item === "string"
+              ).slice(0, 6)
+            : [],
+          decisionsRequired: Array.isArray(parsed.decisionsRequired)
+            ? parsed.decisionsRequired.filter(
+                (item): item is string => typeof item === "string"
+              ).slice(0, 6)
+            : [],
+        };
+      } catch {
+        preview = null;
+      }
+      const { content: _content, ...publicArtifact } = artifact;
+      return { ...publicArtifact, preview };
+    })(),
   };
 }
 
