@@ -974,6 +974,7 @@ export async function finishAgentTask(
             id: true,
             goal: true,
             agentId: true,
+            contextSnapshot: true,
             agent: { select: { id: true, code: true, name: true } },
           },
         },
@@ -1073,6 +1074,13 @@ export async function finishAgentTask(
     });
 
     let returnEventId: string | null = null;
+    const parentContext = task.parentTask
+      ? objectJson(task.parentTask.contextSnapshot)
+      : {};
+    const productRndParentTaskId =
+      task.parentTask && parentContext.schemaVersion === "product-rnd-program/v1"
+        ? task.parentTask.id
+        : null;
 
     if (task.parentTaskId) {
       await tx.agentDelegation.updateMany({
@@ -1092,6 +1100,7 @@ export async function finishAgentTask(
       // as a finished delegation.
       if (
         task.parentTask &&
+        !productRndParentTaskId &&
         (input.outcome === "SUCCEEDED" || input.outcome === "FAILED")
       ) {
         const event = await enqueueBusinessEventInTx(tx, {
@@ -1125,6 +1134,7 @@ export async function finishAgentTask(
       task: updatedTask,
       run: updatedRun,
       returnEventId,
+      productRndParentTaskId,
     };
   });
 
@@ -1141,6 +1151,29 @@ export async function finishAgentTask(
       result.returnEventId,
       { workerId: "child-return:" + taskId }
     ).catch(() => null);
+  }
+
+  if (result.productRndParentTaskId) {
+    const parentTaskId = result.productRndParentTaskId;
+    const { advanceProductRndProgram } = await import(
+      "@/modules/product-rnd"
+    );
+    await advanceProductRndProgram(session, parentTaskId).catch(
+      async (error: unknown) => {
+        const message =
+          error instanceof Error ? error.message : String(error);
+        await prisma.agentTask.updateMany({
+          where: {
+            id: parentTaskId,
+            organizationId: session.organizationId,
+            status: AgentTaskStatus.RUNNING,
+          },
+          data: {
+            blockedReason: ("AUTO_ADVANCE_FAILED: " + message).slice(0, 1000),
+          },
+        });
+      }
+    );
   }
 
   return { task: result.task, run: result.run };
