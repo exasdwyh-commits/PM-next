@@ -137,17 +137,29 @@ async function main() {
       include: { claims: true },
     });
 
+    const capture = await prisma.evidenceSourceCapture.create({
+      data: {
+        evidenceId: evidence.id,
+        sourceUri: "https://www.fda.gov/example",
+        sourceType: "OFFICIAL",
+        trustTier: "OFFICIAL",
+        sourceOrganization: "FDA",
+        httpStatus: 200,
+        contentHash: "b".repeat(64),
+        rawContentPreview:
+          "Official notice: FDA approved product X on September 24 2026. Additional context follows.",
+        injectionStatus: "CLEAN",
+        fetchedAt: new Date(),
+        fetcherIdentity: "independent_verifier",
+        remoteAddress: "93.184.216.34",
+        contentType: "text/plain",
+        redirectCount: 0,
+      },
+    });
+
     const verified = await verifyEvidenceClaim(session, {
       evidenceClaimId: evidence.claims[0].id,
-      sources: [
-        {
-          evidenceId: evidence.id,
-          sourceUri: "https://www.fda.gov/example",
-          httpStatus: 200,
-          rawContentPreview:
-            "Official notice: FDA approved product X on September 24 2026. Additional context follows.",
-        },
-      ],
+      sourceCaptureIds: [capture.id],
     });
     assert.equal(verified.claim.evidenceLevel, "SUPPORTED");
 
