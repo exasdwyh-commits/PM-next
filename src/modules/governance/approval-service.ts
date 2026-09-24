@@ -21,7 +21,7 @@ export interface ApprovalGrantRecord {
 }
 
 export interface ApprovalGrantStore {
-  create(input: Omit<ApprovalGrantRecord, "id" | "usedAt" | "usedByRunId">): Promise<ApprovalGrantRecord>;
+  create(input: Omit<ApprovalGrantRecord, "usedAt" | "usedByRunId">): Promise<ApprovalGrantRecord>;
   find(id: string): Promise<ApprovalGrantRecord | null>;
   consume(id: string, usedByRunId: string, now: Date): Promise<boolean>;
 }
