@@ -5,6 +5,11 @@ export const WORKFORCE_AGENT_CHOICES = [
   "hermes_pm",
   "product_agent",
   "research_agent",
+  "scientific_evidence_agent",
+  "formulation_agent",
+  "compliance_agent",
+  "cost_bom_agent",
+  "qa_verifier",
   "marketing_agent",
   "ops_agent",
   "red_team",
@@ -228,7 +233,25 @@ export function createDefaultRulesDecisionEngine(): RulesDecisionEngine {
     ) {
       return { value: "red_team", reasonCodes: ["RED_TEAM_REQUIRED"] };
     }
-    if (bool(state, "needsResearch") || str(state, "taskClass") === "RESEARCH") {
+    if (str(state, "taskClass") === "SCIENCE") {
+      return { value: "scientific_evidence_agent", reasonCodes: ["SCIENCE_WORK"] };
+    }
+    if (str(state, "taskClass") === "FORMULATION") {
+      return { value: "formulation_agent", reasonCodes: ["FORMULATION_WORK"] };
+    }
+    if (str(state, "taskClass") === "COMPLIANCE") {
+      return { value: "compliance_agent", reasonCodes: ["COMPLIANCE_WORK"] };
+    }
+    if (str(state, "taskClass") === "COST") {
+      return { value: "cost_bom_agent", reasonCodes: ["COST_WORK"] };
+    }
+    if (str(state, "taskClass") === "QA") {
+      return { value: "qa_verifier", reasonCodes: ["QA_WORK"] };
+    }
+    if (
+      bool(state, "needsResearch") ||
+      ["RESEARCH", "MARKET"].includes(str(state, "taskClass"))
+    ) {
       return { value: "research_agent", reasonCodes: ["RESEARCH_WORK"] };
     }
     if (str(state, "taskClass") === "MARKETING") {
