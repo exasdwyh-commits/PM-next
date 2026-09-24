@@ -3,6 +3,7 @@ import { getServerSession } from "@/modules/identity/session";
 import { handleApiError } from "@/shared/api-handler";
 import { readJsonObjectBody } from "@/shared/request-body";
 import {
+  advanceProductRndProgram,
   getProductRndProgramStatus,
   queueProductRndQa,
   startProductRndProgram,
@@ -48,6 +49,15 @@ export async function POST(
           brief: String(body?.brief ?? ""),
         }),
         { status: 201 }
+      );
+    }
+
+    if (action === "RECONCILE") {
+      return NextResponse.json(
+        await advanceProductRndProgram(
+          session,
+          String(body?.parentTaskId ?? "")
+        )
       );
     }
 
