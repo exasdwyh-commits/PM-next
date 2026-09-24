@@ -32,7 +32,9 @@ import {
   buildAdvisorLLMMessages,
   createAdvisorLLMClient,
   isAdvisorLLMEnabled,
+  type AdvisorLLMMessage,
 } from "./llm";
+import { buildDepartmentAssistantSystemPrompt } from "@/modules/assistant-runtime/persona";
 import type { ScientificEvidenceInput } from "../research/scientific-evidence";
 import { tryResolveGatewayPolicyForAgentCode } from "@/modules/model-control/service";
 import {
@@ -732,16 +734,28 @@ export async function sendMessage(
   try {
     result = await runTool(session, intent, ctx);
 
-    const llmMessages = buildAdvisorLLMMessages({
+    const baseMessages = buildAdvisorLLMMessages({
       history: conversationHistory,
       currentQuery: text,
       toolKey: result.toolKey,
       toolResultText: result.text,
     });
+    // 专属助理人格：只对 ASSISTANT_* TaskClass 生效，且只在 Model Gateway 路径使用。
+    // 其它 TaskClass（分类 / 研究 / 产品分析 / 红队）以及旧 Advisor 兼容路径继续沿用
+    // 既有 prompt，不改变已验证的行为。
+    const assistantPersona = buildDepartmentAssistantSystemPrompt(
+      modelRoute.taskClass
+    );
 
     if (gatewayReady && gatewayPlan) {
       llmAttempted = true;
       executionBackend = "MODEL_GATEWAY";
+      const llmMessages: AdvisorLLMMessage[] = assistantPersona
+        ? [
+            { role: "system", content: assistantPersona },
+            ...baseMessages.slice(1),
+          ]
+        : baseMessages;
       try {
         const gatewayExecution = await executePersistedModelGateway({
           organizationId: session.organizationId,
@@ -789,7 +803,7 @@ export async function sendMessage(
       if (llmClient) {
         actualProvider = process.env.ADVISOR_MODEL_PROVIDER?.trim() || "openai-compatible";
         try {
-          const llmResult = await llmClient.chat(llmMessages);
+          const llmResult = await llmClient.chat(baseMessages);
           result = { ...result, text: llmResult.text };
           modelOutputUsed = true;
           llmUsage = llmResult.usage;
