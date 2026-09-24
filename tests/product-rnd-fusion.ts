@@ -69,7 +69,6 @@ async function main() {
         "开发一个面向25-45岁女性的餐前轻体饮，重点评估市场、AOS/膳食纤维配方、成本和中国法规。",
     });
     assert.equal(program.workItem.executorType, "DIGITAL_WORKER");
-    assert.equal(program.parentTask.agentId, program.researchRun.createdById ? program.parentTask.agentId : program.parentTask.agentId);
     assert.equal(program.specialistTasks.length, 5);
     assert.deepEqual(
       new Set(program.specialistTasks.map((item) => item.code)),
