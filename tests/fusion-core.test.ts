@@ -16,6 +16,7 @@ import {
 import {
   LayaDecisionEngine,
   createDefaultDecisionSpecs,
+  evaluateDecisionPolicy,
 } from "../src/modules/decision-intelligence";
 import {
   MODEL_POLICY_PRESETS,
@@ -233,6 +234,10 @@ test("fusion: Laya adapter is typed, bounded and shadow-only by default", async 
         confidence: 0.93,
         reasonCodes: ["FRESH_INFO_REQUIRED"],
         latencyMs: 8,
+        providerKey: "laya-system1",
+        providerVersion: "laya@0.3.6/multilingual",
+        abstained: false,
+        inputFingerprint: "f".repeat(64),
       };
     },
   });
@@ -245,6 +250,22 @@ test("fusion: Laya adapter is typed, bounded and shadow-only by default", async 
   });
   assert.equal(result.value, "RESEARCH");
   assert.equal(result.engineVersion.startsWith("laya-system1/"), true);
+  assert.equal(result.providerKey, "laya-system1");
+  assert.equal(result.providerVersion, "laya@0.3.6/multilingual");
+  assert.equal(result.inputFingerprint, "f".repeat(64));
+
+  const abstainedPolicy = evaluateDecisionPolicy(
+    {
+      ...spec,
+      automation: {
+        autoPolicy: "BENCHMARKED_ENGINE",
+        escalationTarget: "AGENT",
+        minConfidence: 0,
+      },
+    },
+    { ...result, abstained: true }
+  );
+  assert.equal(abstainedPolicy.action, "ESCALATE_AGENT");
 });
 
 test("fusion: Muse is a disabled local resident resource, not a hard-coded dependency", () => {
