@@ -75,32 +75,50 @@ PM-next 领域 / 数字员工 / 证据 / 治理
 
 ---
 
-## 四、落地步骤（本机可执行）
+## 四、落地步骤（本机已完成）
 
-当前本机没有 Ollama / llama.cpp，Muse 未部署——这是**环境缺口，不是代码 Bug**，
-专属助理保持 safe-off，系统主体不受影响。
-
-接通步骤：
+Muse Glimmer 已于 2026-09-25 在本机**真实部署并接通**（不再是环境缺口）。
+模型身份、下载与运行时细节见 `docs/LOCAL_MODEL_ASSETS.md`。
 
 ```bash
-# 1) 起一个本地 OpenAI-compatible 服务（Mac 推荐 Metal 版 llama.cpp 或 Ollama）
-#    Ollama 自带 OpenAI 兼容端点：http://127.0.0.1:11434/v1
+# 1) 一次性准备运行时
+CMAKE_ARGS="-DGGML_METAL=on" pip install "llama-cpp-python[server]"
 
-# 2) 配 .env
-MODEL_PROVIDER_MUSE_LOCAL_BASE_URL="http://127.0.0.1:11434/v1"
+# 2) 下载权重（16 GB）
+env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy \
+  HF_ENDPOINT=https://hf-mirror.com \
+  hf download meta-models/Muse-Glimmer-30B-GGUF Muse-Glimmer-30B-KQuant-17GB-Q4_K_M.gguf
+
+# 3) 启动本地端点
+bash scripts/muse-server-start.sh
+
+# 4) 配 .env
+MODEL_PROVIDER_MUSE_LOCAL_BASE_URL="http://127.0.0.1:8080/v1"
 MODEL_PROVIDER_MUSE_LOCAL_API_KEY=""
-MODEL_PROVIDER_MUSE_LOCAL_TIMEOUT_MS=30000
-MODEL_PROVIDER_MUSE_LOCAL_MAX_TOKENS=2048
+MODEL_PROVIDER_MUSE_LOCAL_TIMEOUT_MS=120000   # reasoning 模型需要放宽
+MODEL_PROVIDER_MUSE_LOCAL_MAX_TOKENS=4096     # 思维链占用 token 预算
 MODEL_PROVIDER_MUSE_LOCAL_TEMPERATURE=0.2
 
-# 3) 自检（只读，不写任何配置）
-npm run muse:check
+# 5) 自检（只读，不写任何配置）
+npm run muse:check        # 五项全绿
 
-# 4) Model Control 启用 muse-glimmer-resident-slot
-
-# 5) 再自检，五项全绿后发一条助理消息，检查 ModelRun：
-#    provider=muse-local / policy=assistant-*-resident / cloudAllowed=false
+# 6) Model Control 启用 muse-glimmer-resident-slot
 ```
+
+> ⚠️ 修改 `.env` 后 Next.js dev 会热重载并可能报
+> `TypeError: a[d] is not a function`（chunk 错乱）。重启 `npm run dev` 即可。
+
+### 关于 Harmony 格式
+
+Muse Glimmer 是 Harmony 格式 reasoning 模型，原始输出形如：
+
+```
+to=self<|message|><内部思考><|start|>assistant to=user<|message|><正式回答><|eot|>
+```
+
+llama-cpp-python 自带的 server **只渲染不解析**，会把思维链和格式标记一起塞进 content。
+因此项目使用 `scripts/muse-openai-server.py` 做适配：渲染 Harmony prompt、
+把思考过程分离到 `reasoning_content`、`content` 只保留正式回答。
 
 模型选型建议：Muse slot 声明了 `REASONING` 能力（`ASSISTANT_PLANNING` 策略的
 `requiredCapabilities` 含 `REASONING`），选模型时要满足，否则路由会 skip。
@@ -117,6 +135,31 @@ npm run muse:check
 ▶ P4 Muse provider 运行时按环境变量解析                  ✅ MODEL_PROVIDER_ENV
 ▶ P5 真实调用打到本地端点，且携带专属助理人格            ✅ 请求体含硬约束
 ```
+
+### 真实 Muse 30B 端到端（2026-09-25）
+
+发一条助理消息「我现在这个项目接下来最该确认的三件事是什么？请区分事实与推断。」后：
+
+```
+ModelRun:
+  taskClass      ASSISTANT_DIALOGUE
+  policyKey      assistant-dialogue-resident (2026-09-24-v1)
+  profileKey     muse-glimmer-resident-slot
+  provider       muse-local
+  modelId        muse-glimmer
+  status         SUCCEEDED
+  durationMs     67631          ← 真实推理，非确定性 fallback
+  usage          492 in / 808 out
+```
+
+回答节选（模型自发执行了人格约束）：
+
+> **事实：** 你参与的项目 4 个，组织内产品 1 个；待办 2 项；风险阻塞 5 项
+> **推断：** 当前数据未覆盖"你现在这个项目"具体指哪一个……
+> **结论：** 因项目指向不明确……无法给出项目专属的三件事。需要先确认项目身份和待办明细。
+
+关键观察：模型**没有编造**项目细节，而是明确说"当前数据未覆盖"——
+这正是人格层「区分事实与推断」「宁可 UNKNOWN 也不编造」约束生效的实证。
 
 P5 用进程内 mock OpenAI 端点完成，**不写 `.env`、不改数据库、不留配置**，
 验证完即销毁。
