@@ -224,6 +224,7 @@ async function main() {
       parentTaskId: program.parentTask.id,
     });
     assert.ok(synthesized.artifact);
+    assert.ok(synthesized.report);
     assert.equal(synthesized.artifact?.type, "PRODUCT_RND_EXECUTIVE_REPORT");
     assert.equal(synthesized.artifact?.producerType, "AI");
     assert.equal(synthesized.artifact?.schemaVersion, "1.0");
