@@ -67,6 +67,10 @@ model Organization {
   modelPolicyBindings AgentModelPolicyBinding[]
   modelRuns           ModelRun[]
 
+  // PM OS fusion: operational approvals and reusable knowledge debt
+  approvalGrants      ApprovalGrant[]
+  knowledgeDebts      KnowledgeDebt[]
+
   // Channel-specific product development routes
   channelRuleProfiles  ChannelRuleProfileRecord[]
   channelSpecRoutes    ChannelSpecRoute[]
@@ -162,6 +166,7 @@ model User {
   knowledgeSourcesCreated KnowledgeSource[] @relation("KnowledgeSourceCreator")
   knowledgeSyncsStarted KnowledgeSyncRun[] @relation("KnowledgeSyncStarter")
   companyFactsConfirmed CompanyFact[]  @relation("CompanyFactConfirmer")
+  approvalGrantsApproved ApprovalGrant[] @relation("ApprovalGrantApprover")
   launchPlansOwned      LaunchPlan[]    @relation("LaunchPlanOwner")
   launchMilestonesOwned LaunchMilestone[] @relation("LaunchMilestoneOwner")
 
@@ -275,6 +280,7 @@ model Project {
   decisionPackets DecisionPacket[]
   researchRuns    ResearchRun[]
   launchPlans     LaunchPlan[]
+  knowledgeDebts  KnowledgeDebt[]
 
   @@index([organizationId])
   @@index([ownerId])
@@ -797,6 +803,14 @@ model Evidence {
    * 市场验证状态：仅负责人(OWNER)可手动置 VERIFIED_BY_LEAD；模型/纯函数一律不得写入，避免以模型评分冒充真实验证
    */
   validationStatus      ValidationStatus     @default(UNAPPLIED)
+  /// PM OS fusion: source/provenance metadata. Nullable for historical rows.
+  sourceType            String?
+  trustTier             String?
+  dataClass             String               @default("INTERNAL")
+  untrustedInput        Boolean              @default(false)
+  fetchedAt             DateTime?
+  sourceOrganization    String?
+  injectionStatus       String?
   createdAt             DateTime             @default(now())
 
   project      Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -838,9 +852,14 @@ model EvidenceClaim {
   applicableChannel String?
   conflictGroup     String? // 命中冲突并列时归入同一组
   selectionReason   String? // 冲突时选用理由
+  /// Claim support is independent from Evidence.verifyStatus.
+  evidenceLevel     String            @default("UNKNOWN")
+  freshness         String            @default("UNKNOWN")
+  verifierRunId     String?
   createdAt         DateTime          @default(now())
 
-  evidence Evidence @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  evidence      Evidence               @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  verifications EvidenceVerification[]
 
   @@index([evidenceId])
   @@index([fieldKey])
@@ -900,6 +919,83 @@ model Feedback {
 
   @@index([projectId])
   @@index([authorId])
+}
+
+
+
+/// Independent claim-to-source verification record. A source being genuine does
+/// not imply that it supports a particular claim.
+model EvidenceVerification {
+  id                 String   @id @default(uuid())
+  evidenceClaimId    String
+  verifierIdentity   String
+  supportStatus      String
+  supportSpan        String?
+  sourceUri          String?
+  sourceOrganization String?
+  checkedAt          DateTime @default(now())
+  metadata           Json?
+
+  evidenceClaim EvidenceClaim @relation(fields: [evidenceClaimId], references: [id], onDelete: Cascade)
+
+  @@index([evidenceClaimId, checkedAt])
+  @@index([supportStatus])
+}
+
+/// Operational permission grant. This complements, but never replaces,
+/// DecisionPacket/G1/G2/G3 business authorization.
+model ApprovalGrant {
+  id             String   @id @default(uuid())
+  organizationId String
+  approvedById   String
+  taskRef        String
+  capability     String
+  resource       String
+  actionHash     String
+  issuer         String
+  channel        String?
+  signature      String
+  singleUse      Boolean  @default(true)
+  issuedAt       DateTime @default(now())
+  validUntil     DateTime
+  usedAt         DateTime?
+  usedByRunId    String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  approvedBy   User         @relation("ApprovalGrantApprover", fields: [approvedById], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, validUntil])
+  @@index([approvedById])
+  @@index([taskRef, capability])
+}
+
+/// Reusable organization-level knowledge deficiency. Project-specific structured
+/// missing fields remain DataGap and are not duplicated here.
+model KnowledgeDebt {
+  id                   String   @id @default(uuid())
+  organizationId       String
+  projectId            String?
+  normalizedKey        String
+  topic                String
+  reason               String
+  importance           String   @default("MEDIUM")
+  occurrences          Int      @default(1)
+  status               String   @default("OPEN")
+  suggestedExpertClass String?
+  resolvedByEvidenceId String?
+  relatedDataGapId     String?
+  createdAt            DateTime @default(now())
+  lastSeenAt           DateTime @default(now())
+  resolvedAt           DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, normalizedKey])
+  @@index([organizationId, status])
+  @@index([projectId])
+  @@index([lastSeenAt])
 }
 
 // -------------------------------------------------------------
