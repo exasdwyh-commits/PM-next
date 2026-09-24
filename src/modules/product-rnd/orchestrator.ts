@@ -20,6 +20,8 @@ import { createWorkItem, submitWork } from "@/modules/work/service";
 import {
   createAgentTask,
   delegateAgentTask,
+  finishAgentTask,
+  startAgentTask,
 } from "@/modules/workforce/service";
 import {
   getLatestPublishedRun,
@@ -168,6 +170,8 @@ export async function startProductRndProgram(
     triggerRef: `product-rnd:${workItem.id}`,
   });
 
+  const parentStarted = await startAgentTask(session, parent.id);
+
   const delegated = [];
   for (const specialist of PRODUCT_RND_SPECIALISTS) {
     const target = byCode.get(specialist.code)!;
@@ -178,6 +182,7 @@ export async function startProductRndProgram(
         goal: `${specialist.label}：${specialist.goal}\n\n产品研发 Brief：${brief}`,
         reason:
           "Department Assistant delegates specialist depth while retaining supervision and final synthesis responsibility.",
+        sourceRunId: parentStarted.run.id,
       })
     );
   }
@@ -192,16 +197,23 @@ export async function startProductRndProgram(
     researchRunId: research.run.id,
     specialistTaskIds: delegated.map((row) => row.childTask.id),
   };
-  await prisma.agentTask.update({
-    where: { id: parent.id },
-    data: { contextSnapshot: json(updatedContext) },
-  });
+  await prisma.$transaction([
+    prisma.agentTask.update({
+      where: { id: parent.id },
+      data: { contextSnapshot: json(updatedContext) },
+    }),
+    prisma.agentRun.update({
+      where: { id: parentStarted.run.id },
+      data: { contextSnapshot: json(updatedContext) },
+    }),
+  ]);
 
   return {
     schemaVersion: "product-rnd-program/v1",
     projectId: project.id,
     workItem,
-    parentTask: { ...parent, contextSnapshot: updatedContext },
+    parentTask: { ...parentStarted.task, contextSnapshot: updatedContext },
+    parentRun: { ...parentStarted.run, contextSnapshot: updatedContext },
     specialistTasks: delegated.map((row, index) => ({
       code: PRODUCT_RND_SPECIALISTS[index].code,
       label: PRODUCT_RND_SPECIALISTS[index].label,
@@ -221,6 +233,12 @@ export async function queueProductRndQa(
     where: { id: input.parentTaskId },
     include: {
       workItem: { select: { id: true, projectId: true } },
+      runs: {
+        where: { status: "RUNNING" },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { id: true },
+      },
       childTasks: {
         include: {
           agent: { select: { id: true, code: true, name: true } },
@@ -291,6 +309,7 @@ export async function queueProductRndQa(
       "独立复核五路产品研发结果：检查 claim→evidence、来源独立性、UNKNOWN、冲突、法规/成本边界、版本一致性和是否满足提交管理报告的最低标准。",
     reason:
       "Final Product R&D report requires an independent QA role that did not produce the specialist conclusions.",
+    sourceRunId: parent.runs[0]?.id ?? null,
   });
 
   await prisma.agentTask.update({
@@ -465,6 +484,35 @@ export async function synthesizeProductRndExecutiveReport(
     parent.agent.code !== "hermes_pm"
   ) {
     throw new NotFoundError("Product R&D parent task not found");
+  }
+
+  if (workItem.status === "SUBMITTED" || workItem.status === "ACCEPTED") {
+    const existing = await prisma.artifact.findFirst({
+      where: {
+        workItemId: workItem.id,
+        type: "PRODUCT_RND_EXECUTIVE_REPORT",
+        ...(workItem.currentSubmissionId
+          ? { submissionId: workItem.currentSubmissionId }
+          : {}),
+      },
+      orderBy: [{ contentVersion: "desc" }, { createdAt: "desc" }],
+    });
+    if (existing) {
+      let report: unknown = null;
+      try {
+        report = JSON.parse(existing.content);
+      } catch {
+        report = null;
+      }
+      return {
+        report,
+        artifact: existing,
+        submission: null,
+        receipt: null,
+        isLateArrival: false,
+        alreadySynthesized: true as const,
+      };
+    }
   }
 
   const activeTasks = parent.childTasks.filter(
@@ -655,5 +703,169 @@ export async function synthesizeProductRndExecutiveReport(
     submission: "submission" in submitted ? submitted.submission : null,
     receipt: submitted.receipt,
     isLateArrival: submitted.isLateArrival,
+  };
+}
+
+
+export async function advanceProductRndProgram(
+  session: SessionContext,
+  parentTaskId: string
+) {
+  const parent = await prisma.agentTask.findUnique({
+    where: { id: parentTaskId },
+    include: {
+      agent: { select: { code: true } },
+      workItem: {
+        select: {
+          id: true,
+          projectId: true,
+          status: true,
+        },
+      },
+      runs: {
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        select: { id: true, status: true },
+      },
+      childTasks: {
+        include: {
+          agent: { select: { code: true, name: true } },
+        },
+      },
+    },
+  });
+
+  if (
+    !parent ||
+    parent.organizationId !== session.organizationId ||
+    parent.agent.code !== "hermes_pm" ||
+    !parent.workItem
+  ) {
+    throw new NotFoundError("Product R&D parent task not found");
+  }
+  const context = objectOrEmpty(parent.contextSnapshot);
+  if (context.schemaVersion !== "product-rnd-program/v1") {
+    throw new UnprocessableEntityError("AgentTask is not a Product R&D program");
+  }
+  await requireProjectRole(session, parent.workItem.projectId, [
+    Role.OWNER,
+    Role.DECISION_MAKER,
+  ]);
+
+  if (
+    parent.status === AgentTaskStatus.SUCCEEDED ||
+    parent.status === AgentTaskStatus.FAILED ||
+    parent.status === AgentTaskStatus.CANCELLED
+  ) {
+    return {
+      phase: "TERMINAL" as const,
+      parentTaskId: parent.id,
+      parentStatus: parent.status,
+    };
+  }
+
+  const required = new Set(
+    PRODUCT_RND_SPECIALISTS.map((specialist) => specialist.code)
+  );
+  const specialistTasks = parent.childTasks.filter((task) =>
+    required.has(task.agent.code as (typeof PRODUCT_RND_SPECIALISTS)[number]["code"])
+  );
+  const missing = [...required].filter(
+    (code) => !specialistTasks.some((task) => task.agent.code === code)
+  );
+  if (missing.length) {
+    throw new ConflictError(
+      `Product R&D program is missing specialist tasks: ${missing.join(", ")}`
+    );
+  }
+
+  const activeSpecialists = specialistTasks.filter(
+    (task) => !TERMINAL_SPECIALIST_STATES.has(task.status)
+  );
+  if (activeSpecialists.length) {
+    await prisma.agentTask.update({
+      where: { id: parent.id },
+      data: { blockedReason: null },
+    });
+    return {
+      phase: "WAITING_SPECIALISTS" as const,
+      parentTaskId: parent.id,
+      activeTaskIds: activeSpecialists.map((task) => task.id),
+    };
+  }
+
+  let qaTask = parent.childTasks.find(
+    (task) => task.agent.code === "qa_verifier"
+  );
+  if (!qaTask) {
+    const queued = await queueProductRndQa(session, {
+      parentTaskId: parent.id,
+    });
+    qaTask = queued.task;
+    await prisma.agentTask.update({
+      where: { id: parent.id },
+      data: { blockedReason: null },
+    });
+    return {
+      phase: "QA_QUEUED" as const,
+      parentTaskId: parent.id,
+      qaTaskId: qaTask.id,
+    };
+  }
+
+  if (
+    qaTask.status === AgentTaskStatus.QUEUED ||
+    qaTask.status === AgentTaskStatus.RUNNING ||
+    qaTask.status === AgentTaskStatus.SUBMITTED
+  ) {
+    return {
+      phase: "WAITING_QA" as const,
+      parentTaskId: parent.id,
+      qaTaskId: qaTask.id,
+      qaStatus: qaTask.status,
+    };
+  }
+
+  if (qaTask.status !== AgentTaskStatus.SUCCEEDED) {
+    await prisma.agentTask.update({
+      where: { id: parent.id },
+      data: {
+        blockedReason:
+          "Independent QA did not pass; human review or QA retry is required.",
+      },
+    });
+    return {
+      phase: "BLOCKED_BY_QA" as const,
+      parentTaskId: parent.id,
+      qaTaskId: qaTask.id,
+      qaStatus: qaTask.status,
+    };
+  }
+
+  const synthesized = await synthesizeProductRndExecutiveReport(session, {
+    projectId: parent.workItem.projectId,
+    workItemId: parent.workItem.id,
+    parentTaskId: parent.id,
+  });
+
+  const runningParentRun = parent.runs.find((run) => run.status === "RUNNING");
+  if (runningParentRun && parent.status === AgentTaskStatus.RUNNING) {
+    await finishAgentTask(session, parent.id, {
+      runId: runningParentRun.id,
+      outcome: "SUCCEEDED",
+      resultSummary:
+        "产品研发专业分工、ResearchRun、独立 QA 与结构化 Executive Report 已完成，等待负责人审查并决定是否进入业务 Gate。",
+    });
+  }
+
+  return {
+    phase: "REPORT_READY" as const,
+    parentTaskId: parent.id,
+    qaTaskId: qaTask.id,
+    artifactId: synthesized.artifact?.id ?? null,
+    alreadySynthesized:
+      "alreadySynthesized" in synthesized
+        ? synthesized.alreadySynthesized
+        : false,
   };
 }
