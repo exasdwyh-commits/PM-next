@@ -69,6 +69,43 @@ const TERMINAL_SPECIALIST_STATES = new Set<AgentTaskStatus>([
   AgentTaskStatus.CANCELLED,
 ]);
 
+export interface ProductRndExecutiveReport {
+  schemaVersion: "1.0";
+  sourceRefs: Array<{ id: string; hash: string; retrievedAt?: string }>;
+  assumptions: string[];
+  missingInputs: string[];
+  summary: string;
+  conclusions: Array<{
+    claim: string;
+    claimKind: string;
+    evidenceLevel: string;
+    evidenceRef: string;
+    verificationRefs: string[];
+    freshness: string;
+  }>;
+  risks: string[];
+  unknowns: string[];
+  decisionsRequired: string[];
+  recommendedActions: string[];
+  knowledgeDebtRefs: string[];
+  advisoryNotes: Array<{
+    agentCode: string;
+    agentName: string;
+    taskId: string;
+    status: AgentTaskStatus;
+    runId: string | null;
+    summary: string | null;
+    errorReason: string | null;
+  }>;
+  agentRunRefs: string[];
+  modelRunRefs: string[];
+  researchSnapshotRef: string | null;
+  verificationStatus:
+    | "READY_FOR_HUMAN_REVIEW"
+    | "PARTIAL"
+    | "BLOCKED_BY_QA";
+}
+
 function json(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
@@ -446,6 +483,7 @@ export async function synthesizeProductRndExecutiveReport(
         projectId: true,
         inputRevision: true,
         status: true,
+        currentSubmissionId: true,
       },
     }),
     prisma.agentTask.findUnique({
@@ -498,9 +536,9 @@ export async function synthesizeProductRndExecutiveReport(
       orderBy: [{ contentVersion: "desc" }, { createdAt: "desc" }],
     });
     if (existing) {
-      let report: unknown = null;
+      let report: ProductRndExecutiveReport | null = null;
       try {
-        report = JSON.parse(existing.content);
+        report = JSON.parse(existing.content) as ProductRndExecutiveReport;
       } catch {
         report = null;
       }
@@ -642,7 +680,7 @@ export async function synthesizeProductRndExecutiveReport(
     ),
   ];
   const evidenceIds = evidences.map((evidence) => evidence.id);
-  const report = {
+  const report: ProductRndExecutiveReport = {
     schemaVersion: "1.0",
     sourceRefs: evidences.map((evidence) => ({
       id: evidence.id,
@@ -794,14 +832,13 @@ export async function advanceProductRndProgram(
     };
   }
 
-  let qaTask = parent.childTasks.find(
+  const qaTask = parent.childTasks.find(
     (task) => task.agent.code === "qa_verifier"
   );
   if (!qaTask) {
     const queued = await queueProductRndQa(session, {
       parentTaskId: parent.id,
     });
-    qaTask = queued.task;
     await prisma.agentTask.update({
       where: { id: parent.id },
       data: { blockedReason: null },
@@ -809,7 +846,7 @@ export async function advanceProductRndProgram(
     return {
       phase: "QA_QUEUED" as const,
       parentTaskId: parent.id,
-      qaTaskId: qaTask.id,
+      qaTaskId: queued.task.id,
     };
   }
 
