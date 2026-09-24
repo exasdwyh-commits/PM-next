@@ -2,6 +2,7 @@ import {
   AgentTaskStatus,
   AgentTriggerType,
   Prisma,
+  ResearchRunStatus,
   Role,
   RunMode,
   WorkExecutorType,
@@ -829,6 +830,59 @@ export async function advanceProductRndProgram(
       phase: "WAITING_SPECIALISTS" as const,
       parentTaskId: parent.id,
       activeTaskIds: activeSpecialists.map((task) => task.id),
+    };
+  }
+
+  const researchRunId =
+    typeof context.researchRunId === "string" ? context.researchRunId : null;
+  if (!researchRunId) {
+    await prisma.agentTask.update({
+      where: { id: parent.id },
+      data: { blockedReason: "Product R&D program is missing researchRunId." },
+    });
+    return {
+      phase: "BLOCKED_RESEARCH" as const,
+      parentTaskId: parent.id,
+      reason: "MISSING_RESEARCH_RUN",
+    };
+  }
+
+  const researchRun = await prisma.researchRun.findUnique({
+    where: { id: researchRunId },
+    select: { id: true, projectId: true, status: true, errorReason: true },
+  });
+  if (!researchRun || researchRun.projectId !== parent.workItem.projectId) {
+    await prisma.agentTask.update({
+      where: { id: parent.id },
+      data: { blockedReason: "Product R&D ResearchRun is missing or mismatched." },
+    });
+    return {
+      phase: "BLOCKED_RESEARCH" as const,
+      parentTaskId: parent.id,
+      reason: "RESEARCH_RUN_NOT_FOUND",
+    };
+  }
+  if (researchRun.status === ResearchRunStatus.FAILED) {
+    await prisma.agentTask.update({
+      where: { id: parent.id },
+      data: {
+        blockedReason:
+          ("ResearchRun failed: " + (researchRun.errorReason ?? "unknown")).slice(0, 1000),
+      },
+    });
+    return {
+      phase: "BLOCKED_RESEARCH" as const,
+      parentTaskId: parent.id,
+      researchRunId: researchRun.id,
+      reason: researchRun.errorReason ?? "RESEARCH_FAILED",
+    };
+  }
+  if (researchRun.status !== ResearchRunStatus.PUBLISHED) {
+    return {
+      phase: "WAITING_RESEARCH" as const,
+      parentTaskId: parent.id,
+      researchRunId: researchRun.id,
+      researchStatus: researchRun.status,
     };
   }
 
