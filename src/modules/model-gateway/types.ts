@@ -16,7 +16,10 @@ export type ModelTaskClass =
   | "STRATEGIC_CONSULTING"
   | "RED_TEAM"
   | "DECISION_REVIEW"
-  | "CODING";
+  | "CODING"
+  | "ASSISTANT_DIALOGUE"
+  | "ASSISTANT_PLANNING"
+  | "ASSISTANT_SYNTHESIS";
 
 export type ModelCapability =
   | "TEXT"
