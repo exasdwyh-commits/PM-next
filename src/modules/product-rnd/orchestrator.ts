@@ -399,6 +399,50 @@ export async function startProductRndProgram(
   };
 }
 
+/**
+ * 原子抢占 Product R&D 的 QA 排队槽位。
+ *
+ * advanceProductRndProgram 中「读取 childTasks → 发现没有 QA → 排队」是典型的
+ * check-then-act：两个并发 reconcile（用户点击 RECONCILE 的同时，最后一个专家
+ * 任务完成触发了自动 advance）会同时看到没有 QA，各自创建一个 qa_verifier，
+ * 而下游 synthesize 用 find() 只取第一个，第二个被静默丢弃。
+ *
+ * 这里用单条 UPDATE ... WHERE ... RETURNING 做 compare-and-swap：PostgreSQL
+ * 对命中行加行锁，并发事务必然串行化，只有一个能拿到槽位。
+ */
+async function claimProductRndQaSlot(
+  parentTaskId: string,
+  organizationId: string
+): Promise<boolean> {
+  const claimed = await prisma.$queryRaw<Array<{ id: string }>>`
+    UPDATE "AgentTask"
+       SET "contextSnapshot" = jsonb_set(
+             COALESCE("contextSnapshot", '{}'::jsonb),
+             '{qaClaim}',
+             '"claimed"'::jsonb,
+             true
+           )
+     WHERE id = ${parentTaskId}
+       AND "organizationId" = ${organizationId}
+       AND COALESCE("contextSnapshot" ->> 'qaClaim', '') = ''
+     RETURNING id
+  `;
+  return claimed.length > 0;
+}
+
+/** 排队失败时释放槽位，避免残留的 claim 让 QA 永远排不进来。 */
+async function releaseProductRndQaSlot(
+  parentTaskId: string,
+  organizationId: string
+): Promise<void> {
+  await prisma.$executeRaw`
+    UPDATE "AgentTask"
+       SET "contextSnapshot" = COALESCE("contextSnapshot", '{}'::jsonb) - 'qaClaim'
+     WHERE id = ${parentTaskId}
+       AND "organizationId" = ${organizationId}
+  `;
+}
+
 export async function queueProductRndQa(
   session: SessionContext,
   input: { parentTaskId: string }
@@ -467,6 +511,23 @@ export async function queueProductRndQa(
   });
   if (!qa) throw new ConflictError("qa_verifier is not bootstrapped");
 
+  // 并发护栏：existing 检查与真正创建之间存在窗口，用原子 CAS 抢占，
+  // 保证同一 parent 下永远只有一个 qa_verifier 被排队。
+  const claimed = await claimProductRndQaSlot(parent.id, session.organizationId);
+  if (!claimed) {
+    const raced = await prisma.agentTask.findFirst({
+      where: {
+        parentTaskId: parent.id,
+        organizationId: session.organizationId,
+        agent: { code: "qa_verifier" },
+      },
+    });
+    if (raced) return { created: false as const, task: raced };
+    throw new ConflictError(
+      "Product R&D QA slot is being claimed by a concurrent request"
+    );
+  }
+
   const resultSnapshot = specialists.map((task) => ({
     taskId: task.id,
     agentCode: task.agent.code,
@@ -476,42 +537,60 @@ export async function queueProductRndQa(
     errorReason: task.runs[0]?.errorReason ?? task.blockedReason ?? null,
   }));
 
-  const delegated = await delegateAgentTask(session, {
-    parentTaskId: parent.id,
-    toAgentId: qa.id,
-    goal:
-      "独立复核五路产品研发结果：检查 claim→evidence、来源独立性、UNKNOWN、冲突、法规/成本边界、版本一致性和是否满足提交管理报告的最低标准。",
-    reason:
-      "Final Product R&D report requires an independent QA role that did not produce the specialist conclusions.",
-    sourceRunId: parent.runs[0]?.id ?? null,
-  });
+  try {
+    const delegated = await delegateAgentTask(session, {
+      parentTaskId: parent.id,
+      toAgentId: qa.id,
+      goal:
+        "独立复核五路产品研发结果：检查 claim→evidence、来源独立性、UNKNOWN、冲突、法规/成本边界、版本一致性和是否满足提交管理报告的最低标准。",
+      reason:
+        "Final Product R&D report requires an independent QA role that did not produce the specialist conclusions.",
+      sourceRunId: parent.runs[0]?.id ?? null,
+    });
 
-  await prisma.agentTask.update({
-    where: { id: delegated.childTask.id },
-    data: {
-      contextSnapshot: json({
-        ...objectOrEmpty(delegated.childTask.contextSnapshot),
-        specialistResults: resultSnapshot,
-        qaContract: {
-          mustCheck: [
-            "claim-evidence support",
-            "unknowns and contradictions",
-            "source provenance",
-            "regulatory scope",
-            "cost basis",
-            "project revision",
-          ],
-          maySelfVerify: false,
-        },
-      }),
-    },
-  });
+    await prisma.agentTask.update({
+      where: { id: delegated.childTask.id },
+      data: {
+        contextSnapshot: json({
+          ...objectOrEmpty(delegated.childTask.contextSnapshot),
+          specialistResults: resultSnapshot,
+          qaContract: {
+            mustCheck: [
+              "claim-evidence support",
+              "unknowns and contradictions",
+              "source provenance",
+              "regulatory scope",
+              "cost basis",
+              "project revision",
+            ],
+            maySelfVerify: false,
+          },
+        }),
+      },
+    });
 
-  return {
-    created: true as const,
-    delegation: delegated.delegation,
-    task: delegated.childTask,
-  };
+    // 槽位落定：把占位符换成真实 QA 任务 id。
+    await prisma.$executeRaw`
+      UPDATE "AgentTask"
+         SET "contextSnapshot" = jsonb_set(
+               COALESCE("contextSnapshot", '{}'::jsonb),
+               '{qaClaim}',
+               to_jsonb(${delegated.childTask.id}::text),
+               true
+             )
+       WHERE id = ${parent.id}
+         AND "organizationId" = ${session.organizationId}
+    `;
+
+    return {
+      created: true as const,
+      delegation: delegated.delegation,
+      task: delegated.childTask,
+    };
+  } catch (error) {
+    await releaseProductRndQaSlot(parent.id, session.organizationId);
+    throw error;
+  }
 }
 
 export async function getProductRndProgramStatus(

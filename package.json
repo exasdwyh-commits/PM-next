@@ -60,7 +60,8 @@
     "test:gate-boundaries": "node --import tsx --test tests/regression-gate-boundaries.test.ts",
     "test:fusion-core": "node --import tsx --test tests/fusion-core.test.ts",
     "test:product-rnd-fusion": "tsx scripts/run-test.ts tests/product-rnd-fusion.ts",
-    "test:unknown-injection": "tsx scripts/run-test.ts tests/local-acceptance-unknown-injection.ts"
+    "test:unknown-injection": "tsx scripts/run-test.ts tests/local-acceptance-unknown-injection.ts",
+    "test:qa-dedup": "tsx scripts/run-test.ts tests/product-rnd-qa-dedup.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
