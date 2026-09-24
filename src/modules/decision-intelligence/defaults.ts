@@ -197,9 +197,9 @@ export function createDefaultDecisionSpecs(): DecisionSpecRegistry {
     riskClass: "LOW",
     allowedEngines: ["MODEL"],
     minScore: 0,
-    maxScore: 100,
+    maxScore: 9,
     automation: { autoPolicy: "DISABLED", escalationTarget: "AGENT" },
-    description: "System-1 ranking signal for proactive work candidates.",
+    description: "System-1 0-9 ranking signal for proactive work candidates; 10 levels match Laya typed score limits.",
   });
 
   return registry;
