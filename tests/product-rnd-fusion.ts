@@ -84,6 +84,35 @@ async function main() {
     assert.equal(program.parentTask.status, AgentTaskStatus.RUNNING);
     assert.equal(program.parentRun.status, "RUNNING");
 
+    const retried = await startProductRndProgram(session, {
+      projectId: project.id,
+      brief:
+        "同一次请求重试：开发一个面向25-45岁女性的餐前轻体饮，评估市场、配方、成本和法规。",
+    });
+    assert.equal(retried.reused, true);
+    assert.equal(retried.workItem.id, program.workItem.id);
+    assert.equal(
+      await prisma.workItem.count({
+        where: {
+          projectId: project.id,
+          title: "产品研发综合评估",
+          executorType: "DIGITAL_WORKER",
+          status: { in: ["TODO", "RUNNING", "SUBMITTED", "CHANGES_REQUESTED"] },
+        },
+      }),
+      1
+    );
+    assert.equal(
+      await prisma.agentTask.count({
+        where: {
+          workItemId: program.workItem.id,
+          parentTaskId: null,
+          agent: { code: "hermes_pm" },
+        },
+      }),
+      1
+    );
+
     console.log("▶ PRD-F2 specialists finish with durable AgentRun summaries");
     for (const item of program.specialistTasks) {
       const started = await startAgentTask(session, item.task.id);
