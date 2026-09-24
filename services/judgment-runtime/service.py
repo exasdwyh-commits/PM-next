@@ -144,8 +144,17 @@ class Handler(BaseHTTPRequestHandler):
             runtime = _health()
             runtime["inputFingerprint"] = _fingerprint(payload)
             result["runtime"] = runtime
-            if "model" not in result and payload.get("model"):
-                result["model"] = payload.get("model")
+            if "model" not in result:
+                routing = result.get("routing")
+                routed_model = (
+                    routing.get("model")
+                    if isinstance(routing, dict)
+                    else None
+                )
+                if routed_model:
+                    result["model"] = routed_model
+                elif payload.get("model"):
+                    result["model"] = payload.get("model")
             self._json(200, result)
         except (KeyError, ValueError, TypeError) as exc:
             self._json(
