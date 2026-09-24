@@ -167,39 +167,68 @@ async function describeExistingProductRndProgram(
     },
   });
 
-  const context = objectOrEmpty(parentTask?.contextSnapshot);
+  if (!parentTask) {
+    throw new ConflictError(
+      "Product R&D bootstrap is still in progress; retry the same START request."
+    );
+  }
+  const parentRun = parentTask.runs[0];
+  if (!parentRun) {
+    throw new ConflictError(
+      "Product R&D parent run is not ready yet; retry the same START request."
+    );
+  }
+
+  const context = objectOrEmpty(parentTask.contextSnapshot ?? null);
   const researchRunId =
     typeof context.researchRunId === "string" ? context.researchRunId : null;
-  const researchRun = researchRunId
-    ? await prisma.researchRun.findUnique({ where: { id: researchRunId } })
-    : null;
+  if (!researchRunId) {
+    throw new ConflictError(
+      "Product R&D research bootstrap is not ready yet; retry the same START request."
+    );
+  }
+  const researchRun = await prisma.researchRun.findUnique({
+    where: { id: researchRunId },
+  });
+  if (!researchRun) {
+    throw new ConflictError(
+      "Product R&D ResearchRun is not ready yet; retry the same START request."
+    );
+  }
+
+  const specialistTasks = parentTask.childTasks
+    .filter((task) =>
+      PRODUCT_RND_SPECIALISTS.some(
+        (specialist) => specialist.code === task.agent.code
+      )
+    )
+    .map((task) => ({
+      code: task.agent.code,
+      label:
+        PRODUCT_RND_SPECIALISTS.find(
+          (specialist) => specialist.code === task.agent.code
+        )?.label ?? task.agent.name,
+      delegationId: null,
+      task,
+    }));
+
+  if (specialistTasks.length !== PRODUCT_RND_SPECIALISTS.length) {
+    throw new ConflictError(
+      "Product R&D specialist bootstrap is still in progress; retry the same START request."
+    );
+  }
 
   return {
     schemaVersion: "product-rnd-program/v1" as const,
     projectId: workItem.projectId,
     workItem,
     parentTask,
-    parentRun: parentTask?.runs[0] ?? null,
-    specialistTasks:
-      parentTask?.childTasks
-        .filter((task) =>
-          PRODUCT_RND_SPECIALISTS.some(
-            (specialist) => specialist.code === task.agent.code
-          )
-        )
-        .map((task) => ({
-          code: task.agent.code,
-          label:
-            PRODUCT_RND_SPECIALISTS.find(
-              (specialist) => specialist.code === task.agent.code
-            )?.label ?? task.agent.name,
-          delegationId: null,
-          task,
-        })) ?? [],
+    parentRun,
+    specialistTasks,
     researchRun,
     researchCreated: false,
     reused: true as const,
-    bootstrapIncomplete: !parentTask || !researchRun,
+    bootstrapIncomplete: false as const,
   };
 }
 
