@@ -105,10 +105,16 @@ async function main() {
       include: { agent: true },
     });
     if (!qaTask) {
-      const recovered = await queueProductRndQa(session, {
+      await queueProductRndQa(session, {
         parentTaskId: program.parentTask.id,
       });
-      qaTask = recovered.task;
+      qaTask = await prisma.agentTask.findFirst({
+        where: {
+          parentTaskId: program.parentTask.id,
+          agent: { code: "qa_verifier" },
+        },
+        include: { agent: true },
+      });
     }
     assert.ok(qaTask);
     const qaStarted = await startAgentTask(session, qaTask.id);
