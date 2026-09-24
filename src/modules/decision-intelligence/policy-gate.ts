@@ -20,6 +20,10 @@ export function evaluateDecisionPolicy(
   spec: DecisionSpec,
   result: DecisionEngineResult
 ): DecisionPolicyResult {
+  if (result.abstained === true) {
+    return escalation(spec, "Decision provider abstained");
+  }
+
   // Global ceiling: high/critical decisions are never autonomous, even if a
   // misconfigured spec says otherwise.
   if (HIGH_RISK.has(spec.riskClass)) {
