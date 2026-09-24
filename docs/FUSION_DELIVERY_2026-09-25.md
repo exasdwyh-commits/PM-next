@@ -210,12 +210,12 @@ Laya 是快速反射/判断层，不是主 Assistant。
 ```env
 LAYA_BASE_URL="http://127.0.0.1:8000"
 LAYA_API_KEY=""
-LAYA_MODEL="typed-decisions"
+LAYA_MODEL=""
 LAYA_TIMEOUT_MS=1500
 LAYA_ALLOW_REMOTE=false
 ```
 
-当前用于 Shadow typed decisions，包括：
+本仓库已包含 `services/judgment-runtime/` 本地 Laya 服务。默认监听 `127.0.0.1:8000`；`LAYA_MODEL` 留空时由 Router 使用其默认 checkpoint，中文可在服务侧配置 `LAYA_DEFAULT_MODEL=multilingual`。\n\n当前用于 Shadow typed decisions，包括：
 
 - assistant.intent
 - assistant.complexity
