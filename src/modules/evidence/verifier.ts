@@ -10,6 +10,7 @@ export interface VerifierClaim {
 
 export interface VerifierSource {
   evidenceId: string;
+  sourceCaptureId?: string | null;
   sourceUri: string;
   httpStatus: number;
   rawContentPreview: string | null;
@@ -18,6 +19,7 @@ export interface VerifierSource {
 
 export interface SourceAssessment {
   evidenceId: string;
+  sourceCaptureId: string | null;
   sourceUri: string;
   sourceOrganization: string | null;
   trustTier: string;
@@ -59,6 +61,7 @@ export class IndependentEvidenceVerifier {
       const supportSpan = exactSupportSpan(claim.claim, source.rawContentPreview ?? "");
       assessments.push({
         evidenceId: source.evidenceId,
+        sourceCaptureId: source.sourceCaptureId ?? null,
         sourceUri: source.sourceUri,
         sourceOrganization: classification.organizationId,
         trustTier: classification.trustTier,
