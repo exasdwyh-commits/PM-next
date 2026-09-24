@@ -23,6 +23,10 @@ export interface LayaDecisionResult {
   calibrated: boolean;
   calibrationProfile: string | null;
   benchmarkProfile: string | null;
+  providerKey: string;
+  providerVersion: string | null;
+  abstained: boolean;
+  inputFingerprint: string | null;
 }
 
 interface LayaHttpConfig {
@@ -122,7 +126,8 @@ function parseAnswer(
   request: LayaDecisionRequest,
   raw: unknown,
   latencyMs: number,
-  model: unknown
+  model: unknown,
+  runtime: unknown
 ): LayaDecisionResult {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     throw new Error(`Laya response missing answer for ${request.decisionKey}`);
@@ -153,6 +158,25 @@ function parseAnswer(
     confidence = null;
   }
 
+  const runtimeRow =
+    runtime && typeof runtime === "object" && !Array.isArray(runtime)
+      ? (runtime as Record<string, unknown>)
+      : {};
+  const runtimeProvider =
+    typeof runtimeRow.provider === "string" && runtimeRow.provider.trim()
+      ? runtimeRow.provider.trim()
+      : "laya";
+  const runtimeVersion =
+    typeof runtimeRow.providerVersion === "string" && runtimeRow.providerVersion.trim()
+      ? runtimeRow.providerVersion.trim()
+      : null;
+  const modelName = typeof model === "string" && model.trim() ? model.trim() : null;
+  const providerVersion = runtimeVersion
+    ? `${runtimeProvider}@${runtimeVersion}${modelName ? `/${modelName}` : ""}`
+    : modelName
+      ? `${runtimeProvider}/${modelName}`
+      : null;
+
   return {
     value,
     confidence,
@@ -166,6 +190,13 @@ function parseAnswer(
     calibrated: false,
     calibrationProfile: null,
     benchmarkProfile: null,
+    providerKey: "laya-system1",
+    providerVersion,
+    abstained: false,
+    inputFingerprint:
+      typeof runtimeRow.inputFingerprint === "string"
+        ? runtimeRow.inputFingerprint
+        : null,
   };
 }
 
@@ -224,7 +255,13 @@ export class LayaHttpDecisionClient implements LayaDecisionClient {
       for (const request of requests) {
         out.set(
           request.decisionKey,
-          parseAnswer(request, answers[request.decisionKey], elapsed, payload.model)
+          parseAnswer(
+            request,
+            answers[request.decisionKey],
+            elapsed,
+            payload.model,
+            payload.runtime
+          )
         );
       }
       return out;
