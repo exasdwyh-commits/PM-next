@@ -71,7 +71,7 @@ export function resolveLayaHttpConfig(): LayaHttpConfig | null {
     baseUrl: raw.replace(/\/+$/, ""),
     apiKey: process.env.LAYA_API_KEY?.trim() || null,
     timeoutMs: parsePositiveInt(process.env.LAYA_TIMEOUT_MS, 1500),
-    model: process.env.LAYA_MODEL?.trim() || "typed-decisions",
+    model: process.env.LAYA_MODEL?.trim() || null,
   };
 }
 
