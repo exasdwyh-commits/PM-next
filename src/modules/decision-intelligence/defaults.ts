@@ -128,6 +128,75 @@ export function createDefaultDecisionSpecs(): DecisionSpecRegistry {
     description: "Assign a deterministic queue priority score.",
   });
 
+  // Department Assistant reflex decisions. These are deliberately shadow-only:
+  // Laya may recommend, but PolicyGate will not AUTO until benchmark/calibration
+  // and an explicit policy change are approved.
+  registry.register({
+    key: "assistant.intent",
+    version: "v1",
+    outputType: "CHOICE",
+    riskClass: "LOW",
+    allowedEngines: ["MODEL"],
+    allowedChoices: ["CHAT", "PROJECT", "RESEARCH", "ACTION"],
+    automation: { autoPolicy: "DISABLED", escalationTarget: "AGENT" },
+    description: "System-1 intent classification for the Department Assistant.",
+  });
+
+  registry.register({
+    key: "assistant.complexity",
+    version: "v1",
+    outputType: "CHOICE",
+    riskClass: "LOW",
+    allowedEngines: ["MODEL"],
+    allowedChoices: ["SIMPLE", "MEDIUM", "HARD"],
+    automation: { autoPolicy: "DISABLED", escalationTarget: "AGENT" },
+    description: "System-1 complexity estimate; advisory only.",
+  });
+
+  registry.register({
+    key: "assistant.requires_research",
+    version: "v1",
+    outputType: "BOOLEAN",
+    riskClass: "LOW",
+    allowedEngines: ["MODEL"],
+    automation: { autoPolicy: "DISABLED", escalationTarget: "AGENT" },
+    description: "System-1 hint for whether fresh external research is required.",
+  });
+
+  registry.register({
+    key: "assistant.expert_class",
+    version: "v1",
+    outputType: "CHOICE",
+    riskClass: "LOW",
+    allowedEngines: ["MODEL"],
+    allowedChoices: [
+      "NONE",
+      "PRODUCT",
+      "MARKET",
+      "SCIENCE",
+      "FORMULATION",
+      "COMPLIANCE",
+      "COST",
+      "SUPPLY",
+      "CODE",
+      "QA",
+    ],
+    automation: { autoPolicy: "DISABLED", escalationTarget: "AGENT" },
+    description: "System-1 expert class recommendation; does not itself delegate.",
+  });
+
+  registry.register({
+    key: "assistant.proactive_value",
+    version: "v1",
+    outputType: "SCORE",
+    riskClass: "LOW",
+    allowedEngines: ["MODEL"],
+    minScore: 0,
+    maxScore: 100,
+    automation: { autoPolicy: "DISABLED", escalationTarget: "AGENT" },
+    description: "System-1 ranking signal for proactive work candidates.",
+  });
+
   return registry;
 }
 
