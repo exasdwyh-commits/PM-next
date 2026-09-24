@@ -6,6 +6,7 @@ import {
   Role,
   RunMode,
   WorkExecutorType,
+  WorkItemStatus,
 } from "@prisma/client";
 import prisma from "@/shared/db";
 import {
@@ -117,6 +118,91 @@ function objectOrEmpty(value: Prisma.JsonValue | null): Record<string, unknown> 
     : {};
 }
 
+const ACTIVE_PRODUCT_RND_WORK_STATUSES = [
+  WorkItemStatus.TODO,
+  WorkItemStatus.RUNNING,
+  WorkItemStatus.SUBMITTED,
+  WorkItemStatus.CHANGES_REQUESTED,
+];
+
+async function findActiveProductRndWorkItem(projectId: string) {
+  return prisma.workItem.findFirst({
+    where: {
+      projectId,
+      title: "产品研发综合评估",
+      executorType: WorkExecutorType.DIGITAL_WORKER,
+      status: { in: ACTIVE_PRODUCT_RND_WORK_STATUSES },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+async function describeExistingProductRndProgram(
+  session: SessionContext,
+  workItemId: string
+) {
+  const workItem = await prisma.workItem.findUnique({
+    where: { id: workItemId },
+  });
+  if (!workItem) throw new NotFoundError("Product R&D work item not found");
+
+  const parentTask = await prisma.agentTask.findFirst({
+    where: {
+      organizationId: session.organizationId,
+      workItemId,
+      parentTaskId: null,
+      agent: { code: "hermes_pm" },
+    },
+    include: {
+      agent: { select: { code: true, name: true } },
+      runs: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+      childTasks: {
+        include: {
+          agent: { select: { code: true, name: true } },
+        },
+      },
+    },
+  });
+
+  const context = objectOrEmpty(parentTask?.contextSnapshot);
+  const researchRunId =
+    typeof context.researchRunId === "string" ? context.researchRunId : null;
+  const researchRun = researchRunId
+    ? await prisma.researchRun.findUnique({ where: { id: researchRunId } })
+    : null;
+
+  return {
+    schemaVersion: "product-rnd-program/v1" as const,
+    projectId: workItem.projectId,
+    workItem,
+    parentTask,
+    parentRun: parentTask?.runs[0] ?? null,
+    specialistTasks:
+      parentTask?.childTasks
+        .filter((task) =>
+          PRODUCT_RND_SPECIALISTS.some(
+            (specialist) => specialist.code === task.agent.code
+          )
+        )
+        .map((task) => ({
+          code: task.agent.code,
+          label:
+            PRODUCT_RND_SPECIALISTS.find(
+              (specialist) => specialist.code === task.agent.code
+            )?.label ?? task.agent.name,
+          delegationId: null,
+          task,
+        })) ?? [],
+    researchRun,
+    researchCreated: false,
+    reused: true as const,
+    bootstrapIncomplete: !parentTask || !researchRun,
+  };
+}
+
 async function loadProductRndWorkforce(organizationId: string) {
   const requiredCodes = [
     "hermes_pm",
@@ -177,15 +263,34 @@ export async function startProductRndProgram(
     throw new NotFoundError("Project not found");
   }
 
+  const existing = await findActiveProductRndWorkItem(project.id);
+  if (existing) {
+    return describeExistingProductRndProgram(session, existing.id);
+  }
+
   const { byCode, squad } = await loadProductRndWorkforce(session.organizationId);
 
-  const workItem = await createWorkItem(session, project.id, {
+  let workItem;
+  try {
+    workItem = await createWorkItem(session, project.id, {
     title: "产品研发综合评估",
     target: brief.slice(0, 500),
     deliverableReq:
       "形成市场、科学、配方、法规、成本五路专业结论，经独立 QA 后提交 PRODUCT_RND_EXECUTIVE_REPORT；所有未知项必须显式保留。",
-    executorType: WorkExecutorType.DIGITAL_WORKER,
-  });
+      executorType: WorkExecutorType.DIGITAL_WORKER,
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      const raced = await findActiveProductRndWorkItem(project.id);
+      if (raced) {
+        return describeExistingProductRndProgram(session, raced.id);
+      }
+    }
+    throw error;
+  }
 
   const parent = await createAgentTask(session, {
     agentId: byCode.get("hermes_pm")!.id,
@@ -260,6 +365,8 @@ export async function startProductRndProgram(
     })),
     researchRun: research.run,
     researchCreated: research.created,
+    reused: false as const,
+    bootstrapIncomplete: false,
   };
 }
 
