@@ -26,17 +26,13 @@ class MemoryApprovalStore implements ApprovalGrantStore {
   rows = new Map<string, ApprovalGrantRecord>();
 
   async create(
-    input: Omit<ApprovalGrantRecord, "id" | "usedAt" | "usedByRunId">
+    input: Omit<ApprovalGrantRecord, "usedAt" | "usedByRunId">
   ): Promise<ApprovalGrantRecord> {
     const row: ApprovalGrantRecord = {
       ...input,
-      id: crypto.randomUUID(),
       usedAt: null,
       usedByRunId: null,
     };
-    // ApprovalService signs the caller-provided id, so preserve it when present.
-    const supplied = input as typeof input & { id?: string };
-    if (supplied.id) row.id = supplied.id;
     this.rows.set(row.id, row);
     return row;
   }
