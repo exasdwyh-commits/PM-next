@@ -258,7 +258,8 @@ test("fusion: Muse is a disabled local resident resource, not a hard-coded depen
   assert.ok(muse);
   assert.equal(muse.enabled, false);
   assert.equal(muse.locality, "LOCAL");
-  assert.equal(muse.provider, "UNCONFIGURED");
+  assert.equal(muse.provider, "muse-local");
+  assert.equal(muse.modelId, "muse-glimmer");
 
   const assistantPolicies = MODEL_POLICY_PRESETS.filter((policy) =>
     policy.taskClass.startsWith("ASSISTANT_")
