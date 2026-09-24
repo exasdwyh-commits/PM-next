@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/modules/identity/session";
-import { sendMessage } from "@/modules/advisor/service";
+import { sendDepartmentAssistantMessage } from "@/modules/assistant-runtime";
 import { handleApiError } from "@/shared/api-handler";
 
 /**
@@ -18,7 +18,7 @@ export async function POST(
     const session = await getServerSession(req);
     const { id: conversationId } = await params;
     const body = await req.json();
-    const result = await sendMessage(session, conversationId, body?.content);
+    const result = await sendDepartmentAssistantMessage(session, conversationId, body?.content);
     return NextResponse.json(
       {
         runId: result.runId,
