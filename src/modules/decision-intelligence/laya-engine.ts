@@ -33,7 +33,7 @@ export interface LayaDecisionClient {
     calibrationProfile?: string | null;
     benchmarkProfile?: string | null;
     providerKey?: string;
-    providerVersion?: string;
+    providerVersion?: string | null;
     abstained?: boolean;
     inputFingerprint?: string | null;
   }>;
