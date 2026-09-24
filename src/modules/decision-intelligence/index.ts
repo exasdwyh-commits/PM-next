@@ -7,3 +7,4 @@ export * from "./kernel";
 export * from "./defaults";
 export * from "./persistence";
 export * from "./laya-engine";
+export * from "./laya-http-client";
