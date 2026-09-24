@@ -87,6 +87,9 @@ async function main() {
     console.log("▶ PRD-F2 specialists finish with durable AgentRun summaries");
     for (const item of program.specialistTasks) {
       const started = await startAgentTask(session, item.task.id);
+      if (item.code === "research_agent") {
+        await runResearchRunTasks(program.researchRun.id);
+      }
       const finished = await finishAgentTask(session, item.task.id, {
         runId: started.run.id,
         outcome: "SUCCEEDED",
@@ -117,17 +120,8 @@ async function main() {
       });
     }
     assert.ok(qaTask);
-    const qaStarted = await startAgentTask(session, qaTask.id);
-    const qaFinished = await finishAgentTask(session, qaTask.id, {
-      runId: qaStarted.run.id,
-      outcome: "SUCCEEDED",
-      resultSummary:
-        "QA完成：未发现执行 Agent 自证；未闭合项继续保留 UNKNOWN，报告可提交负责人审查。",
-    });
-    assert.equal(qaFinished.task.status, AgentTaskStatus.SUCCEEDED);
 
-    console.log("▶ PRD-F4 run existing ResearchRun and attach independent claim verification");
-    await runResearchRunTasks(program.researchRun.id);
+    console.log("▶ PRD-F4 attach durable independent claim verification before QA");
 
     const evidence = await prisma.evidence.create({
       data: {
@@ -197,6 +191,15 @@ async function main() {
       importance: "HIGH",
       suggestedExpertClass: "COMPLIANCE",
     });
+
+    const qaStarted = await startAgentTask(session, qaTask.id);
+    const qaFinished = await finishAgentTask(session, qaTask.id, {
+      runId: qaStarted.run.id,
+      outcome: "SUCCEEDED",
+      resultSummary:
+        "QA完成：已核对证据、UNKNOWN、专业边界和来源独立性；报告可提交负责人审查。",
+    });
+    assert.equal(qaFinished.task.status, AgentTaskStatus.SUCCEEDED);
 
     console.log("▶ PRD-F5 QA completion auto-synthesizes governed executive Artifact");
     let autoArtifact = await prisma.artifact.findFirst({
@@ -277,6 +280,9 @@ async function main() {
 
     console.log("\n✅ Product R&D fusion vertical slice passed");
   } finally {
+    await prisma.workSubmission.deleteMany({
+      where: { workItem: { project: { organizationId: org.id } } },
+    }).catch(() => {});
     await prisma.organization.delete({ where: { id: org.id } }).catch(() => {});
   }
 }
