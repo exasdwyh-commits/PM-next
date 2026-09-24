@@ -21,11 +21,17 @@ test("official model-control presets are internally consistent", () => {
   }
 });
 
-test("official presets fail closed until provider/model ids are explicitly configured", () => {
+test("official presets fail closed until explicitly enabled", () => {
   for (const profile of MODEL_PROFILE_PRESETS) {
     assert.equal(profile.enabled, false);
-    assert.equal(profile.provider, "UNCONFIGURED");
-    assert.equal(profile.modelId, "UNCONFIGURED");
+    if (profile.key === "muse-glimmer-resident-slot") {
+      assert.equal(profile.provider, "muse-local");
+      assert.equal(profile.modelId, "muse-glimmer");
+      assert.equal(profile.locality, "LOCAL");
+    } else {
+      assert.equal(profile.provider, "UNCONFIGURED");
+      assert.equal(profile.modelId, "UNCONFIGURED");
+    }
   }
 });
 
