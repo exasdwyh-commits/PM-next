@@ -3,6 +3,7 @@ import prisma from "@/shared/db";
 import type { SessionContext } from "@/modules/identity/session";
 import { sendMessage as sendLegacyAdvisorMessage } from "@/modules/advisor/service";
 import { buildDepartmentAssistantContext } from "./context-builder";
+import { runDepartmentAssistantReflexShadow } from "./reflex";
 
 function asJsonObject(value: Prisma.JsonValue | null): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -23,12 +24,20 @@ export async function sendDepartmentAssistantMessage(
   options?: { runId?: string }
 ) {
   const context = await buildDepartmentAssistantContext(session, conversationId);
+  const reflexPromise = runDepartmentAssistantReflexShadow(session, {
+    text: content,
+    conversationId,
+    productId: context.productId,
+    linkedProjectIds: context.linkedProjectIds,
+    confirmedCompanyFactRefs: context.confirmedCompanyFactRefs,
+  });
   const result = await sendLegacyAdvisorMessage(
     session,
     conversationId,
     content,
     options
   );
+  const reflex = await reflexPromise;
 
   const run = await prisma.agentRun.findUnique({
     where: { id: result.runId },
@@ -44,7 +53,9 @@ export async function sendDepartmentAssistantMessage(
           collaborationMode: context.collaborationMode,
           linkedProjectIds: context.linkedProjectIds,
           confirmedCompanyFactRefs: context.confirmedCompanyFactRefs,
-          reflexMode: context.reflexMode,
+          reflexMode: reflex.mode,
+          reflexDecisions: reflex.decisions,
+          reflexError: reflex.error,
         } as Prisma.InputJsonValue,
       },
     });
@@ -53,5 +64,6 @@ export async function sendDepartmentAssistantMessage(
   return {
     ...result,
     assistantRuntime: context.runtimeVersion,
+    reflexMode: reflex.mode,
   };
 }
