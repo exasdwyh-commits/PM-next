@@ -3,10 +3,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/shared/db";
 import type { SessionContext } from "@/modules/identity/session";
 import { NotFoundError, ForbiddenError } from "@/shared/errors";
-import {
-  IndependentEvidenceVerifier,
-  type VerifierSource,
-} from "./verifier";
+import { IndependentEvidenceVerifier } from "./verifier";
 
 function json(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -16,7 +13,7 @@ export async function verifyEvidenceClaim(
   session: SessionContext,
   input: {
     evidenceClaimId: string;
-    sources: VerifierSource[];
+    sourceCaptureIds: string[];
   }
 ) {
   const claim = await prisma.evidenceClaim.findUnique({
@@ -24,7 +21,7 @@ export async function verifyEvidenceClaim(
     include: {
       evidence: {
         include: {
-          project: { select: { organizationId: true } },
+          project: { select: { organizationId: true, id: true } },
         },
       },
     },
@@ -34,24 +31,48 @@ export async function verifyEvidenceClaim(
     throw new NotFoundError("Evidence claim not found");
   }
 
-  const evidenceIds = [...new Set(input.sources.map((source) => source.evidenceId))];
-  if (evidenceIds.length) {
-    const rows = await prisma.evidence.findMany({
-      where: { id: { in: evidenceIds } },
-      select: { id: true, project: { select: { organizationId: true } } },
-    });
-    if (
-      rows.length !== evidenceIds.length ||
-      rows.some((row) => row.project.organizationId !== session.organizationId)
-    ) {
-      throw new ForbiddenError("Cross-organization evidence verification forbidden");
-    }
+  const captureIds = [...new Set(input.sourceCaptureIds.filter(Boolean))];
+  if (!captureIds.length) {
+    throw new ForbiddenError("Independent verification requires durable source captures");
+  }
+
+  const captures = await prisma.evidenceSourceCapture.findMany({
+    where: { id: { in: captureIds } },
+    include: {
+      evidence: {
+        include: {
+          project: { select: { id: true, organizationId: true } },
+        },
+      },
+    },
+  });
+
+  if (captures.length !== captureIds.length) {
+    throw new NotFoundError("One or more source captures were not found");
+  }
+  if (
+    captures.some(
+      (capture) =>
+        capture.evidence.project.organizationId !== session.organizationId ||
+        capture.evidence.project.id !== claim.evidence.project.id
+    )
+  ) {
+    throw new ForbiddenError(
+      "Cross-project or cross-organization source capture verification forbidden"
+    );
   }
 
   const verifier = new IndependentEvidenceVerifier("independent-verifier/v1");
   const result = verifier.verifyClaim(
     { claim: claim.value, claimKind: claim.kind },
-    input.sources
+    captures.map((capture) => ({
+      evidenceId: capture.evidenceId,
+      sourceCaptureId: capture.id,
+      sourceUri: capture.sourceUri,
+      httpStatus: capture.httpStatus,
+      rawContentPreview: capture.rawContentPreview,
+      quarantined: capture.injectionStatus === "QUARANTINED",
+    }))
   );
   const verifierRunId = `VERIFY-${crypto.randomUUID()}`;
 
@@ -60,6 +81,7 @@ export async function verifyEvidenceClaim(
       await tx.evidenceVerification.create({
         data: {
           evidenceClaimId: claim.id,
+          sourceCaptureId: assessment.sourceCaptureId,
           verifierIdentity: result.verifierIdentity,
           supportStatus: assessment.supportStatus,
           supportSpan: assessment.supportSpan,
@@ -86,6 +108,7 @@ export async function verifyEvidenceClaim(
       verifierRunId,
       claim: updated,
       verification: result,
+      sourceCaptureIds: captureIds,
     };
   });
 }
