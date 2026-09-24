@@ -32,6 +32,10 @@ export interface LayaDecisionClient {
     calibrated?: boolean;
     calibrationProfile?: string | null;
     benchmarkProfile?: string | null;
+    providerKey?: string;
+    providerVersion?: string;
+    abstained?: boolean;
+    inputFingerprint?: string | null;
   }>;
 }
 
@@ -101,6 +105,10 @@ export class LayaDecisionEngine implements DecisionEngine {
     return {
       engine: "MODEL",
       engineVersion: this.version,
+      providerKey: result.providerKey ?? "laya-system1",
+      providerVersion: result.providerVersion ?? this.version,
+      abstained: result.abstained === true,
+      inputFingerprint: result.inputFingerprint ?? null,
       value: result.value,
       confidence: normalizeConfidence(result.confidence),
       distribution: result.distribution ?? null,
