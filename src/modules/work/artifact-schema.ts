@@ -43,7 +43,7 @@ export const STRUCTURED_ENVELOPE_FIELDS = [
 /** 公共信封里可空的产品/项目关联（公司级成果允许为空；项目级成果由 scope 要求必填）。 */
 export const STRUCTURED_LINK_FIELDS = ["projectId", "productId", "productVersionId"] as const;
 
-export type StructuredFieldKind = "string" | "stringArray" | "number" | "currency" | "isoDate" | "enum";
+export type StructuredFieldKind = "string" | "stringArray" | "number" | "currency" | "isoDate" | "enum" | "json";
 
 export interface StructuredBusinessField {
   name: string;
@@ -105,6 +105,27 @@ export const STRUCTURED_ARTIFACT_REGISTRY = {
       { name: "unknowns", kind: "stringArray" },
       { name: "recommendedActions", kind: "stringArray" },
       { name: "limitations", kind: "stringArray" },
+    ],
+  },
+  PRODUCT_RND_EXECUTIVE_REPORT: {
+    scope: "project",
+    businessFields: [
+      { name: "summary", kind: "string" },
+      { name: "conclusions", kind: "json" },
+      { name: "risks", kind: "stringArray" },
+      { name: "unknowns", kind: "stringArray" },
+      { name: "decisionsRequired", kind: "stringArray" },
+      { name: "recommendedActions", kind: "stringArray" },
+      { name: "knowledgeDebtRefs", kind: "stringArray" },
+      { name: "advisoryNotes", kind: "json" },
+      { name: "agentRunRefs", kind: "stringArray" },
+      { name: "modelRunRefs", kind: "stringArray" },
+      { name: "researchSnapshotRef", kind: "string", nullable: true },
+      {
+        name: "verificationStatus",
+        kind: "enum",
+        enumValues: ["READY_FOR_HUMAN_REVIEW", "PARTIAL", "BLOCKED_BY_QA"],
+      },
     ],
   },
   PROFESSIONAL_CONFIRMATION: {
