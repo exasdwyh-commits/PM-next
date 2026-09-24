@@ -5,18 +5,16 @@
 
 ## 1. 当前结论
 
-运行时代码基线 `f0507464` 已完成本轮线上开发，并在 main 上通过全部 8 条核心 CI。
+`f0507464` 是通过全部 8 条核心 CI 的历史基线。2026-09-23 本机工作区（HEAD `1bea212` 加未提交上市页修复）已通过本机 8-workflow 对照矩阵、额外 HTTP / 权限 / Playwright 回归及真实 Provider 最小 smoke。
 
-线上不再增加大功能。后续顺序固定为：
+线上不再增加大功能。当前剩余顺序：
 
-1. 本地同步 main；
-2. 真实 PostgreSQL 迁移；
-3. 静态门禁；
-4. 核心回归；
-5. 真实 provider smoke test；
-6. 浏览器人工验收；
-7. 只修 P0 / P1；
-8. 无阻断后进入 release candidate。
+1. 整理并提交当前 P1 UI 修复；
+2. GitHub Actions runner 恢复后，针对最终候选提交重跑 8 条核心 CI；
+3. 经 Model Gateway policy 路由执行并检查持久化 ModelRun provenance；
+4. 人工验收真实 G1 → G2 → 生产开工 → 交付 → G3 流程，并检查桌面/平板；
+5. 只修 P0 / P1；
+6. 无阻断后冻结正式 `v0.1.0`。
 
 ## 2. 已完成并冻结
 
@@ -74,7 +72,7 @@
 
 ## 3. CI 基线
 
-`f0507464`：
+`f0507464` 历史 CI 基线：
 
 - Quality CI：PASS
 - Governance CI：PASS
@@ -132,7 +130,7 @@ Primary → Independent Challenger → Synthesis → Governance/Human。
 
 ## 6. 完成定义
 
-当前版本最终完成需要：
+当前 RC 分支当前提交 `1bea212` 最终完成需要：
 
 - GitHub 8 条核心 CI 绿色；
 - 本地 npm ci / Prisma / typecheck / lint / build 全绿；

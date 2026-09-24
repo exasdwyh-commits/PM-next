@@ -142,6 +142,12 @@ export async function createWorkItem(
   );
 }
 
+function producerTypeForRunMode(runMode: RunMode): ProducerType {
+  if (runMode === RunMode.TEST_STUB) return ProducerType.TEST_STUB;
+  if (runMode === RunMode.AUTOMATED || runMode === RunMode.LLM) return ProducerType.AI;
+  return ProducerType.MANUAL;
+}
+
 export interface SubmitWorkParams {
   inputRevision: number;
   runMode: RunMode;
@@ -248,7 +254,7 @@ export async function submitWork(
               workItemId: workItem.id,
               submissionId: null, // 迟到提交不归属任何提交批次（A09）
               inputRevision: params.inputRevision,
-              producerType: params.runMode === RunMode.TEST_STUB ? ProducerType.TEST_STUB : ProducerType.MANUAL,
+              producerType: producerTypeForRunMode(params.runMode),
               evidenceRefs: art.evidenceRefs,
               reviewStatus: "REJECTED", // A09：迟到成果保留历史但视为未通过当前审核
               ...prepared,
@@ -267,7 +273,7 @@ export async function submitWork(
               type: art.type,
               title: `[历史输入产物 r${params.inputRevision}] ${art.title}`,
               content: art.content,
-              producerType: params.runMode === RunMode.TEST_STUB ? ProducerType.TEST_STUB : ProducerType.MANUAL,
+              producerType: producerTypeForRunMode(params.runMode),
               inputRevision: params.inputRevision,
               evidenceRefs: art.evidenceRefs,
               reviewStatus: "REJECTED",
@@ -329,7 +335,7 @@ export async function submitWork(
             workItemId: workItem.id,
             submissionId: submission.id, // R09: attached to submission batch
             inputRevision: params.inputRevision,
-            producerType: params.runMode === RunMode.TEST_STUB ? ProducerType.TEST_STUB : ProducerType.MANUAL,
+            producerType: producerTypeForRunMode(params.runMode),
             evidenceRefs: art.evidenceRefs,
             ...prepared,
           });
@@ -347,7 +353,7 @@ export async function submitWork(
             type: art.type,
             title: art.title,
             content: art.content,
-            producerType: params.runMode === RunMode.TEST_STUB ? ProducerType.TEST_STUB : ProducerType.MANUAL,
+            producerType: producerTypeForRunMode(params.runMode),
             inputRevision: params.inputRevision,
             evidenceRefs: art.evidenceRefs,
           },

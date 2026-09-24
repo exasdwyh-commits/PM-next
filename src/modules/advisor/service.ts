@@ -556,7 +556,7 @@ function advisorModelRouteForIntent(intent: Intent): {
   if (intent === "PROPOSE_FIELD_CHANGE" || intent === "PROPOSE_CREATE_WORK_ITEM") {
     return { agentCode: "hermes_pm", taskClass: "QUICK_CLASSIFY" };
   }
-  return { agentCode: "hermes_pm", taskClass: "SUMMARIZATION" };
+  return { agentCode: "hermes_pm", taskClass: "ASSISTANT_DIALOGUE" };
 }
 
 export async function sendMessage(

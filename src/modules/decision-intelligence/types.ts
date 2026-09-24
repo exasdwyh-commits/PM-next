@@ -46,14 +46,13 @@ export type DecisionValue = boolean | string | number;
 export interface DecisionEngineResult {
   engine: DecisionEngineKind;
   engineVersion: string;
-
-  /**
-   * VNext provider provenance. Optional for legacy DecisionEngine callers.
-   * The kernel fills these fields for provider-based executions.
-   */
+  /** Concrete runtime/provider provenance. Optional for deterministic rules. */
   providerKey?: string;
   providerVersion?: string;
-
+  /** A provider may explicitly abstain; an abstention can never authorize AUTO. */
+  abstained?: boolean;
+  /** Optional provider/runtime fingerprint; persistence computes its own inputHash. */
+  inputFingerprint?: string | null;
   value: DecisionValue;
   confidence: number | null;
   distribution?: Record<string, number> | null;
@@ -62,17 +61,6 @@ export interface DecisionEngineResult {
   calibrated: boolean;
   calibrationProfile: string | null;
   benchmarkProfile: string | null;
-
-  /**
-   * Abstention is a first-class result. An abstained decision can never AUTO.
-   */
-  abstained?: boolean;
-
-  /**
-   * Optional fingerprint supplied by a provider/runtime. Persistence still
-   * computes its own authoritative input hash.
-   */
-  inputFingerprint?: string | null;
 }
 
 export interface DecisionPolicyResult {
@@ -85,8 +73,6 @@ export interface DecisionExecutionResult {
   engineResult: DecisionEngineResult;
   policy: DecisionPolicyResult;
 }
-
-export type JudgmentExecutionResult = DecisionExecutionResult;
 
 export interface DecisionEngine {
   readonly kind: DecisionEngineKind;

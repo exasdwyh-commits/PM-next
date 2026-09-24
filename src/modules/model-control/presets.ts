@@ -52,6 +52,9 @@ export const MODEL_TASK_CLASSES: ModelTaskClass[] = [
   "RED_TEAM",
   "DECISION_REVIEW",
   "CODING",
+  "ASSISTANT_DIALOGUE",
+  "ASSISTANT_PLANNING",
+  "ASSISTANT_SYNTHESIS",
 ];
 
 export const MODEL_CAPABILITIES: ModelCapability[] = [
@@ -70,6 +73,21 @@ export const MODEL_CAPABILITIES: ModelCapability[] = [
  * Operators fill provider/modelId and enable the slot explicitly.
  */
 export const MODEL_PROFILE_PRESETS: ModelProfilePreset[] = [
+  {
+    key: "muse-glimmer-resident-slot",
+    displayName: "Department Assistant 本地常驻位（Muse Glimmer）",
+    description: "常驻对话、规划与总结模型位。推荐配置 Muse Glimmer 或等价本地 agentic 模型；模型身份可替换，产品身份始终是 Department Assistant。",
+    provider: "muse-local",
+    modelId: "muse-glimmer",
+    capabilities: ["TEXT", "TOOLS", "STRUCTURED_OUTPUT", "REASONING", "LONG_CONTEXT"],
+    locality: "LOCAL",
+    qualityTier: "BALANCED",
+    latencyTier: "NORMAL",
+    costTier: "FIXED_LOCAL",
+    contextWindow: null,
+    dataPolicyNote: "默认本地优先；未显式配置时保持禁用，不因 Muse 不可用而改变治理语义。",
+    enabled: false,
+  },
   {
     key: "routine-low-cost-slot",
     displayName: "日常低成本执行位",
@@ -133,6 +151,39 @@ export const MODEL_PROFILE_PRESETS: ModelProfilePreset[] = [
 ];
 
 export const MODEL_POLICY_PRESETS: ModelPolicyPreset[] = [
+  {
+    key: "assistant-dialogue-resident",
+    name: "Department Assistant 日常对话",
+    description: "本地常驻对话策略；首版只使用显式配置的本地 resident 模型，不静默出云。",
+    version: "2026-09-24-v1",
+    taskClass: "ASSISTANT_DIALOGUE",
+    candidates: [{ profileKey: "muse-glimmer-resident-slot", priority: 10 }],
+    requiredCapabilities: ["TEXT"],
+    cloudAllowed: false,
+    maxContextRequirement: null,
+  },
+  {
+    key: "assistant-planning-resident",
+    name: "Department Assistant 规划",
+    description: "任务拆解、上下文理解和委派规划；本地优先且要求结构化输出与推理。",
+    version: "2026-09-24-v1",
+    taskClass: "ASSISTANT_PLANNING",
+    candidates: [{ profileKey: "muse-glimmer-resident-slot", priority: 10 }],
+    requiredCapabilities: ["TEXT", "STRUCTURED_OUTPUT", "REASONING"],
+    cloudAllowed: false,
+    maxContextRequirement: null,
+  },
+  {
+    key: "assistant-synthesis-resident",
+    name: "Department Assistant 汇总",
+    description: "把已验证结果组织成管理者可读输出；不允许模型改变证据等级或绕过业务治理。",
+    version: "2026-09-24-v1",
+    taskClass: "ASSISTANT_SYNTHESIS",
+    candidates: [{ profileKey: "muse-glimmer-resident-slot", priority: 10 }],
+    requiredCapabilities: ["TEXT", "REASONING"],
+    cloudAllowed: false,
+    maxContextRequirement: null,
+  },
   {
     key: "routine-quick-classify",
     name: "日常分类",
@@ -227,6 +278,9 @@ export const MODEL_POLICY_PRESETS: ModelPolicyPreset[] = [
 ];
 
 export const AGENT_MODEL_BINDING_PRESETS: AgentModelBindingPreset[] = [
+  { agentCode: "hermes_pm", taskClass: "ASSISTANT_DIALOGUE", policyKey: "assistant-dialogue-resident" },
+  { agentCode: "hermes_pm", taskClass: "ASSISTANT_PLANNING", policyKey: "assistant-planning-resident" },
+  { agentCode: "hermes_pm", taskClass: "ASSISTANT_SYNTHESIS", policyKey: "assistant-synthesis-resident" },
   // Hermes PM can choose a cheap routine policy for ordinary cockpit/advisor work
   // and reserve Frontier for explicit strategic consulting.
   { agentCode: "hermes_pm", taskClass: "QUICK_CLASSIFY", policyKey: "routine-quick-classify" },
@@ -235,6 +289,14 @@ export const AGENT_MODEL_BINDING_PRESETS: AgentModelBindingPreset[] = [
   { agentCode: "hermes_pm", taskClass: "STRATEGIC_CONSULTING", policyKey: "strategic-consulting" },
   { agentCode: "product_agent", taskClass: "PRODUCT_ANALYSIS", policyKey: "strategic-product-analysis" },
   { agentCode: "research_agent", taskClass: "QUICK_RESEARCH", policyKey: "routine-quick-research" },
+  { agentCode: "scientific_evidence_agent", taskClass: "QUICK_RESEARCH", policyKey: "routine-quick-research" },
+  { agentCode: "scientific_evidence_agent", taskClass: "DECISION_REVIEW", policyKey: "decision-review" },
+  { agentCode: "formulation_agent", taskClass: "PRODUCT_ANALYSIS", policyKey: "strategic-product-analysis" },
+  { agentCode: "compliance_agent", taskClass: "QUICK_RESEARCH", policyKey: "routine-quick-research" },
+  { agentCode: "compliance_agent", taskClass: "DECISION_REVIEW", policyKey: "decision-review" },
+  { agentCode: "cost_bom_agent", taskClass: "PRODUCT_ANALYSIS", policyKey: "strategic-product-analysis" },
+  { agentCode: "qa_verifier", taskClass: "DECISION_REVIEW", policyKey: "decision-review" },
+  { agentCode: "qa_verifier", taskClass: "RED_TEAM", policyKey: "red-team-review" },
   { agentCode: "marketing_agent", taskClass: "SUMMARIZATION", policyKey: "routine-summarization" },
   { agentCode: "ops_agent", taskClass: "QUICK_CLASSIFY", policyKey: "routine-quick-classify" },
   { agentCode: "red_team", taskClass: "RED_TEAM", policyKey: "red-team-review" },

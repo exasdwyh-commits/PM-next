@@ -87,14 +87,14 @@ async function main() {
     await bootstrapDefaultWorkforce(adminSession);
     await bootstrapDefaultAutopilots(adminSession);
 
-    assert.equal(await prisma.agent.count({ where: { organizationId: org.id } }), 6);
-    assert.equal(await prisma.skill.count({ where: { organizationId: org.id } }), 6);
+    assert.equal(await prisma.agent.count({ where: { organizationId: org.id } }), 11);
+    assert.equal(await prisma.skill.count({ where: { organizationId: org.id } }), 11);
     assert.equal(await prisma.squad.count({ where: { organizationId: org.id } }), 1);
     assert.equal(
       await prisma.squadMember.count({ where: { squadId: first.squad.id } }),
-      6
+      11
     );
-    console.log("  ✔ one stable Hermes squad, six agents, six skills");
+    console.log("  ✔ one stable product squad, eleven agents, eleven skills");
 
     const hermes = await prisma.agent.findUniqueOrThrow({
       where: {

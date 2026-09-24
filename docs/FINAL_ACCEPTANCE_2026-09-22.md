@@ -1,12 +1,13 @@
 # PM-next 最终验收基线
 
 日期：2026-09-23  
-结论：远程自动化验收 PASS；本地真实环境验收 PENDING  
-运行时代码基线：`f0507464`
+结论：本机自动化验收 PASS（当前工作区快照）；当前 RC HEAD 的 GitHub CI 证据 PENDING；人工真实业务链验收 PENDING
+- 当前 RC 分支提交：`1bea212b2305209be64772c0215c2f68f75aa1b7`
+- 最近有完整核心 CI 通过证据的基线：`f05074648d79861f1d57f4218a675ce8bd8b4cae`
 
 ## 1. 自动化验收
 
-`f0507464` 在 main 上：
+以下结果记录的是 `f0507464` 在 main 上的 CI，不自动覆盖当前 RC 分支 HEAD：
 
 | 验收面 | 结果 | 核心覆盖 |
 | --- | --- | --- |
@@ -141,4 +142,26 @@ CI 无法替代：
 - 无 P0；
 - P1 修复或明确接受。
 
-远程自动化部分已经 PASS。
+历史自动化基线已经 PASS。2026-09-23 本机复验结果见 §7。当前 RC HEAD 的 GitHub CI 证据与人工真实业务链验收仍待完成，不应将本版本标记为最终完成。
+
+## 7. 2026-09-23 本机复验
+
+验证对象：`HEAD 1bea212b2305209be64772c0215c2f68f75aa1b7` 加当前未提交的 `src/app/products/[id]/launch-tab.tsx` 旧授权撤销入口修复。以下结果证明的是该工作区快照，不是 GitHub Actions 对该提交的结果。
+
+| 检查 | 结果 | 说明 |
+| --- | --- | --- |
+| 本机 8-workflow 对照矩阵 | PASS | `scripts/local-ci-matrix.sh` 全部步骤通过，含 Prisma generate / migrate deploy、typecheck、lint、production build 与核心回归 |
+| 权限矩阵 | PASS | `test:authz`，62 条路由 / 82 个方法，747 项断言 |
+| 产品中心 / 科学证据 | PASS | 分别 51/51、30/30 |
+| 模型端到端 | PASS | mock Provider 37/37，覆盖成功、超时、500 回退和 token 留痕 |
+| HTTP / HTTP 错误 | PASS | 分别 52/52、34/34 |
+| Playwright UI | PASS | 基础 UI 13/13；交互反馈 73/73。交互反馈曾因上市页缺失旧授权撤销入口失败，补上仅适用于 LEGACY_APPROVAL 的入口后通过 |
+| 数据库迁移 | PASS | 本地 dev/test 库各 24 个迁移，状态均为 up to date；测试脚本的 migrate deploy 通过，无需补迁移 |
+| 真实 Provider | PASS（最小 smoke） | `agnes-2.5-flash` 单次最小请求成功，返回期望标记及 token 用量；未发送业务资料，未写入业务记录或 ModelRun |
+
+### 仍待验收
+
+- GitHub Actions 对当前 RC 精确提交的完整矩阵；
+- 通过应用的 Model Gateway policy 路由并检查持久化 ModelRun provenance（上述最小 smoke 直接验证了 Provider runtime）；
+- 人工走通真实产品的 G1 → G2 → 生产开工 → 交付 → G3 流程；
+- 桌面和平板关键页面人工检查。

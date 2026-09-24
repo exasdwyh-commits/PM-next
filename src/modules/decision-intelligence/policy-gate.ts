@@ -20,9 +20,8 @@ export function evaluateDecisionPolicy(
   spec: DecisionSpec,
   result: DecisionEngineResult
 ): DecisionPolicyResult {
-  // Abstention is a first-class safe result. It never grants automation.
-  if (result.abstained) {
-    return escalation(spec, "Judgment provider abstained");
+  if (result.abstained === true) {
+    return escalation(spec, "Decision provider abstained");
   }
 
   // Global ceiling: high/critical decisions are never autonomous, even if a

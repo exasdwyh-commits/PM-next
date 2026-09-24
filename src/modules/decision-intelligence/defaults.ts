@@ -1,24 +1,18 @@
 import { DecisionSpecRegistry } from "./registry";
-import {
-  RulesDecisionEngine,
-  type RuleDecisionHandler,
-} from "./rules-engine";
+import { RulesDecisionEngine } from "./rules-engine";
 
 export const WORKFORCE_AGENT_CHOICES = [
   "hermes_pm",
   "product_agent",
   "research_agent",
+  "scientific_evidence_agent",
+  "formulation_agent",
+  "compliance_agent",
+  "cost_bom_agent",
+  "qa_verifier",
   "marketing_agent",
   "ops_agent",
   "red_team",
-] as const;
-
-export const INTELLIGENCE_LEVEL_CHOICES = ["L0", "L1", "L2", "L3"] as const;
-export const COMPLETION_STATUS_CHOICES = [
-  "COMPLETE",
-  "VERIFY_MORE",
-  "INCOMPLETE",
-  "WAITING_HUMAN",
 ] as const;
 
 export function createDefaultDecisionSpecs(): DecisionSpecRegistry {
@@ -38,24 +32,6 @@ export function createDefaultDecisionSpecs(): DecisionSpecRegistry {
     description: "Route a low-risk work item to the best workforce Agent.",
   });
 
-  registry.register(
-    {
-      key: "workforce.route_agent",
-      version: "v2",
-      outputType: "CHOICE",
-      riskClass: "LOW",
-      allowedEngines: ["RULES", "MODEL"],
-      allowedChoices: [...WORKFORCE_AGENT_CHOICES],
-      automation: {
-        autoPolicy: "RULES_ONLY",
-        escalationTarget: "AGENT",
-      },
-      description:
-        "Provider-ready route contract. Provider judgment may advise, but only deterministic rules may auto-route until benchmark policy is explicitly enabled.",
-    },
-    { active: false }
-  );
-
   registry.register({
     key: "workforce.needs_human",
     version: "v1",
@@ -68,23 +44,6 @@ export function createDefaultDecisionSpecs(): DecisionSpecRegistry {
     },
     description: "Determine whether a workflow must stop for human judgment.",
   });
-
-  registry.register(
-    {
-      key: "workforce.needs_human",
-      version: "v2",
-      outputType: "BOOLEAN",
-      riskClass: "MEDIUM",
-      allowedEngines: ["RULES", "MODEL"],
-      automation: {
-        autoPolicy: "RULES_ONLY",
-        escalationTarget: "HUMAN",
-      },
-      description:
-        "Provider-ready human-escalation contract with the same fail-closed business boundaries as v1.",
-    },
-    { active: false }
-  );
 
   registry.register({
     key: "signal.should_wake_pm",
@@ -174,34 +133,73 @@ export function createDefaultDecisionSpecs(): DecisionSpecRegistry {
     description: "Assign a deterministic queue priority score.",
   });
 
+  // Department Assistant reflex decisions. These are deliberately shadow-only:
+  // Laya may recommend, but PolicyGate will not AUTO until benchmark/calibration
+  // and an explicit policy change are approved.
   registry.register({
-    key: "intelligence.route_level",
+    key: "assistant.intent",
     version: "v1",
     outputType: "CHOICE",
     riskClass: "LOW",
-    allowedEngines: ["RULES", "MODEL"],
-    allowedChoices: [...INTELLIGENCE_LEVEL_CHOICES],
-    automation: {
-      autoPolicy: "RULES_ONLY",
-      escalationTarget: "AGENT",
-    },
-    description:
-      "Choose the bounded L0-L3 intelligence tier. This routes compute; it does not approve a business mutation.",
+    allowedEngines: ["MODEL"],
+    allowedChoices: ["CHAT", "PROJECT", "RESEARCH", "ACTION"],
+    automation: { autoPolicy: "DISABLED", escalationTarget: "AGENT" },
+    description: "System-1 intent classification for the Department Assistant.",
   });
 
   registry.register({
-    key: "completion.status",
+    key: "assistant.complexity",
     version: "v1",
     outputType: "CHOICE",
-    riskClass: "MEDIUM",
-    allowedEngines: ["RULES", "MODEL"],
-    allowedChoices: [...COMPLETION_STATUS_CHOICES],
-    automation: {
-      autoPolicy: "RULES_ONLY",
-      escalationTarget: "HUMAN",
-    },
-    description:
-      "Triage whether an execution has enough evidence to be complete, needs more verification, is incomplete, or is waiting for a human. It does not merge code or approve a business gate.",
+    riskClass: "LOW",
+    allowedEngines: ["MODEL"],
+    allowedChoices: ["SIMPLE", "MEDIUM", "HARD"],
+    automation: { autoPolicy: "DISABLED", escalationTarget: "AGENT" },
+    description: "System-1 complexity estimate; advisory only.",
+  });
+
+  registry.register({
+    key: "assistant.requires_research",
+    version: "v1",
+    outputType: "BOOLEAN",
+    riskClass: "LOW",
+    allowedEngines: ["MODEL"],
+    automation: { autoPolicy: "DISABLED", escalationTarget: "AGENT" },
+    description: "System-1 hint for whether fresh external research is required.",
+  });
+
+  registry.register({
+    key: "assistant.expert_class",
+    version: "v1",
+    outputType: "CHOICE",
+    riskClass: "LOW",
+    allowedEngines: ["MODEL"],
+    allowedChoices: [
+      "NONE",
+      "PRODUCT",
+      "MARKET",
+      "SCIENCE",
+      "FORMULATION",
+      "COMPLIANCE",
+      "COST",
+      "SUPPLY",
+      "CODE",
+      "QA",
+    ],
+    automation: { autoPolicy: "DISABLED", escalationTarget: "AGENT" },
+    description: "System-1 expert class recommendation; does not itself delegate.",
+  });
+
+  registry.register({
+    key: "assistant.proactive_value",
+    version: "v1",
+    outputType: "SCORE",
+    riskClass: "LOW",
+    allowedEngines: ["MODEL"],
+    minScore: 0,
+    maxScore: 9,
+    automation: { autoPolicy: "DISABLED", escalationTarget: "AGENT" },
+    description: "System-1 0-9 ranking signal for proactive work candidates; 10 levels match Laya typed score limits.",
   });
 
   return registry;
@@ -223,66 +221,69 @@ function str(state: Record<string, unknown>, key: string): string {
     : "";
 }
 
-function finiteNumber(
-  state: Record<string, unknown>,
-  key: string
-): number | null {
-  return typeof state[key] === "number" && Number.isFinite(state[key])
-    ? Number(state[key])
-    : null;
-}
-
-const routeAgentRule: RuleDecisionHandler = (_spec, request) => {
-  const state = stateObject(request.state);
-  if (
-    bool(state, "requiresChallenge") ||
-    bool(state, "redTeam") ||
-    str(state, "taskClass") === "RED_TEAM"
-  ) {
-    return { value: "red_team", reasonCodes: ["RED_TEAM_REQUIRED"] };
-  }
-  if (bool(state, "needsResearch") || str(state, "taskClass") === "RESEARCH") {
-    return { value: "research_agent", reasonCodes: ["RESEARCH_WORK"] };
-  }
-  if (str(state, "taskClass") === "MARKETING") {
-    return { value: "marketing_agent", reasonCodes: ["MARKETING_WORK"] };
-  }
-  if (str(state, "taskClass") === "OPS") {
-    return { value: "ops_agent", reasonCodes: ["OPS_WORK"] };
-  }
-  if (str(state, "taskClass") === "PRODUCT") {
-    return { value: "product_agent", reasonCodes: ["PRODUCT_WORK"] };
-  }
-  return { value: "hermes_pm", reasonCodes: ["DEFAULT_PM_ROUTE"] };
-};
-
-const needsHumanRule: RuleDecisionHandler = (_spec, request) => {
-  const state = stateObject(request.state);
-  const reasonCodes: string[] = [];
-  for (const [flag, code] of [
-    ["businessMutation", "BUSINESS_MUTATION"],
-    ["budgetApproval", "BUDGET_APPROVAL"],
-    ["governanceGate", "GOVERNANCE_GATE"],
-    ["highRisk", "HIGH_RISK"],
-    ["externalCommitment", "EXTERNAL_COMMITMENT"],
-  ] as const) {
-    if (bool(state, flag)) reasonCodes.push(code);
-  }
-  return {
-    value: reasonCodes.length > 0,
-    reasonCodes:
-      reasonCodes.length > 0 ? reasonCodes : ["NO_HUMAN_GATE_TRIGGERED"],
-  };
-};
-
 export function createDefaultRulesDecisionEngine(): RulesDecisionEngine {
   const engine = new RulesDecisionEngine();
 
-  engine.register("workforce.route_agent", "v1", routeAgentRule);
-  engine.register("workforce.route_agent", "v2", routeAgentRule);
+  engine.register("workforce.route_agent", "v1", (_spec, request) => {
+    const state = stateObject(request.state);
+    if (
+      bool(state, "requiresChallenge") ||
+      bool(state, "redTeam") ||
+      str(state, "taskClass") === "RED_TEAM"
+    ) {
+      return { value: "red_team", reasonCodes: ["RED_TEAM_REQUIRED"] };
+    }
+    if (str(state, "taskClass") === "SCIENCE") {
+      return { value: "scientific_evidence_agent", reasonCodes: ["SCIENCE_WORK"] };
+    }
+    if (str(state, "taskClass") === "FORMULATION") {
+      return { value: "formulation_agent", reasonCodes: ["FORMULATION_WORK"] };
+    }
+    if (str(state, "taskClass") === "COMPLIANCE") {
+      return { value: "compliance_agent", reasonCodes: ["COMPLIANCE_WORK"] };
+    }
+    if (str(state, "taskClass") === "COST") {
+      return { value: "cost_bom_agent", reasonCodes: ["COST_WORK"] };
+    }
+    if (str(state, "taskClass") === "QA") {
+      return { value: "qa_verifier", reasonCodes: ["QA_WORK"] };
+    }
+    if (
+      bool(state, "needsResearch") ||
+      ["RESEARCH", "MARKET"].includes(str(state, "taskClass"))
+    ) {
+      return { value: "research_agent", reasonCodes: ["RESEARCH_WORK"] };
+    }
+    if (str(state, "taskClass") === "MARKETING") {
+      return { value: "marketing_agent", reasonCodes: ["MARKETING_WORK"] };
+    }
+    if (str(state, "taskClass") === "OPS") {
+      return { value: "ops_agent", reasonCodes: ["OPS_WORK"] };
+    }
+    if (str(state, "taskClass") === "PRODUCT") {
+      return { value: "product_agent", reasonCodes: ["PRODUCT_WORK"] };
+    }
+    return { value: "hermes_pm", reasonCodes: ["DEFAULT_PM_ROUTE"] };
+  });
 
-  engine.register("workforce.needs_human", "v1", needsHumanRule);
-  engine.register("workforce.needs_human", "v2", needsHumanRule);
+  engine.register("workforce.needs_human", "v1", (_spec, request) => {
+    const state = stateObject(request.state);
+    const reasonCodes: string[] = [];
+    for (const [flag, code] of [
+      ["businessMutation", "BUSINESS_MUTATION"],
+      ["budgetApproval", "BUDGET_APPROVAL"],
+      ["governanceGate", "GOVERNANCE_GATE"],
+      ["highRisk", "HIGH_RISK"],
+      ["externalCommitment", "EXTERNAL_COMMITMENT"],
+    ] as const) {
+      if (bool(state, flag)) reasonCodes.push(code);
+    }
+    return {
+      value: reasonCodes.length > 0,
+      reasonCodes:
+        reasonCodes.length > 0 ? reasonCodes : ["NO_HUMAN_GATE_TRIGGERED"],
+    };
+  });
 
   engine.register("signal.should_wake_pm", "v1", (_spec, request) => {
     const state = stateObject(request.state);
@@ -398,76 +399,6 @@ export function createDefaultRulesDecisionEngine(): RulesDecisionEngine {
     return {
       value: Math.max(0, Math.min(100, score)),
       reasonCodes: reasons,
-    };
-  });
-
-  engine.register("intelligence.route_level", "v1", (_spec, request) => {
-    const state = stateObject(request.state);
-    const requested = str(state, "requestedMode");
-
-    if (bool(state, "forceDeepCouncil") || requested === "L3") {
-      return { value: "L3", reasonCodes: ["DEEP_COUNCIL_EXPLICIT"] };
-    }
-    if (
-      bool(state, "coreProduct") ||
-      bool(state, "deepAnalysis") ||
-      requested === "L2"
-    ) {
-      return { value: "L2", reasonCodes: ["CORE_ANALYSIS_REQUIRED"] };
-    }
-    if (
-      bool(state, "complex") ||
-      bool(state, "previousFailure") ||
-      requested === "L1"
-    ) {
-      return { value: "L1", reasonCodes: ["STRONG_SINGLE_MODEL_REQUIRED"] };
-    }
-    return { value: "L0", reasonCodes: ["ROUTINE_EXECUTION"] };
-  });
-
-  engine.register("completion.status", "v1", (_spec, request) => {
-    const state = stateObject(request.state);
-    const blockingFindings = finiteNumber(state, "blockingFindings") ?? 0;
-
-    if (bool(state, "waitingHuman")) {
-      return { value: "WAITING_HUMAN", reasonCodes: ["WAITING_HUMAN"] };
-    }
-    if (
-      blockingFindings > 0 ||
-      state.requiredChecksPassed === false ||
-      state.acceptanceMet === false
-    ) {
-      return {
-        value: "INCOMPLETE",
-        reasonCodes: [
-          blockingFindings > 0 ? "BLOCKING_FINDINGS" : "NO_BLOCKING_FINDINGS",
-          state.requiredChecksPassed === false
-            ? "REQUIRED_CHECK_FAILED"
-            : "REQUIRED_CHECK_NOT_FAILED",
-          state.acceptanceMet === false
-            ? "ACCEPTANCE_NOT_MET"
-            : "ACCEPTANCE_NOT_REJECTED",
-        ],
-      };
-    }
-    if (bool(state, "verificationPending")) {
-      return {
-        value: "VERIFY_MORE",
-        reasonCodes: ["VERIFICATION_PENDING"],
-      };
-    }
-    if (
-      state.requiredChecksPassed === true &&
-      state.acceptanceMet === true
-    ) {
-      return {
-        value: "COMPLETE",
-        reasonCodes: ["REQUIRED_CHECKS_PASSED", "ACCEPTANCE_MET"],
-      };
-    }
-    return {
-      value: "VERIFY_MORE",
-      reasonCodes: ["COMPLETION_EVIDENCE_INSUFFICIENT"],
     };
   });
 

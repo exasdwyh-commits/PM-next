@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Minimal local HTTP runtime for Hermes System-1 judgment.
+"""Local Laya System-1 runtime for PM-next.
 
-The service intentionally exposes only health/version/evaluate. It does not
-perform business actions and should be bound to localhost/private networking.
+This process is intentionally isolated from Next.js/Python/Torch dependencies.
+It performs bounded typed judgments only. It never executes business actions.
 """
 
+import hashlib
 import json
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -13,7 +14,7 @@ from typing import Any
 import laya
 from laya import Router
 
-SERVICE_VERSION = "hermes-judgment-runtime/v1"
+SERVICE_VERSION = "pm-next-laya-runtime/v1"
 MAX_BODY_BYTES = int(os.environ.get("JUDGMENT_RUNTIME_MAX_BODY_BYTES", "1048576"))
 
 
@@ -58,12 +59,27 @@ def _health() -> dict[str, Any]:
     }
 
 
+def _fingerprint(payload: dict[str, Any]) -> str:
+    canonical = json.dumps(
+        {
+            "state": payload.get("state"),
+            "questions": payload.get("questions"),
+            "model": payload.get("model"),
+            "task": payload.get("task"),
+            "lang": payload.get("lang"),
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = SERVICE_VERSION
 
     def log_message(self, fmt: str, *args: Any) -> None:
-        # Avoid accidentally logging user state. Operators can put an access
-        # proxy in front if request metadata logging is required.
+        # Do not log request state/content.
         return
 
     def _json(self, status: int, payload: dict[str, Any]) -> None:
@@ -74,6 +90,12 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _authorized(self) -> bool:
+        expected = os.environ.get("LAYA_API_KEY", "").strip()
+        if not expected:
+            return True
+        return self.headers.get("authorization", "") == f"Bearer {expected}"
+
     def do_GET(self) -> None:
         if self.path in {"/health", "/version"}:
             self._json(200, _health())
@@ -81,8 +103,11 @@ class Handler(BaseHTTPRequestHandler):
         self._json(404, {"error": "NOT_FOUND"})
 
     def do_POST(self) -> None:
-        if self.path != "/evaluate":
+        if self.path not in {"/v1/systemone", "/evaluate"}:
             self._json(404, {"error": "NOT_FOUND"})
+            return
+        if not self._authorized():
+            self._json(401, {"error": "UNAUTHORIZED"})
             return
 
         try:
@@ -114,11 +139,24 @@ class Handler(BaseHTTPRequestHandler):
                 task=payload.get("task"),
                 lang=payload.get("lang"),
             )
-            # Per-run provenance travels with the answer so Hermes can freeze
-            # the exact Laya package + routed checkpoint used for comparison.
-            result["runtime"] = _health()
+            if not isinstance(result, dict):
+                raise TypeError("Laya Router returned a non-object result")
+            runtime = _health()
+            runtime["inputFingerprint"] = _fingerprint(payload)
+            result["runtime"] = runtime
+            if "model" not in result:
+                routing = result.get("routing")
+                routed_model = (
+                    routing.get("model")
+                    if isinstance(routing, dict)
+                    else None
+                )
+                if routed_model:
+                    result["model"] = routed_model
+                elif payload.get("model"):
+                    result["model"] = payload.get("model")
             self._json(200, result)
-        except (KeyError, ValueError) as exc:
+        except (KeyError, ValueError, TypeError) as exc:
             self._json(
                 422,
                 {"error": "LAYA_INPUT_REJECTED", "message": str(exc)[:500]},
@@ -135,11 +173,12 @@ class Handler(BaseHTTPRequestHandler):
 
 def main() -> None:
     host = os.environ.get("JUDGMENT_RUNTIME_HOST", "127.0.0.1")
-    port = int(os.environ.get("JUDGMENT_RUNTIME_PORT", "3310"))
+    port = int(os.environ.get("JUDGMENT_RUNTIME_PORT", "8000"))
     server = ThreadingHTTPServer((host, port), Handler)
     print(
         f"{SERVICE_VERSION} listening on http://{host}:{port}; "
         f"laya={getattr(laya, '__version__', 'unknown')}; "
+        f"default={os.environ.get('LAYA_DEFAULT_MODEL', 'english')}; "
         f"loaded={ROUTER.loaded}",
         flush=True,
     )

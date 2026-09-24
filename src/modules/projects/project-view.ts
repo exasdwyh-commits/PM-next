@@ -103,6 +103,7 @@ export const PROJECT_DETAIL_SELECT = {
       title: true,
       target: true,
       status: true,
+      executorType: true,
       deliverableReq: true,
       dependencies: true,
       artifacts: { select: ARTIFACT_PUBLIC_SELECT },

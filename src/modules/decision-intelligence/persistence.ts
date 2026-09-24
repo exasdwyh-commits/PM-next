@@ -125,9 +125,8 @@ export async function decideAndPersist(
           value: execution.engineResult.value,
           providerKey: execution.engineResult.providerKey ?? null,
           providerVersion: execution.engineResult.providerVersion ?? null,
-          abstained: execution.engineResult.abstained ?? false,
-          providerInputFingerprint:
-            execution.engineResult.inputFingerprint ?? null,
+          abstained: execution.engineResult.abstained === true,
+          inputFingerprint: execution.engineResult.inputFingerprint ?? null,
         }),
         confidence: execution.engineResult.confidence,
         distribution: execution.engineResult.distribution
@@ -162,7 +161,8 @@ export async function decideAndPersist(
         engineVersion: execution.engineResult.engineVersion,
         providerKey: execution.engineResult.providerKey ?? null,
         providerVersion: execution.engineResult.providerVersion ?? null,
-        abstained: execution.engineResult.abstained ?? false,
+        abstained: execution.engineResult.abstained === true,
+        inputFingerprint: execution.engineResult.inputFingerprint ?? null,
         policyAction: execution.policy.action,
         inputHash,
         contextRefs,

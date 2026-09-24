@@ -40,3 +40,7 @@ prisma/_backups/
 
 # 交付产物（PDF/PNG 汇总，体积大且可重生成，由 outputs/ 单独管理）
 /outputs/
+
+# PM OS Kernel local SQLite
+data/kernel/
+

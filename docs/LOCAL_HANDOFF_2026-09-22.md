@@ -1,15 +1,15 @@
 # PM-next 本地同步与最终修复手册
 
 日期：2026-09-23  
-目标：同步冻结后的 main，在本地只做真实环境验收和 P0/P1 修复。
+目标：同步 `release/v0.1.0-rc1`，在本地只做真实环境验收和 P0/P1 修复。
 
 ## 1. 同步
 
 ```bash
 git fetch --all --prune
-git switch main
+git switch release/v0.1.0-rc1
 git status
-git pull --ff-only origin main
+git pull --ff-only origin release/v0.1.0-rc1
 git rev-parse HEAD
 ```
 
@@ -173,4 +173,4 @@ npm run test:critical
 
 即可停止本轮修复。
 
-之后再决定是否打 `v0.1.0-rc1`，再开启 Issue #11 等下一版本工作。
+当前仓库已有 `v0.1.0-rc1` 标签。完成本地真实环境验收、精确提交 CI 复验和阻断修复后，再决定是否发布正式 `v0.1.0`；之后再开启 Issue #11 等下一版本工作。
