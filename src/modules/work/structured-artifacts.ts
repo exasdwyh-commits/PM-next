@@ -133,6 +133,11 @@ function validateBusinessField(field: StructuredBusinessField, v: unknown, error
         pushError(errors, name, `允许值：${(field.enumValues ?? []).join(" / ")}`);
       }
       break;
+    case "json":
+      if (typeof v !== "object" || v === null) {
+        pushError(errors, name, "必须是 JSON 对象或数组");
+      }
+      break;
   }
 }
 
