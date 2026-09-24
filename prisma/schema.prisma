@@ -815,8 +815,9 @@ model Evidence {
 
   project      Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   verifiedBy   User?           @relation("EvidenceVerifier", fields: [verifiedByUserId], references: [id])
-  claims       EvidenceClaim[]
-  resolvingGap DataGap[]       @relation("GapResolvedByEvidence")
+  claims         EvidenceClaim[]
+  sourceCaptures EvidenceSourceCapture[]
+  resolvingGap   DataGap[]       @relation("GapResolvedByEvidence")
 
   @@index([projectId])
   @@index([nature])
@@ -925,9 +926,37 @@ model Feedback {
 
 /// Independent claim-to-source verification record. A source being genuine does
 /// not imply that it supports a particular claim.
+model EvidenceSourceCapture {
+  id                 String   @id @default(uuid())
+  evidenceId         String
+  sourceUri          String
+  sourceType         String
+  trustTier          String
+  sourceOrganization String?
+  httpStatus         Int
+  contentHash        String
+  rawContentPreview  String
+  injectionStatus    String
+  injectionFlags     Json?
+  fetchedAt          DateTime
+  fetcherIdentity    String
+  remoteAddress      String?
+  contentType        String?
+  redirectCount      Int      @default(0)
+  createdAt          DateTime @default(now())
+
+  evidence      Evidence               @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  verifications EvidenceVerification[]
+
+  @@index([evidenceId, fetchedAt])
+  @@index([sourceOrganization])
+  @@index([trustTier])
+}
+
 model EvidenceVerification {
   id                 String   @id @default(uuid())
   evidenceClaimId    String
+  sourceCaptureId    String?
   verifierIdentity   String
   supportStatus      String
   supportSpan        String?
@@ -936,9 +965,11 @@ model EvidenceVerification {
   checkedAt          DateTime @default(now())
   metadata           Json?
 
-  evidenceClaim EvidenceClaim @relation(fields: [evidenceClaimId], references: [id], onDelete: Cascade)
+  evidenceClaim EvidenceClaim          @relation(fields: [evidenceClaimId], references: [id], onDelete: Cascade)
+  sourceCapture EvidenceSourceCapture? @relation(fields: [sourceCaptureId], references: [id], onDelete: SetNull)
 
   @@index([evidenceClaimId, checkedAt])
+  @@index([sourceCaptureId])
   @@index([supportStatus])
 }
 
