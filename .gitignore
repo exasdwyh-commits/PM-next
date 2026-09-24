@@ -44,3 +44,7 @@ prisma/_backups/
 # PM OS Kernel local SQLite
 data/kernel/
 
+
+# Laya judgment-runtime local artifacts
+services/judgment-runtime/.venv/
+services/judgment-runtime/__pycache__/

@@ -309,9 +309,28 @@ async function main() {
 
     console.log("\n✅ Product R&D fusion vertical slice passed");
   } finally {
-    await prisma.workSubmission.deleteMany({
-      where: { workItem: { project: { organizationId: org.id } } },
-    }).catch(() => {});
+    // 清理必须按 FK 安全顺序进行：多个模型对 User 的关系没有级联删除
+    // （AuditEvent.actor / ResearchRun.createdBy / WorkSubmission.submittedBy /
+    //   AgentRun.user / AnalysisRun.createdBy），必须先删子表再删组织。
+    const orgUsers = await prisma.user
+      .findMany({ where: { organizationId: org.id }, select: { id: true } })
+      .catch(() => [] as Array<{ id: string }>);
+    const orgUserIds = orgUsers.map((row) => row.id);
+    await prisma.workSubmission
+      .deleteMany({ where: { workItem: { project: { organizationId: org.id } } } })
+      .catch(() => {});
+    await prisma.auditEvent
+      .deleteMany({ where: { actorId: { in: orgUserIds } } })
+      .catch(() => {});
+    await prisma.researchRun
+      .deleteMany({ where: { createdById: { in: orgUserIds } } })
+      .catch(() => {});
+    await prisma.agentRun
+      .deleteMany({ where: { organizationId: org.id } })
+      .catch(() => {});
+    await prisma.analysisRun
+      .deleteMany({ where: { organizationId: org.id } })
+      .catch(() => {});
     await prisma.organization.delete({ where: { id: org.id } }).catch(() => {});
   }
 }
