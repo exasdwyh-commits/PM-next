@@ -2,16 +2,17 @@
 
 日期：2026-09-23  
 交付分支：`release/v0.1.0-rc1`  
-冻结提交：`c5285a48ae399c0ca019cd580d3632ded2f85411`  
-运行时代码基线：`f05074648d79861f1d57f4218a675ce8bd8b4cae`
+- 初始冻结提交：`c5285a48ae399c0ca019cd580d3632ded2f85411`
+- 最近有完整核心 CI 通过证据的基线：`f05074648d79861f1d57f4218a675ce8bd8b4cae`
+当前 RC 分支及 `v0.1.0-rc1` 标签指向：`1bea212b2305209be64772c0215c2f68f75aa1b7`
 
 ## 1. 交付结论
 
 本分支是 PM-next 当前可交付 RC1，专门用于本地同步、演示、验收和 P0/P1 收尾修复。
 
-它冻结在 VNext / Laya 实验层进入 main 之前，避免下一代 Judgment / Cognitive Fabric 研发影响当前稳定交付。
+它从 VNext / Laya 实验层进入 main 之前的代码线切出；初始冻结点之后追加了 RC 修复与回归覆盖，当前提交见本文件头部。这样可避免下一代 Judgment / Cognitive Fabric 研发影响当前稳定交付。
 
-当前远程自动化基线已经通过项目收口文档记录的 8 条核心 CI：
+`f0507464` 基线通过项目收口文档记录的 8 条核心 CI；该历史结果不等于当前 RC HEAD 的完整矩阵已通过：
 - Quality CI
 - Governance CI
 - Workforce CI
@@ -155,5 +156,4 @@ npm run test:golden-org
 - 临时验证 PR #40 / #41 已关闭且未合并；
 - `release/v0.1.0-rc1` 未合入任何 validation 触发改动。
 
-交付口径保持不变：
-RC1 的运行时代码沿用此前通过核心 CI 的 `f0507464` 基线；正式 v0.1.0 冻结前，应在 Actions runner 恢复后补跑完整矩阵，并完成本地真实环境验收。
+交付状态：`1bea212` 是当前 RC 候选提交，包含 `f0507464` 之后的更新。2026-09-23 本机工作区的 8-workflow 对照矩阵、追加回归和最小真实 Provider smoke call 已通过；结果及快照边界见 `docs/FINAL_ACCEPTANCE_2026-09-22.md` §7。GitHub Actions 对精确提交的复验仍受 runner 启动故障阻塞，人工真实业务链和桌面/平板检查仍待完成。正式 v0.1.0 冻结前，需补齐这些验收并处理本地修复提交。

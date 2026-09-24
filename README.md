@@ -10,11 +10,12 @@
 ## 当前状态：线上实现收口 / 本地最终验收
 
 日期：2026-09-23  
-运行时代码基线：`f0507464`
+- 当前 RC 分支提交：`1bea212b2305209be64772c0215c2f68f75aa1b7`
+- 最近有完整核心 CI 通过证据的基线：`f05074648d79861f1d57f4218a675ce8bd8b4cae`
 
 当前版本已经停止线上功能扩张，进入本地真实环境验收与 P0/P1 修复阶段。
 
-`f0507464` 在 main 上通过 8 条核心 CI：
+`f0507464` 在 main 上通过 8 条核心 CI。该结论只适用于此基线，不代表当前 RC 分支 HEAD 已通过完整矩阵。2026-09-23 对 RC1 的完整矩阵复验曾在 runner 执行任何 step 前失败，详见 `docs/DELIVERY_RELEASE_V0.1.0_RC1.md` §10；当前 HEAD 仍需补齐精确提交的 CI 证据。
 
 - Quality CI
 - Governance CI
@@ -125,4 +126,6 @@ npx prisma generate
 
 应用默认端口：`3100`。
 
-当前阶段目标只有一个：保持基线稳定，在本地完成真实数据库、真实 provider 和真实业务链验收，只修 P0/P1。
+2026-09-23 本机工作区已通过数据库迁移状态检查、typecheck / lint / production build、8-workflow 对照矩阵、权限 / HTTP / Playwright 回归，以及一次不含业务资料的真实 Provider smoke call。详细结果见 `docs/FINAL_ACCEPTANCE_2026-09-22.md` §7。
+
+仍待完成：当前候选精确提交的 GitHub Actions 复验、经 Model Gateway 路由并检查 ModelRun provenance、人工走通真实 G1→G2→生产→交付→G3 业务链，以及桌面/平板检查。只修 P0/P1，不扩展新功能。

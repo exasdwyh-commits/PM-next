@@ -472,6 +472,27 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
             <span className="hermes-note">已送审，等待指定决策人处理</span>
           )}
           {hasFormalG3 && <Badge status="VERIFIED" tone="ok">正式 G3 已批准</Badge>}
+          {hasLegacyApproval && canEdit && (
+            <button
+              className="hermes-danger-btn"
+              disabled={busy}
+              title="仅撤销旧版放行记录；正式 G3 决策不可撤销。"
+              onClick={async () => {
+                const reason = await askReason({
+                  title: "撤销旧版放行记录",
+                  label: "撤销原因",
+                  placeholder: "说明为什么撤销这条旧版放行记录…",
+                  confirmText: "撤销获准",
+                  tone: "danger",
+                });
+                if (!reason) return;
+                const r = await call(`/api/launch/plans/${plan.id}/approve`, "DELETE", { reason });
+                if (r) setMsg("旧版放行记录已撤销；上市仍需正式 G3 授权。");
+              }}
+            >
+              撤销获准
+            </button>
+          )}
         </div>
         <p className="hermes-note" style={{ marginTop: 8 }}>
           G3 批准只表示正式授权，不会自动把产品标为已上市；实际上市由下一步的「确认实际上市」记录。
