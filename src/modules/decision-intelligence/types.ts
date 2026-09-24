@@ -46,6 +46,13 @@ export type DecisionValue = boolean | string | number;
 export interface DecisionEngineResult {
   engine: DecisionEngineKind;
   engineVersion: string;
+  /** Concrete runtime/provider provenance. Optional for deterministic rules. */
+  providerKey?: string;
+  providerVersion?: string;
+  /** A provider may explicitly abstain; an abstention can never authorize AUTO. */
+  abstained?: boolean;
+  /** Optional provider/runtime fingerprint; persistence computes its own inputHash. */
+  inputFingerprint?: string | null;
   value: DecisionValue;
   confidence: number | null;
   distribution?: Record<string, number> | null;
