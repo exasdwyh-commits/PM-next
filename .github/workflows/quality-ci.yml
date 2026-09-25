@@ -36,6 +36,7 @@ jobs:
       - run: npm run test:decision-intelligence
       - run: npm run test:fusion-core
       - run: npm run test:launch-auth
+      - run: npm run test:frontend-v3
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
