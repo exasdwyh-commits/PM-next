@@ -19,6 +19,7 @@ export interface KernCollaborationPlanShadow {
   independentFirstPass: boolean;
   qaRequired: boolean;
   redTeamRequired: boolean;
+  autoDispatchCandidate: boolean;
   autoDispatchEligible: boolean;
   authority: "ADVISORY_ONLY";
   source: "REFLEX" | "DETERMINISTIC" | "HYBRID";
@@ -144,12 +145,16 @@ export function buildKernCollaborationPlanShadow(input: {
         ? "BALANCED"
         : "FAST";
 
-  const autoDispatchEligible =
+  const autoDispatchCandidate =
     (mode === "SOLO" || mode === "SPECIALIST") &&
     !highRisk &&
     !explicitFullRnd &&
     !explicitRedTeam &&
     input.reflex.error === null;
+  // Pure routing cannot prove that a specialist executor/model runtime is ready.
+  // SOLO is already handled inline; SPECIALIST eligibility is resolved later
+  // by dispatch-readiness.ts against the organization's real runtime.
+  const autoDispatchEligible = autoDispatchCandidate && mode === "SOLO";
 
   const source =
     input.reflex.mode === "SHADOW" && reasons.some((reason) => reason.startsWith("REFLEX_"))
@@ -171,6 +176,7 @@ export function buildKernCollaborationPlanShadow(input: {
     independentFirstPass: experts.size > 1,
     qaRequired: mode === "FULL_RND" || mode === "COUNCIL" || highRisk,
     redTeamRequired: mode === "RED_TEAM" || (mode === "FULL_RND" && highRisk),
+    autoDispatchCandidate,
     autoDispatchEligible,
     authority: "ADVISORY_ONLY",
     source,
