@@ -6,7 +6,7 @@ import type {
   KernGraphTruth,
   KernGraphV1,
 } from "@/modules/visual-intelligence/contracts";
-import { Tag } from "./kit";
+import { Card, CardHead, Tag } from "./kit";
 
 const TRUTH: Record<
   KernGraphTruth,
@@ -50,100 +50,84 @@ export function KernGraphCard({ graph }: { graph: KernGraphV1 }) {
     : [];
 
   return (
-    <section className="m-graph-card" aria-label={graph.title}>
-      <header className="m-graph-head">
-        <div>
-          <div className="m-graph-kicker">
-            <span>Kern Visual Intelligence</span>
-            <Tag tone="neutral">{VIEW_LABEL[graph.view]}</Tag>
-          </div>
-          <h3>{graph.title}</h3>
-          <p>{graph.summary}</p>
-        </div>
-      </header>
+    <Card>
+      <CardHead
+        title={graph.title}
+        aside={<Tag tone="neutral">{VIEW_LABEL[graph.view]}</Tag>}
+      />
+      <div className="m-card-body">
+        <p className="m-quiet" style={{ margin: 0 }}>{graph.summary}</p>
 
-      <div className="m-graph-scroll" tabIndex={0} aria-label="可滚动关系图">
-        <div className="m-graph-flow">
-          {layers.map(([layer, nodes], index) => (
-            <div className="m-graph-stage-wrap" key={layer}>
-              <div className="m-graph-stage" aria-label={`第 ${layer + 1} 层`}>
-                {nodes.map((node) => {
-                  const truth = TRUTH[node.truth];
-                  return (
-                    <button
-                      type="button"
-                      key={node.id}
-                      className="m-graph-node"
-                      data-active={selected?.id === node.id ? "true" : undefined}
-                      data-truth={node.truth.toLowerCase()}
-                      onClick={() => setSelectedId(node.id)}
-                    >
-                      <span className="m-graph-node-type">{node.type}</span>
-                      <b>{node.label}</b>
-                      {node.detail ? <small>{node.detail}</small> : null}
-                      <span className="m-graph-node-state">
-                        <Tag tone={truth.tone}>{truth.label}</Tag>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              {index < layers.length - 1 ? (
-                <span className="m-graph-stage-arrow" aria-hidden>
-                  →
-                </span>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {selected ? (
-        <div className="m-graph-passport">
-          <div className="m-graph-passport-head">
-            <div>
-              <span>Semantic Passport</span>
-              <h4>{selected.label}</h4>
-            </div>
-            <Tag tone={TRUTH[selected.truth].tone}>
-              {TRUTH[selected.truth].label}
-            </Tag>
-          </div>
-          {selected.detail ? <p>{selected.detail}</p> : null}
-          {metadataRows(selected).length > 0 ? (
-            <dl>
-              {metadataRows(selected).map(([key, value]) => (
-                <div key={key}>
-                  <dt>{key}</dt>
-                  <dd>{String(value)}</dd>
-                </div>
-              ))}
-            </dl>
-          ) : null}
-          {related.length > 0 ? (
-            <div className="m-graph-relations">
-              {related.map((edge) => {
-                const peerId = edge.from === selected.id ? edge.to : edge.from;
-                const peer = graph.nodes.find((node) => node.id === peerId);
+        <div style={{ display: "grid", gap: 14 }}>
+          {layers.map(([layer, nodes]) => (
+            <section key={layer} style={{ display: "grid", gap: 7 }}>
+              <p className="m-hint">第 {layer + 1} 层</p>
+              {nodes.map((node) => {
+                const truth = TRUTH[node.truth];
                 return (
-                  <span key={edge.id}>
-                    {edge.from === selected.id ? "→" : "←"} {edge.label || edge.relation}
-                    {peer ? ` · ${peer.label}` : ""}
-                  </span>
+                  <button
+                    type="button"
+                    key={node.id}
+                    className="m-src"
+                    aria-pressed={selected?.id === node.id}
+                    onClick={() => setSelectedId(node.id)}
+                  >
+                    <Tag tone={truth.tone}>{truth.label}</Tag>
+                    <span>
+                      <b>{node.label}</b>
+                      {node.detail ? (
+                        <small style={{ display: "block", marginTop: 2 }}>
+                          {node.detail}
+                        </small>
+                      ) : null}
+                    </span>
+                  </button>
                 );
               })}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-      {graph.notices.length > 0 ? (
-        <div className="m-graph-notices">
-          {graph.notices.map((notice) => (
-            <p key={notice}>{notice}</p>
+            </section>
           ))}
         </div>
-      ) : null}
-    </section>
+
+        {selected ? (
+          <div className="m-else">
+            <div className="m-btn-row" style={{ alignItems: "center" }}>
+              <b>{selected.label}</b>
+              <Tag tone={TRUTH[selected.truth].tone}>
+                {TRUTH[selected.truth].label}
+              </Tag>
+            </div>
+            {selected.detail ? <p style={{ margin: "8px 0 0" }}>{selected.detail}</p> : null}
+            {metadataRows(selected).length > 0 ? (
+              <dl className="m-kv" style={{ marginTop: 10 }}>
+                {metadataRows(selected).map(([key, value]) => (
+                  <div key={key} style={{ display: "contents" }}>
+                    <dt>{key}</dt>
+                    <dd>{String(value)}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+            {related.length > 0 ? (
+              <ul className="m-list" style={{ marginTop: 10 }}>
+                {related.map((edge) => {
+                  const peerId = edge.from === selected.id ? edge.to : edge.from;
+                  const peer = graph.nodes.find((node) => node.id === peerId);
+                  return (
+                    <li key={edge.id}>
+                      {edge.from === selected.id ? "→" : "←"} {edge.label || edge.relation}
+                      {peer ? ` · ${peer.label}` : ""}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+
+        {graph.notices.map((notice) => (
+          <p className="m-hint" key={notice}>{notice}</p>
+        ))}
+      </div>
+    </Card>
   );
 }
