@@ -123,7 +123,7 @@ export interface RuntimeStatus {
   activeAction: string | null;
 }
 
-/** 活动流条目：右栏「Hermes 正在做什么」 */
+/** 活动流条目：Kern 与数字员工的真实运行轨迹 */
 export interface ActivityItem {
   id: string;
   at: string;
@@ -133,14 +133,43 @@ export interface ActivityItem {
   missionId: string | null;
 }
 
-/** 首页 Brief：只回答三个问题 */
+export interface TodayItem {
+  id: string;
+  title: string;
+  meta: string | null;
+  href: string | null;
+  state: AiState;
+  source:
+    | "proposal"
+    | "decision"
+    | "blocker"
+    | "todo"
+    | "agent-task"
+    | "desktop-task";
+}
+
+export interface TodayBrief {
+  generatedAt: string;
+  scopeLabel: string;
+  degraded: boolean;
+  degradedNote: string | null;
+  /** 今天最值得先看的真实事项，按阻塞/审批/待办排序。 */
+  important: TodayItem[];
+  /** 只有真实 RUNNING 状态才能进入这里。 */
+  working: TodayItem[];
+  /** 明确需要人确认、决策、验收或处理的事项。 */
+  needsYou: TodayItem[];
+}
+
+/** 首页 Brief：只回答三个问题 —— 什么最重要 / Kern 正在做什么 / 我现在要做什么。 */
 export interface Brief {
   greeting: string;
-  /** 1. 需要我决定什么 */
+  today: TodayBrief;
+  /** Proposal 的完整 Check-in 卡片；today.needsYou 只做摘要。 */
   decisions: Decision[];
-  /** 2. Hermes 现在在做什么 */
+  /** 会话目标，不等于正在执行；状态来自真实 AgentRun。 */
   missions: Mission[];
-  /** 3. 接下来该开始什么 */
+  /** 没有当前紧急事项时可直接发起的常用目标。 */
   suggestions: { id: string; title: string; why: string; prompt: string }[];
 }
 
