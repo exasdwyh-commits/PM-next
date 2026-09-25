@@ -147,9 +147,9 @@ export interface Brief {
 export interface StudioModel {
   /** 当前真正打开的会话/目标；null = Today / 新任务模式 */
   activeMissionId: string | null;
-  /** 与 Muse 独立的专业管理后台入口 */
+  /** 与 Kern 独立的专业管理后台入口 */
   managementHref: string;
-  /** 从产品后台跳入 Muse 时，新会话应绑定的产品上下文 */
+  /** 从产品后台跳入 Kern 时，新会话应绑定的产品上下文 */
   newConversationProduct: { id: string; name: string } | null;
   /** 外部入口预填的问题，不会自动发送 */
   initialDraft: string;
