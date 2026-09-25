@@ -60,7 +60,7 @@ function fromApiMessage(message: ApiMessage): Message {
   };
 }
 
-export default function MuseClient({ model }: { model: StudioModel }) {
+export default function KernClient({ model }: { model: StudioModel }) {
   const router = useRouter();
   const { brief, employees, runtime } = model;
   const [goalId, setGoalId] = useState<string | null>(model.activeMissionId);
