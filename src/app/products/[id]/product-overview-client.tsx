@@ -929,7 +929,7 @@ export default function ProductOverviewClient({
           )}
           <Link href={`/muse?product=${p.id}`} className="hermes-outline-btn">
             <Icon name="chat" size={16} />
-            和 AI 助理讨论
+            和 Kern 讨论
           </Link>
           <Link href="/products" className="hermes-link">
             返回产品库
