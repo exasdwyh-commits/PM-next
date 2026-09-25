@@ -90,6 +90,15 @@ export default function AppShell({
   const name = user?.name || "未登录";
   const initial = name.slice(0, 1);
   const current = ALL_NAV_ITEMS.find((it) => it.key === active);
+  const activeNavKey =
+    {
+      projects: "products",
+      "war-room": "products",
+      consultation: "advisor",
+      dashboard: "workforce",
+      trace: "workforce",
+      organization: "settings",
+    }[active] ?? active;
   const status = runtime ?? {
     tone: "neutral" as const,
     label: "运行状态未知",
@@ -97,7 +106,7 @@ export default function AppShell({
   };
 
   const renderItem = (it: NavItem, compact = false) => {
-    const isActive = it.key === active;
+    const isActive = it.key === activeNavKey;
     return (
       <NavProgressLink
         key={it.key}
