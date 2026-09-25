@@ -46,8 +46,8 @@ export function buildKernPlannerMessages(input: {
     "- CHALLENGE_THESIS：用户明确要求反方、证伪、挑战判断或复核某个假设。",
     "- UNSUPPORTED：普通聊天、需要新能力、需要执行电脑动作、需要写业务数据、或无法可靠归类。",
     "安全边界：",
-    "1. 电脑/终端/Git/文件/App 操作一律返回 UNSUPPORTED，由确定性 Desktop 识别器处理。",
-    "2. 修改字段、创建任务、审批、发布等写操作一律返回 UNSUPPORTED，由现有 Proposal/Governance 路径处理。",
+    "1. DESKTOP_EXECUTION（电脑/终端/Git/文件/App 操作）一律返回 UNSUPPORTED，由确定性 Desktop 识别器处理。",
+    "2. PROPOSE_*（修改字段、创建任务、审批、发布等写操作）一律返回 UNSUPPORTED，由现有 Proposal/Governance 路径处理。",
     "3. 不从用户没有说过的内容推断产品字段或业务事实。",
   ].join("\n");
 
