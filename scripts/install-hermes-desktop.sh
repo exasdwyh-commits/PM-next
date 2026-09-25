@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
-  echo "Hermes Desktop installer currently targets macOS."
+  echo "Kern 本机执行安装器当前仅支持 macOS。"
   exit 1
 fi
 
@@ -83,7 +83,7 @@ launchctl bootout "gui/$UID/com.hermes.pm-next.desktop" >/dev/null 2>&1 || true
 launchctl bootstrap "gui/$UID" "$PLIST"
 launchctl kickstart -k "gui/$UID/com.hermes.pm-next.desktop"
 
-echo "Hermes Desktop installed and started."
+echo "Kern 本机执行已安装并启动。"
 echo "Config: $CONFIG_FILE"
 echo "Logs:   $LOG_DIR/desktop.log"
 echo "Status: launchctl print gui/$UID/com.hermes.pm-next.desktop"
