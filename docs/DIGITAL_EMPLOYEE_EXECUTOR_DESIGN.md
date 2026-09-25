@@ -20,13 +20,16 @@
 | 失败退避重排（1min / 5min / 25min，3 次后留 FAILED） | **已实现** | `src/modules/worker/backoff.ts` |
 | 诚实缺省（BLOCKED + missingInputs + DataGap 落库） | **已实现** | formulation / cost / compliance / scientific 四路 |
 | 报告「零证据绑定」诚实守卫 | **已实现** | `synthesizeProductRndExecutiveReport()`：`evidences.length === 0` 时强制登记未闭合项 + 风险，见 §七 |
+| 报告「逐项诚实规则」（无回执 / 无 SUPPORTED 核验） | **已实现** | 见 §7.3；回归 PRD-F4b |
+| 真实 HTTP 端到端冒烟（生产模式 `next start`） | **已实现** | `tests/acceptance-product-rnd-e2e.test.ts`（`npm run test:product-rnd-e2e`），见 §5.1 |
+| PostgreSQL 全链验证（空库/漂移/增量升级/重启持久化） | **已实现** | `scripts/verify-db-chain.sh`（`npm run db:verify`）+ `Product R&D Delivery CI` |
 | Muse summary 增强（M3） | **未做（刻意）** | 见 §四「为什么先不做 M3」 |
 | QA 由 Worker 执行 | **不做（边界）** | 见 §三「QA 不由 Worker 执行」 |
 
 回归：`npm run test:worker`（W1–W9，含五路自动终结 / 诚实缺省 / 幂等 / 租约崩溃恢复 /
 fencing / 单实例锁 / 报告落盘 + 零证据守卫）。既有 `test:qa-dedup`、`test:qa-retry`、
-`test:product-rnd-fusion`、`test:workforce`、`test:business-events`、`test:system-principal`
-保持绿。
+`test:product-rnd-fusion`、`test:product-rnd-e2e`、`test:workforce`、`test:business-events`、
+`test:system-principal` 保持绿。
 
 ---
 
@@ -233,6 +236,36 @@ M3 是**纯增益**、不影响正确性：目前五路要么确定性产出，�
 - 既有 `test:qa-dedup` / `test:qa-retry` / `test:product-rnd-fusion` / `test:workforce` /
   `test:business-events` / `test:system-principal` / `test:autopilot` / `test:governance` /
   `test:unknown-injection` 全部保持绿。
+
+### 5.1 三层验收的分工（补「真实 HTTP 端到端」这一格）
+
+本轮发现原本的覆盖是**正交但不相交**的两半：`tests/worker-executor.ts` 链路最深却全是
+服务函数直调；`tests/acceptance-*.test.ts` 全走真实 HTTP 却最深只到产品/版本。
+于是「brief → 派单 → Worker → 独立 QA → 证据 → 报告」整条链**没有一层是端到端跑通的**。
+新增 `tests/acceptance-product-rnd-e2e.test.ts`（`npm run test:product-rnd-e2e`）补这一格：
+
+| 层 | 套件 | 入口 | 锁什么 |
+| --- | --- | --- | --- |
+| 单元/模块 | `test:worker`(W1–W9) | 服务函数直调 | 执行器策略、租约 fencing、诚实缺省 |
+| 融合 | `test:product-rnd-fusion` | 服务函数直调 | 编排语义、报告诚实性注入 |
+| **实时端到端** | **`test:product-rnd-e2e`** | **生产模式 `next start` 真实 HTTP** | **HTTP 契约、鉴权边界、整链路可跑通** |
+
+新套件里各部分由谁驱动，是本设计边界的直接体现：
+
+- 产品面（登录 / START / 状态 / 证据录入与核验 / SYNTHESIZE）**全部经真实路由与鉴权**；
+- Worker 四 loop 走 `runPmWorker()` 库入口 —— Worker 本就是独立进程，与 Web 服务不同
+  生命周期，其进程级语义（单实例锁）由 W8 覆盖；
+- 独立 QA 由**独立身份**的 `startAgentTask`/`finishAgentTask` 完成 —— 正是「QA 不由
+  Worker 执行」这一边界的落地验证（套件里同时断言 Worker 跑第二轮时 QA 仍为 QUEUED、
+  且 QA 没有任何 Worker 产生的 AgentRun）。
+
+另锁了两条数据驱动的不变量（比「无论如何都 BLOCKED」更有价值）：
+
+1. 通过 HTTP 录入并核验 1 条证据后，`scientific_evidence_agent` 与 `compliance_agent`
+   从诚实 BLOCKED **翻转为可评审**，而 `formulation_agent` / `cost_bom_agent` 因仍无
+   真实输入保持 BLOCKED —— 执行器的判据是项目真实证据，不是任务标签；
+2. 该 claim 只有证据级 VERIFIED、没有 claim 级 SUPPORTED 来源核验时，系统**自己**
+   登记 `claim_evidence_closure` 缺口，并反向断言不再虚报「项目内没有任何证据资料」。
 
 ### 本轮附带的一个产品级修复
 

@@ -223,7 +223,17 @@ npm run test:qa-retry            # QA fencing token（F1–F6）
 npm run test:qa-dedup            # 并发排队去重
 npm run test:worker              # Executor + Worker（W1–W9）
 npm run test:product-rnd-fusion  # 端到端融合 + 报告诚实性注入
+npm run test:product-rnd-e2e     # 实时端到端冒烟：真实 HTTP + 生产模式 next start
 ```
+
+`test:product-rnd-e2e` 与 `test:product-rnd-fusion` 的分工（两者不可互相替代）：
+
+| | `test:product-rnd-fusion` | `test:product-rnd-e2e` |
+| --- | --- | --- |
+| 入口 | 全部服务函数直调 | **产品面全部走真实 HTTP**（生产模式 `next start` + 真实会话） |
+| 范围 | 编排 + QA + 报告合成 | 登录 → START → 状态 → 证据录入/核验 → SYNTHESIZE 全入口 |
+| 后台 | 同进程 | Worker 走库入口、独立 QA 走独立身份（与设计一致） |
+| 目的 | 锁业务语义与不变量 | 锁 HTTP 契约、鉴权边界与整链路可跑通 |
 
 全量扫描（跑完 `package.json` 里所有 `test:*`，逐项退出码 + 日志）：
 
@@ -233,13 +243,17 @@ npm run test:sweep
 
 需要数据库的测试要求本机有 PostgreSQL，且 `TEST_DATABASE_URL` 指向独立测试库。
 
-> ⚠️ **CI 覆盖缺口（已知，待收敛）**：当前 9 个 GitHub workflow 只覆盖 52 个
-> `test:*` 脚本中的 24 个，其余 28 个（含 `test:authz`、`test:blueprint`、
-> `test:science`、`test:ui`、`test:llm-e2e`、`test:acceptance` 等）**从未进 CI**。
+> ⚠️ **CI 覆盖缺口（已知，待收敛）**：当前 9 个 GitHub workflow 覆盖 54 个
+> `test:*` 条目中的 29 个。除去 `test:sweep`（扫描器自身）与 `test:critical`
+> （组合别名）这两个**按设计不该进 CI** 的条目，仍有 23 个真实套件从未进 CI，
+> 其中 12 个（`test:http`、`test:http-errors`、`test:ui`、`test:ui-feedback`、
+> `test:product-center`、`test:science`、`test:llm-e2e`、`test:authz` 等）
+> 需要生产构建或浏览器，单是 `next build` + Playwright 就会显著拉长 CI 时延，
+> 故本轮只把 `test:product-rnd-e2e` 纳入交付 CI。
 > 这些用例长期没被跑，已经积累了若干与产品行为无关的红项（路由未登记进授权矩阵、
 > UI 测试硬编码浏览器绝对路径、夹具清理顺序违反外键、验收断言绑定实时模型措辞）。
 > 上述问题已在 2026-09-25 修复，`npm run test:sweep` 可作为本机全量门禁；
-> 把这些用例纳入 CI 是后续工作。
+> 把剩余套件纳入 CI 是后续工作。
 
 GitHub PR #1 当前 head 需要同时通过：
 

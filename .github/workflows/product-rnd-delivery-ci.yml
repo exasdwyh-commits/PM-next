@@ -9,6 +9,8 @@ name: Product R&D Delivery CI
 #   - Empty database migration：全新库跑全量 migrate deploy
 #   - Upgrade of an existing database：先应用前 N-1 个迁移 + 写入存量数据，
 #     再应用最后一个迁移，校验数据存活（scripts/verify-db-chain.sh）
+#   - 真实 HTTP 端到端冒烟：生产模式 next start 上跑
+#     brief → 派单 → Worker 执行 → 独立 QA → 证据 → 报告（tests/acceptance-product-rnd-e2e.test.ts）
 
 on:
   pull_request:
@@ -29,6 +31,8 @@ on:
       - "tests/product-rnd-qa-retry.ts"
       - "tests/product-rnd-qa-dedup.ts"
       - "tests/worker-executor.ts"
+      - "tests/acceptance-product-rnd-e2e.test.ts"
+      - "scripts/acc-server.sh"
       - "package.json"
       - ".github/workflows/product-rnd-delivery-ci.yml"
   push:
@@ -50,6 +54,8 @@ on:
       - "tests/product-rnd-qa-retry.ts"
       - "tests/product-rnd-qa-dedup.ts"
       - "tests/worker-executor.ts"
+      - "tests/acceptance-product-rnd-e2e.test.ts"
+      - "scripts/acc-server.sh"
       - "package.json"
       - ".github/workflows/product-rnd-delivery-ci.yml"
   workflow_dispatch:
@@ -122,6 +128,15 @@ jobs:
           npm run test:qa-dedup
           npm run test:product-rnd-fusion
           npm run test:worker
+
+      # 交付报告点名的第二个阻塞项：完全没有「真实 HTTP 入口」的端到端链路证据。
+      # 本套在生产模式 next start 上跑 brief→派单→Worker→独立 QA→证据→报告全链路。
+      # acc-server.sh 会从 .env 读 TEST_DATABASE_URL（CI 里没有 .env 文件，故先生成）。
+      # 该套件不需要 Playwright 浏览器，故不触发浏览器下载。
+      - name: Live Product R&D end-to-end smoke (real HTTP)
+        run: |
+          printf 'TEST_DATABASE_URL=%s\n' "$TEST_DATABASE_URL" > .env
+          npm run test:product-rnd-e2e
 
       - name: Upload sweep logs on failure
         if: failure()

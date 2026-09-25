@@ -29,6 +29,7 @@
     "test:science": "bash scripts/acc-server.sh --port 3210 3211 tests/acceptance-science-evidence.test.ts",
     "test:llm-e2e": "LLM_E2E_API_PORT=3212 MOCK_LLM_PORT=3213 bash scripts/acc-llm-e2e.sh",
     "test:authz": "bash scripts/acc-server.sh --port 3214 3215 tests/acceptance-authz-matrix.test.ts",
+    "test:product-rnd-e2e": "bash scripts/acc-server.sh --port 3216 3217 tests/acceptance-product-rnd-e2e.test.ts",
     "test:api-errors": "tsx scripts/run-test.ts tests/api-error-mapping.test.ts",
     "test:signal": "tsx scripts/run-test.ts tests/regression-signal.ts",
     "test:critical": "npm run test:product-center && npm run test:authz && npm run test:science && npm run test:llm-e2e",
