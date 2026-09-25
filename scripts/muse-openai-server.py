@@ -165,6 +165,19 @@ def chat_completions(req: ChatCompletionRequest) -> dict[str, Any]:
         message["reasoning_content"] = reasoning
 
     usage = out.get("usage", {}) or {}
+
+    # Metrics-only 日志：只记耗时/token/长度摘要，绝不打印 raw 输出或 reasoning
+    # 内容（Harmony 思维链可能包含内部策略与敏感推断，不得进入长期日志）。
+    print(
+        "[muse] chat completions: "
+        f"duration_ms={int((time.time() - started) * 1000)} "
+        f"prompt_tokens={usage.get('prompt_tokens')} "
+        f"completion_tokens={usage.get('completion_tokens')} "
+        f"answer_chars={len(answer)} reasoning_chars={len(reasoning)} "
+        f"include_reasoning={req.include_reasoning}",
+        flush=True,
+    )
+
     return {
         "id": f"chatcmpl-{uuid.uuid4().hex[:12]}",
         "object": "chat.completion",

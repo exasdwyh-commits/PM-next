@@ -164,7 +164,7 @@ ModelRun:
 P5 用进程内 mock OpenAI 端点完成，**不写 `.env`、不改数据库、不留配置**，
 验证完即销毁。
 
-`npm run muse:check` 当前输出：
+`npm run muse:check` 输出（**文档撰写时快照，非实时状态**）：
 
 ```
 [----] Provider runtime     muse-local 未配置，专属助理保持 safe-off
@@ -173,7 +173,21 @@ P5 用进程内 mock OpenAI 端点完成，**不写 `.env`、不改数据库、�
 [PASS] hermes_pm bindings   3/3 已绑定
 ```
 
-策略与绑定已就位，缺的只有 Muse 服务本身。
+> **⚠️ 部署状态三态（务必区分，避免自欺）**
+>
+> 这份文档里出现过的三句话不能同时代表"当前状态"，它们属于三个不同的时间点：
+>
+> | 状态 | 含义 | 当前事实（2026-09-25 上午） |
+> |---|---|---|
+> | `TESTED_ON_THIS_MACHINE` | 本机真实跑通过，有 ModelRun 留痕 | ✅ 成立。ModelRun `SUCCEEDED / 67631ms`（上表）+ 08:33 复测 77s / 34.6s 两轮 |
+> | `CURRENTLY_ENABLED` | 当前数据库/env 配置为启用 | ✅ 成立（Model Control `SAVE_PROFILE` 启用后，`.env` 指向 `127.0.0.1:8080/v1`） |
+> | `CURRENTLY_RUNNING` | 此刻服务进程在监听 | 取决于本机：`scripts/muse-server-start.sh` 启动后成立（:8080）；机器重启/手动停止后不成立 |
+>
+> **判断当前状态的唯一可靠方法**：跑 `npm run muse:check`（只读自检 5 项），
+> 加 `lsof -nP -iTCP:8080 -sTCP:LISTEN` 看服务是否在监听。不要引用本文快照下结论。
+>
+> 策略与绑定已就位。Muse 服务未运行时：chat 回落确定性工具结果（safe 设计），
+> 按 `docs/LOCAL_RUNTIME_MUSE_LAYA.md` 的启动脚本拉起即可。
 
 ---
 

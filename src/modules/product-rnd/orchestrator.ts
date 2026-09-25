@@ -8,6 +8,7 @@ import {
   WorkExecutorType,
   WorkItemStatus,
 } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 import prisma from "@/shared/db";
 import {
   ConflictError,
@@ -400,7 +401,7 @@ export async function startProductRndProgram(
 }
 
 /**
- * 原子抢占 Product R&D 的 QA 排队槽位。
+ * 原子抢占 Product R&D 的 QA 排队槽位（crash-safe lease 版）。
  *
  * advanceProductRndProgram 中「读取 childTasks → 发现没有 QA → 排队」是典型的
  * check-then-act：两个并发 reconcile（用户点击 RECONCILE 的同时，最后一个专家
@@ -409,23 +410,74 @@ export async function startProductRndProgram(
  *
  * 这里用单条 UPDATE ... WHERE ... RETURNING 做 compare-and-swap：PostgreSQL
  * 对命中行加行锁，并发事务必然串行化，只有一个能拿到槽位。
+ *
+ * qaClaim 形态（v2，crash-safe）：
+ * - 占位：{"token","claimedAt","expiresAt"} —— 抢占成功但进程在创建 QA 前崩溃时，
+ *   lease 过期后可重新抢占（v1 的裸 "claimed" 会永久卡死槽位）；
+ * - 落定：{"taskId","claimedAt"} —— QA 任务已创建，无 expiresAt，不可重抢；
+ * - 兼容 v1：裸字符串 "claimed" 视为立即过期的占位；裸 taskId 字符串视为已落定。
+ *
+ * WHERE 额外要求「当前不存在活跃或成功的 QA attempt」，作为 retry 语义下的并发
+ * 兜底：QA FAILED 后允许多次排队（attempt N+1），但任何时刻最多只有一个活跃 QA。
  */
+const QA_CLAIM_LEASE_MS = 5 * 60_000;
+
 async function claimProductRndQaSlot(
   parentTaskId: string,
   organizationId: string
 ): Promise<boolean> {
+  const now = new Date();
+  const claim = JSON.stringify({
+    token: randomUUID(),
+    claimedAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + QA_CLAIM_LEASE_MS).toISOString(),
+  });
   const claimed = await prisma.$queryRaw<Array<{ id: string }>>`
-    UPDATE "AgentTask"
+    UPDATE "AgentTask" parent
        SET "contextSnapshot" = jsonb_set(
-             COALESCE("contextSnapshot", '{}'::jsonb),
+             COALESCE(parent."contextSnapshot", '{}'::jsonb),
              '{qaClaim}',
-             '"claimed"'::jsonb,
+             ${claim}::jsonb,
              true
            )
-     WHERE id = ${parentTaskId}
-       AND "organizationId" = ${organizationId}
-       AND COALESCE("contextSnapshot" ->> 'qaClaim', '') = ''
-     RETURNING id
+     WHERE parent.id = ${parentTaskId}
+       AND parent."organizationId" = ${organizationId}
+       AND (
+            COALESCE(parent."contextSnapshot" ->> 'qaClaim', '') = ''
+            -- v1 残留占位：视为立即过期
+         OR parent."contextSnapshot" -> 'qaClaim' = '"claimed"'::jsonb
+            -- v2 占位：lease 过期即可重抢（创建 QA 前崩溃的恢复路径）
+         OR (
+              jsonb_typeof(parent."contextSnapshot" -> 'qaClaim') = 'object'
+          AND jsonb_exists(parent."contextSnapshot" -> 'qaClaim', 'expiresAt')
+          AND (parent."contextSnapshot" -> 'qaClaim' ->> 'expiresAt')::timestamptz < now()
+         )
+            -- v2 落定 + 最新 QA attempt 已失败终结：retry 需要重抢槽位。
+            -- 与下方 NOT EXISTS 组合：最新 attempt 失败 ⟹ 必无活跃/成功 QA，
+            -- 并发 retry 仍被 NOT EXISTS 串行化。
+         OR (
+              jsonb_typeof(parent."contextSnapshot" -> 'qaClaim') = 'object'
+          AND jsonb_exists(parent."contextSnapshot" -> 'qaClaim', 'taskId')
+          AND COALESCE((
+                SELECT qa.status::text
+                  FROM "AgentTask" qa
+                  JOIN "Agent" ag ON ag.id = qa."agentId"
+                 WHERE qa."parentTaskId" = parent.id
+                   AND ag.code = 'qa_verifier'
+                 ORDER BY qa."createdAt" DESC
+                 LIMIT 1
+              ), 'NONE') IN ('FAILED', 'BLOCKED', 'CANCELLED')
+         )
+       )
+       AND NOT EXISTS (
+         SELECT 1
+           FROM "AgentTask" qa
+           JOIN "Agent" ag ON ag.id = qa."agentId"
+          WHERE qa."parentTaskId" = parent.id
+            AND ag.code = 'qa_verifier'
+            AND qa.status IN ('QUEUED', 'RUNNING', 'SUBMITTED', 'WAITING_HUMAN', 'SUCCEEDED')
+       )
+    RETURNING parent.id
   `;
   return claimed.length > 0;
 }
@@ -442,6 +494,32 @@ async function releaseProductRndQaSlot(
        AND "organizationId" = ${organizationId}
   `;
 }
+
+/**
+ * 「当前有效 QA attempt」：按创建时间取最新的 qa_verifier 任务。
+ *
+ * 历史 QA 任务永不删除（审计留痕），所以绝不能用 find() 任意取：
+ * - 最新 attempt 处于 QUEUED/RUNNING/SUBMITTED/WAITING_HUMAN/SUCCEEDED → 有效；
+ * - 最新 attempt 处于 FAILED/BLOCKED/CANCELLED → 该 attempt 已终结，
+ *   表示允许排队 attempt N+1（retry）。
+ */
+function selectCurrentQaAttempt<T extends { agent: { code: string }; createdAt: Date }>(
+  tasks: T[]
+): T | null {
+  return (
+    tasks
+      .filter((task) => task.agent.code === "qa_verifier")
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] ?? null
+  );
+}
+
+const ACTIVE_QA_STATUSES = new Set<AgentTaskStatus>([
+  AgentTaskStatus.QUEUED,
+  AgentTaskStatus.RUNNING,
+  AgentTaskStatus.SUBMITTED,
+  AgentTaskStatus.WAITING_HUMAN,
+  AgentTaskStatus.SUCCEEDED,
+]);
 
 export async function queueProductRndQa(
   session: SessionContext,
@@ -496,10 +574,11 @@ export async function queueProductRndQa(
     );
   }
 
-  const existing = parent.childTasks.find(
-    (task) => task.agent.code === "qa_verifier"
-  );
-  if (existing) return { created: false as const, task: existing };
+  const currentQaAttempt = selectCurrentQaAttempt(parent.childTasks);
+  if (currentQaAttempt && ACTIVE_QA_STATUSES.has(currentQaAttempt.status)) {
+    // 活跃或已成功的 QA 直接复用；只有 FAILED/BLOCKED/CANCELLED 才走 retry 路径。
+    return { created: false as const, task: currentQaAttempt };
+  }
 
   const qa = await prisma.agent.findUnique({
     where: {
@@ -511,8 +590,9 @@ export async function queueProductRndQa(
   });
   if (!qa) throw new ConflictError("qa_verifier is not bootstrapped");
 
-  // 并发护栏：existing 检查与真正创建之间存在窗口，用原子 CAS 抢占，
-  // 保证同一 parent 下永远只有一个 qa_verifier 被排队。
+  // 并发护栏：existing 检查与真正创建之间存在窗口，用原子 CAS 抢占。
+  // QA FAILED 后 retry 时，旧的落定 claim（taskId 形态）会被这里的新占位覆盖；
+  // CAS 内置的「无活跃/成功 QA」条件保证并发 retry 仍然只产生一个活跃 attempt。
   const claimed = await claimProductRndQaSlot(parent.id, session.organizationId);
   if (!claimed) {
     const raced = await prisma.agentTask.findFirst({
@@ -569,13 +649,16 @@ export async function queueProductRndQa(
       },
     });
 
-    // 槽位落定：把占位符换成真实 QA 任务 id。
+    // 槽位落定：把占位 lease 换成真实 QA 任务 id（无 expiresAt，不可重抢）。
     await prisma.$executeRaw`
       UPDATE "AgentTask"
          SET "contextSnapshot" = jsonb_set(
                COALESCE("contextSnapshot", '{}'::jsonb),
                '{qaClaim}',
-               to_jsonb(${delegated.childTask.id}::text),
+               jsonb_build_object(
+                 'taskId', ${delegated.childTask.id}::text,
+                 'claimedAt', to_jsonb(to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
+               ),
                true
              )
        WHERE id = ${parent.id}
@@ -824,9 +907,7 @@ export async function synthesizeProductRndExecutiveReport(
     );
   }
 
-  const qaTask = parent.childTasks.find(
-    (task) => task.agent.code === "qa_verifier"
-  );
+  const qaTask = selectCurrentQaAttempt(parent.childTasks);
   const verificationStatus =
     qaTask?.status === AgentTaskStatus.SUCCEEDED
       ? "READY_FOR_HUMAN_REVIEW"
@@ -1142,9 +1223,7 @@ export async function advanceProductRndProgram(
     };
   }
 
-  const qaTask = parent.childTasks.find(
-    (task) => task.agent.code === "qa_verifier"
-  );
+  const qaTask = selectCurrentQaAttempt(parent.childTasks);
   if (!qaTask) {
     const queued = await queueProductRndQa(session, {
       parentTaskId: parent.id,
