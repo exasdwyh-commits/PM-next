@@ -337,7 +337,7 @@ npm run test:sweep
 
 > GitHub Actions 当前有 **11 条工作流**：10 条核心业务 / 质量工作流，加 1 条 Mobile Conditional Layout CI。最终交付 PR 会在**同一个 head**上跑齐 11 条。更广的历史 `test:*` 套件仍可用 `npm run test:sweep` 做本地全量扫描；没有进入 CI 的历史测试不自动等于生产能力已验收。
 
-正式交付要求 GitHub 的同一候选 head 上以下矩阵同时为绿色：
+正式交付要求 GitHub 的同一最终验收 head 上以下矩阵同时为绿色：
 
 - Quality CI
 - Governance CI
