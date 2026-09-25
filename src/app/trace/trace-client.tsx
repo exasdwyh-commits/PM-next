@@ -82,7 +82,7 @@ export default function TraceClient({ initialPackets, initialFeeds, initialAudit
       {/* Feedback revisions */}
       <Panel title={<>反馈处置修订 {`(${initialFeeds.length})`}</>}>
         {initialFeeds.length === 0 ? (
-          <Empty>暂无反馈处置记录。</Empty>
+          <Empty>还没有反馈处置记录。先在咨询台提交反馈，并由负责人完成采纳、驳回或补充信息处置后在此留痕。</Empty>
         ) : (
           <div className="hermes-list">
             {initialFeeds.map((fb) => (
@@ -111,7 +111,7 @@ export default function TraceClient({ initialPackets, initialFeeds, initialAudit
         sub={initialAudits.length > AUDIT_PREVIEW_COUNT ? `默认展示最近 ${AUDIT_PREVIEW_COUNT} 条 · 服务端最多保留 200 条` : undefined}
       >
         {initialAudits.length === 0 ? (
-          <Empty>暂无审计记录。</Empty>
+          <Empty>还没有审计记录。对项目执行审批、反馈处置或受治理变更后，会在这里按时间留下审计轨迹。</Empty>
         ) : (
           <>
             <CollapsibleList
