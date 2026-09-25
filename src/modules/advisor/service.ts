@@ -291,13 +291,15 @@ function routeIntent(text: string, productBound: boolean): Intent {
   const t = text.toLowerCase();
   if (/挑战我的判断|证伪|最脆弱|哪里会失败|反方|复核/.test(t)) return "CHALLENGE_THESIS";
   if (/提议|草案|待确认|待我确认/.test(t)) return "PENDING_PROPOSALS";
+  // 研发报告/进度查询必须先于通用“决策/进度”关键词：
+  // “研发报告里需要我决定什么”中的“决定”不能把整句误路由到全局待决策列表。
+  if (PRODUCT_RND_REPORT.test(text)) return "PRODUCT_RND_REPORT";
+  if (PRODUCT_RND_STATUS.test(text)) return "PRODUCT_RND_STATUS";
   if (/决策|拍板|决定|审批/.test(t)) return "PENDING_DECISIONS";
   if (TASK_VERB.test(text) && parseWorkItemTask(text)) return "PROPOSE_CREATE_WORK_ITEM";
   if (productBound && CHANGE_VERB.test(text) && matchField(text)) return "PROPOSE_FIELD_CHANGE";
   if (isDesktopInstruction(text)) return "DESKTOP_EXECUTION";
   if (PRODUCT_RND_START.test(text)) return "START_PRODUCT_RND";
-  if (PRODUCT_RND_REPORT.test(text)) return "PRODUCT_RND_REPORT";
-  if (PRODUCT_RND_STATUS.test(text)) return "PRODUCT_RND_STATUS";
   // 新建产品只在未绑定产品的会话里接：产品会话已经锁定在某个产品上，
   // 在那里再建一个别的产品，用户无法判断自己到底在改哪一个。
   // 补齐字段的后续消息（只有「标签：值」、没有动词）也要落到这里，否则会被
