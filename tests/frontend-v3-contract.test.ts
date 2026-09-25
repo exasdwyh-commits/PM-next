@@ -283,3 +283,16 @@ test("desktop execution reads as Kern using the Mac, with runtime details second
   assert.equal(presence.includes("npm run desktop"), false, "primary presence hint must not lead with implementation commands");
   assert.equal(desktop.includes("Hermes Desktop"), false, "visible desktop UI must not expose the old runtime product name");
 });
+
+
+test("Kern primary shell behaves like a real conversation surface", () => {
+  const client = read("src/app/muse/muse-client.tsx");
+  const shell = read("src/app/muse/components/shell.tsx");
+  const turn = read("src/app/muse/components/turn.tsx");
+
+  assert.ok(client.includes('Working text="Kern 正在处理这条消息…"'));
+  assert.ok(client.includes("scrollIntoView"), "new conversation turns should stay visible");
+  assert.ok(shell.includes('m-brand-mark" aria-hidden>K<'), "visible Kern brand mark must be K");
+  assert.ok(turn.includes('by?.mark ?? "K"'), "assistant fallback avatar must be Kern, not Muse");
+  assert.equal(client.includes("Kern 正在执行这条消息"), false, "request-in-flight UI must not fake backend execution");
+});
