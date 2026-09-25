@@ -11,6 +11,7 @@ import {
 } from "@/shared/errors";
 import type { SessionContext } from "@/modules/identity/session";
 import {
+  bootstrapDefaultWorkforce,
   createAgentTask,
   finishAgentTask,
   startAgentTask,
@@ -98,10 +99,19 @@ export async function enqueueDesktopTask(
     );
   }
 
-  const agent = await findDesktopAgent(session);
+  let agent = await findDesktopAgent(session);
+  if (!agent) {
+    try {
+      await bootstrapDefaultWorkforce(session);
+      agent = await findDesktopAgent(session);
+    } catch {
+      // Non-admin users cannot bootstrap the organization workforce themselves.
+      // Keep the error explicit below instead of silently creating a hidden agent.
+    }
+  }
   if (!agent) {
     throw new ConflictError(
-      "Desktop Operator is not initialized. Open Automation Center and initialize the default workforce once."
+      "Desktop Operator is not initialized. An organization admin must initialize the default workforce once."
     );
   }
 
