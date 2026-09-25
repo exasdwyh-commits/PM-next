@@ -75,7 +75,7 @@ export type MessageBlock =
 
 export interface Message {
   id: string;
-  author: "user" | "hermes";
+  author: "user" | "kern";
   byEmployeeId?: string | null;
   at: string;
   state: AiState;
