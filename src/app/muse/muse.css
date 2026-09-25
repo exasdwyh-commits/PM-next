@@ -409,3 +409,45 @@
 .muse .m-top-title { margin: 0; font-size: var(--m-t-lead); font-weight: 620; letter-spacing: -.015em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 输入坞已有 focus-within 环，textarea 自身不再画第二层 */
 .muse .m-dock textarea:focus-visible { outline: none; }
+
+
+/* Kern Today：只呈现真实 read model，不用装饰性“假进度”。 */
+.m-today-grid { display: grid; gap: 12px; }
+.m-today .m-card-body { padding-top: 8px; }
+.m-today-list { display: grid; gap: 2px; }
+.m-today-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--m-hairline);
+  color: inherit;
+  text-decoration: none;
+}
+.m-today-row:last-child { border-bottom: 0; }
+.m-today-row:hover strong { color: var(--m-accent); }
+.m-today-row > div { flex: 1 1 auto; min-width: 0; }
+.m-today-row strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--m-t-body);
+  font-weight: 560;
+}
+.m-today-row small {
+  display: block;
+  margin-top: 3px;
+  color: var(--m-ink-4);
+  font-size: var(--m-t-xs);
+  overflow-wrap: anywhere;
+}
+.m-today-empty { margin: 2px 0; }
+.m-today-warning {
+  margin: -4px 0 2px;
+  padding: 9px 11px;
+  border: 1px solid var(--m-warn-line);
+  border-radius: var(--m-r-sm);
+  background: var(--m-warn-wash);
+}
