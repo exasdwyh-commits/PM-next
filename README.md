@@ -85,7 +85,7 @@ npm run desktop:install
 - Marketing Agent
 - Supply & Ops Agent
 - Red Team
-- Tech Architect Agent
+- Tech Architect Agent（架构/代码审查；通过 `CODING` Model Policy 执行，默认 safe-off）
 - Desktop Operator
 
 Workforce 支持：
