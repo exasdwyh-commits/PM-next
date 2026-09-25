@@ -106,7 +106,7 @@ export type MessageBlock =
 export interface Message {
   id: string;
   author: "user" | "hermes";
-  /** hermes 消息可标注实际执行者 */
+  /** 科恩消息可标注实际执行者；author 值 `hermes` 暂作兼容协议保留。 */
   byEmployeeId?: string | null;
   at: string;
   state: AiState;
@@ -123,7 +123,7 @@ export interface RuntimeStatus {
   activeAction: string | null;
 }
 
-/** 活动流条目：右栏「Hermes 正在做什么」 */
+/** 活动流条目：右栏「科恩正在做什么」 */
 export interface ActivityItem {
   id: string;
   at: string;
@@ -138,7 +138,7 @@ export interface Brief {
   greeting: string;
   /** 1. 需要我决定什么 */
   decisions: Decision[];
-  /** 2. Hermes 现在在做什么 */
+  /** 2. 科恩现在在做什么 */
   missions: Mission[];
   /** 3. 接下来该开始什么 */
   suggestions: { id: string; title: string; why: string; prompt: string }[];
@@ -147,9 +147,9 @@ export interface Brief {
 export interface StudioModel {
   /** 当前真正打开的会话/目标；null = Today / 新任务模式 */
   activeMissionId: string | null;
-  /** 与 Muse 独立的专业管理后台入口 */
+  /** 与科恩主工作台独立的专业管理后台入口 */
   managementHref: string;
-  /** 从产品后台跳入 Muse 时，新会话应绑定的产品上下文 */
+  /** 从产品后台跳入科恩主工作台时，新会话应绑定的产品上下文 */
   newConversationProduct: { id: string; name: string } | null;
   /** 外部入口预填的问题，不会自动发送 */
   initialDraft: string;
