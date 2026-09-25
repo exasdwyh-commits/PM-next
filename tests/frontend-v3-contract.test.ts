@@ -58,7 +58,7 @@ test("product remains the primary business object", () => {
   assert.ok(product.includes('label: "产品方案"'));
   assert.ok(product.includes('label: "证据与风险"'));
   assert.ok(projects.includes("项目管理"));
-  assert.ok(projects.includes("日常请从「产品」进入"));
+  assert.ok(projects.includes("日常可从「产品」进入"));
 });
 
 test("project detail stays a focused product workspace", () => {
