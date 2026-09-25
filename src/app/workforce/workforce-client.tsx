@@ -15,6 +15,7 @@ import {
   AutomationTraceList,
   type AutomationTraceView,
 } from "@/components/automation-trace";
+import { labelSquadLifecycleStatus } from "@/shared/status-labels";
 
 type WorkforceOverview = {
   agents: Array<{
@@ -478,7 +479,7 @@ export default function WorkforceClient({
                     </div>
                     <div className="hermes-row-meta">
                       <span>{squad.members.length} 名成员</span>
-                      <span>{squad.status}</span>
+                      <span>{labelSquadLifecycleStatus(squad.status)}</span>
                     </div>
                     <div className="hermes-row-body">
                       <div>{squad.description || "未填写 Squad 描述"}</div>

@@ -6,6 +6,7 @@ import {
   EXECUTIVE_REPORT_PROVENANCE_PREVIEW_LIMIT,
   type ExecutiveReportPayload,
 } from "@/shared/executive-report-types";
+import { labelAgentTaskStatus, labelEvidenceClaimKind, labelEvidenceLevel } from "@/shared/status-labels";
 
 /**
  * Executive Report Renderer
@@ -250,12 +251,12 @@ export function ExecutiveReportView({
                 <div>
                   <strong>{conclusion.claim}</strong>
                   <Badge tone={evidenceLevelTone(conclusion.evidenceLevel)}>
-                    证据 {conclusion.evidenceLevel || "UNKNOWN"}
+                    证据 {labelEvidenceLevel(conclusion.evidenceLevel || "UNKNOWN")}
                   </Badge>
                 </div>
                 <p>
                   {[
-                    conclusion.claimKind,
+                    conclusion.claimKind ? labelEvidenceClaimKind(conclusion.claimKind) : null,
                     conclusion.freshness,
                     conclusion.evidenceRef,
                     conclusion.verificationRefs?.length
@@ -291,7 +292,7 @@ export function ExecutiveReportView({
                 <article key={note.agentCode}>
                   <div>
                     <strong>{note.agentName || note.agentCode}</strong>
-                    <Badge status={note.status}>{note.status || "UNKNOWN"}</Badge>
+                    <Badge status={note.status}>{note.status ? labelAgentTaskStatus(note.status) : "未知"}</Badge>
                   </div>
                   <p>{note.summary || note.errorReason || "（无摘要）"}</p>
                 </article>

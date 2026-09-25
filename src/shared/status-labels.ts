@@ -67,6 +67,53 @@ export const AGENT_RUN_STATUS_LABELS: Record<string, string> = {
   CANCELLED: "已取消",
 };
 
+/**
+ * Agent 任务状态（AgentTaskStatus）。
+ * 此前只在 product-rnd-panel.tsx 本地登记一份，与本文件登记的其它枚举分裂两处；
+ * 收口到这里，其它页面（如 executive-report 的专业数字员工意见）改用同一份措辞。
+ * 注意与 AgentRunStatus（AGENT_RUN_STATUS_LABELS）是两个不同的枚举，取值不同，不要混用。
+ */
+export const AGENT_TASK_STATUS_LABELS: Record<string, string> = {
+  QUEUED: "等待执行",
+  RUNNING: "正在执行",
+  BLOCKED: "存在阻断",
+  WAITING_HUMAN: "等待人工",
+  SUBMITTED: "已提交",
+  SUCCEEDED: "已完成",
+  FAILED: "执行失败",
+  CANCELLED: "已取消",
+};
+
+/** 分析运行类型（AnalysisRunKind） */
+export const ANALYSIS_RUN_KIND_LABELS: Record<string, string> = {
+  BASELINE: "基线分析",
+  REVISION_REVIEW: "修订复核",
+};
+
+/**
+ * 证据等级（executive-report 结论证据展示，非独立 Prisma 枚举，取值：
+ * UNKNOWN / ASSUMED / SUPPORTED / VERIFIED）。UNKNOWN 在本产品中是一等状态
+ * （证据尚未分级），保留「未知」而不是隐藏或含糊其辞。
+ */
+export const EVIDENCE_LEVEL_LABELS: Record<string, string> = {
+  UNKNOWN: "未知",
+  ASSUMED: "假设",
+  SUPPORTED: "有支撑",
+  VERIFIED: "已核实",
+};
+
+/** Squad 生命周期状态（SquadLifecycleStatus） */
+export const SQUAD_LIFECYCLE_STATUS_LABELS: Record<string, string> = {
+  ACTIVE: "活跃",
+  ARCHIVED: "已归档",
+};
+
+/** 渠道规则记录可信状态（ChannelRuleRecordStatus） */
+export const CHANNEL_RULE_RECORD_STATUS_LABELS: Record<string, string> = {
+  ASSUMED: "假设",
+  CONFIRMED: "已确认",
+};
+
 /** 知识源类型 */
 export const KNOWLEDGE_SOURCE_KIND_LABELS: Record<string, string> = {
   OBSIDIAN_VAULT: "Obsidian 知识库",
@@ -351,6 +398,11 @@ export const labelProjectMode = (k?: string | null) => labelOf(PROJECT_MODE_LABE
 export const labelProjectStage = (k?: string | null) => labelOf(PROJECT_STAGE_LABELS, k);
 export const labelProductLifecycleStage = (k?: string | null) => labelOf(PRODUCT_LIFECYCLE_STAGE_LABELS, k);
 export const labelAgentRunStatus = (k?: string | null) => labelOf(AGENT_RUN_STATUS_LABELS, k);
+export const labelAgentTaskStatus = (k?: string | null) => labelOf(AGENT_TASK_STATUS_LABELS, k);
+export const labelAnalysisRunKind = (k?: string | null) => labelOf(ANALYSIS_RUN_KIND_LABELS, k);
+export const labelEvidenceLevel = (k?: string | null) => labelOf(EVIDENCE_LEVEL_LABELS, k);
+export const labelSquadLifecycleStatus = (k?: string | null) => labelOf(SQUAD_LIFECYCLE_STATUS_LABELS, k);
+export const labelChannelRuleRecordStatus = (k?: string | null) => labelOf(CHANNEL_RULE_RECORD_STATUS_LABELS, k);
 export const labelKnowledgeSourceKind = (k?: string | null) => labelOf(KNOWLEDGE_SOURCE_KIND_LABELS, k);
 export const labelKnowledgeSyncStatus = (k?: string | null) => labelOf(KNOWLEDGE_SYNC_STATUS_LABELS, k);
 export const labelCompanyFactStatus = (k?: string | null) => labelOf(COMPANY_FACT_STATUS_LABELS, k);

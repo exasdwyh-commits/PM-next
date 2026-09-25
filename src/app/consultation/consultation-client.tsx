@@ -186,7 +186,7 @@ export default function ConsultationClient({
         eyebrow="FEEDBACK POOL"
         title="协作反馈池"
         titleSmall={`(${feedbacks.length})`}
-        sub={`OPEN 待处置 ${openCount}`}
+        sub={`${labelFeedbackStatus("OPEN")} ${openCount}`}
       >
         {feedbacks.length === 0 ? (
           <Empty>暂无反馈。</Empty>

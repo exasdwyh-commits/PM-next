@@ -4,6 +4,7 @@ import React from "react";
 import { Panel, Badge, Empty, Thinking, cx } from "@/components/ui";
 import Icon from "@/components/icons";
 import { fmtDateTime } from "@/shared/datetime";
+import { labelAnalysisRunKind } from "@/shared/status-labels";
 
 /**
  * 多轮优化面板（蓝图 §4.4）
@@ -324,7 +325,7 @@ export default function RevisionPanel({
         <Panel
           eyebrow="BEFORE / AFTER"
           title="变更前后与代价"
-          sub={`${comparison.before.versionTag}（${comparison.before.kind}）→ ${comparison.after.versionTag}（${comparison.after.kind}）`}
+          sub={`${comparison.before.versionTag}（${labelAnalysisRunKind(comparison.before.kind)}）→ ${comparison.after.versionTag}（${labelAnalysisRunKind(comparison.after.kind)}）`}
         >
           <table className="hermes-table">
             <thead>

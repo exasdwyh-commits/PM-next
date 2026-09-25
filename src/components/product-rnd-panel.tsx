@@ -5,6 +5,7 @@ import { Badge, Button, Empty, Panel, Thinking } from "@/components/ui";
 import { ExecutiveReportView } from "@/components/executive-report";
 import { identityHeaders } from "@/shared/client-identity";
 import type { ExecutiveReportPayload } from "@/shared/executive-report-types";
+import { labelAgentTaskStatus } from "@/shared/status-labels";
 
 /**
  * AI 产品研发（数字员工流水线）
@@ -20,17 +21,6 @@ const TASK_LABELS: Record<string, string> = {
   compliance_agent: "法规与宣称",
   cost_bom_agent: "成本与 BOM",
   qa_verifier: "独立 QA",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  QUEUED: "等待执行",
-  RUNNING: "正在执行",
-  BLOCKED: "存在阻断",
-  WAITING_HUMAN: "等待人工",
-  SUBMITTED: "已提交",
-  SUCCEEDED: "已完成",
-  FAILED: "执行失败",
-  CANCELLED: "已取消",
 };
 
 const DONE_STATUSES = new Set(["SUCCEEDED", "SUBMITTED"]);
@@ -205,7 +195,7 @@ export function ProductRndPanel({
     {
       key: "qa",
       label: "独立 QA",
-      note: qaTask ? STATUS_LABELS[qaTask.status] || qaTask.status : "等待专业研究",
+      note: qaTask ? labelAgentTaskStatus(qaTask.status) : "等待专业研究",
       state: qaTask ? taskState(qaTask.status) : "pending",
     },
     {
@@ -340,7 +330,7 @@ export function ProductRndPanel({
                                 : "neutral"
                         }
                       >
-                        {STATUS_LABELS[task.status] || task.status}
+                        {labelAgentTaskStatus(task.status)}
                       </Badge>
                     </div>
                     <p>

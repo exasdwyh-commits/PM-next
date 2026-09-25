@@ -43,8 +43,20 @@ interface PresenceRecord {
   lastSeenAt: number;
 }
 
-/** key = `${organizationId}:${userId}`：队列本身就是按「组织 + 本人」隔离的。 */
-const registry = new Map<string, PresenceRecord>();
+/**
+ * key = `${organizationId}:${userId}`：队列本身就是按「组织 + 本人」隔离的。
+ *
+ * 挂在 globalThis 上，和 prisma 单例同一个理由：Next 会把不同 route handler 打进
+ * 不同的 bundle，模块级 Map 会被复制成多份。实测过的后果是 runtime 明明刚轮询过
+ * （心跳写进了 tasks 路由那一份），overview 路由读到的却是空表，于是界面一直显示
+ * 「未确认」—— 状态是真的，只是读错了一份内存，用户会以为 Mac 没连上。
+ */
+const globalForPresence = globalThis as unknown as {
+  __hermesDesktopPresence?: Map<string, PresenceRecord>;
+};
+const registry: Map<string, PresenceRecord> =
+  globalForPresence.__hermesDesktopPresence ??
+  (globalForPresence.__hermesDesktopPresence = new Map<string, PresenceRecord>());
 
 function keyOf(organizationId: string, userId: string): string {
   return `${organizationId}:${userId}`;

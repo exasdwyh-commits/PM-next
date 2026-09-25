@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Badge, Empty, Thinking } from "@/components/ui";
+import { labelChannelRuleRecordStatus } from "@/shared/status-labels";
 
 type Rule = {
   id: string;
@@ -534,7 +535,7 @@ export default function ChannelRoutesPanel({ productId }: { productId: string })
                     >
                       {workspace.rules.map((rule) => (
                         <option key={rule.id} value={rule.id}>
-                          {rule.label} · {rule.version} · {rule.status}
+                          {rule.label} · {rule.version} · {labelChannelRuleRecordStatus(rule.status)}
                         </option>
                       ))}
                     </select>
@@ -727,8 +728,8 @@ export default function ChannelRoutesPanel({ productId }: { productId: string })
                     setRuleForm({ ...ruleForm, status: event.target.value })
                   }
                 >
-                  <option value="ASSUMED">ASSUMED · 假设</option>
-                  <option value="CONFIRMED">CONFIRMED · 已确认</option>
+                  <option value="ASSUMED">{labelChannelRuleRecordStatus("ASSUMED")}</option>
+                  <option value="CONFIRMED">{labelChannelRuleRecordStatus("CONFIRMED")}</option>
                 </select>
               </label>
             </div>
