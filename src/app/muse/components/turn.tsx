@@ -50,7 +50,7 @@ export function Sources({ refs, onOpen }: { refs: EvidenceRef[]; onOpen: (r: Evi
 }
 
 /** 审批 check-in。Muse 只在这种时刻打断人，所以它必须是页面上最重的东西。 */
-export function CheckIn({ d, onOpenSource, onResolve }: { d: Decision; onOpenSource: (r: EvidenceRef) => void; onResolve: (d: Decision, choice: string) => void }) {
+export function CheckIn({ d, onOpenSource, onResolve }: { d: Decision; onOpenSource: (r: EvidenceRef) => void; onResolve: (d: Decision, choice: Decision["options"][number]) => void }) {
   const tone = TONE[d.tone] === "bad" ? "bad" : "warn";
   return (
     <div className="m-checkin" data-t={tone}>
@@ -69,7 +69,7 @@ export function CheckIn({ d, onOpenSource, onResolve }: { d: Decision; onOpenSou
         )}
         <div className="m-btn-row">
           {d.options.map((o, i) => (
-            <Btn key={o.id} v={i === 0 ? "primary" : o.kind === "reject" ? "danger" : "default"} title={o.hint} onClick={() => onResolve(d, o.label)}>
+            <Btn key={o.id} v={i === 0 ? "primary" : o.kind === "reject" ? "danger" : "default"} title={o.hint} onClick={() => onResolve(d, o)}>
               {o.label}
             </Btn>
           ))}
