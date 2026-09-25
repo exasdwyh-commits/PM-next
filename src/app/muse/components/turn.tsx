@@ -1,5 +1,5 @@
 "use client";
-/** 会话与就地卡片：Muse 的回答是可读的散文 + 少量结构化卡片，不是仪表盘。 */
+/** 会话与就地卡片：Kern 的回答是可读的散文 + 少量结构化卡片，不是仪表盘。 */
 import type { Decision, Employee, EvidenceRef, Message, MessageBlock, PlanStep } from "../types";
 import { Btn, Card, CardHead, CONF, I, Node, StateTag, Tag, TONE } from "./kit";
 
@@ -49,7 +49,7 @@ export function Sources({ refs, onOpen }: { refs: EvidenceRef[]; onOpen: (r: Evi
   );
 }
 
-/** 审批 check-in。Muse 只在这种时刻打断人，所以它必须是页面上最重的东西。 */
+/** 审批 check-in。Kern 只在这种时刻打断人，所以它必须是页面上最重的东西。 */
 export function CheckIn({ d, onOpenSource, onResolve }: { d: Decision; onOpenSource: (r: EvidenceRef) => void; onResolve: (d: Decision, choice: Decision["options"][number]) => void }) {
   const tone = TONE[d.tone] === "bad" ? "bad" : "warn";
   return (
@@ -64,7 +64,7 @@ export function CheckIn({ d, onOpenSource, onResolve }: { d: Decision; onOpenSou
         <p className="m-else">继续放着：{d.ifIgnored}</p>
         {d.evidence.length > 0 ? <Sources refs={d.evidence} onOpen={onOpenSource} /> : (
           <p className="m-else" style={{ color: "var(--m-warn)", background: "var(--m-warn-wash)" }}>
-            这件事目前没有可追溯的依据，确认前可以让 Muse 先去补。
+            这件事目前没有可追溯的依据，确认前可以让 Kern 先去补。
           </p>
         )}
         <div className="m-btn-row">
@@ -74,7 +74,7 @@ export function CheckIn({ d, onOpenSource, onResolve }: { d: Decision; onOpenSou
             </Btn>
           ))}
         </div>
-        <p className="m-hint">{d.raisedBy} 提出{d.gate ? ` · ${d.gate}` : ""}。确认后 Muse 会自己继续，不用你盯着。</p>
+        <p className="m-hint">{d.raisedBy} 提出{d.gate ? ` · ${d.gate}` : ""}。确认后 Kern 会自己继续，不用你盯着。</p>
       </div>
     </div>
   );
@@ -128,7 +128,7 @@ function Block({ b, employees, onOpenSource }: { b: MessageBlock; employees: Emp
               <Btn v="primary">批准写入</Btn>
               <Btn>先不改</Btn>
             </div>
-            <p className="m-hint">Muse 不直接改业务数据，改动一律先给你看。</p>
+            <p className="m-hint">Kern 不直接改业务数据，改动一律先给你看。</p>
           </div>
         </Card>
       );
@@ -145,7 +145,7 @@ function Block({ b, employees, onOpenSource }: { b: MessageBlock; employees: Emp
     case "unknown":
       return (
         <Card>
-          <CardHead icon={<I.spark />} title="缺口：Muse 不替你猜" />
+          <CardHead icon={<I.spark />} title="缺口：Kern 不替你猜" />
           <div className="m-card-body">
             <p className="m-prose" style={{ fontSize: "var(--m-t-body)" }}>{b.question}</p>
             <ul className="m-list">{b.missing.map((m) => <li key={m}>{m}</li>)}</ul>
@@ -168,7 +168,7 @@ export function Turn({ m, employees, onOpenSource }: { m: Message; employees: Em
     <article className="m-turn">
       <div className="m-who">
         <span className="m-who-av" aria-hidden>{by?.mark ?? "M"}</span>
-        <b>{by?.name ?? "Muse"}</b>
+        <b>{by?.name ?? "Kern"}</b>
         <span>{by?.role ?? "你的助理"}</span>
         <span aria-hidden>·</span>
         <span>{m.at}</span>
