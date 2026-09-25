@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Decision, EvidenceRef, Message, StudioModel, TodayItem } from "./types";
+import type { Decision, EvidenceRef, Message, StudioModel } from "./types";
 import { readKernGraphCitation } from "@/modules/visual-intelligence/contracts";
 import type { KernGraphV1 } from "@/modules/visual-intelligence/contracts";
-import { Btn, I, StateTag } from "./components/kit";
-import { CheckIn, Plan, Sources, Turn, Working } from "./components/turn";
+import { Btn, I } from "./components/kit";
+import { CheckIn, Turn, Working } from "./components/turn";
 import { Palette, SourceSheet, TrailSheet, TrustSheet } from "./components/sheets";
 import { Blank, Dock, Rail } from "./components/shell";
 
@@ -65,49 +65,6 @@ function fromApiMessage(message: ApiMessage): Message {
         : []),
     ],
   };
-}
-
-function TodaySection({
-  title,
-  items,
-  emptyText,
-  testId,
-}: {
-  title: string;
-  items: TodayItem[];
-  emptyText: string;
-  testId: string;
-}) {
-  return (
-    <section className="m-card m-today" data-testid={testId}>
-      <header className="m-card-head">
-        <span className="m-ico"><I.plan /></span>
-        <h3>{title}</h3>
-        <span className="m-hint" style={{ margin: 0 }}>{items.length}</span>
-      </header>
-      <div className="m-card-body">
-        {items.length === 0 ? (
-          <p className="m-hint m-today-empty">{emptyText}</p>
-        ) : (
-          <div className="m-today-list">
-            {items.map((item) => (
-              <a
-                key={`${item.source}:${item.id}`}
-                href={item.href || "/manage"}
-                className="m-today-row"
-              >
-                <div>
-                  <strong>{item.title}</strong>
-                  {item.meta ? <small>{item.meta}</small> : null}
-                </div>
-                <StateTag state={item.state} />
-              </a>
-            ))}
-          </div>
-        )}
-      </div>
-    </section>
-  );
 }
 
 export default function KernClient({ model }: { model: StudioModel }) {
@@ -362,7 +319,6 @@ export default function KernClient({ model }: { model: StudioModel }) {
         user={model.user}
         missions={brief.missions}
         activeId={goalId}
-        pendingCount={pending.length}
         runtime={runtime}
         onPick={pickGoal}
         onNew={() => pickGoal(null)}
@@ -383,12 +339,11 @@ export default function KernClient({ model }: { model: StudioModel }) {
             >
               <I.menu />
             </button>
-            <h1 className="m-top-title">{goal ? goal.title : "今天"}</h1>
-            {goal ? <StateTag state={goal.state} /> : null}
+            <h1 className="m-top-title">{goal ? goal.title : "Kern"}</h1>
             <div className="m-top-acts">
               <Btn size="sm" onClick={() => setPalette(true)}>
                 <I.search />
-                跳转
+                搜索
               </Btn>
               <Btn size="sm" onClick={() => setSheet({ kind: "trail" })}>
                 <I.trail />
@@ -401,99 +356,14 @@ export default function KernClient({ model }: { model: StudioModel }) {
         <div className="m-scroll">
           <div className="m-lane">
             {goal === null ? (
-              <>
-                <p className="m-prose">
-                  {brief.greeting}，{model.user.name}。
-                  {brief.today.degraded
-                    ? "部分工作总览读取失败，下面只显示已经确认的真实状态。"
-                    : brief.today.needsYou.length > 0 || brief.today.working.length > 0
-                      ? `现在有 ${brief.today.needsYou.length} 件事需要你处理，Kern 正在真实执行 ${brief.today.working.length} 件。`
-                      : "当前没有需要你立即处理或正在执行的任务，你可以直接交代下一件事。"}
-                </p>
-                {brief.today.degraded && brief.today.degradedNote ? (
-                  <p className="m-hint m-today-warning">{brief.today.degradedNote}</p>
-                ) : null}
-                <div className="m-today-grid">
-                  <TodaySection
-                    title="今天最重要"
-                    items={brief.today.important}
-                    emptyText="工作总览没有识别到高优先事项。"
-                    testId="kern-today-important"
-                  />
-                  <TodaySection
-                    title="Kern 正在替你做"
-                    items={brief.today.working}
-                    emptyText="当前没有真实 RUNNING 的数字员工或本机任务。"
-                    testId="kern-today-working"
-                  />
-                  <TodaySection
-                    title="现在需要你处理"
-                    items={brief.today.needsYou}
-                    emptyText="当前没有待确认、待决策、待验收或明确阻塞事项。"
-                    testId="kern-today-needs-you"
-                  />
-                </div>
-                {pending.map((decision) => (
-                  <CheckIn
-                    key={decision.id}
-                    d={decision}
-                    onOpenSource={openSource}
-                    onResolve={resolve}
-                  />
-                ))}
-                {brief.today.important.length === 0 &&
-                brief.today.working.length === 0 &&
-                brief.today.needsYou.length === 0 ? (
-                  <Blank seeds={brief.suggestions} onSeed={setDraft} />
-                ) : null}
-              </>
+              <Blank seeds={brief.suggestions} onSeed={setDraft} />
             ) : (
               <>
-                <p className="m-prose">{goal.goal}</p>
                 {goal.productId ? (
-                  <p className="m-hint">
-                    这段对话已绑定产品「{goal.productName || goal.productId}」。
-                    <a href={`/products/${goal.productId}`}> 打开产品后台</a>
+                  <p className="m-context-line">
+                    已关联「{goal.productName || goal.productId}」
+                    <a href={`/products/${goal.productId}`}>查看工作台</a>
                   </p>
-                ) : null}
-                {goal.steps.length > 0 ? (
-                  <section className="m-card">
-                    <header className="m-card-head">
-                      <span className="m-ico">
-                        <I.plan />
-                      </span>
-                      <h3>我的推进计划</h3>
-                      <span className="m-hint" style={{ margin: 0 }}>
-                        {goal.progress === null
-                          ? "进度 UNKNOWN"
-                          : `已完成 ${goal.progress}%`}
-                      </span>
-                    </header>
-                    <div className="m-card-body">
-                      <Plan steps={goal.steps} employees={employees} />
-                    </div>
-                  </section>
-                ) : null}
-                {goalDecisions.map((decision) => (
-                  <CheckIn
-                    key={decision.id}
-                    d={decision}
-                    onOpenSource={openSource}
-                    onResolve={resolve}
-                  />
-                ))}
-                {goal.evidence.length > 0 ? (
-                  <section className="m-card">
-                    <header className="m-card-head">
-                      <span className="m-ico">
-                        <I.source />
-                      </span>
-                      <h3>这件事的依据</h3>
-                    </header>
-                    <div className="m-card-body">
-                      <Sources refs={goal.evidence} onOpen={openSource} />
-                    </div>
-                  </section>
                 ) : null}
                 {messages.map((message) => (
                   <Turn
@@ -501,6 +371,14 @@ export default function KernClient({ model }: { model: StudioModel }) {
                     m={message}
                     employees={employees}
                     onOpenSource={openSource}
+                  />
+                ))}
+                {goalDecisions.map((decision) => (
+                  <CheckIn
+                    key={decision.id}
+                    d={decision}
+                    onOpenSource={openSource}
+                    onResolve={resolve}
                   />
                 ))}
                 {sending ? <Working text="Kern 正在处理这条消息…" /> : null}
