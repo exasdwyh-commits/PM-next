@@ -72,7 +72,7 @@ npm run desktop:install
 
 ### 3. Digital Workforce
 
-默认 12 个数字角色：
+默认 13 个数字角色：
 
 - Kern PM / Kern Assistant
 - Product Agent
@@ -85,6 +85,7 @@ npm run desktop:install
 - Marketing Agent
 - Supply & Ops Agent
 - Red Team
+- Tech Architect Agent
 - Desktop Operator
 
 Workforce 支持：
