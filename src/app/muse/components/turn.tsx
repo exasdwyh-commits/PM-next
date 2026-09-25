@@ -1,6 +1,7 @@
 "use client";
 /** 会话与就地卡片：Kern 的回答是可读的散文 + 少量结构化卡片，不是仪表盘。 */
 import type { Decision, Employee, EvidenceRef, Message, MessageBlock, PlanStep } from "../types";
+import { KernGraphCard } from "./graph";
 import { Btn, Card, CardHead, CONF, I, Node, StateTag, Tag, TONE } from "./kit";
 
 export function Plan({ steps, employees }: { steps: PlanStep[]; employees: Employee[] }) {
@@ -84,6 +85,8 @@ function Block({ b, employees, onOpenSource }: { b: MessageBlock; employees: Emp
   switch (b.kind) {
     case "text":
       return <p className="m-prose">{b.text}</p>;
+    case "graph":
+      return <KernGraphCard graph={b.graph} />;
     case "plan":
       return (
         <Card>

@@ -1,3 +1,5 @@
+import type { KernGraphV1 } from "@/modules/visual-intelligence/contracts";
+
 /**
  * Studio 蓝图契约层（前端先行）
  *
@@ -96,6 +98,7 @@ export interface Decision {
 /** 会话消息块：助理的回答不是纯文本，是结构化块 */
 export type MessageBlock =
   | { kind: "text"; text: string }
+  | { kind: "graph"; graph: KernGraphV1 }
   | { kind: "plan"; title: string; steps: PlanStep[] }
   | { kind: "evidence"; title: string; refs: EvidenceRef[] }
   | { kind: "runtime"; title: string; command: string; output: string; state: AiState }

@@ -77,7 +77,8 @@
     "desktop:install": "zsh scripts/install-hermes-desktop.sh",
     "test:desktop-runtime": "node --import tsx --test tests/desktop-runtime-contract.test.ts",
     "test:delivery-contracts": "npm run test:frontend-v3 && npm run test:desktop-runtime && npm run test:model-runtime && npm run test:launch-auth",
-    "test:mobile-layout": "OUTPUT_DIR=/tmp/kern-mobile-layout bash scripts/acc-server.sh --port 3220 3221 tests/ui-mobile-conditional-layout.ts"
+    "test:mobile-layout": "OUTPUT_DIR=/tmp/kern-mobile-layout bash scripts/acc-server.sh --port 3220 3221 tests/ui-mobile-conditional-layout.ts",
+    "test:visual-intelligence": "tsx tests/regression-kern-visual-intelligence.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

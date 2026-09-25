@@ -5,6 +5,11 @@ import { sendMessage as sendLegacyAdvisorMessage } from "@/modules/advisor/servi
 import { buildDepartmentAssistantContext } from "./context-builder";
 import { runDepartmentAssistantReflexShadow } from "./reflex";
 import { buildKernCollaborationPlanShadow } from "./collaboration-planner";
+import {
+  buildKernCouncilGraph,
+  shouldAttachKernCouncilGraph,
+  toKernGraphCitation,
+} from "@/modules/visual-intelligence";
 
 function asJsonObject(value: Prisma.JsonValue | null): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -48,6 +53,16 @@ export async function sendDepartmentAssistantMessage(
     productBound: Boolean(context.productId),
     reflex,
   });
+  const visualGraphShadow = shouldAttachKernCouncilGraph(
+    content,
+    collaborationPlanShadow
+  )
+    ? buildKernCouncilGraph({
+        graphId: `${result.runId}:council-shadow`,
+        goal: content,
+        plan: collaborationPlanShadow,
+      })
+    : null;
 
   const run = await prisma.agentRun.findUnique({
     where: { id: result.runId },
@@ -67,15 +82,39 @@ export async function sendDepartmentAssistantMessage(
           reflexDecisions: reflex.decisions,
           reflexError: reflex.error,
           collaborationPlanShadow,
+          visualGraphShadow,
         }),
+      },
+    });
+  }
+
+  let message = result.message;
+  if (visualGraphShadow) {
+    const existingCitations = Array.isArray(result.message.citations)
+      ? result.message.citations.filter((citation) => {
+          if (!citation || typeof citation !== "object" || Array.isArray(citation)) {
+            return true;
+          }
+          return (citation as Record<string, unknown>).kind !== "kern-graph";
+        })
+      : [];
+    message = await prisma.message.update({
+      where: { id: result.message.id },
+      data: {
+        citations: asInputJson([
+          ...existingCitations,
+          toKernGraphCitation(visualGraphShadow),
+        ]),
       },
     });
   }
 
   return {
     ...result,
+    message,
     assistantRuntime: context.runtimeVersion,
     reflexMode: reflex.mode,
     collaborationPlanShadow,
+    visualGraphShadow,
   };
 }
