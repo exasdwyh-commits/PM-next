@@ -91,7 +91,7 @@ function messageView(row: {
 
   return {
     id: row.id,
-    author: String(row.role) === "USER" ? "user" : "hermes",
+    author: String(row.role) === "USER" ? "user" : "kern",
     byEmployeeId: String(row.role) === "USER" ? null : "e-hermes",
     at: row.createdAt.toISOString(),
     state: "success",
