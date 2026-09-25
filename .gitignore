@@ -52,3 +52,6 @@ services/judgment-runtime/__pycache__/
 
 # 工作区内部笔记（Agent 记忆），禁止入库
 .workbuddy/
+
+# PM Worker 运行时单实例锁与心跳
+.pm-worker/

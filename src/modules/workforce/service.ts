@@ -1049,7 +1049,12 @@ export async function finishAgentTask(
             ? input.reason?.trim() || "Agent task failed"
             : null,
         outputSummary:
-          input.outcome === "SUCCEEDED" || input.outcome === "FAILED"
+          input.outcome === "SUCCEEDED" ||
+          input.outcome === "FAILED" ||
+          // BLOCKED 也要保留摘要：执行器（Digital Employee Executor）在诚实缺省时
+          // 写的是「缺什么」的可读说明，管理报告的 advisoryNotes 直接取这里；
+          // 若丢掉，报告就只剩 blockedReason 一句机器原因，看不到具体缺口。
+          input.outcome === "BLOCKED"
             ? resultSummary
             : run.outputSummary,
         finishedAt: now,

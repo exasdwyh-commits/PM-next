@@ -7,6 +7,7 @@ import AppShell from "@/components/app-shell";
 import { Panel, PageHeading, Badge, Empty, Modal } from "@/components/ui";
 import { StepTrack, GateLine, type StepItem, type GateNode } from "@/components/viz";
 import Icon from "@/components/icons";
+import { ProductRndPanel } from "@/components/product-rnd-panel";
 import { useReasonDialog } from "@/components/reason-dialog";
 import { identityHeaders } from "@/shared/client-identity";
 import { fmtDateTime, fmtTime } from "@/shared/datetime";
@@ -102,12 +103,6 @@ export default function ProjectDetailClient({
 
   const [feedbackContent, setFeedbackContent] = useState("");
 
-  const [productRndBrief, setProductRndBrief] = useState(
-    initialProject.target || ""
-  );
-  const [productRndState, setProductRndState] = useState<any>(null);
-  const [productRndLoading, setProductRndLoading] = useState(false);
-
   const [showPacketModal, setShowPacketModal] = useState(false);
   const [packetBudget, setPacketBudget] = useState("50000");
   const [packetScope, setPacketScope] = useState("仅限一期打样原料采购与初次实验室感官评测");
@@ -121,28 +116,6 @@ export default function ProjectDetailClient({
       item.title === "产品研发综合评估" &&
       item.executorType === "DIGITAL_WORKER"
   );
-
-  const productRndTaskLabel = (code: string) =>
-    ({
-      research_agent: "市场与竞品",
-      scientific_evidence_agent: "科学证据",
-      formulation_agent: "配方与规格",
-      compliance_agent: "法规与宣称",
-      cost_bom_agent: "成本与 BOM",
-      qa_verifier: "独立 QA",
-    })[code] ?? code;
-
-  const productRndStatusLabel = (status: string) =>
-    ({
-      QUEUED: "待执行",
-      RUNNING: "执行中",
-      SUBMITTED: "待复核",
-      SUCCEEDED: "完成",
-      FAILED: "失败",
-      BLOCKED: "阻塞",
-      WAITING_HUMAN: "待人工判断",
-      CANCELLED: "已取消",
-    })[status] ?? status;
 
   const showMsg = (text: string, type: "success" | "error" = "success") => {
     setMessage({ text, type });
@@ -184,36 +157,6 @@ export default function ProjectDetailClient({
     };
   }, [project.id, activeUserId, mockAuth]);
 
-  React.useEffect(() => {
-    const workItemId = productRndWorkItem?.id;
-    if (!workItemId) {
-      setProductRndState(null);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(
-          `/api/projects/${project.id}/product-rnd?workItemId=${encodeURIComponent(workItemId)}`,
-          { headers: identityHeaders(mockAuth, activeUserId) }
-        );
-        if (res.ok && !cancelled) {
-          setProductRndState(await res.json());
-        }
-      } catch (error) {
-        console.error(error);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    project.id,
-    productRndWorkItem?.id,
-    activeUserId,
-    mockAuth,
-  ]);
-
   // P1-01: 用户操作后刷新证据洞察（仅首次无障；挂载时用服务端初始值，避免 x-user-id 头在非 mock 会话下触发 403）
   const fetchEvidenceInsight = async () => {
     try {
@@ -254,55 +197,6 @@ export default function ProjectDetailClient({
     } catch (err: any) {
       showMsg(err.message, "error");
       throw err;
-    }
-  };
-
-  const fetchProductRndStatus = async (workItemId: string) => {
-    const res = await fetch(
-      `/api/projects/${project.id}/product-rnd?workItemId=${encodeURIComponent(workItemId)}`,
-      { headers: identityHeaders(mockAuth, activeUserId) }
-    );
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "读取产品研发状态失败");
-    setProductRndState(data);
-    return data;
-  };
-
-  const handleStartProductRnd = async () => {
-    if (!productRndBrief.trim()) {
-      showMsg("请先填写产品研发目标", "error");
-      return;
-    }
-    setProductRndLoading(true);
-    try {
-      const started = await apiCall(
-        `/api/projects/${project.id}/product-rnd`,
-        "POST",
-        { action: "START", brief: productRndBrief.trim() }
-      );
-      await reloadProject();
-      await fetchProductRndStatus(started.workItem.id);
-      showMsg("AI 产品研发已启动：专业员工开始按职责推进");
-    } finally {
-      setProductRndLoading(false);
-    }
-  };
-
-  const handleReconcileProductRnd = async () => {
-    const parentTaskId = productRndState?.parentTaskId;
-    if (!parentTaskId || !productRndWorkItem?.id) return;
-    setProductRndLoading(true);
-    try {
-      await apiCall(
-        `/api/projects/${project.id}/product-rnd`,
-        "POST",
-        { action: "RECONCILE", parentTaskId }
-      );
-      await fetchProductRndStatus(productRndWorkItem.id);
-      await reloadProject();
-      showMsg("产品研发状态已重新对齐");
-    } finally {
-      setProductRndLoading(false);
     }
   };
 
@@ -811,6 +705,21 @@ export default function ProjectDetailClient({
               ))}
             </ul>
           </div>
+        )}
+
+        {/* AI 产品研发：数字员工流水线 + 结构化 Executive Report（此前只有后端，没有入口） */}
+        {productRndWorkItem?.id && (
+          <ProductRndPanel
+            projectId={project.id}
+            workItemId={productRndWorkItem.id}
+            mockAuth={mockAuth}
+            activeUserId={activeUserId}
+            canOperate={isOwner || isDecisionMaker}
+            onChanged={reloadProject}
+            onNotice={(text, type) =>
+              showMsg(text, type === "error" ? "error" : "success")
+            }
+          />
         )}
 
         {/* P1-01: 证据覆盖与缺口（统一证据结构：仅已核实 FACT 计入结论，缺口保持 UNKNOWN） */}

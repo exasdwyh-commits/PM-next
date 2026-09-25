@@ -30,6 +30,7 @@ import {
   getLatestPublishedRun,
   startResearchRun,
 } from "@/modules/research/research-run";
+import type { ExecutiveReportPayload } from "@/shared/executive-report-types";
 
 const PRODUCT_RND_SPECIALISTS = [
   {
@@ -401,7 +402,7 @@ export async function startProductRndProgram(
 }
 
 /**
- * 原子抢占 Product R&D 的 QA 排队槽位（crash-safe lease 版）。
+ * 原子抢占 Product R&D 的 QA 排队槽位（crash-safe lease + fencing token）。
  *
  * advanceProductRndProgram 中「读取 childTasks → 发现没有 QA → 排队」是典型的
  * check-then-act：两个并发 reconcile（用户点击 RECONCILE 的同时，最后一个专家
@@ -411,24 +412,54 @@ export async function startProductRndProgram(
  * 这里用单条 UPDATE ... WHERE ... RETURNING 做 compare-and-swap：PostgreSQL
  * 对命中行加行锁，并发事务必然串行化，只有一个能拿到槽位。
  *
- * qaClaim 形态（v2，crash-safe）：
+ * qaClaim 形态：
  * - 占位：{"token","claimedAt","expiresAt"} —— 抢占成功但进程在创建 QA 前崩溃时，
  *   lease 过期后可重新抢占（v1 的裸 "claimed" 会永久卡死槽位）；
- * - 落定：{"taskId","claimedAt"} —— QA 任务已创建，无 expiresAt，不可重抢；
+ * - 落定：{"token","claimedAt","settledAt","taskId"} —— QA 任务已创建，**不带
+ *   expiresAt**，因此不会被 lease 过期规则重抢；只有「最新 attempt 已终结失败」
+ *   时才允许 retry 重抢；
  * - 兼容 v1：裸字符串 "claimed" 视为立即过期的占位；裸 taskId 字符串视为已落定。
  *
  * WHERE 额外要求「当前不存在活跃或成功的 QA attempt」，作为 retry 语义下的并发
  * 兜底：QA FAILED 后允许多次排队（attempt N+1），但任何时刻最多只有一个活跃 QA。
+ *
+ * ## fencing：token 不只是记录信息
+ *
+ * 光有 expiresAt 只解决「永久死锁」，不解决 stale owner 复活后的重复执行：
+ *
+ *   A 抢到 tokenA → A 卡住超过 lease → B 抢到 tokenB 并创建 QA-B → A 复活后
+ *   继续创建 QA-A  ⟹  同一 parent 下两个活跃 QA。
+ *
+ * 因此本模块把 token 当真正的 fencing token 用：
+ * 1. claim 返回 token；
+ * 2. **创建 QA 之前**先 `renew`（token 匹配才续租）——失权则直接放弃，不创建任务；
+ * 3. 创建之后 `settle` 也必须 token 匹配——失权说明已被更新 owner 夺权，
+ *    此时对刚创建的孤儿 QA 执行**补偿性作废**（supersedeFencedQaTask），
+ *    保证任一时刻最多只有一个活跃 QA；
+ * 4. `release` 同样 token 匹配——旧 A 报错时**不可能删掉** B 的新 claim。
+ *
+ * 为什么不用「一个大事务包住 claim + 建 QA + settle」：建 QA 走
+ * delegateAgentTask，它有自己独立的写入路径（审计事件等），把它塞进外部事务
+ * 只会产生半回滚语义（外部回滚，内部已提交）。上面的「校验 + 补偿」协议在
+ * 不改变 delegate 前提下同样能守住「至多一个活跃 QA」这一不变量。
  */
 const QA_CLAIM_LEASE_MS = 5 * 60_000;
+/** 抢不到槽位时，最多等这么久看并发的 attempt 是否浮现（避免把瞬时竞争暴露成 409）。 */
+const QA_CLAIM_WAIT_MS = 1_200;
+const QA_CLAIM_POLL_MS = 300;
 
-async function claimProductRndQaSlot(
+/**
+ * 抢占槽位，返回本次抢占的 **fencing token**；未抢到返回 null。
+ * 调用方必须把 token 一路带到 renew / settle / release，否则它就只是装饰。
+ */
+export async function claimProductRndQaSlot(
   parentTaskId: string,
   organizationId: string
-): Promise<boolean> {
+): Promise<string | null> {
   const now = new Date();
+  const token = randomUUID();
   const claim = JSON.stringify({
-    token: randomUUID(),
+    token,
     claimedAt: now.toISOString(),
     expiresAt: new Date(now.getTime() + QA_CLAIM_LEASE_MS).toISOString(),
   });
@@ -464,6 +495,8 @@ async function claimProductRndQaSlot(
                   JOIN "Agent" ag ON ag.id = qa."agentId"
                  WHERE qa."parentTaskId" = parent.id
                    AND ag.code = 'qa_verifier'
+                   -- 被 fencing 作废的孤儿不算「最新 attempt」
+                   AND COALESCE(qa."contextSnapshot" -> 'fencedOut', 'false'::jsonb) <> 'true'::jsonb
                  ORDER BY qa."createdAt" DESC
                  LIMIT 1
               ), 'NONE') IN ('FAILED', 'BLOCKED', 'CANCELLED')
@@ -475,23 +508,120 @@ async function claimProductRndQaSlot(
            JOIN "Agent" ag ON ag.id = qa."agentId"
           WHERE qa."parentTaskId" = parent.id
             AND ag.code = 'qa_verifier'
+            AND COALESCE(qa."contextSnapshot" -> 'fencedOut', 'false'::jsonb) <> 'true'::jsonb
             AND qa.status IN ('QUEUED', 'RUNNING', 'SUBMITTED', 'WAITING_HUMAN', 'SUCCEEDED')
        )
     RETURNING parent.id
   `;
-  return claimed.length > 0;
+  return claimed.length > 0 ? token : null;
 }
 
-/** 排队失败时释放槽位，避免残留的 claim 让 QA 永远排不进来。 */
-async function releaseProductRndQaSlot(
+/**
+ * 续租 + ownership 校验（fencing 第 2 步）。
+ *
+ * 只有仍持有同一 token 的 owner 能延长 lease；返回 false 表示槽位已被别人拿走
+ * （我们已失权），调用方必须放弃创建 QA，绝不能继续往下走。
+ */
+export async function renewProductRndQaSlot(
   parentTaskId: string,
-  organizationId: string
+  organizationId: string,
+  token: string
+): Promise<boolean> {
+  const now = new Date();
+  const renewed = await prisma.$queryRaw<Array<{ id: string }>>`
+    UPDATE "AgentTask"
+       SET "contextSnapshot" = jsonb_set(
+             COALESCE("contextSnapshot", '{}'::jsonb),
+             '{qaClaim}',
+             jsonb_build_object(
+               'token', ${token}::text,
+               'claimedAt', COALESCE("contextSnapshot" #>> '{qaClaim,claimedAt}', ${now.toISOString()}::text),
+               'renewedAt', ${now.toISOString()}::text,
+               'expiresAt', ${new Date(now.getTime() + QA_CLAIM_LEASE_MS).toISOString()}::text
+             ),
+             true
+           )
+     WHERE id = ${parentTaskId}
+       AND "organizationId" = ${organizationId}
+       AND COALESCE("contextSnapshot" -> 'qaClaim' ->> 'token', '') = ${token}
+    RETURNING id
+  `;
+  return renewed.length > 0;
+}
+
+/**
+ * 槽位落定（fencing 第 3 步）：把占位 lease 换成真实 QA 任务 id，且**必须**仍持有
+ * 同一 token。返回 false = 已被更新的 owner 夺权，我们刚创建的那个 QA 是孤儿。
+ *
+ * 落定形态刻意**不带 expiresAt**：否则「lease 过期即可重抢」的规则会在 QA 还活跃时
+ * 把它抢走。retry 重抢由「最新 attempt 已失败终结」那条规则负责。
+ */
+export async function settleProductRndQaSlot(
+  parentTaskId: string,
+  organizationId: string,
+  token: string,
+  qaTaskId: string
+): Promise<boolean> {
+  const now = new Date().toISOString();
+  const settled = await prisma.$queryRaw<Array<{ id: string }>>`
+    UPDATE "AgentTask"
+       SET "contextSnapshot" = jsonb_set(
+             COALESCE("contextSnapshot", '{}'::jsonb),
+             '{qaClaim}',
+             jsonb_build_object(
+               'token', ${token}::text,
+               'claimedAt', COALESCE("contextSnapshot" #>> '{qaClaim,claimedAt}', ${now}::text),
+               'settledAt', ${now}::text,
+               'taskId', ${qaTaskId}::text
+             ),
+             true
+           )
+     WHERE id = ${parentTaskId}
+       AND "organizationId" = ${organizationId}
+       AND COALESCE("contextSnapshot" -> 'qaClaim' ->> 'token', '') = ${token}
+    RETURNING id
+  `;
+  return settled.length > 0;
+}
+
+/**
+ * 释放槽位（fencing 第 4 步）。**必须**带 token：旧 owner 报错时不能删掉新 owner
+ * 的 claim，否则会制造「B 以为持有槽位、槽位却空了」的第三种坏状态。
+ */
+export async function releaseProductRndQaSlot(
+  parentTaskId: string,
+  organizationId: string,
+  token: string
 ): Promise<void> {
   await prisma.$executeRaw`
     UPDATE "AgentTask"
        SET "contextSnapshot" = COALESCE("contextSnapshot", '{}'::jsonb) - 'qaClaim'
      WHERE id = ${parentTaskId}
        AND "organizationId" = ${organizationId}
+       AND COALESCE("contextSnapshot" -> 'qaClaim' ->> 'token', '') = ${token}
+  `;
+}
+
+/**
+ * 补偿性作废：settle 失权后，把刚创建的孤儿 QA 标记为 CANCELLED + fencedOut。
+ *
+ * 不删除任务（审计留痕），而是打 `contextSnapshot.fencedOut = true` 标记；
+ * `selectCurrentQaAttempt` 会跳过带该标记的任务，因此孤儿既不会被当成
+ * 「最新有效 attempt」，也不会遮蔽真正 owner 的 QA。
+ */
+export async function supersedeFencedQaTask(qaTaskId: string): Promise<void> {
+  await prisma.$executeRaw`
+    UPDATE "AgentTask"
+       SET "status" = 'CANCELLED',
+           "blockedReason" = 'Superseded: a newer Product R&D QA claim took over this slot (fencing token mismatch).',
+           "contextSnapshot" = jsonb_set(
+             COALESCE("contextSnapshot", '{}'::jsonb),
+             '{fencedOut}',
+             'true'::jsonb,
+             true
+           )
+     WHERE id = ${qaTaskId}
+       AND "status" IN ('QUEUED', 'RUNNING', 'SUBMITTED')
   `;
 }
 
@@ -503,12 +633,18 @@ async function releaseProductRndQaSlot(
  * - 最新 attempt 处于 FAILED/BLOCKED/CANCELLED → 该 attempt 已终结，
  *   表示允许排队 attempt N+1（retry）。
  */
-function selectCurrentQaAttempt<T extends { agent: { code: string }; createdAt: Date }>(
-  tasks: T[]
-): T | null {
+function selectCurrentQaAttempt<
+  T extends { agent: { code: string }; createdAt: Date; contextSnapshot?: unknown },
+>(tasks: T[]): T | null {
   return (
     tasks
-      .filter((task) => task.agent.code === "qa_verifier")
+      .filter(
+        (task) =>
+          task.agent.code === "qa_verifier" &&
+          // 被 fencing 作废的孤儿 attempt 不参与「当前有效 attempt」判定
+          objectOrEmpty(task.contextSnapshot as Prisma.JsonValue | null)
+            .fencedOut !== true
+      )
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] ?? null
   );
 }
@@ -593,18 +729,45 @@ export async function queueProductRndQa(
   // 并发护栏：existing 检查与真正创建之间存在窗口，用原子 CAS 抢占。
   // QA FAILED 后 retry 时，旧的落定 claim（taskId 形态）会被这里的新占位覆盖；
   // CAS 内置的「无活跃/成功 QA」条件保证并发 retry 仍然只产生一个活跃 attempt。
-  const claimed = await claimProductRndQaSlot(parent.id, session.organizationId);
-  if (!claimed) {
-    const raced = await prisma.agentTask.findFirst({
-      where: {
-        parentTaskId: parent.id,
-        organizationId: session.organizationId,
-        agent: { code: "qa_verifier" },
-      },
-    });
-    if (raced) return { created: false as const, task: raced };
+  const claimToken = await claimProductRndQaSlot(parent.id, session.organizationId);
+  if (!claimToken) {
+    // 没抢到槽位：可能是并发请求刚建好 attempt（此时应优雅复用），也可能是另一个
+    // owner 正在创建中（稍等即会可见）。绝不能用 findFirst() 任意取——那会把
+    // FAILED 的旧 attempt 当成结果返回，掩盖「新 QA 正在被创建」这一事实。
+    // 因此：只认最新**有效** attempt，并给并发创建留一个很短的可见窗口；
+    // 超时仍无有效 attempt 才返回可重试冲突，让调用方稍后重试。
+    const deadline = Date.now() + QA_CLAIM_WAIT_MS;
+    for (;;) {
+      const latest = await prisma.agentTask.findFirst({
+        where: {
+          parentTaskId: parent.id,
+          organizationId: session.organizationId,
+          agent: { code: "qa_verifier" },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+      if (latest && ACTIVE_QA_STATUSES.has(latest.status)) {
+        return { created: false as const, task: latest };
+      }
+      if (Date.now() >= deadline) break;
+      await new Promise((resolve) => setTimeout(resolve, QA_CLAIM_POLL_MS));
+    }
     throw new ConflictError(
-      "Product R&D QA slot is being claimed by a concurrent request"
+      "Product R&D QA slot is being claimed or created by a concurrent request; retry shortly"
+    );
+  }
+
+  // fencing 第 2 步：创建 QA 之前重新确认 ownership（token 匹配才续租）。
+  // 失权说明 lease 已被更晚的请求接管——此时必须放弃创建，否则会产生第二个
+  // 活跃 QA（旧 owner 复活导致重复执行的经典场景）。
+  const stillOwner = await renewProductRndQaSlot(
+    parent.id,
+    session.organizationId,
+    claimToken
+  );
+  if (!stillOwner) {
+    throw new ConflictError(
+      "Product R&D QA claim was taken over by a concurrent request; aborting QA creation"
     );
   }
 
@@ -649,21 +812,23 @@ export async function queueProductRndQa(
       },
     });
 
-    // 槽位落定：把占位 lease 换成真实 QA 任务 id（无 expiresAt，不可重抢）。
-    await prisma.$executeRaw`
-      UPDATE "AgentTask"
-         SET "contextSnapshot" = jsonb_set(
-               COALESCE("contextSnapshot", '{}'::jsonb),
-               '{qaClaim}',
-               jsonb_build_object(
-                 'taskId', ${delegated.childTask.id}::text,
-                 'claimedAt', to_jsonb(to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
-               ),
-               true
-             )
-       WHERE id = ${parent.id}
-         AND "organizationId" = ${session.organizationId}
-    `;
+    // 槽位落定（fencing 第 3 步）：必须仍持有同一 token。
+    const settled = await settleProductRndQaSlot(
+      parent.id,
+      session.organizationId,
+      claimToken,
+      delegated.childTask.id
+    );
+    if (!settled) {
+      // 已被更新的 owner 夺权：我们刚创建的 QA 是孤儿，补偿性作废，
+      // 保证任一时刻最多只有一个活跃 QA。
+      // 抛出后由下面的 catch 用**已失权的 token** 调 release —— token 不匹配
+      // 即 no-op，绝不会误删新 owner 的 claim。
+      await supersedeFencedQaTask(delegated.childTask.id);
+      throw new ConflictError(
+        "Product R&D QA claim was fenced out by a newer claim; the orphaned QA task was cancelled"
+      );
+    }
 
     return {
       created: true as const,
@@ -671,7 +836,7 @@ export async function queueProductRndQa(
       task: delegated.childTask,
     };
   } catch (error) {
-    await releaseProductRndQaSlot(parent.id, session.organizationId);
+    await releaseProductRndQaSlot(parent.id, session.organizationId, claimToken);
     throw error;
   }
 }
@@ -750,44 +915,94 @@ export async function getProductRndProgramStatus(
     latestReport: (() => {
       const artifact = workItem.artifacts[0];
       if (!artifact) return null;
-      let preview: {
-        summary?: string;
-        verificationStatus?: string;
-        unknowns?: string[];
-        risks?: string[];
-        decisionsRequired?: string[];
-      } | null = null;
-      try {
-        const parsed = JSON.parse(artifact.content) as Record<string, unknown>;
-        preview = {
-          summary:
-            typeof parsed.summary === "string" ? parsed.summary : undefined,
-          verificationStatus:
-            typeof parsed.verificationStatus === "string"
-              ? parsed.verificationStatus
-              : undefined,
-          unknowns: Array.isArray(parsed.unknowns)
-            ? parsed.unknowns.filter(
-                (item): item is string => typeof item === "string"
-              ).slice(0, 8)
-            : [],
-          risks: Array.isArray(parsed.risks)
-            ? parsed.risks.filter(
-                (item): item is string => typeof item === "string"
-              ).slice(0, 6)
-            : [],
-          decisionsRequired: Array.isArray(parsed.decisionsRequired)
-            ? parsed.decisionsRequired.filter(
-                (item): item is string => typeof item === "string"
-              ).slice(0, 6)
-            : [],
-        };
-      } catch {
-        preview = null;
-      }
+      const preview = buildExecutiveReportPreview(artifact.content);
       const { content: _content, ...publicArtifact } = artifact;
       return { ...publicArtifact, preview };
     })(),
+  };
+}
+
+function stringList(value: unknown, limit: number): string[] {
+  return Array.isArray(value)
+    ? value
+        .filter((item): item is string => typeof item === "string")
+        .slice(0, limit)
+    : [];
+}
+
+function objectList(
+  value: unknown,
+  limit: number
+): Array<Record<string, unknown>> {
+  return Array.isArray(value)
+    ? value
+        .filter(
+          (item): item is Record<string, unknown> =>
+            Boolean(item) && typeof item === "object" && !Array.isArray(item)
+        )
+        .slice(0, limit)
+    : [];
+}
+
+function optionalString(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+/**
+ * 把完整的 `ProductRndExecutiveReport`（artifact.content）裁剪成「负责人视图」载荷。
+ *
+ * 为什么要专门做一个裁剪函数，而不是让前端直接解析原始 JSON：
+ * - 原始报告含全量 sourceRefs / verificationRefs / agentRunRefs，长文档会把页面打爆；
+ * - 前端需要的是**已定型**的结构（每类字段都有明确上限与类型），而不是 any；
+ * - 契约放在 `@/shared/executive-report-types`，服务端裁剪与客户端渲染共用一份，
+ *   避免字段一改两边漂移。
+ *
+ * 解析失败一律返回 null（页面走空态），绝不把非法 JSON 抛给渲染层。
+ */
+export function buildExecutiveReportPreview(
+  content: string
+): ExecutiveReportPayload | null {
+  let parsed: Record<string, unknown>;
+  try {
+    const raw = JSON.parse(content) as unknown;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    parsed = raw as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+
+  return {
+    summary: optionalString(parsed.summary),
+    verificationStatus: optionalString(parsed.verificationStatus),
+    conclusions: objectList(parsed.conclusions, 20).map((row) => ({
+      claim: optionalString(row.claim) ?? "(未命名 claim)",
+      claimKind: optionalString(row.claimKind),
+      evidenceLevel: optionalString(row.evidenceLevel),
+      evidenceRef: optionalString(row.evidenceRef),
+      verificationRefs: stringList(row.verificationRefs, 5),
+      freshness: optionalString(row.freshness),
+    })),
+    unknowns: stringList(parsed.unknowns, 12),
+    risks: stringList(parsed.risks, 8),
+    decisionsRequired: stringList(parsed.decisionsRequired, 8),
+    recommendedActions: stringList(parsed.recommendedActions, 8),
+    assumptions: stringList(parsed.assumptions, 8),
+    advisoryNotes: objectList(parsed.advisoryNotes, 12).map((row) => ({
+      agentCode: optionalString(row.agentCode) ?? "unknown",
+      agentName: optionalString(row.agentName),
+      status: optionalString(row.status),
+      summary: optionalString(row.summary),
+      errorReason: optionalString(row.errorReason),
+    })),
+    provenance: {
+      sourceRefs: objectList(parsed.sourceRefs, 50).map(
+        (row) => `evidence:${optionalString(row.id) ?? "unknown"}`
+      ),
+      agentRunRefs: stringList(parsed.agentRunRefs, 50),
+      modelRunRefs: stringList(parsed.modelRunRefs, 50),
+      knowledgeDebtRefs: stringList(parsed.knowledgeDebtRefs, 50),
+      researchSnapshotRef: optionalString(parsed.researchSnapshotRef),
+    },
   };
 }
 
@@ -971,6 +1186,13 @@ export async function synthesizeProductRndExecutiveReport(
     };
   });
 
+  // 诚实守卫：专家任务可能「成功」但只留下叙述性摘要、没有把 claim / 缺口结构化落库。
+  // 这种情况下 conclusions 为空、evidences 为空，报告会显示成一份「0 个未闭合项」的健康报告，
+  // 而摘要区自己却写着「标注 2 个来源缺口 / 关键 claim 证据等级 UNKNOWN 待补」——
+  // 这是报告自相矛盾，必须显式登记为未闭合项，而不是让它静默通过。
+  // 注意：这里只做「零证据绑定」这种可判定的检查，不去解析专家自由文本（那会变成猜测）。
+  const hasNoBoundEvidence = evidences.length === 0;
+
   const unknowns = [
     ...dataGaps.map(
       (gap) => `${gap.fieldName}: ${gap.description}`
@@ -985,6 +1207,12 @@ export async function synthesizeProductRndExecutiveReport(
         (note) =>
           `${note.agentName} 未成功完成：${note.errorReason ?? note.status}`
       ),
+    ...(hasNoBoundEvidence
+      ? [
+          `报告未绑定任何结构化证据（${specialistNotes.length} 个专家任务均未落 claim）：` +
+            "现有摘要属专家意见而非可追溯结论，不得作为业务批准依据。",
+        ]
+      : []),
   ];
   const uniqueUnknowns = [...new Set(unknowns.filter(Boolean))];
 
@@ -995,6 +1223,9 @@ export async function synthesizeProductRndExecutiveReport(
     ...(verificationStatus === "READY_FOR_HUMAN_REVIEW"
       ? []
       : ["独立 QA 尚未通过，报告不得作为自动业务批准依据。"]),
+    ...(hasNoBoundEvidence
+      ? ["报告零证据绑定：所有结论都无法沿引用回到原始来源。"]
+      : []),
     ...(uniqueUnknowns.length
       ? ["仍存在未闭合证据/数据/专业任务缺口。"]
       : []),

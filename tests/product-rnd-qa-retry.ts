@@ -23,10 +23,24 @@ import {
 } from "../src/modules/workforce/service";
 import {
   advanceProductRndProgram,
+  claimProductRndQaSlot,
   queueProductRndQa,
+  releaseProductRndQaSlot,
+  renewProductRndQaSlot,
+  settleProductRndQaSlot,
   startProductRndProgram,
+  supersedeFencedQaTask,
 } from "../src/modules/product-rnd";
+import { ConflictError } from "../src/shared/errors";
 import { runResearchRunTasks } from "../src/modules/research/research-run";
+
+const ACTIVE_QA_STATUSES = [
+  AgentTaskStatus.QUEUED,
+  AgentTaskStatus.RUNNING,
+  AgentTaskStatus.SUBMITTED,
+  AgentTaskStatus.WAITING_HUMAN,
+  AgentTaskStatus.SUCCEEDED,
+];
 
 async function main() {
   if (!process.env.TEST_DATABASE_URL) {
@@ -214,6 +228,155 @@ async function main() {
     console.log(
       `✅ 报告已合成（verificationStatus=READY_FOR_HUMAN_REVIEW），失败的 attempt 1 保留审计（${blockedTasks[0].id}）`
     );
+
+    // ------------------------------------------------------------------
+    // QA fencing token
+    // 评审 2026-09-25：lease 只解决「永久死锁」，不解决「stale owner 复活后重复执行」。
+    // 以下场景直接对应两个真实漏洞：
+    //   1. A 卡住超时 → B 夺权建 QA-B → A 复活仍建 QA-A（两个活跃 QA）
+    //   2. 旧 owner 报错时无条件 release，会删掉新 owner 的 claim
+    // ------------------------------------------------------------------
+    console.log("\n▶ QA-F1 陈旧 lease + 新 owner 抢占：claim 返回真正的 fencing token");
+    const hermesPm = await prisma.agent.findUniqueOrThrow({
+      where: { organizationId_code: { organizationId: org.id, code: "hermes_pm" } },
+    });
+    const qaAgent = await prisma.agent.findUniqueOrThrow({
+      where: {
+        organizationId_code: { organizationId: org.id, code: "qa_verifier" },
+      },
+    });
+    const fencingParent = await prisma.agentTask.create({
+      data: {
+        organizationId: org.id,
+        agentId: hermesPm.id,
+        workItemId: program.workItem.id,
+        goal: "QA fencing token 并发回归（合成 parent）",
+        status: AgentTaskStatus.QUEUED,
+      },
+    });
+    const writeClaim = async (claim: Record<string, unknown>) => {
+      await prisma.$executeRaw`
+        UPDATE "AgentTask"
+           SET "contextSnapshot" = jsonb_set(
+                 COALESCE("contextSnapshot", '{}'::jsonb),
+                 '{qaClaim}',
+                 ${JSON.stringify(claim)}::jsonb,
+                 true
+               )
+         WHERE id = ${fencingParent.id}
+      `;
+    };
+    const readClaim = async () => {
+      const row = await prisma.agentTask.findUnique({
+        where: { id: fencingParent.id },
+        select: { contextSnapshot: true },
+      });
+      const ctx = (row?.contextSnapshot ?? {}) as unknown as Record<string, unknown>;
+      return (ctx.qaClaim ?? null) as Record<string, unknown> | null;
+    };
+
+    const staleToken = randomUUID();
+    await writeClaim({
+      token: staleToken,
+      claimedAt: new Date(Date.now() - 10 * 60_000).toISOString(),
+      expiresAt: new Date(Date.now() - 5 * 60_000).toISOString(),
+    });
+    const freshToken = await claimProductRndQaSlot(fencingParent.id, org.id);
+    assert.ok(freshToken, "expired lease must be re-claimable");
+    assert.notEqual(freshToken, staleToken);
+    console.log(
+      `✅ 新 owner 抢到 token=${freshToken.slice(0, 8)}…（旧 token ${staleToken.slice(0, 8)}… 已失权）`
+    );
+
+    console.log("▶ QA-F2 陈旧 owner 的 release 不得删掉新 owner 的 claim");
+    await releaseProductRndQaSlot(fencingParent.id, org.id, staleToken);
+    assert.equal((await readClaim())?.token, freshToken, "stale release must be no-op");
+    console.log("✅ 陈旧 release 为 no-op，新 claim 完好");
+
+    console.log("▶ QA-F3 陈旧 owner 不能续租，当前 owner 可以");
+    assert.equal(
+      await renewProductRndQaSlot(fencingParent.id, org.id, staleToken),
+      false,
+      "stale owner must not renew"
+    );
+    assert.equal(
+      await renewProductRndQaSlot(fencingParent.id, org.id, freshToken),
+      true
+    );
+    console.log("✅ fencing 校验生效：stale=false / owner=true");
+
+    console.log("▶ QA-F4 陈旧 owner 的 settle 失败 → 孤儿 QA 作废（不删、不遮蔽）");
+    const orphan = await prisma.agentTask.create({
+      data: {
+        organizationId: org.id,
+        agentId: qaAgent.id,
+        parentTaskId: fencingParent.id,
+        goal: "孤儿 QA（fenced out）",
+        status: AgentTaskStatus.QUEUED,
+      },
+    });
+    assert.equal(
+      await settleProductRndQaSlot(fencingParent.id, org.id, staleToken, orphan.id),
+      false,
+      "stale settle must fail"
+    );
+    await supersedeFencedQaTask(orphan.id);
+    const orphanAfter = await prisma.agentTask.findUnique({
+      where: { id: orphan.id },
+      select: { status: true, contextSnapshot: true },
+    });
+    assert.equal(orphanAfter?.status, AgentTaskStatus.CANCELLED);
+    assert.equal(
+      (orphanAfter?.contextSnapshot as unknown as Record<string, unknown>)?.fencedOut,
+      true
+    );
+    console.log("✅ 孤儿 QA 已 CANCELLED + fencedOut，审计留痕但不算有效 attempt");
+
+    console.log("▶ QA-F5 作废的孤儿不阻塞排队，也不遮蔽真正 owner 的 QA");
+    await releaseProductRndQaSlot(fencingParent.id, org.id, freshToken);
+    const realAttempt = await queueProductRndQa(session, {
+      parentTaskId: fencingParent.id,
+    });
+    assert.equal(realAttempt.created, true, "fenced-out orphan must not block queueing");
+    assert.notEqual(realAttempt.task.id, orphan.id);
+    assert.equal(
+      await prisma.agentTask.count({
+        where: {
+          parentTaskId: fencingParent.id,
+          agent: { code: "qa_verifier" },
+          status: { in: ACTIVE_QA_STATUSES },
+        },
+      }),
+      1,
+      "at most one active QA attempt must exist"
+    );
+    console.log(`✅ 孤儿被忽略，新 attempt=${realAttempt.task.id}，活跃 QA=1`);
+
+    console.log("▶ QA-F6 loser 分支不得把 FAILED 的旧 attempt 当结果返回");
+    // 模拟真实竞争：旧 attempt 已 FAILED，另一个 owner 持有未过期 lease 正在建新 attempt。
+    await prisma.agentTask.update({
+      where: { id: realAttempt.task.id },
+      data: {
+        status: AgentTaskStatus.FAILED,
+        blockedReason: "manual: 模拟旧 attempt 终结",
+      },
+    });
+    await writeClaim({
+      token: randomUUID(),
+      claimedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+    });
+    const loserError = await queueProductRndQa(session, {
+      parentTaskId: fencingParent.id,
+    }).then(
+      () => null,
+      (error: unknown) => error
+    );
+    assert.ok(
+      loserError instanceof ConflictError,
+      "loser must receive a retryable conflict, not the stale FAILED attempt"
+    );
+    console.log(`✅ loser 得到可重试冲突：${loserError.message}`);
 
     console.log("\n✅ Product R&D QA crash-lease + retry attempt regression passed");
   } finally {

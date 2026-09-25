@@ -63,6 +63,9 @@
     "test:unknown-injection": "tsx scripts/run-test.ts tests/local-acceptance-unknown-injection.ts",
     "test:qa-dedup": "tsx scripts/run-test.ts tests/product-rnd-qa-dedup.ts",
     "test:qa-retry": "tsx scripts/run-test.ts tests/product-rnd-qa-retry.ts",
+    "test:worker": "tsx scripts/run-test.ts tests/worker-executor.ts",
+    "worker": "tsx scripts/pm-worker.ts",
+    "worker:once": "tsx scripts/pm-worker.ts --once",
     "muse:check": "NODE_ENV=production tsx scripts/muse-check.ts",
     "test:assistant-persona": "tsx scripts/run-test.ts tests/assistant-persona-muse.ts"
   },
