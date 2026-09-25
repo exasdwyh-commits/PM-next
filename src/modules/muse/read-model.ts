@@ -6,6 +6,7 @@ import { getDesktopOverview } from "@/modules/desktop-runtime";
 import { getWorkspaceOverview } from "@/modules/workspace/overview";
 import prisma from "@/shared/db";
 import { readKernGraphCitation } from "@/modules/visual-intelligence/contracts";
+import type { KernGraphV1 } from "@/modules/visual-intelligence/contracts";
 import type {
   ActivityItem,
   AiState,
@@ -91,7 +92,7 @@ function messageView(row: {
   const citations = Array.isArray(row.citations) ? row.citations : [];
   const graphs = citations
     .map((citation) => readKernGraphCitation(citation))
-    .filter((graph): graph is NonNullable<typeof graph> => Boolean(graph));
+    .filter((graph): graph is KernGraphV1 => graph !== null);
   const refs = citations
     .map((citation, index) =>
       readKernGraphCitation(citation)
