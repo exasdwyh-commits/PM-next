@@ -47,7 +47,7 @@ const PRODUCT_SUGGESTIONS = [
 
 const ROLE_LABEL: Record<string, string> = {
   USER: "我",
-  ASSISTANT: "HERMES 顾问",
+  ASSISTANT: "HERMES 助理",
   SYSTEM: "系统",
   TOOL: "工具",
 };
@@ -258,7 +258,7 @@ export default function AdvisorClient({
       topbarLeft={
         <div className="hermes-topbar-title">
           <span className="eyebrow">AI ADVISOR</span>
-          <strong>AI 顾问</strong>
+          <strong>AI 助理</strong>
         </div>
       }
       topbarRight={
@@ -273,7 +273,7 @@ export default function AdvisorClient({
           <p className="eyebrow">
             {boundProduct ? `当前产品 · ${boundProduct.identityCode}` : "全公司咨询"}
           </p>
-          <h1>{boundProduct ? `${boundProduct.name} AI 顾问` : "AI 顾问"}</h1>
+          <h1>{boundProduct ? `${boundProduct.name} AI 助理` : "AI 助理"}</h1>
           <p>
             {boundProduct
               ? `围绕产品 ${boundProduct.name}（当前 ${boundProduct.versions[0]?.versionTag || "v1"}）讨论方案、优化、任务与上市`
@@ -408,7 +408,7 @@ export default function AdvisorClient({
                   </div>
                 );
               })}
-              {busy && <div className="hermes-chat-msg is-assistant"><div className="hermes-chat-role">HERMES 顾问</div><Thinking label="正在检索公司资料并组织答案…" /></div>}
+              {busy && <div className="hermes-chat-msg is-assistant"><div className="hermes-chat-role">HERMES 助理</div><Thinking label="正在检索公司资料并组织答案…" /></div>}
             </div>
           )}
 
