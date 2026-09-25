@@ -11,6 +11,10 @@ import {
   type BriefDecisionItem,
   type BriefSourceItem,
 } from "@/modules/workspace/briefing";
+import {
+  DesktopConversationStrip,
+  useDesktopOverview,
+} from "@/components/desktop-activity";
 import { fmtDate, fmtDateTime } from "@/shared/datetime";
 import { labelProductLifecycleStage } from "@/shared/status-labels";
 import {
@@ -112,6 +116,8 @@ export default function WorkbenchClient({
     currentSession?.userId || allUsers[0]?.id || ""
   );
   const [command, setCommand] = React.useState("");
+  // 本机执行是「Hermes 正在替我做什么」的一部分；没有本机任务时整块不出现。
+  const { overview: desktopOverview } = useDesktopOverview({ intervalMs: 8000, limit: 4 });
   const activeUser = allUsers.find((u) => u.id === activeUserId) || allUsers[0];
   const displayName = activeUser?.name || currentSession?.userName || "你好";
 
@@ -215,6 +221,8 @@ export default function WorkbenchClient({
           ))}
         </div>
       </section>
+
+      <DesktopConversationStrip overview={desktopOverview} />
 
       {overview.portfolio.productCount === 0 ? (
         <section className="hermes-onboarding" aria-labelledby="hermes-onboarding-title">

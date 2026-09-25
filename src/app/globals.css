@@ -2148,3 +2148,31 @@ button,a { -webkit-tap-highlight-color:transparent; }
   .hermes-desktop-task-time { margin-left:0; }
   .hermes-desktop-counts { gap:10px; }
 }
+
+/* ---------------------------------------------------------------------------
+   手机端（~390px）实测修正
+   目标不是把桌面布局搬到手机，而是「不横向溢出、不裁切、够得到」。
+   --------------------------------------------------------------------------- */
+@media (max-width:860px) {
+  /* .hermes-table 在窄屏保留 min-width:520px（表格塌成一列反而读不懂），
+     但它必须在自己的容器里横滚。.hermes-panel 已经有 overflow-x，
+     而 theme-section / details / 各类嵌套容器没有，520px 会直接顶穿页面。 */
+  .hermes-theme-section,
+  .hermes-details,
+  .hermes-desktop-task { overflow-x:auto; }
+
+  /* 顶栏在 ≤860 变成 position:static，不再占 68px。
+     工作区 Tab 若继续按 68px 吸顶，会在内容上方留一条永久空白带。 */
+  .hermes-workspace-tabs { top:0; }
+}
+@media (max-width:520px) {
+  /* 82px 导航栏在 390px 上吃掉 21% 宽度，正文只剩 ~260px。
+     图标此时已无文字标签，收窄到 64px 即可，仍是常驻可达导航，不改成抽屉。 */
+  .hermes-shell { --sidebar-rail:64px; }
+  .hermes-sidebar { padding:14px 6px; }
+
+  /* 240px 的固定最小宽在 ~260px 正文里只剩 20px 余量，任何内边距变化就溢出。 */
+  .hermes-evidence-ring-copy { min-width:0; }
+  /* 阶段标签是正文级长文案，不是 chip，不能 nowrap。 */
+  .hermes-stage-band-label { white-space:normal; }
+}
