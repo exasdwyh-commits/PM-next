@@ -87,12 +87,27 @@ async function main() {
     await bootstrapDefaultWorkforce(adminSession);
     await bootstrapDefaultAutopilots(adminSession);
 
-    assert.equal(await prisma.agent.count({ where: { organizationId: org.id } }), 12);
-    assert.equal(await prisma.skill.count({ where: { organizationId: org.id } }), 12);
+    assert.equal(await prisma.agent.count({ where: { organizationId: org.id } }), 13);
+    assert.equal(await prisma.skill.count({ where: { organizationId: org.id } }), 13);
     assert.equal(await prisma.squad.count({ where: { organizationId: org.id } }), 1);
     assert.equal(
       await prisma.squadMember.count({ where: { squadId: first.squad.id } }),
-      12
+      13
+    );
+    const architect = await prisma.agent.findUniqueOrThrow({
+      where: {
+        organizationId_code: { organizationId: org.id, code: "tech_architect_agent" },
+      },
+      include: {
+        skillBindings: { include: { skill: true } },
+      },
+    });
+    assert.equal(architect.roleKey, "TECH_ARCHITECT");
+    assert.equal(
+      architect.skillBindings.some(
+        (binding) => binding.enabled && binding.skill.key === "technical_architecture"
+      ),
+      true
     );
     const desktop = await prisma.agent.findUniqueOrThrow({
       where: {
@@ -109,7 +124,7 @@ async function main() {
       ),
       true
     );
-    console.log("  ✔ one stable product squad, twelve agents, twelve skills including Desktop Operator");
+    console.log("  ✔ one stable product squad, thirteen agents, thirteen skills including Tech Architect and Desktop Operator");
 
     const hermes = await prisma.agent.findUniqueOrThrow({
       where: {
