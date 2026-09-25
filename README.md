@@ -18,7 +18,7 @@ PM-next 是一个面向产品负责人和小型团队的 **Kern 日常助理 + �
 → Kern 继续推进
 ```
 
-当前可信交付入口：`main`。默认用户入口仍为兼容路由 `/muse`，产品品牌统一为 **Kern**。
+当前可信交付入口：`main`。Kern V1/Beta 最终验收通过的代码 head 为 `cfff5fe0`，已验证代码合并基线为 `e49491c8`；后续 docs-only 提交可继续推进 `main`，但不会改变该运行代码基线；默认用户入口仍为兼容路由 `/muse`，产品品牌统一为 **Kern**。
 
 ## 核心能力
 
@@ -337,7 +337,7 @@ npm run test:sweep
 
 > GitHub Actions 当前有 **11 条工作流**：10 条核心业务 / 质量工作流，加 1 条 Mobile Conditional Layout CI。最终交付 PR 会在**同一个 head**上跑齐 11 条。更广的历史 `test:*` 套件仍可用 `npm run test:sweep` 做本地全量扫描；没有进入 CI 的历史测试不自动等于生产能力已验收。
 
-正式交付要求 GitHub 的同一候选 head 上以下矩阵同时为绿色：
+正式交付要求 GitHub 的同一最终验收 head 上以下矩阵同时为绿色：
 
 - Quality CI
 - Governance CI

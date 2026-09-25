@@ -1,10 +1,12 @@
 # Kern V1/Beta 最终交付验收
 
 日期：2026-09-25  
-进入本轮最终验收前的 main 基线：`9ace96db304104702ef5846b984bf1e27337d084`  
-最终验收分支：`release/kern-v1-beta-final-acceptance`
+进入最终验收前的 main 基线：`9ace96db304104702ef5846b984bf1e27337d084`  
+最终验收 PR head：`cfff5fe0d30dd81fbae496d9d4e073157465d2f0`  
+已验证代码合并基线：`e49491c8f866771b0f01244241e538fe0e97d073`  
+validated tree：`6706dd425b2345442ae3e9aff32917b9bb1e4aaf`
 
-> 本文件描述验收口径。最终通过条件是：**该最终验收 PR 的同一个 head 上 11 条 GitHub Actions workflow 全部绿色**。不要把不同提交的历史绿灯拼成“最终全绿”。
+> **最终结果：PASS。** PR #14 的同一个 head 上 11 条 GitHub Actions workflow 全部绿色；该代码合并基线的 tree 与 validated head 完全一致。
 
 ## 1. 产品形态
 
@@ -71,19 +73,19 @@ Kern 与后台互补，不互相替代。
 
 ## 4. 最终 CI 矩阵
 
-最终验收 PR 通过 `package.json` 改动触发 10 条核心工作流，并通过移动验收文件触发第 11 条：
+最终验收 PR #14 在同一个 head `cfff5fe0` 上通过以下 11 条工作流：
 
-1. Quality CI
-2. Governance CI
-3. Workforce CI
-4. Decision CI
-5. Autopilot CI
-6. Experience CI
-7. Business Event CI
-8. Golden Organization CI
-9. Product R&D Delivery CI
-10. Desktop CI
-11. Mobile Conditional Layout CI
+1. Quality CI — run `36134418450` — PASS
+2. Governance CI — run `36134418413` — PASS
+3. Workforce CI — run `36134418468` — PASS
+4. Decision CI — run `36134418425` — PASS
+5. Autopilot CI — run `36134418408` — PASS
+6. Experience CI — run `36134418377` — PASS
+7. Business Event CI — run `36134418467` — PASS
+8. Golden Organization CI — run `36134418385` — PASS
+9. Product R&D Delivery CI — run `36134418356` — PASS
+10. Desktop CI — run `36134418405` — PASS
+11. Mobile Conditional Layout CI — run `36134418391` — PASS
 
 其中 Product R&D Delivery 包含生产模式 `next start` 的真实 HTTP E2E；Desktop CI 在 macOS runner 上验证本机 Runtime 契约与启动；Mobile CI 用 Playwright 验证 Kern 主界面、上市弹窗、成本结果态和机会气泡图。
 
@@ -115,16 +117,21 @@ npm run test:sweep
 - 未经实际账号配置的外部模型 provider 可用性；
 - 未经真实客户数据跑过的业务结论。
 
-## 7. 最终通过规则
+## 7. 最终判定
 
-可以认定为“可部署、可运行、可验证、可演示、可交付”的 V1/Beta，必须同时满足：
+**PASS — 当前版本可认定为可部署、可运行、可验证、可演示、可交付的 Kern V1/Beta。**
+
+已满足：
 
 - 最终验收 PR 同一 head 11/11 CI 绿色；
 - Quality 中 typecheck / lint / production build 绿色；
 - Product R&D 真实 HTTP E2E 绿色；
 - Desktop CI 绿色；
-- Kern 1440 / 390 页面级无横向溢出；
-- 无已知 P0；
-- 新发现 P1 已修复或明确登记为接受边界。
+- Mobile CI 覆盖 Kern 主界面、上市弹窗、成本结果态与气泡图；
+- 390px Kern 主界面实测 `scrollWidth=390 / clientWidth=390 / overflow=0`；
+- B1 上市弹窗和成本结果态页面级 overflow = 0；
+- B2 气泡 Y 轴 `clippedLeft=0`；
+- 最终验收时无开放 P0 / P1 Issue；
+- 已验证代码合并基线与 validated PR head tree 完全一致。
 
-任何一条未满足，都只称“候选”，不称最终交付。
+后续若修改源代码，该新提交需要重新建立自己的验收证据，不能自动继承本次 PASS。
