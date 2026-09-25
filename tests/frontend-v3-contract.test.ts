@@ -237,16 +237,20 @@ test("visible product terminology is Kern / 产品 / 项目 / 工作项", () => 
 });
 
 
-test("Kern primary shell uses a restrained solid visual system", () => {
+test("Kern preserves the original Muse visual system while changing product logic", () => {
   const css = read("src/app/muse/muse.css");
-  assert.ok(css.includes("--m-surface:     #FFFFFF;"));
-  assert.ok(css.includes("--m-surface: #16191F;"));
-  assert.equal(css.includes("radial-gradient(880px 520px"), false, "primary canvas must not depend on decorative radial glows");
+  assert.ok(css.includes("--m-surface:     rgba(255,255,255,.92);"));
+  assert.ok(css.includes("--m-surface: rgba(24,27,34,.86);"));
+  assert.ok(
+    css.includes("radial-gradient(880px 520px"),
+    "the original Muse canvas atmosphere must remain intact"
+  );
   const cardRule = css.match(/\.m-card \{[^}]+\}/)?.[0] || "";
   const dockRule = css.match(/\.m-dock-inner \{[^}]+\}/)?.[0] || "";
-  assert.equal(cardRule.includes("backdrop-filter"), false, "cards must not use glass blur");
-  assert.equal(dockRule.includes("backdrop-filter"), false, "composer must not use glass blur");
-  assert.ok(css.includes("--m-grad:"), "one accent gradient may remain for primary emphasis");
+  assert.ok(cardRule.includes("backdrop-filter"), "restore original Muse card material");
+  assert.ok(dockRule.includes("backdrop-filter"), "restore original Muse composer material");
+  assert.ok(css.includes("--m-grad:"), "preserve the original single accent gradient");
+  assert.equal(css.includes("Kern Visual Intelligence"), false, "feature-specific graph CSS must not fork the Muse visual system");
 });
 
 test("Executive Report exposes the decision sequence and folds raw detail", () => {
