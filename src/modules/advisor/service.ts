@@ -43,8 +43,10 @@ import {
   type ModelTaskClass,
 } from "@/modules/model-gateway";
 import {
+  describeDesktopAction,
   enqueueDesktopTask,
   isDesktopInstruction,
+  readDesktopPresence,
 } from "@/modules/desktop-runtime";
 
 export async function listConversations(
@@ -208,18 +210,29 @@ async function runTool(session: SessionContext, intent: Intent, ctx: ToolContext
         instruction: ctx.text,
         conversationId: ctx.conversationId,
       });
-      const actionLabel = queued.action.tool === "agent.delegate"
-        ? "交给本机 Agent"
-        : queued.action.tool;
+      const described = describeDesktopAction(queued.action);
+      // 关键诚实点：以前这里不分在线状态，一律回「已发送到你的 Mac 执行队列」。
+      // runtime 没启动时任务会永远停在 QUEUED，而用户以为 Hermes 正在执行。
+      // 现在按真实连接状态分别说明，并且未连接时明确告诉用户「还不会执行」。
+      const presence = readDesktopPresence({
+        organizationId: session.organizationId,
+        userId: session.userId,
+      });
+      const online = presence.status === "ONLINE";
       return {
         toolKey: "desktop.runtime",
         text: [
-          "已把这项工作发送到你的 Mac 执行队列。",
-          `动作：${actionLabel}`,
-          `任务：${ctx.text}`,
+          online
+            ? `已排入你的 Mac 执行队列，${presence.deviceId} 正在连接中，会自动领取。`
+            : "已排入你的 Mac 执行队列，但现在还不会执行。",
+          `动作：${described.kind} · ${described.detail}`,
           "",
-          "Hermes Desktop Runtime 在线时会自动领取；完成结果会写回同一条 AgentTask / AgentRun。"
-        ].join("\n"),
+          online
+            ? "执行完成后，真实结果会自动回到这个对话。"
+            : `${presence.label}。${presence.hint ?? ""}连接恢复后这项任务会被自动领取，结果回到这个对话。`,
+        ]
+          .filter((line) => line !== null)
+          .join("\n"),
         citations: [
           {
             kind: "desktop-task",

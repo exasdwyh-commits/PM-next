@@ -43,6 +43,69 @@ export interface DesktopRuntimeResult {
   meta?: Record<string, unknown>;
 }
 
+/**
+ * 把结构化动作翻译成用户能复核的一句话。
+ * UI 不应该把 `fs.write_text` 这种工具标识直接摆给老板看 —— 用户要判断的是
+ * 「Hermes 准备在我电脑上干什么」，而不是内部工具名。
+ * 同时必须把真实参数（路径、命令、网址）显示出来，否则用户无法复核就等于无法授权。
+ */
+export function describeDesktopAction(action: DesktopAction): {
+  /** 动作类别，短标签 */
+  kind: string;
+  /** 具体要做什么，含真实参数 */
+  detail: string;
+} {
+  switch (action.tool) {
+    case "fs.list":
+      return { kind: "读取目录", detail: action.path };
+    case "fs.read_text":
+      return { kind: "读取文件", detail: action.path };
+    case "fs.write_text":
+      return {
+        kind: action.append ? "追加写入文件" : "写入文件",
+        detail: action.path,
+      };
+    case "fs.mkdir":
+      return { kind: "创建目录", detail: action.path };
+    case "fs.move":
+      return { kind: "移动文件", detail: `${action.from} → ${action.to}` };
+    case "shell.run":
+      return {
+        kind: "执行命令",
+        detail: action.cwd ? `${action.command}（在 ${action.cwd}）` : action.command,
+      };
+    case "git.status":
+      return { kind: "查看 Git 状态", detail: action.cwd || "当前工作目录" };
+    case "git.diff":
+      return { kind: "查看 Git 变更", detail: action.cwd || "当前工作目录" };
+    case "browser.open":
+      return { kind: "打开网页", detail: action.url };
+    case "app.open":
+      return { kind: "启动应用", detail: action.app };
+    case "clipboard.read":
+      return { kind: "读取剪贴板", detail: "读取当前剪贴板内容" };
+    case "clipboard.write":
+      return { kind: "写入剪贴板", detail: action.text.slice(0, 120) };
+    case "notification.send":
+      return { kind: "发送系统通知", detail: action.body.slice(0, 120) };
+    case "mac.applescript":
+      return { kind: "运行 AppleScript", detail: action.script.slice(0, 120) };
+    case "agent.delegate":
+      return {
+        kind: "交给本机 Agent（Codex）",
+        detail: action.cwd ? `${action.goal}（在 ${action.cwd}）` : action.goal,
+      };
+    default: {
+      // 新增工具忘记在这里登记时，如实说未知，不要猜一个好看的说法。
+      const unknown = action as { tool?: string };
+      return {
+        kind: "未登记的本机动作",
+        detail: typeof unknown.tool === "string" ? unknown.tool : "未知",
+      };
+    }
+  }
+}
+
 const EXPLICIT_DESKTOP_CUE =
   /(?:本机|电脑上|电脑里|Mac上|macOS|桌面助理|Finder|终端(?:里|中|执行)?|剪贴板|浏览器打开|打开网址|执行命令|运行命令|用\s*Codex|让\s*Codex|git\s+(?:status|diff))/i;
 

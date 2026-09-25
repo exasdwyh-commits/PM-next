@@ -6,6 +6,10 @@ import { useRouter } from "next/navigation";
 import AppShell, { type RuntimeStatus } from "@/components/app-shell";
 import { Empty, Modal, Panel } from "@/components/ui";
 import { HeroBand, Kpi, KpiRow, Pill } from "@/components/cockpit";
+import {
+  DesktopActivityBody,
+  useDesktopOverview,
+} from "@/components/desktop-activity";
 import Icon from "@/components/icons";
 import {
   AutomationTraceList,
@@ -115,6 +119,9 @@ export default function WorkforceClient({
   canBootstrap: boolean;
 }) {
   const router = useRouter();
+  const { overview: desktopOverview, loaded: desktopLoaded } = useDesktopOverview({
+    intervalMs: 6000,
+  });
   const [bootstrapping, setBootstrapping] = React.useState(false);
   const [bootstrapError, setBootstrapError] = React.useState<string | null>(null);
   const [reviewBusyId, setReviewBusyId] = React.useState<string | null>(null);
@@ -271,6 +278,14 @@ export default function WorkforceClient({
       ) : (
         <div className="hermes-cockpit">
           <div className="hermes-cockpit-main">
+            <Panel
+              icon="nodes"
+              title="本机执行"
+              sub="Hermes 在你这台 Mac 上真实执行的工作。排队中的任务需要 Mac 端连上才会开始。"
+            >
+              <DesktopActivityBody overview={desktopOverview} loaded={desktopLoaded} />
+            </Panel>
+
             <Panel
               icon="users"
               title="数字员工团队"

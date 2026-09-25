@@ -2065,3 +2065,80 @@ button,a { -webkit-tap-highlight-color:transparent; }
   }
   .hermes-report-metrics > *:last-child { border-bottom:0; }
 }
+
+/* ---------------------------------------------------------------------------
+   本机执行（Desktop Runtime）
+   状态色只有三档：已连接 / 不稳定或断开 / 未确认。未确认一律走中性灰，
+   不允许用绿色暗示在线 —— 这是「不做假执行」在样式层的落点。
+   --------------------------------------------------------------------------- */
+.hermes-desktop-presence {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:3px 9px; border:1px solid var(--line); border-radius:999px;
+  background:var(--surface-faint); color:var(--ink-muted);
+  font-size:12.5px; white-space:nowrap;
+}
+.hermes-desktop-presence > i {
+  width:7px; height:7px; border-radius:50%; background:currentColor; flex:none;
+}
+.hermes-desktop-presence.is-online { color:var(--ok-ink); border-color:var(--ok-line); background:var(--ok-bg); }
+.hermes-desktop-presence.is-stale  { color:var(--warn-ink); border-color:var(--warn-line); background:var(--warn-bg); }
+
+.hermes-desktop-strip {
+  margin-bottom:14px; padding:12px 14px;
+  border:1px solid var(--line); border-radius:12px; background:var(--surface-faint);
+}
+.hermes-desktop-strip-head,
+.hermes-desktop-panel-head {
+  display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:8px; margin-bottom:10px;
+}
+.hermes-desktop-strip-title { display:flex; align-items:center; gap:7px; color:var(--ink-2); font-size:14px; }
+
+.hermes-desktop-counts { display:flex; flex-wrap:wrap; gap:14px; color:var(--ink-muted); font-size:13px; }
+.hermes-desktop-counts > span { display:inline-flex; align-items:baseline; gap:5px; }
+.hermes-desktop-counts strong { color:var(--ink-2); font-size:15px; font-weight:650; }
+.hermes-desktop-counts > span.is-alert strong { color:var(--warn-ink); }
+
+/* 「排队但不会执行」是用户最容易误解为正在干活的时刻，必须视觉上压住 */
+.hermes-desktop-blocked,
+.hermes-desktop-hint {
+  display:flex; flex-direction:column; gap:4px;
+  padding:10px 12px; margin-bottom:10px;
+  border:1px solid var(--line); border-radius:10px;
+  color:var(--ink-2); font-size:13.5px; line-height:1.6;
+}
+.hermes-desktop-blocked { border-color:var(--warn-line); background:var(--warn-bg); color:var(--warn-ink); }
+.hermes-desktop-blocked > code,
+.hermes-desktop-hint > code {
+  align-self:flex-start; padding:2px 7px; border-radius:6px;
+  background:rgba(0,0,0,.06); font-size:12.5px;
+}
+
+.hermes-desktop-task-list { display:flex; flex-direction:column; gap:8px; }
+.hermes-desktop-task {
+  padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--surface);
+}
+.hermes-desktop-task-head { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.hermes-desktop-task-kind { color:var(--ink-2); font-size:13.5px; font-weight:600; }
+.hermes-desktop-task-time { margin-left:auto; color:var(--ink-faint); font-size:12.5px; }
+.hermes-desktop-task-goal { margin:7px 0 0; color:var(--ink); font-size:14.5px; line-height:1.6; }
+.hermes-desktop-task-detail {
+  display:flex; align-items:center; gap:6px; margin-top:6px; color:var(--ink-muted); min-width:0;
+}
+.hermes-desktop-task-detail > code {
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12.5px;
+}
+.hermes-desktop-task-note { margin:6px 0 0; color:var(--ink-muted); font-size:13px; }
+.hermes-desktop-task-result { margin-top:9px; padding-top:9px; border-top:1px solid var(--line); }
+.hermes-desktop-task-result > p { margin:0 0 8px; color:var(--ink-2); font-size:14px; line-height:1.65; }
+.hermes-desktop-artifacts { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-bottom:8px; }
+.hermes-desktop-artifacts-label { color:var(--ink-faint); font-size:12.5px; }
+.hermes-desktop-output {
+  margin:8px 0 0; padding:10px; max-height:320px; overflow:auto;
+  border-radius:8px; background:rgba(0,0,0,.05);
+  font-size:12.5px; line-height:1.6; white-space:pre-wrap; word-break:break-word;
+}
+@media (max-width:520px) {
+  .hermes-desktop-task-time { margin-left:0; }
+  .hermes-desktop-counts { gap:10px; }
+}

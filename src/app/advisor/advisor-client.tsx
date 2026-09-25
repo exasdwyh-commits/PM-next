@@ -9,6 +9,10 @@ import { Panel, Badge, Empty, Thinking, cx } from "@/components/ui";
 import Icon from "@/components/icons";
 import ProposalCard from "@/components/proposal-card";
 import ChallengeReportCard from "@/components/challenge-report-card";
+import {
+  DesktopConversationStrip,
+  useDesktopOverview,
+} from "@/components/desktop-activity";
 import { fmtDateTime } from "@/shared/datetime";
 import { labelCitationKind } from "@/shared/status-labels";
 
@@ -135,6 +139,13 @@ export default function AdvisorClient({
   const [errorMsg, setErrorMsg] = React.useState("");
 
   const convoId = activeConversation?.id ?? null;
+
+  // 本机执行只在本会话真的派发过任务时才显形；没有本机工作就不占对话注意力。
+  const { overview: desktopOverview } = useDesktopOverview({
+    conversationId: convoId,
+    enabled: Boolean(convoId),
+    limit: 6,
+  });
 
   React.useEffect(() => {
     setMessages(activeConversation?.messages ?? []);
@@ -385,6 +396,8 @@ export default function AdvisorClient({
               {errorMsg}
             </div>
           )}
+
+          <DesktopConversationStrip overview={desktopOverview} />
 
           {(pendingProposals.length > 0 || allDecidedProposals.length > 0) && (
             <div className="hermes-stack" style={{ marginBottom: 16 }}>

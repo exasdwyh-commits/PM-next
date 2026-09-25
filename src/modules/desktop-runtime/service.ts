@@ -21,8 +21,14 @@ import {
   type DesktopAction,
   type DesktopRuntimeResult,
   type DesktopTaskEnvelope,
+  describeDesktopAction,
   parseDesktopInstruction,
 } from "./contracts";
+import {
+  noteDesktopPresence,
+  readDesktopPresence,
+  type DesktopPresence,
+} from "./presence";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -141,6 +147,13 @@ export async function listDesktopRuntimeTasks(
   const deviceId = input.deviceId?.trim();
   if (!deviceId) throw new UnprocessableEntityError("deviceId is required");
   const limit = Math.max(1, Math.min(10, input.limit ?? 3));
+
+  // 取任务轮询即心跳：runtime 只要还在跑就会打到这里，不需要单独的 heartbeat 端点。
+  noteDesktopPresence({
+    organizationId: session.organizationId,
+    userId: session.userId,
+    deviceId,
+  });
 
   const rows = await prisma.agentTask.findMany({
     where: {
@@ -367,4 +380,160 @@ export async function finishDesktopRuntimeTask(
   }
 
   return { taskId: task.id, outcome: input.outcome };
+}
+
+/* ------------------------------------------------------------------ *
+ * 面向用户的本机执行视图
+ *
+ * 之前 desktop runtime 只有机器对机器的接口：排队、领取、回执全都真实落库，
+ * 但产品里没有任何地方能看见它。用户唯一的信号是对话里一句「已发送到队列」，
+ * 看不到 Mac 是否连上、任务是否被领取、真实输出和产物是什么。
+ * 下面这些读取函数就是把已经存在的真实状态暴露出来，不新增任何执行语义。
+ * ------------------------------------------------------------------ */
+
+/** 本机任务在 UI 里的生命周期分组。直接映射 AgentTaskStatus，不做美化。 */
+export type DesktopTaskPhase = "WAITING_RUNTIME" | "RUNNING" | "NEEDS_YOU" | "DONE" | "FAILED";
+
+export interface DesktopTaskView {
+  taskId: string;
+  goal: string;
+  status: AgentTaskStatus;
+  phase: DesktopTaskPhase;
+  /** 动作类别 + 真实参数，供用户复核 Hermes 到底动了什么 */
+  action: { tool: string; kind: string; detail: string } | null;
+  createdAt: string;
+  updatedAt: string;
+  conversationId: string | null;
+  claim: { deviceId: string; claimedAt: string } | null;
+  result: {
+    ok: boolean;
+    summary: string;
+    output: string | null;
+    /** 完整输出可能超过对话里的 6000 字截断，这里给出真实长度 */
+    outputLength: number;
+    artifacts: DesktopRuntimeResult["artifacts"];
+    deviceId: string | null;
+    finishedAt: string | null;
+  } | null;
+}
+
+function phaseOf(status: AgentTaskStatus): DesktopTaskPhase {
+  switch (status) {
+    case AgentTaskStatus.QUEUED:
+      return "WAITING_RUNTIME";
+    case AgentTaskStatus.RUNNING:
+      return "RUNNING";
+    case AgentTaskStatus.WAITING_HUMAN:
+    case AgentTaskStatus.BLOCKED:
+    case AgentTaskStatus.SUBMITTED:
+      return "NEEDS_YOU";
+    case AgentTaskStatus.SUCCEEDED:
+      return "DONE";
+    default:
+      return "FAILED";
+  }
+}
+
+function readResult(value: Prisma.JsonValue | null): DesktopTaskView["result"] {
+  const raw = asRecord(asRecord(value).desktopResult);
+  if (typeof raw.summary !== "string") return null;
+  const output = typeof raw.output === "string" ? raw.output : null;
+  return {
+    ok: raw.ok === true,
+    summary: raw.summary,
+    output,
+    outputLength: output?.length ?? 0,
+    artifacts: Array.isArray(raw.artifacts)
+      ? (raw.artifacts as DesktopRuntimeResult["artifacts"])
+      : undefined,
+    deviceId: typeof raw.deviceId === "string" ? raw.deviceId : null,
+    finishedAt: typeof raw.finishedAt === "string" ? raw.finishedAt : null,
+  };
+}
+
+function toTaskView(task: {
+  id: string;
+  goal: string;
+  status: AgentTaskStatus;
+  createdAt: Date;
+  updatedAt: Date;
+  contextSnapshot: Prisma.JsonValue | null;
+}): DesktopTaskView {
+  const action = readAction(task.contextSnapshot);
+  const claim = readClaim(task.contextSnapshot);
+  const context = asRecord(task.contextSnapshot);
+  const described = action ? describeDesktopAction(action) : null;
+  return {
+    taskId: task.id,
+    goal: task.goal,
+    status: task.status,
+    phase: phaseOf(task.status),
+    action: action && described ? { tool: action.tool, ...described } : null,
+    createdAt: task.createdAt.toISOString(),
+    updatedAt: task.updatedAt.toISOString(),
+    conversationId:
+      typeof context.desktopConversationId === "string"
+        ? context.desktopConversationId
+        : null,
+    claim: claim ? { deviceId: claim.deviceId, claimedAt: claim.claimedAt } : null,
+    result: readResult(task.contextSnapshot),
+  };
+}
+
+export interface DesktopOverview {
+  presence: DesktopPresence;
+  /** 已排队但 runtime 还没领取的任务数；presence 不在线时它就是「卡住的工作量」 */
+  waitingRuntimeCount: number;
+  runningCount: number;
+  needsYouCount: number;
+  tasks: DesktopTaskView[];
+  generatedAt: string;
+}
+
+/**
+ * 读取当前用户的本机执行全貌。
+ * @param input.conversationId 只看某个会话触发的本机任务（对话内运行条用）
+ */
+export async function getDesktopOverview(
+  session: SessionContext,
+  input: { conversationId?: string | null; limit?: number } = {}
+): Promise<DesktopOverview> {
+  const limit = Math.max(1, Math.min(50, input.limit ?? 12));
+  const rows = await prisma.agentTask.findMany({
+    where: {
+      organizationId: session.organizationId,
+      createdByUserId: session.userId,
+      agent: { code: DESKTOP_AGENT_CODE },
+    },
+    orderBy: { createdAt: "desc" },
+    // 会话过滤要在 contextSnapshot JSON 上做，先多取一些再在内存里筛，
+    // 避免对 JSON 字段写不可移植的查询。
+    take: input.conversationId ? Math.max(limit * 4, 40) : limit,
+    select: {
+      id: true,
+      goal: true,
+      status: true,
+      createdAt: true,
+      updatedAt: true,
+      contextSnapshot: true,
+    },
+  });
+
+  const all = rows.map(toTaskView);
+  const scoped = input.conversationId
+    ? all.filter((t) => t.conversationId === input.conversationId)
+    : all;
+  const tasks = scoped.slice(0, limit);
+
+  return {
+    presence: readDesktopPresence({
+      organizationId: session.organizationId,
+      userId: session.userId,
+    }),
+    waitingRuntimeCount: scoped.filter((t) => t.phase === "WAITING_RUNTIME").length,
+    runningCount: scoped.filter((t) => t.phase === "RUNNING").length,
+    needsYouCount: scoped.filter((t) => t.phase === "NEEDS_YOU").length,
+    tasks,
+    generatedAt: new Date().toISOString(),
+  };
 }
