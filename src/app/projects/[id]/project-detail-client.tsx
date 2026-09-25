@@ -1288,7 +1288,7 @@ export default function ProjectDetailClient({
           }
         >
           {project.workItems.length === 0 ? (
-            <Empty>暂无工作任务。</Empty>
+            <Empty>暂无工作项。由负责人点击右上角「安排任务」建立第一项工作，或从 Kern 发起研发后生成执行工作。</Empty>
           ) : (
             <div className="hermes-list">
               {project.workItems.map((item: any) => {
@@ -1493,7 +1493,7 @@ export default function ProjectDetailClient({
           }
         >
           {project.evidences.length === 0 ? (
-            <Empty>暂无证据资料</Empty>
+            <Empty>暂无证据资料。点击「录入依据证据」登记来源并完成核实；未核实内容不会作为正式门禁依据。</Empty>
           ) : (
             <div className="hermes-list">
               {project.evidences.map((evi: any) => (
