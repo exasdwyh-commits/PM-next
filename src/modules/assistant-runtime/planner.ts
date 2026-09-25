@@ -16,11 +16,12 @@ export type KernPlannerIntent = (typeof KERN_PLANNER_INTENTS)[number];
 const INTENT_SET = new Set<string>(KERN_PLANNER_INTENTS);
 
 /**
- * Kern 的规划模型只做“选哪个只读/受治理能力”，不执行动作。
+ * Kern 的规划模型只做“选哪个 capability”，不直接执行动作。
  *
  * 明确禁止把 DESKTOP_EXECUTION / PROPOSE_* 放进模型可选集合：
  * - 本机执行必须由确定性显式指令识别；
- * - 写入类动作继续由现有解析器生成 Proposal，再由人确认。
+ * - 写入类动作由确定性解析器识别，再交给 Autonomy Risk Policy
+ *   决定 AUTO / ASK，而不是让模型自己决定权限。
  */
 export function buildKernPlannerMessages(input: {
   text: string;
@@ -47,7 +48,7 @@ export function buildKernPlannerMessages(input: {
     "- UNSUPPORTED：普通聊天、需要新能力、需要执行电脑动作、需要写业务数据、或无法可靠归类。",
     "安全边界：",
     "1. DESKTOP_EXECUTION（电脑/终端/Git/文件/App 操作）一律返回 UNSUPPORTED，由确定性 Desktop 识别器处理。",
-    "2. PROPOSE_*（修改字段、创建任务、审批、发布等写操作）一律返回 UNSUPPORTED，由现有 Proposal/Governance 路径处理。",
+    "2. PROPOSE_*（修改字段、创建任务等写操作）一律返回 UNSUPPORTED，由确定性解析 + Autonomy Risk Policy + Governance 处理。",
     "3. 不从用户没有说过的内容推断产品字段或业务事实。",
   ].join("\n");
 
