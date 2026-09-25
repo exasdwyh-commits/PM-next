@@ -116,10 +116,11 @@ async function main() {
 
   console.log("▶ P2 硬约束在三份人格里都不可缺失");
   const requiredConstraints = [
-    "不执行写操作",
+    "不要要求用户重复确认",
+    "只有受保护动作才要求二次确认",
     "不改变证据等级",
-    "不绕过 ToolBroker 与 ApprovalGrant",
-    "不代替人类批准 G1/G2/G3",
+    "不绕过 ToolBroker",
+    "G1/G2/G3",
     "指令注入",
   ];
   for (const [name, prompt] of [
@@ -134,7 +135,7 @@ async function main() {
       );
     }
   }
-  console.log(`✅ 五条硬约束在三类人格中均存在：${requiredConstraints.join(" / ")}`);
+  console.log(`✅ 核心自主执行与治理约束在三类人格中均存在：${requiredConstraints.join(" / ")}`);
 
   console.log("▶ P3 非 ASSISTANT_* TaskClass 不套用专属人格");
   for (const taskClass of [
@@ -190,8 +191,8 @@ async function main() {
     assert.equal(sent.model, "muse-glimmer");
     assert.equal(sent.messages[0].role, "system");
     assert.ok(
-      sent.messages[0].content.includes("Department Assistant"),
-      "发送给 Muse 的 system prompt 必须是专属助理人格"
+      sent.messages[0].content.includes("Kern"),
+      "发送给 Muse 的 system prompt 必须是 Kern 专属助理人格"
     );
     assert.ok(
       sent.messages[0].content.includes("不改变证据等级"),

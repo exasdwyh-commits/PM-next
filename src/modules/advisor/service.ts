@@ -20,6 +20,7 @@ import { listProductBoard } from "../products/service";
 import {
   ADVISOR_FIELD_LABELS,
   ADVISOR_FIELD_WHITELIST,
+  applyProposal,
   createProposal,
   listProposals,
   supersedeStaleProposals,
@@ -36,6 +37,7 @@ import {
   type AdvisorLLMMessage,
 } from "./llm";
 import { buildDepartmentAssistantSystemPrompt } from "@/modules/assistant-runtime/persona";
+import { shouldAutoApplyChatProposal } from "@/modules/assistant-runtime/autonomy";
 import { buildKernPlannerMessages, parseKernPlannerIntent } from "@/modules/assistant-runtime/planner";
 import type { ScientificEvidenceInput } from "../research/scientific-evidence";
 import { tryResolveGatewayPolicyForAgentCode } from "@/modules/model-control/service";
@@ -437,6 +439,64 @@ interface ToolResult {
   proposal?: { proposalId: string; created: boolean; actionType: string } | null;
   /** 挑战报告（证伪式审查富消息） */
   challengeReport?: ReturnType<typeof generateChallengeReport> | null;
+}
+
+
+async function applyExplicitChatProposal(
+  session: SessionContext,
+  input: {
+    intent: Intent;
+    runId: string;
+    result: ToolResult;
+  }
+): Promise<ToolResult> {
+  const proposal = input.result.proposal;
+  if (
+    !proposal ||
+    !shouldAutoApplyChatProposal({
+      intent: input.intent,
+      actionType: proposal.actionType,
+    })
+  ) {
+    return input.result;
+  }
+
+  try {
+    const receipt = await applyProposal(session, proposal.proposalId, {
+      idempotencyKey: `kern-chat:${input.runId}:${proposal.proposalId}`,
+      reason: "用户已在 Kern 对话中明确授权该低风险内部动作",
+    });
+
+    const label =
+      proposal.actionType === "UPDATE_FIELD"
+        ? "已按你的指令更新产品方案，并保留版本与审计回执。"
+        : proposal.actionType === "CREATE_WORK_ITEM"
+          ? "已按你的指令创建内部工作项，并写入审计回执。"
+          : proposal.actionType === "CREATE_PRODUCT"
+            ? "已按你在本次对话中给出的信息创建产品、初始版本和项目，并继续绑定在这个会话里。"
+            : "已执行。";
+
+    return {
+      ...input.result,
+      text: label,
+      citations: [
+        ...input.result.citations.filter((citation) => citation.kind !== "proposal"),
+        {
+          kind: "action-receipt",
+          ref: receipt.proposalId,
+          title: `执行回执：${proposal.actionType}`,
+        },
+      ],
+      proposal: null,
+    };
+  } catch (error: unknown) {
+    const reason = error instanceof Error ? error.message : String(error);
+    return {
+      ...input.result,
+      text: `我理解你的执行指令，但这次没有完成：${reason}`,
+      proposal: null,
+    };
+  }
 }
 
 async function runTool(session: SessionContext, intent: Intent, ctx: ToolContext): Promise<ToolResult> {
@@ -1173,26 +1233,45 @@ async function runTool(session: SessionContext, intent: Intent, ctx: ToolContext
       }
 
       let targetProjectId: string | null = null;
-      if (ctx.productId) {
-        const proj = await prisma.project.findFirst({
-          where: { productId: ctx.productId, organizationId: session.organizationId },
-          select: { id: true },
-        });
-        targetProjectId = proj?.id ?? null;
-      }
-      if (!targetProjectId) {
-        const anyProj = await prisma.project.findFirst({
-          where: { organizationId: session.organizationId },
-          orderBy: { updatedAt: "desc" },
-          select: { id: true },
-        });
-        targetProjectId = anyProj?.id ?? null;
+      const candidates = await prisma.project.findMany({
+        where: {
+          organizationId: session.organizationId,
+          ...(ctx.productId ? { productId: ctx.productId } : {}),
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 20,
+        select: { id: true, title: true },
+      });
+
+      if (candidates.length === 1) {
+        targetProjectId = candidates[0].id;
+      } else if (candidates.length > 1) {
+        const mentioned = candidates.filter((project) =>
+          ctx.text.includes(project.title)
+        );
+        if (mentioned.length === 1) {
+          targetProjectId = mentioned[0].id;
+        } else {
+          return {
+            toolKey: "advisor.proposeWorkItem",
+            text: [
+              "这个任务可以直接创建，但当前有多个可能的项目，我不替你猜。",
+              "请只补一个项目名，例如：",
+              `“在「${candidates[0].title}」创建任务 ${parsedTask.title}”`,
+            ].join("\n"),
+            citations: candidates.slice(0, 5).map((project) => ({
+              kind: "project",
+              ref: project.id,
+              title: project.title,
+            })),
+          };
+        }
       }
 
       if (!targetProjectId) {
         return {
           toolKey: "advisor.proposeWorkItem",
-          text: "当前组织内暂无任何项目，无法关联工作项。请先在产品或项目模块建立一个项目。",
+          text: "当前没有可关联的项目，所以这次没有创建工作项。先建立一个项目后，我可以直接继续。",
           citations: [],
         };
       }
@@ -1609,6 +1688,11 @@ export async function sendMessage(
 
   try {
     result = await runTool(session, intent, ctx);
+    result = await applyExplicitChatProposal(session, {
+      intent,
+      runId: run.id,
+      result,
+    });
 
     const baseMessages = buildAdvisorLLMMessages({
       history: conversationHistory,

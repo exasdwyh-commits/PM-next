@@ -33,15 +33,12 @@ function needsSynthesis(mode: KernCouncilMode, expertCount: number): boolean {
 
 export function shouldAttachKernCouncilGraph(
   text: string,
-  plan: KernCollaborationPlanShadow
+  _plan: KernCollaborationPlanShadow
 ): boolean {
-  if (VISUAL_REQUEST.test(text)) return true;
-  return (
-    plan.mode === "PAIR" ||
-    plan.mode === "COUNCIL" ||
-    plan.mode === "RED_TEAM" ||
-    plan.mode === "FULL_RND"
-  );
+  // Conversation-first: Visual Intelligence is an on-demand tool, not default
+  // chrome for every complex answer. Council can still run invisibly; the graph
+  // appears only when the user explicitly asks to see/拆解/visualize it.
+  return VISUAL_REQUEST.test(text);
 }
 
 export function buildKernCouncilGraph(input: {

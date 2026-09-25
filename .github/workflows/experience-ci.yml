@@ -16,6 +16,7 @@ on:
       - "tests/regression-kern-product-rnd-chat.ts"
       - "tests/regression-kern-collaboration-planner.ts"
       - "tests/regression-kern-visual-intelligence.ts"
+      - "tests/kern-autonomy-policy.test.ts"
       - "package.json"
       - ".github/workflows/experience-ci.yml"
   push:
@@ -34,6 +35,7 @@ on:
       - "tests/regression-kern-product-rnd-chat.ts"
       - "tests/regression-kern-collaboration-planner.ts"
       - "tests/regression-kern-visual-intelligence.ts"
+      - "tests/kern-autonomy-policy.test.ts"
       - "package.json"
       - ".github/workflows/experience-ci.yml"
 
@@ -95,3 +97,5 @@ jobs:
         run: npx tsx tests/regression-kern-collaboration-planner.ts
       - name: Verify Kern visual intelligence graph contract
         run: npm run test:visual-intelligence
+      - name: Verify Kern conversation autonomy policy
+        run: npm run test:kern-autonomy

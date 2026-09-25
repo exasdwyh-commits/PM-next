@@ -108,11 +108,15 @@
 
 .m-rail-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; gap: 4px; align-content: start; padding-bottom: 8px; }
 .m-rail-label { padding: 12px 8px 4px; color: var(--m-ink-4); font-size: var(--m-t-xs); font-weight: 650; letter-spacing: .06em; text-transform: uppercase; }
-.m-goal { width: 100%; text-align: left; display: grid; grid-template-columns: minmax(0,1fr) auto; grid-template-areas: "title tag" "sub tag"; column-gap: 10px; align-items: center; padding: 11px 12px; border: 1px solid transparent; border-radius: var(--m-r-md); background: transparent; color: var(--m-ink-2); font: inherit; cursor: pointer; transition: background .18s ease, border-color .18s ease; }
+.m-goal { width: 100%; text-align: left; display: grid; grid-template-columns: minmax(0,1fr); grid-template-areas: "title" "sub"; align-items: center; padding: 11px 12px; border: 1px solid transparent; border-radius: var(--m-r-md); background: transparent; color: var(--m-ink-2); font: inherit; cursor: pointer; transition: background .18s ease, border-color .18s ease; }
 .m-goal:hover { background: var(--m-surface-2); }
 .m-goal[aria-current="true"] { background: var(--m-surface); border-color: var(--m-hairline); box-shadow: var(--m-sh-1); color: var(--m-ink); }
 .m-goal-title { grid-area: title; font-size: var(--m-t-sm); font-weight: 560; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .m-goal-sub { grid-area: sub; display: block; margin-top: 2px; color: var(--m-ink-4); font-size: var(--m-t-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-rail-empty { margin: 4px 8px; color: var(--m-ink-4); font-size: var(--m-t-xs); }
+.m-context-line { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--m-ink-4); font-size: var(--m-t-xs); }
+.m-context-line a { color: var(--m-accent); text-decoration: none; }
+.m-context-line a:hover { text-decoration: underline; }
 .m-rail-foot { border-top: 1px solid var(--m-hairline); padding: 12px 8px 2px; display: grid; gap: 8px; }
 .m-me { width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px; border: 0; border-radius: var(--m-r-md); background: transparent; color: var(--m-ink); font: inherit; text-align: left; cursor: pointer; transition: background .18s ease; }
 .m-me:hover { background: var(--m-surface-2); }
