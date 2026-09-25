@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Decision, EvidenceRef, Message, StudioModel } from "./types";
+import type { Decision, EvidenceRef, Message, StudioModel, TodayItem } from "./types";
 import { Btn, I, StateTag } from "./components/kit";
-import { CheckIn, Plan, Sources, Turn, Working } from "./components/turn";
+import { CheckIn, Plan, Sources, Turn } from "./components/turn";
 import { Palette, SourceSheet, TrailSheet, TrustSheet } from "./components/sheets";
 import { Blank, Dock, Rail } from "./components/shell";
 
@@ -58,6 +58,49 @@ function fromApiMessage(message: ApiMessage): Message {
         : []),
     ],
   };
+}
+
+function TodaySection({
+  title,
+  items,
+  emptyText,
+  testId,
+}: {
+  title: string;
+  items: TodayItem[];
+  emptyText: string;
+  testId: string;
+}) {
+  return (
+    <section className="m-card m-today" data-testid={testId}>
+      <header className="m-card-head">
+        <span className="m-ico"><I.plan /></span>
+        <h3>{title}</h3>
+        <span className="m-hint" style={{ margin: 0 }}>{items.length}</span>
+      </header>
+      <div className="m-card-body">
+        {items.length === 0 ? (
+          <p className="m-hint m-today-empty">{emptyText}</p>
+        ) : (
+          <div className="m-today-list">
+            {items.map((item) => (
+              <a
+                key={`${item.source}:${item.id}`}
+                href={item.href || "/manage"}
+                className="m-today-row"
+              >
+                <div>
+                  <strong>{item.title}</strong>
+                  {item.meta ? <small>{item.meta}</small> : null}
+                </div>
+                <StateTag state={item.state} />
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
 }
 
 export default function KernClient({ model }: { model: StudioModel }) {
@@ -348,10 +391,35 @@ export default function KernClient({ model }: { model: StudioModel }) {
               <>
                 <p className="m-prose">
                   {brief.greeting}，{model.user.name}。
-                  {pending.length > 0
-                    ? `有 ${pending.length} 件事需要你点头，其余工作会继续推进。`
-                    : "目前没有待确认提议。你可以直接交代下一件事。"}
+                  {brief.today.degraded
+                    ? "部分工作总览读取失败，下面只显示已经确认的真实状态。"
+                    : brief.today.needsYou.length > 0 || brief.today.working.length > 0
+                      ? `现在有 ${brief.today.needsYou.length} 件事需要你处理，Kern 正在真实执行 ${brief.today.working.length} 件。`
+                      : "当前没有需要你立即处理或正在执行的任务，你可以直接交代下一件事。"}
                 </p>
+                {brief.today.degraded && brief.today.degradedNote ? (
+                  <p className="m-hint m-today-warning">{brief.today.degradedNote}</p>
+                ) : null}
+                <div className="m-today-grid">
+                  <TodaySection
+                    title="今天最重要"
+                    items={brief.today.important}
+                    emptyText="工作总览没有识别到高优先事项。"
+                    testId="kern-today-important"
+                  />
+                  <TodaySection
+                    title="Kern 正在替你做"
+                    items={brief.today.working}
+                    emptyText="当前没有真实 RUNNING 的数字员工或本机任务。"
+                    testId="kern-today-working"
+                  />
+                  <TodaySection
+                    title="现在需要你处理"
+                    items={brief.today.needsYou}
+                    emptyText="当前没有待确认、待决策、待验收或明确阻塞事项。"
+                    testId="kern-today-needs-you"
+                  />
+                </div>
                 {pending.map((decision) => (
                   <CheckIn
                     key={decision.id}
@@ -360,38 +428,11 @@ export default function KernClient({ model }: { model: StudioModel }) {
                     onResolve={resolve}
                   />
                 ))}
-                {brief.missions.some((mission) => mission.state === "working") ? (
-                  <Working text="正在推进：" />
+                {brief.today.important.length === 0 &&
+                brief.today.working.length === 0 &&
+                brief.today.needsYou.length === 0 ? (
+                  <Blank seeds={brief.suggestions} onSeed={setDraft} />
                 ) : null}
-                {brief.missions
-                  .filter((mission) => mission.state === "working")
-                  .map((mission) => (
-                    <section key={mission.id} className="m-card">
-                      <header className="m-card-head">
-                        <span className="m-ico">
-                          <I.plan />
-                        </span>
-                        <h3>{mission.title}</h3>
-                        <StateTag state={mission.state} />
-                      </header>
-                      <div className="m-card-body">
-                        <p className="m-quiet" style={{ margin: 0 }}>
-                          {mission.goal}
-                        </p>
-                        {mission.steps.length > 0 ? (
-                          <Plan steps={mission.steps} employees={employees} />
-                        ) : (
-                          <p className="m-hint">
-                            这是对话目标；具体项目进度与评估明细在专业管理后台。
-                          </p>
-                        )}
-                        <Btn size="sm" onClick={() => pickGoal(mission.id)}>
-                          进去看
-                        </Btn>
-                      </div>
-                    </section>
-                  ))}
-                <Blank seeds={brief.suggestions} onSeed={setDraft} />
               </>
             ) : (
               <>
