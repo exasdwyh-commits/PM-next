@@ -87,6 +87,6 @@ const hybrid = buildKernCollaborationPlanShadow({
 assert.equal(hybrid.mode, "SPECIALIST");
 assert.deepEqual(hybrid.experts, ["compliance_agent"]);
 assert.equal(hybrid.researchRequired, true);
-assert.equal(hybrid.source, "HYBRID");
+assert.equal(hybrid.source, "REFLEX");
 
 console.log("✅ Kern Collaboration Planner Shadow: SOLO / PAIR / COUNCIL / RED_TEAM / FULL_RND");
