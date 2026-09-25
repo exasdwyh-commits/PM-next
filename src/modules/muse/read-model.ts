@@ -119,7 +119,11 @@ function proposalDecision(row: Awaited<ReturnType<typeof listProposals>>[number]
 
 export async function buildMuseViewModel(
   session: SessionContext,
-  input: { conversationId?: string | null } = {}
+  input: {
+    conversationId?: string | null;
+    productId?: string | null;
+    initialDraft?: string | null;
+  } = {}
 ): Promise<StudioModel> {
   const conversations = await listConversations(session);
   const requested = input.conversationId?.trim() || null;
@@ -171,11 +175,12 @@ export async function buildMuseViewModel(
     ]);
 
   const productIds = [
-    ...new Set(
-      conversations
+    ...new Set([
+      ...conversations
         .map((conversation) => conversation.productId)
-        .filter((id): id is string => Boolean(id))
-    ),
+        .filter((id): id is string => Boolean(id)),
+      ...(input.productId?.trim() ? [input.productId.trim()] : []),
+    ]),
   ];
   const products =
     productIds.length > 0
@@ -278,9 +283,19 @@ export async function buildMuseViewModel(
       )
     : [];
 
+  const requestedProductId = input.productId?.trim() || null;
+  const requestedProductName = requestedProductId
+    ? productName.get(requestedProductId) ?? null
+    : null;
+
   return {
     activeMissionId: activeConversationId,
     managementHref: "/manage",
+    newConversationProduct:
+      requestedProductId && requestedProductName
+        ? { id: requestedProductId, name: requestedProductName }
+        : null,
+    initialDraft: input.initialDraft?.trim() || "",
     user: {
       name: session.userName,
       role: "成员",
