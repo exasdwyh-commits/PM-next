@@ -1,4 +1,4 @@
-import { AgentLifecycleStatus, AgentTaskStatus } from "@prisma/client";
+import { AgentLifecycleStatus, AgentRunStatus, AgentTaskStatus } from "@prisma/client";
 import type { SessionContext } from "@/modules/identity/session";
 import { getConversation, listConversations } from "@/modules/advisor/service";
 import { listProposals } from "@/modules/advisor/proposals";
@@ -96,7 +96,7 @@ function proposalDecision(row: Awaited<ReturnType<typeof listProposals>>[number]
   const rationale =
     typeof payload.rationale === "string" && payload.rationale.trim()
       ? payload.rationale.trim()
-      : "Muse 生成了一个业务变更提议。正式业务数据在你批准前不会被写入。";
+      : "Kern 生成了一个业务变更提议。正式业务数据在你批准前不会被写入。";
   const scope = row.product?.name || row.project?.title || "当前工作";
   return {
     id: row.id,
@@ -107,7 +107,7 @@ function proposalDecision(row: Awaited<ReturnType<typeof listProposals>>[number]
     gate: "Proposal / Approval",
     missionId: row.conversationId ?? null,
     dueLabel: "等待你确认",
-    raisedBy: row.proposedBy?.name || "Muse",
+    raisedBy: row.proposedBy?.name || "Kern",
     options: [
       { id: "approve", label: "批准写入", kind: "approve" },
       { id: "reject", label: "拒绝", kind: "reject", hint: "拒绝需要填写理由并留痕" },
@@ -117,7 +117,7 @@ function proposalDecision(row: Awaited<ReturnType<typeof listProposals>>[number]
   };
 }
 
-export async function buildMuseViewModel(
+export async function buildKernViewModel(
   session: SessionContext,
   input: {
     conversationId?: string | null;
@@ -130,7 +130,7 @@ export async function buildMuseViewModel(
   const activeConversationId =
     requested && conversations.some((c) => c.id === requested) ? requested : null;
 
-  const [activeConversation, proposals, desktop, agentRows, activeTasks] =
+  const [activeConversation, proposals, desktop, agentRows, activeTasks, conversationRuns] =
     await Promise.all([
       activeConversationId
         ? getConversation(session, activeConversationId).catch(() => null)
@@ -170,6 +170,20 @@ export async function buildMuseViewModel(
           goal: true,
           status: true,
           updatedAt: true,
+        },
+      }),
+      prisma.agentRun.findMany({
+        where: {
+          organizationId: session.organizationId,
+          userId: session.userId,
+          conversationId: { not: null },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+        select: {
+          conversationId: true,
+          status: true,
+          createdAt: true,
         },
       }),
     ]);
@@ -228,7 +242,7 @@ export async function buildMuseViewModel(
   if (!employees.some((employee) => employee.id === "e-hermes")) {
     employees.unshift({
       id: "e-hermes",
-      name: "Hermes",
+      name: "Kern",
       role: "Department Assistant",
       mark: "H",
       state: "idle",
@@ -238,13 +252,29 @@ export async function buildMuseViewModel(
     });
   }
 
+  const latestRunByConversation = new Map<string, AgentRunStatus>();
+  for (const run of conversationRuns) {
+    if (run.conversationId && !latestRunByConversation.has(run.conversationId)) {
+      latestRunByConversation.set(run.conversationId, run.status);
+    }
+  }
+
   const missions: Mission[] = conversations.map((conversation) => {
     const latest = conversation.messages[0];
+    const latestRun = latestRunByConversation.get(conversation.id);
     const state: AiState = pendingByConversation.has(conversation.id)
       ? "needs-review"
-      : latest && String(latest.role) === "USER"
+      : latestRun === AgentRunStatus.QUEUED || latestRun === AgentRunStatus.RUNNING
         ? "working"
-        : "success";
+        : latestRun === AgentRunStatus.WAITING_CONFIRMATION
+          ? "needs-review"
+          : latestRun === AgentRunStatus.FAILED
+            ? "error"
+            : latestRun === AgentRunStatus.CANCELLED
+              ? "cancelled"
+              : latestRun === AgentRunStatus.SUCCEEDED
+                ? "success"
+                : "idle";
     return {
       id: conversation.id,
       title: conversation.title || "未命名目标",
@@ -309,7 +339,7 @@ export async function buildMuseViewModel(
         {
           id: "s-products",
           title: "汇总产品进展",
-          why: "让 Muse 从现有业务状态里找阻塞和下一步",
+          why: "让 Kern 从现有业务状态里找阻塞和下一步",
           prompt: "汇总正在推进的产品、阻塞和下一步。",
         },
         {
@@ -333,16 +363,9 @@ export async function buildMuseViewModel(
       connected: desktop.presence.status === "ONLINE",
       host: desktop.presence.deviceId || desktop.presence.label,
       lastHeartbeat: desktop.presence.lastSeenAt || "UNKNOWN",
-      capabilities: [
-        "文件",
-        "终端",
-        "Git",
-        "浏览器",
-        "App",
-        "剪贴板",
-        "通知",
-        "AppleScript",
-      ],
+      // Desktop Runtime 当前只上报连接与任务状态，并未上报逐能力授权。
+      // 因此这里保持空列表，避免把“代码支持的动作”冒充为“当前设备已授权能力”。
+      capabilities: [],
       activeAction:
         desktop.tasks.find((task) => task.phase === "RUNNING")?.goal ?? null,
     },

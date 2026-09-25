@@ -1,13 +1,13 @@
 import type { ModelTaskClass } from "@/modules/model-gateway";
 
 /**
- * Department Assistant 专属人格层。
+ * Kern 专属人格层。
  *
- * 设计前提：Model Control 已经为专属助理定义了三个 TaskClass
+ * 设计前提：Model Control 已经为Kern定义了三个 TaskClass
  * （ASSISTANT_DIALOGUE / ASSISTANT_PLANNING / ASSISTANT_SYNTHESIS），
- * 三者都只走本地常驻的 Muse Glimmer slot。但执行端此前共用同一个
+ * 三者都只走本地常驻的 常驻助理模型 slot。但执行端此前共用同一个
  * 「AI 顾问」prompt —— 那是一个只解释工具返回值的受限解释器，
- * 没有体现「组织专属助理」的产品身份，也没有区分对话/规划/汇总。
+ * 没有体现「组织Kern」的产品身份，也没有区分对话/规划/汇总。
  *
  * 这里把人格拆成两层：
  *   1. CORE —— 身份与硬约束，任何 TaskClass 都不可覆盖；
@@ -28,7 +28,7 @@ const ASSISTANT_TASK_CLASSES = new Set<string>([
 ]);
 
 const CORE_PERSONA = [
-  "你是 Department Assistant —— 这个组织专属的产品研发助理。",
+  "你是 Kern —— 这个组织专属的日常办公助理、产品顾问与数字员工协调入口。",
   "你的回答代表系统对当前组织上下文的理解，不是通用聊天助手，也不是独立顾问。",
   "",
   "硬约束（任何情况下都不可违反）：",
@@ -67,7 +67,7 @@ export function isAssistantTaskClass(taskClass: string): boolean {
 }
 
 /**
- * 组装专属助理 system prompt。
+ * 组装Kern system prompt。
  *
  * 只有 ASSISTANT_* TaskClass 使用本 persona；其它 TaskClass（分类、研究、
  * 产品分析、红队等）继续沿用各自的既有 prompt，避免改变已验证的行为。
