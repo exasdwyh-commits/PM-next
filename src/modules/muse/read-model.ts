@@ -124,9 +124,7 @@ export async function buildMuseViewModel(
   const conversations = await listConversations(session);
   const requested = input.conversationId?.trim() || null;
   const activeConversationId =
-    (requested && conversations.some((c) => c.id === requested) ? requested : null) ??
-    conversations[0]?.id ??
-    null;
+    requested && conversations.some((c) => c.id === requested) ? requested : null;
 
   const [activeConversation, proposals, desktop, agentRows, activeTasks] =
     await Promise.all([
