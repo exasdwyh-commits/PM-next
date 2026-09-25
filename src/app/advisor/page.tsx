@@ -2,7 +2,10 @@ import { headers, cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import prisma from "@/shared/db";
 import { getServerSessionFromContext } from "@/modules/identity/session";
-import { listConversations, getConversation } from "@/modules/advisor/service";
+import {
+  getKernConversation,
+  listKernConversations,
+} from "@/modules/assistant-runtime";
 import { listProposals, supersedeStaleProposals } from "@/modules/advisor/proposals";
 import { getRuntimeStatus } from "@/shared/runtime-status";
 import { toSessionView } from "@/shared/session-view";
@@ -45,7 +48,7 @@ export default async function AdvisorPage({
   }
 
   // 2. 会话列表：若指定产品，优先列出属于该产品的会话，否则列出全局会话
-  const conversations = await listConversations(
+  const conversations = await listKernConversations(
     session,
     targetProductId ? { productId: targetProductId } : undefined
   );
@@ -64,7 +67,7 @@ export default async function AdvisorPage({
   let active: any = null;
   if (activeId) {
     try {
-      active = await getConversation(session, activeId);
+      active = await getKernConversation(session, activeId);
       // 校验产品一致性：如果当前页面绑定了产品A，但该会话属于产品B或全局，则重置为新对话模式，避免串上下文
       if (targetProductId && active.productId !== targetProductId) {
         active = null;
