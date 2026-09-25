@@ -93,8 +93,8 @@ export default function KernClient({ model }: { model: StudioModel }) {
   const pending = brief.decisions.filter((decision) => !resolved[decision.id]);
   const conversationDecisions = pending.filter(
     (decision) =>
-      goal &&
-      decision.missionId === conversation.id &&
+      conversation &&
+      decision.conversationId === conversation.id &&
       decision.gate !== "Proposal / Approval"
   );
 
@@ -121,7 +121,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
     const refreshMessages = async () => {
       if (disposed || sending || document.visibilityState === "hidden") return;
       try {
-        const response = await fetch(`/api/conversations/${conversationId}/messages`, {
+        const response = await fetch(`/api/conversations/${activeId}/messages`, {
           cache: "no-store",
         });
         if (!response.ok) return;
@@ -169,8 +169,8 @@ export default function KernClient({ model }: { model: StudioModel }) {
     setMessages((current) => [...current, mine]);
 
     try {
-      let conversationId = conversationId;
-      if (!conversationId) {
+      let activeId = conversationId;
+      if (!activeId) {
         const create = await fetch("/api/conversations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -181,13 +181,13 @@ export default function KernClient({ model }: { model: StudioModel }) {
         });
         const created = await create.json();
         if (!create.ok) throw new Error(created.message || "创建会话失败");
-        conversationId = created.id;
-        setConversationId(conversationId);
-        window.history.replaceState(null, "", `/muse?c=${conversationId}`);
+        activeId = created.id;
+        setConversationId(activeId);
+        window.history.replaceState(null, "", `/muse?c=${activeId}`);
       }
 
       const response = await fetch(
-        `/api/conversations/${conversationId}/messages`,
+        `/api/conversations/${activeId}/messages`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -342,7 +342,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
             >
               <I.menu />
             </button>
-            <h1 className="m-top-title">{goal ? conversation.title : "Kern"}</h1>
+            <h1 className="m-top-title">{conversation ? conversation.title : "Kern"}</h1>
             <div className="m-top-acts">
               <Btn size="sm" onClick={() => setPalette(true)}>
                 <I.search />
@@ -404,7 +404,6 @@ export default function KernClient({ model }: { model: StudioModel }) {
       {sheet?.kind === "trail" ? (
         <TrailSheet
           activity={model.activity}
-          conversations={brief.conversations}
           onClose={() => setSheet(null)}
         />
       ) : null}
