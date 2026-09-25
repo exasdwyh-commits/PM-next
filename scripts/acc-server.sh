@@ -289,7 +289,6 @@ for pt in $PORTS; do
     exit 4
   fi
   echo "✅ 127.0.0.1:$pt 就绪且归属校验通过（daemonized listener=$lpid · cwd=$lcwd · BUILD_ID=$LOCAL_BUILD_ID）"
-  fi
 done
 
 # ---------------- 跑套件（显式把 BASE_URL/UI_BASE_URL 指向本轮端口，杜绝打到别人的服务） ----------------
