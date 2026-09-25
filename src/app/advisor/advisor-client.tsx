@@ -311,7 +311,7 @@ export default function AdvisorClient({
       topbarLeft={
         <div className="hermes-topbar-title">
           <span className="eyebrow">DEPARTMENT ASSISTANT</span>
-          <strong>AI 助理</strong>
+          <strong>Kern 助理</strong>
         </div>
       }
       topbarRight={
@@ -326,7 +326,7 @@ export default function AdvisorClient({
           <p className="eyebrow">
             {boundProduct ? `当前产品 · ${boundProduct.identityCode}` : "公司上下文"}
           </p>
-          <h1>{boundProduct ? `${boundProduct.name} AI 助理` : "AI 助理"}</h1>
+          <h1>{boundProduct ? `${boundProduct.name} · Kern` : "Kern 助理"}</h1>
           <p>
             {boundProduct
               ? `直接说这个产品要解决的问题。Kern 会结合 ${boundProduct.name}（当前 ${boundProduct.versions[0]?.versionTag || "v1"}）的上下文回答、研究、拆任务或提出变更草案。`
