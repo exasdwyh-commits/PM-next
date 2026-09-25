@@ -6,7 +6,10 @@ on:
       - "prisma/**"
       - "src/modules/evaluation-harness/**"
       - "src/modules/product-development/potential-assessment.ts"
+      - "src/modules/advisor/proposals.ts"
+      - "src/modules/advisor/service.ts"
       - "tests/regression-harness-experience.ts"
+      - "tests/regression-kern-product-conversation-continuity.ts"
       - "package.json"
       - ".github/workflows/experience-ci.yml"
   push:
@@ -15,7 +18,10 @@ on:
       - "prisma/**"
       - "src/modules/evaluation-harness/**"
       - "src/modules/product-development/potential-assessment.ts"
+      - "src/modules/advisor/proposals.ts"
+      - "src/modules/advisor/service.ts"
       - "tests/regression-harness-experience.ts"
+      - "tests/regression-kern-product-conversation-continuity.ts"
       - "package.json"
       - ".github/workflows/experience-ci.yml"
 
@@ -69,3 +75,5 @@ jobs:
       - run: npm run typecheck
       - run: npx prisma migrate deploy
       - run: npm run test:experience
+      - name: Verify Kern product conversation continuity
+        run: tsx scripts/run-test.ts tests/regression-kern-product-conversation-continuity.ts
