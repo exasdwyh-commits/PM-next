@@ -5,7 +5,7 @@ import prisma from "../src/shared/db";
 import { assertTestDatabaseSafety } from "./test-safety";
 import { bootstrapDefaultWorkforce } from "../src/modules/workforce/service";
 import { createDevelopmentProduct } from "../src/modules/products/service";
-import { createConversation, sendMessage } from "../src/modules/advisor/service";
+import { createKernConversation, sendDepartmentAssistantMessage } from "../src/modules/assistant-runtime";
 
 async function main() {
   if (!process.env.TEST_DATABASE_URL) {
@@ -51,13 +51,13 @@ async function main() {
       sourceKind: "MANUAL",
     });
 
-    const conversation = await createConversation(session, {
+    const conversation = await createKernConversation(session, {
       title: "AKK 产品研发",
       productId: created.product.id,
     });
 
     console.log("▶ R1 explicit chat command starts the existing Product R&D orchestrator");
-    const first = await sendMessage(
+    const first = await sendDepartmentAssistantMessage(
       session,
       conversation.id,
       "启动这个产品的 AI 产品研发，按现有方案做完整评估"
@@ -90,7 +90,7 @@ async function main() {
     assert.equal(parentTasks.length, 1, "R&D 应有一条真实父 AgentTask");
 
     console.log("▶ R2 repeating the same command reuses the active program");
-    const second = await sendMessage(
+    const second = await sendDepartmentAssistantMessage(
       session,
       conversation.id,
       "继续推进这个产品的产品研发"
@@ -126,7 +126,7 @@ async function main() {
       },
     });
 
-    const ambiguous = await sendMessage(
+    const ambiguous = await sendDepartmentAssistantMessage(
       session,
       conversation.id,
       "启动产品研发"
@@ -143,7 +143,7 @@ async function main() {
     assert.equal(secondProjectBefore, 0, "多项目且未点名时不得偷偷启动任何新项目");
 
     console.log("▶ R4 naming the project explicitly selects exactly that project");
-    const explicit = await sendMessage(
+    const explicit = await sendDepartmentAssistantMessage(
       session,
       conversation.id,
       `在「${secondProject.title}」启动产品研发`
@@ -161,7 +161,7 @@ async function main() {
 
 
     console.log("▶ R5 status query reads real Product R&D state without executing");
-    const namedStatus = await sendMessage(
+    const namedStatus = await sendDepartmentAssistantMessage(
       session,
       conversation.id,
       `「${secondProject.title}」的产品研发进度怎么样`
@@ -171,7 +171,7 @@ async function main() {
     assert.match(namedStatus.message.content, /Executive Report：尚未生成/);
 
     console.log("▶ R6 generic status fails closed when multiple projects both have R&D");
-    const ambiguousStatus = await sendMessage(
+    const ambiguousStatus = await sendDepartmentAssistantMessage(
       session,
       conversation.id,
       "这个产品研发进度怎么样"
@@ -232,7 +232,7 @@ async function main() {
       where: { projectId: secondProject.id },
     });
 
-    const reportReply = await sendMessage(
+    const reportReply = await sendDepartmentAssistantMessage(
       session,
       conversation.id,
       "这个产品的研发报告结论、风险和需要我决定的事情是什么"
