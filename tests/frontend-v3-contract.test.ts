@@ -118,32 +118,17 @@ test("Kern status and runtime permissions remain honest", () => {
   );
 });
 
-test("Kern Today brief is grounded in real workspace and runtime state", () => {
-  const readModel = read("src/modules/muse/read-model.ts");
+test("Kern primary route stays conversation-first while management remains available", () => {
   const client = read("src/app/muse/muse-client.tsx");
+  const shell = read("src/app/muse/components/shell.tsx");
 
-  assert.ok(
-    readModel.includes("getWorkspaceOverview(session)"),
-    "Today must reuse the real workspace overview"
-  );
-  assert.ok(
-    readModel.includes("task.status === AgentTaskStatus.RUNNING"),
-    "Kern working items must require real RUNNING task state"
-  );
-  assert.ok(
-    readModel.includes('task.phase === "RUNNING"'),
-    "desktop work must require real RUNNING phase"
-  );
-  assert.ok(
-    client.includes('testId="kern-today-important"') &&
-      client.includes('testId="kern-today-working"') &&
-      client.includes('testId="kern-today-needs-you"'),
-    "Today must answer the three primary operating questions"
-  );
-  assert.ok(
-    client.includes("当前没有真实 RUNNING 的数字员工或本机任务。"),
-    "empty working state must be explicit rather than fake activity"
-  );
+  assert.ok(client.includes("<Blank seeds={brief.suggestions} onSeed={setDraft} />"));
+  assert.equal(client.includes("kern-today-important"), false, "chat home must not become a Today dashboard");
+  assert.equal(client.includes("kern-today-needs-you"), false, "chat home must not lead with an approval queue");
+  assert.ok(shell.includes("最近对话"));
+  assert.ok(shell.includes("新对话"));
+  assert.ok(shell.includes("工作台"));
+  assert.equal(shell.includes("进度 UNKNOWN"), false, "conversation rail must not expose project-management noise");
 });
 
 
