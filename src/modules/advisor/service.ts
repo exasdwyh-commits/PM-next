@@ -36,6 +36,11 @@ import {
   type AdvisorLLMMessage,
 } from "./llm";
 import { buildDepartmentAssistantSystemPrompt } from "@/modules/assistant-runtime/persona";
+import {
+  createKernConversation,
+  getKernConversation,
+  listKernConversations,
+} from "@/modules/assistant-runtime/conversations";
 import { buildKernPlannerMessages, parseKernPlannerIntent } from "@/modules/assistant-runtime/planner";
 import type { ScientificEvidenceInput } from "../research/scientific-evidence";
 import { tryResolveGatewayPolicyForAgentCode } from "@/modules/model-control/service";
@@ -53,54 +58,16 @@ import {
 import { getProductRndProgramStatus, startProductRndProgram } from "@/modules/product-rnd";
 import { labelAgentTaskStatus, labelWorkItemStatus } from "@/shared/status-labels";
 
-export async function listConversations(
-  session: SessionContext,
-  options?: { productId?: string | null }
-) {
-  const where: any = { organizationId: session.organizationId, ownerId: session.userId, archivedAt: null };
-  if (options?.productId !== undefined) {
-    where.productId = options.productId;
-  }
-  return prisma.conversation.findMany({
-    where,
-    orderBy: { updatedAt: "desc" },
-    take: 50,
-    include: {
-      messages: { orderBy: { createdAt: "desc" }, take: 1, select: { content: true, createdAt: true, role: true } },
-      _count: { select: { messages: true } },
-    },
-  });
-}
-
-export async function createConversation(
-  session: SessionContext,
-  params: { title?: string; productId?: string | null }
-) {
-  const title = params.title?.trim() || "新对话";
-  return prisma.conversation.create({
-    data: {
-      organizationId: session.organizationId,
-      ownerId: session.userId,
-      kind: params.productId ? "PRODUCT" : "ADVISOR",
-      title,
-      productId: params.productId || null,
-    },
-  });
-}
-
-export async function getConversation(session: SessionContext, conversationId: string) {
-  const convo = await prisma.conversation.findUnique({
-    where: { id: conversationId },
-    include: {
-      messages: { orderBy: { createdAt: "asc" } },
-      runs: { orderBy: { createdAt: "desc" }, take: 5, include: { toolCalls: true } },
-    },
-  });
-  if (!convo || convo.organizationId !== session.organizationId || convo.ownerId !== session.userId) {
-    throw new NotFoundError("Conversation not found");
-  }
-  return convo;
-}
+/**
+ * Legacy compatibility exports.
+ *
+ * Kern owns conversation lifecycle in assistant-runtime. Older internal callers
+ * may keep these names during migration, but this module is no longer the
+ * source of truth for conversation creation/list/read.
+ */
+export const listConversations = listKernConversations;
+export const createConversation = createKernConversation;
+export const getConversation = getKernConversation;
 
 // ---------------------------------------------------------------------------
 // 意图路由：受约束的白名单执行器（蓝图 §8：免费模型无原生工具调用时也用同一层）
