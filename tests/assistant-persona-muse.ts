@@ -191,8 +191,8 @@ async function main() {
     assert.equal(sent.model, "muse-glimmer");
     assert.equal(sent.messages[0].role, "system");
     assert.ok(
-      sent.messages[0].content.includes("Department Assistant"),
-      "发送给 Muse 的 system prompt 必须是专属助理人格"
+      sent.messages[0].content.includes("Kern"),
+      "发送给 Muse 的 system prompt 必须是 Kern 专属助理人格"
     );
     assert.ok(
       sent.messages[0].content.includes("不改变证据等级"),
