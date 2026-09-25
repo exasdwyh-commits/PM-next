@@ -675,7 +675,7 @@ export default function ProductOverviewClient({
         </summary>
         <div style={{ marginTop: 12 }}>
           {p.versions.length === 0 ? (
-            <Empty>还没有版本记录。</Empty>
+            <Empty>还没有版本记录。先建立并确认首个产品版本，后续修订会在这里按版本保留。</Empty>
           ) : (
             <div className="hermes-list">
               {p.versions.map((v: any) => {
