@@ -145,6 +145,10 @@ export interface Brief {
 }
 
 export interface StudioModel {
+  /** 当前真正打开的会话/目标；null = Today / 新任务模式 */
+  activeMissionId: string | null;
+  /** 与 Muse 独立的专业管理后台入口 */
+  managementHref: string;
   user: { name: string; role: string; org: string };
   brief: Brief;
   employees: Employee[];
