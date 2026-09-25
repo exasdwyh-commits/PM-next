@@ -11,6 +11,10 @@ function asJsonObject(value: Prisma.JsonValue | null): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+function asInputJson(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
 /**
  * Stable conversational entry point for the final product.
  *
@@ -53,7 +57,7 @@ export async function sendDepartmentAssistantMessage(
     await prisma.agentRun.update({
       where: { id: result.runId },
       data: {
-        contextSnapshot: {
+        contextSnapshot: asInputJson({
           ...asJsonObject(run.contextSnapshot),
           assistantRuntime: context.runtimeVersion,
           collaborationMode: context.collaborationMode,
@@ -63,7 +67,7 @@ export async function sendDepartmentAssistantMessage(
           reflexDecisions: reflex.decisions,
           reflexError: reflex.error,
           collaborationPlanShadow,
-        } as Prisma.InputJsonValue,
+        }),
       },
     });
   }
