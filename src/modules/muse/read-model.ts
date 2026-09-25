@@ -54,7 +54,7 @@ function evidenceFromCitation(
   if (!ref && !title) return null;
   const rawKind = typeof item.kind === "string" ? item.kind : "internal";
   return {
-    id: ref || \`citation-\${capturedAt.getTime()}-\${index}\`,
+    id: ref || `citation-${capturedAt.getTime()}-${index}`,
     title: title || ref || "未命名来源",
     kind: rawKind.includes("desktop") ? "runtime" : "internal",
     source: rawKind,
@@ -100,7 +100,7 @@ function proposalDecision(row: Awaited<ReturnType<typeof listProposals>>[number]
   const scope = row.product?.name || row.project?.title || "当前工作";
   return {
     id: row.id,
-    title: \`\${row.actionLabel} · \${scope}\`,
+    title: `${row.actionLabel} · ${scope}`,
     because: rationale,
     ifIgnored: "提议会继续保持待确认状态，不会自动写入业务数据。",
     tone: "warn",
