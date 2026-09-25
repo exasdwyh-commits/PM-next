@@ -91,8 +91,8 @@ test("Kern status and runtime permissions remain honest", () => {
   const sheets = read("src/app/muse/components/sheets.tsx");
 
   assert.ok(
-    readModel.includes("latestRun === AgentRunStatus.QUEUED || latestRun === AgentRunStatus.RUNNING"),
-    "conversation working state must come from a real active AgentRun"
+    readModel.includes("latestRun === AgentRunStatus.RUNNING"),
+    "conversation working state must require a real RUNNING AgentRun"
   );
   assert.ok(
     !readModel.includes('String(latest.role) === "USER"\n        ? "working"'),
