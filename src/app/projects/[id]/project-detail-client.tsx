@@ -452,7 +452,7 @@ export default function ProjectDetailClient({
   const handleDisposeFeedback = async (feedbackId: string, status: "ACCEPTED" | "REJECTED") => {
     const reason = await askReason(
       status === "ACCEPTED"
-        ? { title: "采纳反馈并立项修订", label: "采纳意见并建立修订任务说明", placeholder: "填写采纳意见，将作为修订任务说明…", confirmText: "采纳并立项", tone: "primary" }
+        ? { title: "采纳反馈并立项修订", label: "采纳意见并建立修订工作项说明", placeholder: "填写采纳意见，将作为修订工作项说明…", confirmText: "采纳并立项", tone: "primary" }
         : { title: "驳回反馈", label: "驳回反馈理由", placeholder: "填写驳回理由…", confirmText: "确认驳回", tone: "danger" }
     );
     if (!reason) return;
@@ -1085,7 +1085,7 @@ export default function ProjectDetailClient({
             title="生产投入与执行"
             sub="样品通过 → 生产准备 → G2 正式授权 → 真实开工 → 真实交付；批准不等于已生产"
           >
-            <GateLine gates={[gateNodes[1]]} ariaLabel="G2 生产投入门槛" />
+            <GateLine gates={[gateNodes[1]]} ariaLabel="G2 生产投入门禁" />
 
             {productionContext?.preparation && project.stage === "SAMPLING" && (
               <div className={`hermes-banner ${productionContext.preparation.ready ? "" : "is-warn"}`} style={{ marginTop: 10 }}>
@@ -1171,7 +1171,7 @@ export default function ProjectDetailClient({
             ) : undefined
           }
         >
-          <GateLine gates={gateNodes} ariaLabel="项目放行门槛线" />
+          <GateLine gates={gateNodes} ariaLabel="项目门禁线" />
           <p className="viz-source-note">
             G1 批准允许投入打样；G2 批准允许投入生产。两者都不等于实际执行完成，真实开工/交付另行记录。
           </p>
