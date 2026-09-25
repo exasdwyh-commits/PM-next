@@ -6,7 +6,7 @@ import type { StudioModel, Employee, Mission, Decision, EvidenceRef, Message } f
 
 const ev = (o: Partial<EvidenceRef> & { id: string; title: string }): EvidenceRef => ({
   kind: "internal",
-  source: "HERMES 内部记录",
+  source: "KERN 内部记录",
   confidence: "medium",
   verified: false,
   capturedAt: "今天 09:12",
@@ -14,7 +14,7 @@ const ev = (o: Partial<EvidenceRef> & { id: string; title: string }): EvidenceRe
 });
 
 const employees: Employee[] = [
-  { id: "e-hermes", name: "Hermes", role: "部门助理 / PM", mark: "H", state: "working", currentFocus: "汇总三条产品线的本周阻塞点", load: 62, skills: ["拆解", "委派", "汇报"] },
+  { id: "e-hermes", name: "科恩", role: "AI 工作总管 / PM", mark: "K", state: "working", currentFocus: "汇总三条产品线的本周阻塞点", load: 62, skills: ["拆解", "委派", "汇报"] },
   { id: "e-market", name: "Iris", role: "市场研究", mark: "I", state: "working", currentFocus: "抓取竞品 12 款低GI代餐配料表", load: 78, skills: ["竞品", "价格带", "渠道"] },
   { id: "e-science", name: "Bohr", role: "科学证据", mark: "B", state: "needs-review", currentFocus: "3 篇文献结论互斥，等你选口径", load: 40, skills: ["文献", "剂量", "机制"] },
   { id: "e-formula", name: "Fern", role: "配方", mark: "F", state: "idle", currentFocus: null, load: 0, skills: ["配比", "感官", "工艺"] },
@@ -71,9 +71,9 @@ const decisions: Decision[] = [
     evidence: [ev({ id: "ref-2", title: "低GI 宣称文献集（3 篇）", kind: "literature", confidence: "unknown", source: "PubMed" })],
   },
   {
-    id: "d-2", title: "批准 Hermes 修改产品字段", because: "助理提出把「目标人群」从泛人群改为血糖管理人群，业务事实修改必须经你批准。",
+    id: "d-2", title: "批准科恩修改产品字段", because: "助理提出把「目标人群」从泛人群改为血糖管理人群，业务事实修改必须经你批准。",
     ifIgnored: "提议挂起，后续研究继续按旧人群口径跑，可能白做。", tone: "warn", gate: "Proposal / Approval", missionId: "m-1",
-    dueLabel: "48 小时内", raisedBy: "Hermes · 部门助理",
+    dueLabel: "48 小时内", raisedBy: "科恩 · AI 工作总管",
     options: [
       { id: "o4", label: "批准写入", kind: "approve" },
       { id: "o5", label: "驳回", kind: "reject" },
@@ -146,7 +146,7 @@ export const studioModel: StudioModel = {
   managementHref: "/manage",
   newConversationProduct: null,
   initialDraft: "",
-  user: { name: "你", role: "产品负责人", org: "Hermes 食品研发部" },
+  user: { name: "你", role: "产品负责人", org: "KERN 食品研发部" },
   brief: {
     greeting: "上午好",
     decisions,
