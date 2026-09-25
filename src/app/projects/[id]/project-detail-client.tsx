@@ -62,7 +62,7 @@ export default function ProjectDetailClient({
   const router = useRouter();
   const [project, setProject] = useState(initialProject);
   const [activeUserId, setActiveUserId] = useState(currentSession?.userId || initialProject.ownerId);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);\n  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"overview" | "rnd" | "tasks" | "evidence" | "decisions" | "records">("overview");
   // 理由输入对话框（替代原生 prompt）
   const [askReason, reasonDialog] = useReasonDialog();
 
@@ -637,7 +637,7 @@ export default function ProjectDetailClient({
       }
     >
       <PageHeading
-        eyebrow="项目详情"
+        eyebrow="产品工作区"
         title={
           <>
             {project.title} <small>r{project.revision}</small>
@@ -645,9 +645,9 @@ export default function ProjectDetailClient({
         }
         subtitle={project.target}
         actions={
-          <Link href="/" className="hermes-outline-btn">
+          <Link href="/products" className="hermes-outline-btn">
             <Icon name="back" size={16} />
-            返回工作台
+            返回产品
           </Link>
         }
       />
@@ -707,8 +707,99 @@ export default function ProjectDetailClient({
           </div>
         )}
 
-        {/* AI 产品研发：数字员工流水线 + 结构化 Executive Report（此前只有后端，没有入口） */}
-        {productRndWorkItem?.id && (
+        <div className="hermes-workspace-tabs" role="tablist" aria-label="产品工作区">
+          {[
+            ["overview", "概览"],
+            ["rnd", "AI 研发"],
+            ["tasks", "任务"],
+            ["evidence", "证据"],
+            ["decisions", "决策"],
+            ["records", "记录"],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={activeWorkspaceTab === key}
+              className={`hermes-workspace-tab ${activeWorkspaceTab === key ? "is-active" : ""}`}
+              onClick={() => setActiveWorkspaceTab(key as typeof activeWorkspaceTab)}
+            >
+              {label}
+              {key === "tasks" && project.workItems.length > 0 ? <span>{project.workItems.length}</span> : null}
+              {key === "evidence" && project.evidences.length > 0 ? <span>{project.evidences.length}</span> : null}
+              {key === "decisions" && project.decisionPackets.length > 0 ? <span>{project.decisionPackets.length}</span> : null}
+            </button>
+          ))}
+        </div>
+
+        {activeWorkspaceTab === "overview" && (
+          <div className="hermes-workspace-overview">
+            <Panel
+              eyebrow="NEXT ACTION"
+              title="现在最重要的事"
+              sub={
+                gaps.length > 0
+                  ? `还有 ${gaps.length} 个研发/决策缺口需要先解决`
+                  : productRndWorkItem?.id
+                    ? "研发工作流已经建立，可以查看 AI 团队进度与管理报告"
+                    : "当前没有研发阻断，可以继续安排下一项工作"
+              }
+              actions={
+                productRndWorkItem?.id ? (
+                  <button type="button" className="hermes-primary-btn hermes-btn-sm" onClick={() => setActiveWorkspaceTab("rnd")}>
+                    查看 AI 研发
+                    <Icon name="arrow" size={14} />
+                  </button>
+                ) : (
+                  <button type="button" className="hermes-primary-btn hermes-btn-sm" onClick={() => setActiveWorkspaceTab("tasks")}>
+                    查看任务
+                    <Icon name="arrow" size={14} />
+                  </button>
+                )
+              }
+            >
+              <div className="hermes-workspace-summary">
+                <button type="button" onClick={() => setActiveWorkspaceTab("tasks")}>
+                  <span>工作项</span>
+                  <strong>{project.workItems.length}</strong>
+                  <small>执行与交付</small>
+                </button>
+                <button type="button" onClick={() => setActiveWorkspaceTab("evidence")}>
+                  <span>已核实证据</span>
+                  <strong>{project.evidences.filter((e: any) => e.verifyStatus === "VERIFIED").length}</strong>
+                  <small>共 {project.evidences.length} 条依据</small>
+                </button>
+                <button type="button" onClick={() => setActiveWorkspaceTab("decisions")}>
+                  <span>待裁决</span>
+                  <strong>{project.decisionPackets.filter((p: any) => p.status === "IN_REVIEW").length}</strong>
+                  <small>共 {project.decisionPackets.length} 个决策包</small>
+                </button>
+                <button type="button" onClick={() => setActiveWorkspaceTab("records")}>
+                  <span>协作反馈</span>
+                  <strong>{project.feedbackItems?.length ?? 0}</strong>
+                  <small>修订与留痕</small>
+                </button>
+              </div>
+              {gaps.length > 0 ? (
+                <div className="hermes-overview-gaps">
+                  <strong>优先补齐</strong>
+                  <ul>
+                    {gaps.slice(0, 4).map((gap, index) => <li key={index}>{gap}</li>)}
+                  </ul>
+                  {gaps.length > 4 ? <span>另有 {gaps.length - 4} 项未展开</span> : null}
+                </div>
+              ) : (
+                <div className="hermes-note">
+                  当前没有研发打样门阻断。继续推进前仍需以最新证据和正式门禁结果为准。
+                </div>
+              )}
+            </Panel>
+          </div>
+        )}
+
+        {activeWorkspaceTab === "rnd" && (<>
+        {/* AI 产品研发：数字员工流水线 + 结构化 Executive Report */}
+        {productRndWorkItem?.id ? (
           <ProductRndPanel
             projectId={project.id}
             workItemId={productRndWorkItem.id}
@@ -720,8 +811,14 @@ export default function ProjectDetailClient({
               showMsg(text, type === "error" ? "error" : "success")
             }
           />
+        ) : (
+          <Panel title="AI 研发">
+            <Empty>当前产品还没有建立“产品研发综合评估”工作项。可以先在任务页建立，或从 AI 助理发起一轮研发。</Empty>
+          </Panel>
         )}
+        </>)}
 
+        {activeWorkspaceTab === "evidence" && (<>
         {/* P1-01: 证据覆盖与缺口（统一证据结构：仅已核实 FACT 计入结论，缺口保持 UNKNOWN） */}
         {evidenceInsight && (
           <Panel eyebrow="证据洞察" title="证据覆盖与缺口 (P1-01)">
@@ -952,6 +1049,9 @@ export default function ProjectDetailClient({
           </Modal>
         )}
 
+        </>)}
+
+        {activeWorkspaceTab === "decisions" && (<>
         {(project.stage === "SAMPLING" ||
           project.stage === "PRODUCTION_PREP" ||
           project.stage === "PRODUCTION" ||
@@ -1146,6 +1246,9 @@ export default function ProjectDetailClient({
           )}
         </Panel>
 
+        </>)}
+
+        {activeWorkspaceTab === "tasks" && (<>
         {/* 2. Work Items Section */}
         <Panel
           eyebrow="执行"
@@ -1350,6 +1453,9 @@ export default function ProjectDetailClient({
           )}
         </Panel>
 
+        </>)}
+
+        {activeWorkspaceTab === "evidence" && (<>
         {/* Evidence Vault */}
         <Panel
           eyebrow="证据与依据"
@@ -1415,6 +1521,9 @@ export default function ProjectDetailClient({
           )}
         </Panel>
 
+        </>)}
+
+        {activeWorkspaceTab === "records" && (<>
         {/* Collaboration & Feedback */}
         <Panel eyebrow="协作" title="协作反馈与修订闭环">
           <form onSubmit={handleCreateFeedback} className="hermes-form-grid">
@@ -1457,6 +1566,9 @@ export default function ProjectDetailClient({
           </div>
         </Panel>
 
+        </>)}
+
+        {/* Modals stay outside tabs so open forms are not destroyed by tab navigation. */}
         {/* Modal: Create Work Item */}
         {showWorkModal && (
           <Modal eyebrow="任务" title="安排新任务" onClose={() => setShowWorkModal(false)} wide>
