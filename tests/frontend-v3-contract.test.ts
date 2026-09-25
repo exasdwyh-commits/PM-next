@@ -30,6 +30,8 @@ test("KERN is the primary operating shell and management stays independent", () 
     assert.ok(shell.includes(label), `missing management navigation label: ${label}`);
   }
   assert.ok(manage.includes("<WorkbenchClient"), "traditional management overview must remain available");
+  const readModel = read("src/modules/muse/read-model.ts");
+  assert.ok(readModel.includes('name: isKernChief ? "科恩" : agent.name'), "legacy HERMES_PM records must render as 科恩");
 });
 
 test("management conversations route back through KERN", () => {
