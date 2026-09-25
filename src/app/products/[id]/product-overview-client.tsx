@@ -246,6 +246,35 @@ export default function ProductOverviewClient({
 
   const overviewTab = (
     <div className="hermes-stack" style={{ gap: 16 }}>
+      {p.projects?.[0]?.id ? (
+        <Link href={`/projects/${p.projects[0].id}`} className="hermes-product-execution-strip">
+          <div>
+            <span>当前执行</span>
+            <strong>{p.projects[0].title}</strong>
+            <small>{labelProjectStage(p.projects[0].stage)} · 进入工作区查看 AI 研发、任务、证据与决策</small>
+          </div>
+          <span className="hermes-primary-btn hermes-btn-sm">
+            继续推进
+            <Icon name="arrow" size={14} />
+          </span>
+        </Link>
+      ) : (
+        <Link
+          href={`/advisor?product=${p.id}&query=${encodeURIComponent("我想启动这个产品的一轮完整研发。请先根据当前产品资料整理研发 Brief，并告诉我还缺哪些输入。")}`}
+          className="hermes-product-execution-strip"
+        >
+          <div>
+            <span>下一步</span>
+            <strong>让 Hermes 启动产品研发</strong>
+            <small>先整理研发 Brief，再进入专业研究、独立 QA 与管理报告流程</small>
+          </div>
+          <span className="hermes-primary-btn hermes-btn-sm">
+            开始研发
+            <Icon name="arrow" size={14} />
+          </span>
+        </Link>
+      )}
+
       <section className="hermes-brief-page" style={{ maxWidth: "none" }}>
         <h2 className="hermes-brief-section-title">产品简报</h2>
         <div className="hermes-brief-paragraphs">
@@ -303,17 +332,17 @@ export default function ProductOverviewClient({
         )}
       </section>
 
-      <Panel
-        eyebrow="AUTOMATION TRACE"
-        icon="nodes"
-        title="Hermes 自动响应"
-        sub="产品版本发布与真实证据核验后，系统如何判断、挑战与重新分派；未触发也会留下原因。"
-      >
-        <AutomationTraceList
-          traces={automationTraces}
-          emptyText="当前产品还没有由 ProductVersion 或 VERIFIED Evidence 触发的自动化记录。"
-        />
-      </Panel>
+      <details className="hermes-details">
+        <summary style={{ fontWeight: 600, padding: "4px 0" }}>
+          查看 Hermes 自动化记录（{automationTraces.length}）
+        </summary>
+        <div style={{ marginTop: 10 }}>
+          <AutomationTraceList
+            traces={automationTraces}
+            emptyText="当前产品还没有由产品版本或已核实证据触发的自动化记录。"
+          />
+        </div>
+      </details>
 
       <hr className="hermes-brief-divider" />
 
@@ -863,7 +892,7 @@ export default function ProductOverviewClient({
         <div className="hermes-topbar-title">
           <span className="eyebrow">
             <Link href="/products" className="hermes-link">
-              产品开发
+              产品
             </Link>{" "}
             / {p.identityCode}
           </span>
@@ -884,9 +913,23 @@ export default function ProductOverviewClient({
           </p>
         </div>
         <div className="hermes-inline">
+          {p.projects?.[0]?.id ? (
+            <Link href={`/projects/${p.projects[0].id}`} className="hermes-primary-btn">
+              <Icon name="arrow" size={16} />
+              继续推进
+            </Link>
+          ) : (
+            <Link
+              href={`/advisor?product=${p.id}&query=${encodeURIComponent("我想启动这个产品的一轮完整研发。请先根据当前产品资料整理研发 Brief，并告诉我还缺哪些输入。")}`}
+              className="hermes-primary-btn"
+            >
+              <Icon name="play" size={16} />
+              启动研发
+            </Link>
+          )}
           <Link href={`/advisor?product=${p.id}`} className="hermes-outline-btn">
             <Icon name="chat" size={16} />
-            问产品顾问
+            和 AI 助理讨论
           </Link>
           <Link href="/products" className="hermes-link">
             返回产品库
@@ -897,11 +940,11 @@ export default function ProductOverviewClient({
       <Tabs
         items={[
           { key: "overview", label: "总览" },
-          { key: "analysis", label: "分析与评分" },
-          { key: "version", label: "方案与版本" },
+          { key: "analysis", label: "AI 判断" },
+          { key: "version", label: "产品方案" },
           { key: "channel", label: "渠道路线" },
           { key: "cost", label: "成本与供应" },
-          { key: "validation", label: "验证与风险" },
+          { key: "validation", label: "证据与风险" },
           { key: "launch", label: "上市计划" },
         ]}
         active={tab}
