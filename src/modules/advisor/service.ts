@@ -1233,26 +1233,45 @@ async function runTool(session: SessionContext, intent: Intent, ctx: ToolContext
       }
 
       let targetProjectId: string | null = null;
-      if (ctx.productId) {
-        const proj = await prisma.project.findFirst({
-          where: { productId: ctx.productId, organizationId: session.organizationId },
-          select: { id: true },
-        });
-        targetProjectId = proj?.id ?? null;
-      }
-      if (!targetProjectId) {
-        const anyProj = await prisma.project.findFirst({
-          where: { organizationId: session.organizationId },
-          orderBy: { updatedAt: "desc" },
-          select: { id: true },
-        });
-        targetProjectId = anyProj?.id ?? null;
+      const candidates = await prisma.project.findMany({
+        where: {
+          organizationId: session.organizationId,
+          ...(ctx.productId ? { productId: ctx.productId } : {}),
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 20,
+        select: { id: true, title: true },
+      });
+
+      if (candidates.length === 1) {
+        targetProjectId = candidates[0].id;
+      } else if (candidates.length > 1) {
+        const mentioned = candidates.filter((project) =>
+          ctx.text.includes(project.title)
+        );
+        if (mentioned.length === 1) {
+          targetProjectId = mentioned[0].id;
+        } else {
+          return {
+            toolKey: "advisor.proposeWorkItem",
+            text: [
+              "这个任务可以直接创建，但当前有多个可能的项目，我不替你猜。",
+              "请只补一个项目名，例如：",
+              `“在「${candidates[0].title}」创建任务 ${parsedTask.title}”`,
+            ].join("\n"),
+            citations: candidates.slice(0, 5).map((project) => ({
+              kind: "project",
+              ref: project.id,
+              title: project.title,
+            })),
+          };
+        }
       }
 
       if (!targetProjectId) {
         return {
           toolKey: "advisor.proposeWorkItem",
-          text: "当前组织内暂无任何项目，无法关联工作项。请先在产品或项目模块建立一个项目。",
+          text: "当前没有可关联的项目，所以这次没有创建工作项。先建立一个项目后，我可以直接继续。",
           citations: [],
         };
       }
