@@ -15,7 +15,7 @@ Kern V1/Beta 是 PM-next 当前冻结交付基线。
 ## 冻结基线
 
 - validated PR head：`cfff5fe0d30dd81fbae496d9d4e073157465d2f0`
-- main merge commit：`e49491c8f866771b0f01244241e538fe0e97d073`
+- validated code merge baseline：`e49491c8f866771b0f01244241e538fe0e97d073`
 - validated tree：`6706dd425b2345442ae3e9aff32917b9bb1e4aaf`
 - final acceptance PR：#14
 - GitHub Actions：11 / 11 PASS

@@ -3,10 +3,10 @@
 日期：2026-09-25  
 进入最终验收前的 main 基线：`9ace96db304104702ef5846b984bf1e27337d084`  
 最终验收 PR head：`cfff5fe0d30dd81fbae496d9d4e073157465d2f0`  
-最终 main merge commit：`e49491c8f866771b0f01244241e538fe0e97d073`  
+已验证代码合并基线：`e49491c8f866771b0f01244241e538fe0e97d073`  
 validated tree：`6706dd425b2345442ae3e9aff32917b9bb1e4aaf`
 
-> **最终结果：PASS。** PR #14 的同一个 head 上 11 条 GitHub Actions workflow 全部绿色；最终 main merge commit 的 tree 与 validated head 完全一致。
+> **最终结果：PASS。** PR #14 的同一个 head 上 11 条 GitHub Actions workflow 全部绿色；该代码合并基线的 tree 与 validated head 完全一致。
 
 ## 1. 产品形态
 
@@ -132,6 +132,6 @@ npm run test:sweep
 - B1 上市弹窗和成本结果态页面级 overflow = 0；
 - B2 气泡 Y 轴 `clippedLeft=0`；
 - 最终验收时无开放 P0 / P1 Issue；
-- 最终 main merge commit 与 validated PR head tree 完全一致。
+- 已验证代码合并基线与 validated PR head tree 完全一致。
 
 后续若修改源代码，该新提交需要重新建立自己的验收证据，不能自动继承本次 PASS。
