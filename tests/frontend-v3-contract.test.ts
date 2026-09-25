@@ -139,3 +139,15 @@ test("Kern Today brief is grounded in real workspace and runtime state", () => {
     "empty working state must be explicit rather than fake activity"
   );
 });
+
+
+test("knowledge sample banner does not expose internal environment variables", () => {
+  const source = read("src/shared/content-mode.ts");
+  const match = source.match(/KNOWLEDGE_SAMPLE_MODE_BANNER\s*=\s*"([^"]+)"/);
+  assert.ok(match, "knowledge sample banner constant must remain explicit");
+  assert.equal(
+    match![1].includes("HERMES_KNOWLEDGE_SAMPLE_MODE"),
+    false,
+    "user-facing banner must not tell ordinary users to edit an environment variable"
+  );
+});
