@@ -139,7 +139,7 @@ export default function DashboardClient({ initialStats, user, runtime, knowledge
         {/* Stages */}
         <Panel title="项目阶段分布">
           {Object.keys(s.stageGroups).length === 0 ? (
-            <Empty>暂无项目</Empty>
+            <Empty>当前组织还没有项目。先从「产品」启动研发或创建项目，进入执行后会在这里汇总。</Empty>
           ) : (
             <div className="hermes-list">
               {Object.entries(s.stageGroups).map(([k, v]) => (
@@ -160,7 +160,7 @@ export default function DashboardClient({ initialStats, user, runtime, knowledge
         {/* Work items —— 标签必须过 status-labels，绝不打印数据库枚举（曾把 "IN_PROGRESS" 直接渲染到页面上） */}
         <Panel title="工作项状态">
           {Object.keys(s.workItemGroups).length === 0 ? (
-            <Empty>暂无工作项</Empty>
+            <Empty>当前没有工作项。进入具体项目的「任务」页安排第一项工作后，这里会汇总执行状态。</Empty>
           ) : (
             <div className="hermes-inline">
               {Object.entries(s.workItemGroups).map(([k, v]) => (
@@ -175,7 +175,7 @@ export default function DashboardClient({ initialStats, user, runtime, knowledge
         {/* Decision packets */}
         <Panel title="打样门决策包状态">
           {Object.keys(s.packetGroups).length === 0 ? (
-            <Empty>暂无决策包</Empty>
+            <Empty>当前没有决策包。项目需要正式放行时，由负责人在项目「决策」页起草并提交。</Empty>
           ) : (
             <div className="hermes-inline">
               {Object.entries(s.packetGroups).map(([k, v]) => (
@@ -191,7 +191,7 @@ export default function DashboardClient({ initialStats, user, runtime, knowledge
       {/* Projects */}
       <Panel title="参与项目" sub="点击进入项目作战室查看详情">
         {s.projects.length === 0 ? (
-          <Empty>暂无参与项目</Empty>
+          <Empty>当前账号还没有参与项目。由项目负责人添加成员，或先创建并启动一个产品项目。</Empty>
         ) : (
           <div className="hermes-list">
             {s.projects.map((p: any) => (
