@@ -184,7 +184,7 @@ export default function ProductsClient({
       topbarLeft={
         <div className="hermes-topbar-title">
           <span className="eyebrow">PRODUCT DEVELOPMENT</span>
-          <strong>产品开发</strong>
+          <strong>产品</strong>
         </div>
       }
       topbarRight={
@@ -205,7 +205,7 @@ export default function ProductsClient({
       <div className="hermes-page-heading">
         <div>
           <p className="eyebrow">产品库</p>
-          <h1>产品开发</h1>
+          <h1>产品</h1>
           <p>已有明确想法 → 入库 → 分析评分 → 多轮优化 → 打样验证 → 上市准备 → 上市复盘</p>
         </div>
         <button className="hermes-primary-btn" onClick={() => setShowIngest(true)}>
