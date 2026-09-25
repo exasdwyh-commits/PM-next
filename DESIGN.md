@@ -3,10 +3,13 @@
 ## Source of truth
 - Status: Active
 - Last refreshed: 2026-09-20
-- Primary product surfaces: 工作台、仪表盘、产品中心、AI 顾问、机会与知识中心、审批与追溯。
+- Primary product surfaces: 科恩主工作台、产品中心、专业管理后台、机会与知识中心、审批与追溯。
 - Evidence reviewed: `README.md`、`src/app/dashboard/*`、`src/app/globals.css`、`src/app/theme/quiet-enterprise.css`、`src/components/ui.tsx`、现有浏览器验收与截图产物。
 
 ## Brand
+- Product name: **科恩 KERN**。
+- Role: **AI 工作总管 / AI Chief of Staff**。中文交互优先称“科恩”，英文与系统级 wordmark 使用 `KERN`。
+- Naming contract: 用户可见界面、演示、产品文档不得再把 `Hermes` 或 `Muse` 当产品名；它们只允许作为暂时保留的内部兼容标识。详见 `docs/KERN_BRAND.md`。
 - Personality: 冷静、专业、证据驱动；像高级产品团队的决策操作台，而不是泛用聊天机器人。
 - Trust signals: 来源、状态、责任人、时间、审批与可追溯记录始终可见；AI 建议必须能解释、能复核、能被人接管。
 - Avoid: 紫色渐变、装饰性光晕、无意义指标墙、卡片套卡片、把每一项内容都做成高亮 CTA、AI 生成感的插画堆砌。
