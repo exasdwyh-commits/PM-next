@@ -96,7 +96,7 @@ function proposalDecision(row: Awaited<ReturnType<typeof listProposals>>[number]
   const rationale =
     typeof payload.rationale === "string" && payload.rationale.trim()
       ? payload.rationale.trim()
-      : "Muse 生成了一个业务变更提议。正式业务数据在你批准前不会被写入。";
+      : "科恩生成了一个业务变更提议。正式业务数据在你批准前不会被写入。";
   const scope = row.product?.name || row.project?.title || "当前工作";
   return {
     id: row.id,
@@ -107,7 +107,7 @@ function proposalDecision(row: Awaited<ReturnType<typeof listProposals>>[number]
     gate: "Proposal / Approval",
     missionId: row.conversationId ?? null,
     dueLabel: "等待你确认",
-    raisedBy: row.proposedBy?.name || "Muse",
+    raisedBy: row.proposedBy?.name || "科恩",
     options: [
       { id: "approve", label: "批准写入", kind: "approve" },
       { id: "reject", label: "拒绝", kind: "reject", hint: "拒绝需要填写理由并留痕" },
@@ -228,9 +228,9 @@ export async function buildMuseViewModel(
   if (!employees.some((employee) => employee.id === "e-hermes")) {
     employees.unshift({
       id: "e-hermes",
-      name: "Hermes",
-      role: "Department Assistant",
-      mark: "H",
+      name: "科恩",
+      role: "AI Chief of Staff",
+      mark: "K",
       state: "idle",
       currentFocus: null,
       load: 0,
@@ -309,7 +309,7 @@ export async function buildMuseViewModel(
         {
           id: "s-products",
           title: "汇总产品进展",
-          why: "让 Muse 从现有业务状态里找阻塞和下一步",
+          why: "让科恩从现有业务状态里找阻塞和下一步",
           prompt: "汇总正在推进的产品、阻塞和下一步。",
         },
         {
