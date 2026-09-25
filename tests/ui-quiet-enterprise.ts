@@ -422,11 +422,13 @@ async function runRuntimeGuards() {
   await assertTestDatabaseSafety(prisma);
 
   const HOME = os.homedir();
+  // playwright 自己解析的版本优先于硬编码 revision：后者会随 playwright 升级而过期。
   const chromeCandidates = [
     process.env.CHROME_PATH,
+    chromium.executablePath(),
     path.join(HOME, "Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"),
     path.join(HOME, "Library/Caches/ms-playwright/chromium-1228/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"),
-  ].filter((p): p is string => !!p);
+  ].filter((p, i, all): p is string => !!p && all.indexOf(p) === i);
   const chrome = chromeCandidates.find((p) => fsMod.existsSync(p));
   if (!chrome) {
     console.log("  运行时守卫：未找到 chromium，跳过");

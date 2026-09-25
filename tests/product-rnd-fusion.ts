@@ -9,7 +9,12 @@ import {
 } from "@prisma/client";
 import prisma from "../src/shared/db";
 import { assertTestDatabaseSafety } from "./test-safety";
-import { bootstrapDefaultWorkforce, finishAgentTask, startAgentTask } from "../src/modules/workforce/service";
+import {
+  bootstrapDefaultWorkforce,
+  delegateAgentTask,
+  finishAgentTask,
+  startAgentTask,
+} from "../src/modules/workforce/service";
 import {
   queueProductRndQa,
   startProductRndProgram,
@@ -221,6 +226,98 @@ async function main() {
       suggestedExpertClass: "COMPLIANCE",
     });
 
+    console.log(
+      "▶ PRD-F4b 注入报告诚实性 fixture（无回执的成功任务 + 未获支撑的 claim）"
+    );
+
+    // 注入 1：一个被标记 SUCCEEDED、但**没有任何 AgentRun 回执**的子任务。
+    // 真实场景：任务状态被直接改写、或执行留痕丢失。报告必须点名它，
+    // 而不是把它混进「已汇总 N 个数字员工任务」里当成正常产出。
+    const redTeam = await prisma.agent.findUniqueOrThrow({
+      where: {
+        organizationId_code: { organizationId: org.id, code: "red_team" },
+      },
+      select: { id: true },
+    });
+    const receiptlessDelegation = await delegateAgentTask(session, {
+      parentTaskId: program.parentTask.id,
+      toAgentId: redTeam.id,
+      goal: "报告诚实性测试注入：标记成功但不留 AgentRun 回执的子任务。",
+      reason:
+        "Regression fixture: a succeeded task without a run receipt must surface as an unresolved item.",
+      sourceRunId: null,
+    });
+    // 直接用状态字段改写成 SUCCEEDED（不走 finishAgentTask，因此不会产生 AgentRun）——
+    // 这正是「成功但没有执行留痕」这一被守护的状态。
+    await prisma.agentTask.update({
+      where: { id: receiptlessDelegation.childTask.id },
+      data: { status: AgentTaskStatus.SUCCEEDED },
+    });
+    const receiptlessRuns = await prisma.agentRun.count({
+      where: { agentTaskId: receiptlessDelegation.childTask.id },
+    });
+    assert.equal(receiptlessRuns, 0, "注入任务必须确实没有 AgentRun 回执");
+
+    // 注入 2：一个 claim，其**最新一次核验不是 SUPPORTED**（抓取内容里根本没有该命题）。
+    const unsupportedEvidence = await prisma.evidence.create({
+      data: {
+        projectId: project.id,
+        contentOrUri: "https://www.fda.gov/example-2",
+        source: "FDA",
+        author: "FDA",
+        hash: "c".repeat(64),
+        nature: EvidenceNature.REAL,
+        verifyStatus: EvidenceVerifyStatus.VERIFIED,
+        sourceType: "OFFICIAL",
+        trustTier: "OFFICIAL",
+        dataClass: "PUBLIC",
+        fetchedAt: new Date(),
+        sourceOrganization: "FDA",
+        claims: {
+          create: {
+            fieldKey: "unsupportedClaimProbe",
+            fieldName: "未获支撑的命题",
+            kind: "FACT",
+            value: "本产品可在 7 天内让体脂下降 5%。",
+          },
+        },
+      },
+      include: { claims: true },
+    });
+    const unsupportedCapture = await prisma.evidenceSourceCapture.create({
+      data: {
+        evidenceId: unsupportedEvidence.id,
+        sourceUri: "https://www.fda.gov/example-2",
+        sourceType: "OFFICIAL",
+        trustTier: "OFFICIAL",
+        sourceOrganization: "FDA",
+        httpStatus: 200,
+        contentHash: "d".repeat(64),
+        // 抓取内容刻意**不包含**该 claim 的文本 → 核验结果应为 NOT_FOUND
+        rawContentPreview:
+          "Official page describing unrelated labelling requirements. No mention of body-fat claims.",
+        injectionStatus: "CLEAN",
+        fetchedAt: new Date(),
+        fetcherIdentity: "independent_verifier",
+        remoteAddress: "93.184.216.35",
+        contentType: "text/plain",
+        redirectCount: 0,
+      },
+    });
+    await verifyEvidenceClaim(session, {
+      evidenceClaimId: unsupportedEvidence.claims[0].id,
+      sourceCaptureIds: [unsupportedCapture.id],
+    });
+    const latestVerification = await prisma.evidenceVerification.findFirst({
+      where: { evidenceClaimId: unsupportedEvidence.claims[0].id },
+      orderBy: { checkedAt: "desc" },
+    });
+    assert.equal(
+      latestVerification?.supportStatus,
+      "NOT_FOUND",
+      "注入的 claim 最新核验必须是 NOT_FOUND（未获来源支撑）"
+    );
+
     const qaStarted = await startAgentTask(session, qaTask.id);
     const qaFinished = await finishAgentTask(session, qaTask.id, {
       runId: qaStarted.run.id,
@@ -273,6 +370,31 @@ async function main() {
     );
     assert.ok(
       synthesized.report.knowledgeDebtRefs.length >= 1
+    );
+
+    // PRD-F4b 注入的两个诚实性 fixture 必须出现在报告里，且同时进 unknowns 与 risks。
+    assert.ok(
+      synthesized.report.unknowns.some(
+        (item) => item.includes("没有 AgentRun 回执")
+      ),
+      "标记成功但无执行回执的任务必须列为未闭合项"
+    );
+    assert.ok(
+      synthesized.report.unknowns.some(
+        (item) =>
+          item.includes("缺少 SUPPORTED 来源验证") && item.includes("NOT_FOUND")
+      ),
+      "最新核验非 SUPPORTED 的 claim 必须列为未闭合项"
+    );
+    assert.ok(
+      synthesized.report.risks.some((item) => item.includes("无 AgentRun 回执")),
+      "无回执任务必须同时产生风险条目"
+    );
+    assert.ok(
+      synthesized.report.risks.some((item) =>
+        item.includes("最新核验非 SUPPORTED")
+      ),
+      "未获支撑的结论必须同时产生风险条目"
     );
 
     const read = readStructuredArtifact({

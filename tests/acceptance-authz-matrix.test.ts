@@ -4,7 +4,7 @@
  * 与前两套 HTTP 验收的分工：
  * - `acceptance-b01-http.ts`：场景化端到端越权旅程（含状态机与幂等）。
  * - `acceptance-product-center.test.ts`：产品级写路径与项目详情下发字段白名单。
- * - 本套：**穷举登记**。62 条路由 × 82 个方法全部过一遍，重点不是"某个场景对不对"，
+ * - 本套：**穷举登记**。63 条路由 × 84 个方法全部过一遍，重点不是"某个场景对不对"，
  *   而是"有没有哪条路由没被登记"以及"未授权身份有没有拿到成功响应或产生跨租户写入"。
  *
  * 断言：
@@ -48,8 +48,14 @@ const BASE = process.env.BASE_URL || "http://127.0.0.1:3110";
 const RUN_TAG = `mx${Date.now()}`;
 const PASSWORD = `Mx-${crypto.randomBytes(6).toString("hex")}!`;
 const MARK = CROSS_TENANT_MARKER;
-const BASELINE_ROUTES = 62;
-const BASELINE_METHODS = 82;
+/**
+ * 路由基线与「已登记路由/方法数」严格一致，任何新增路由都必须同步更新这里，
+ * 否则 1.3 / 1.4 会红——这是刻意的：新 API 面不允许悄悄绕过授权矩阵。
+ *
+ * 2026-09-25：+1 路由（/api/projects/{id}/product-rnd），+2 方法（GET/POST）。
+ */
+const BASELINE_ROUTES = 63;
+const BASELINE_METHODS = 84;
 
 let passed = 0;
 const failures: string[] = [];
@@ -392,6 +398,14 @@ async function main() {
     return template.replace(/\{\w+\}/g, hit[1]);
   };
 
+  /**
+   * 请求用的 URL：在展开后的路径上追加 RouteSpec.query（若有）。
+   * 为什么不让 query 直接写进 path：场景 1.1/1.2 会拿 path 与文件系统实际路由比对，
+   * 带查询串会被判成「登记项与实际路由不符」。query 只影响请求，不影响登记。
+   */
+  const urlFor = (spec: RouteSpec): string =>
+    spec.query ? `${expand(spec.path)}?${spec.query}` : expand(spec.path);
+
   const ownerLogin = await login(ownerA.email, PASSWORD);
   const viewerLogin = await login(viewerA.email, PASSWORD);
   const outsiderLogin = await login(outsiderA.email, PASSWORD);
@@ -465,7 +479,7 @@ async function main() {
 
   const runFor = async (id: Identity, opts: { crossTenant: boolean; internalKeys: boolean }) => {
     for (const spec of ordered) {
-      const url = expand(spec.path);
+      const url = urlFor(spec);
       const { status, text } = await api(spec.method, url, TOKEN[id], render(spec.body, id));
       const exp = (spec.expect as Record<string, Expectation>)[id];
       ok(matches(status, exp), `${spec.method} ${spec.path} · ${id} → HTTP ${status}（期望 ${describe(exp)}）`);
@@ -556,7 +570,7 @@ async function main() {
   console.log("\n▶ 场景 4：有权身份门禁不得误拒");
   const serverErrors: Array<{ method: string; path: string; status: number }> = [];
   for (const spec of ordered) {
-    const { status } = await api(spec.method, expand(spec.path), TOKEN.owner, render(spec.body, "owner"));
+    const { status } = await api(spec.method, urlFor(spec), TOKEN.owner, render(spec.body, "owner"));
     if (status >= 500) serverErrors.push({ method: spec.method, path: spec.path, status });
     ok(matches(status, spec.ownerGate), `${spec.method} ${spec.path} · owner → HTTP ${status}（期望 ${describe(spec.ownerGate)}）`);
   }
@@ -911,7 +925,7 @@ async function main() {
     const table: Array<{ route: string; mode: string; invalid: number; empty: string }> = [];
     let n8 = 0;
     const probeOne = async (spec: RouteSpec, mode: "raw" | "helper") => {
-      const url = expand(spec.path);
+      const url = urlFor(spec);
       n8 += 1;
       // 非法 JSON：原样发单个 `{`（缺右括号，引擎必然解析失败）
       const invalid = await apiRaw(spec.method, url, OW8, "{");

@@ -51,6 +51,15 @@ export interface RouteSpec {
   ownerGate: Expectation | "NOT_DENIED";
   /** 触发请求时的 body（GET/DELETE 视具体路由而定） */
   body?: unknown;
+  /**
+   * 附加查询串（不含 `?`）。用于**必填查询参数**的路由：
+   * 这些路由在鉴权之前先做参数非空校验，不带参数时所有身份都被 422 抢先拦下，
+   * 门禁等于没被测到。带上查询串能让 `requireProjectRole` 真正执行。
+   *
+   * 注意：它**不参与**路由登记比对（见 acceptance-authz-matrix 场景 1.1/1.2），
+   * 登记键始终是不带查询串的裸路径——否则会被判成「登记项与实际路由不符」。
+   */
+  query?: string;
   /** 响应为组织级集合：需断言不含他组织标记 */
   crossTenant?: boolean;
   /** 标记「先校验后鉴权」的路由，便于后续收敛顺序时定位 */
@@ -300,6 +309,35 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     ownerGate: "NOT_DENIED",
     body: { question: "矩阵研究问题" },
     validationFirst: true,
+  },
+  {
+    /**
+     * 该路由的 `workItemId` 是**必填查询参数**，而路由在鉴权之前先做了参数非空校验。
+     * 若矩阵不带参数，所有登录身份都会被 422 抢先拦下，等于门禁完全没被测到。
+     * 因此用 `query` 带一个不存在的探针 id，让 `requireProjectRole` 真正执行：
+     * - 未授权身份拿到 403（requireProjectRole 只抛 Forbidden）
+     * - viewer 门禁已开，但探针 workItemId 不存在 → 404
+     * `query` 不参与路由登记比对，所以 path 仍是裸模板。
+     */
+    path: "/api/projects/{id}/product-rnd",
+    method: "GET",
+    authz: "产品研发状态：须 OWNER/DECISION_MAKER/VIEWER；带探针 workItemId 以让门禁先于参数校验生效",
+    expect: { anon: [401], foreign: [403], outsider: [403], viewer: [404] },
+    ownerGate: [404],
+    query: "workItemId=matrix-probe",
+  },
+  {
+    /**
+     * 发合法 brief（而不是空 body），否则 `brief is required` 的 422 会先于门禁返回，
+     * 矩阵就测不到"仅 OWNER"这条规则。会真实新建 WorkItem + 五路任务，故排 phase 3。
+     */
+    path: "/api/projects/{id}/product-rnd",
+    method: "POST",
+    authz: "启动产品研发：仅项目 OWNER；matrix 用合法 brief 确保走到 requireProjectRole",
+    expect: { anon: [401], foreign: [403], outsider: [403], viewer: [403] },
+    ownerGate: "NOT_DENIED",
+    body: { action: "START", brief: "矩阵回归：产品研发启动" },
+    phase: 3,
   },
   {
     path: "/api/research-runs/{runId}",

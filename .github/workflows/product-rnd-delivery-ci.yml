@@ -1,0 +1,132 @@
+name: Product R&D Delivery CI
+
+# 交付评审指出：QA fencing、Worker/Executor 这些回归此前只在本地跑过，
+# 数据库迁移与升级路径没有任何 CI 覆盖。本 workflow 用真实 PostgreSQL 服务
+# 把「迁移链 + QA fencing + Worker + 独立 QA 并发去重 + 产品研发融合 + 报告诚实性」
+# 在每次 PR 与 main 推送时跑一遍。
+#
+# 覆盖交付报告里的两个阻塞项：
+#   - Empty database migration：全新库跑全量 migrate deploy
+#   - Upgrade of an existing database：先应用前 N-1 个迁移 + 写入存量数据，
+#     再应用最后一个迁移，校验数据存活（scripts/verify-db-chain.sh）
+
+on:
+  pull_request:
+    paths:
+      - "prisma/**"
+      - "src/modules/product-rnd/**"
+      - "src/modules/worker/**"
+      - "src/modules/workforce/**"
+      - "src/modules/evidence/**"
+      - "src/modules/research/**"
+      - "src/components/executive-report.tsx"
+      - "src/components/product-rnd-panel.tsx"
+      - "src/app/projects/**"
+      - "src/shared/executive-report-types.ts"
+      - "scripts/pm-worker.ts"
+      - "scripts/verify-db-chain.sh"
+      - "tests/product-rnd-fusion.ts"
+      - "tests/product-rnd-qa-retry.ts"
+      - "tests/product-rnd-qa-dedup.ts"
+      - "tests/worker-executor.ts"
+      - "package.json"
+      - ".github/workflows/product-rnd-delivery-ci.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "prisma/**"
+      - "src/modules/product-rnd/**"
+      - "src/modules/worker/**"
+      - "src/modules/workforce/**"
+      - "src/modules/evidence/**"
+      - "src/modules/research/**"
+      - "src/components/executive-report.tsx"
+      - "src/components/product-rnd-panel.tsx"
+      - "src/app/projects/**"
+      - "src/shared/executive-report-types.ts"
+      - "scripts/pm-worker.ts"
+      - "scripts/verify-db-chain.sh"
+      - "tests/product-rnd-fusion.ts"
+      - "tests/product-rnd-qa-retry.ts"
+      - "tests/product-rnd-qa-dedup.ts"
+      - "tests/worker-executor.ts"
+      - "package.json"
+      - ".github/workflows/product-rnd-delivery-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  product-rnd-delivery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: hermes_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d hermes_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://hermes_test:hermes_test@localhost:5432/hermes_test
+      TEST_DATABASE_URL: postgresql://hermes_test:hermes_test@localhost:5432/hermes_test
+      TEST_DB_ROLE: hermes_test
+      DEV_DATABASE_GUARD_URL: postgresql://postgres:postgres@localhost:5432/hermes_dev_guard
+      NODE_ENV: test
+      # verify-db-chain.sh 用的参数（CI 里没有 hermes_app 角色，复用 hermes_test）
+      PG_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      PG_APP_USER: hermes_test
+      PG_APP_PASSWORD: hermes_test
+      PG_HOST: localhost
+      PG_PORT: "5432"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Provision isolated test role
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE hermes_test LOGIN PASSWORD 'hermes_test'"
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "ALTER DATABASE hermes_test OWNER TO hermes_test"
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE hermes_dev_guard"
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "REVOKE CONNECT ON DATABASE hermes_dev_guard FROM PUBLIC"
+
+      - run: npx prisma generate
+      - run: npm run typecheck
+      - run: npm run lint
+
+      - name: Migrate test database
+        run: npx prisma migrate deploy
+
+      - name: DB chain — empty migration / drift / incremental upgrade
+        run: bash scripts/verify-db-chain.sh
+
+      - name: Product R&D + Worker regressions
+        run: |
+          npm run test:qa-retry
+          npm run test:qa-dedup
+          npm run test:product-rnd-fusion
+          npm run test:worker
+
+      - name: Upload sweep logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-rnd-delivery-logs
+          path: /tmp/pm-*.log
+          if-no-files-found: ignore

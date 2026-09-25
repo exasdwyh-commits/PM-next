@@ -413,6 +413,11 @@ async function main() {
   await prisma.project.deleteMany({ where: { id: project.id } });
   await prisma.product.deleteMany({ where: { id: product.id } });
   await prisma.organizationMember.deleteMany({ where: { id: ownerMembership.id } });
+  // 夹具清理顺序：AuditEvent.actorId 是 User 的必填外键（AuditEvent_actorId_fkey），
+  // 必须先清本套夹具产生的审计留痕，否则删用户时 FK 违约，整套会红在清理步骤上。
+  await prisma.auditEvent.deleteMany({
+    where: { actorId: { in: [ownerA.id, foreignB.id] } },
+  });
   await prisma.user.deleteMany({ where: { id: { in: [ownerA.id, foreignB.id] } } });
   await prisma.organization.deleteMany({ where: { id: { in: [orgA.id, orgB.id] } } });
   fs.rmSync(vaultDir, { recursive: true, force: true });

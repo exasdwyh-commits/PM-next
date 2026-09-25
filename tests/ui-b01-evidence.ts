@@ -25,9 +25,17 @@ const { chromium } = require("playwright");
 const BASE = process.env.UI_BASE_URL || "http://127.0.0.1:3111";
 const RUN_TAG = `ui${Date.now()}`;
 const PASSWORD = `Ui-Evidence-${crypto.randomBytes(6).toString("hex")}!`;
-const CHROME_PATH =
-  process.env.CHROME_PATH ||
-  "/Users/exasdwyh/Library/Caches/ms-playwright/chromium-1228/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing";
+/**
+ * 浏览器可执行文件：默认交给 playwright 自己解析（`chromium.executablePath()`）。
+ *
+ * 历史坑（2026-09-25 修）：这里曾硬编码
+ * `/Users/exasdwyh/Library/Caches/ms-playwright/chromium-1228/...`，
+ * 于是本套 UI 验收只能在「恰好装了 revision 1228 的那台 Mac」上跑——
+ * 换机器、CI、或 playwright 升级换 revision 后一律
+ * `executable doesn't exist` 直接中止，而这类失败看起来像产品问题。
+ * 需要指定特定二进制时用 `CHROME_PATH` 环境变量覆盖。
+ */
+const CHROME_PATH = process.env.CHROME_PATH || chromium.executablePath();
 const OUTPUT_DIR =
   process.env.OUTPUT_DIR ||
   path.join(process.cwd(), "..", "outputs", `b01-ui-${new Date().toISOString().slice(0, 10)}`);

@@ -331,3 +331,24 @@ const hasNoBoundEvidence = evidences.length === 0;
 - 单测：`npm run test:worker` → W9 `unknowns=9 项（含零证据守卫），risks=2`；
 - 端到端：对一份真实 program 收口独立 QA 后合成，报告摘要由「0 个未闭合项」
   变为「当前 1 个未闭合项」，并列出该未闭合项与 2 条风险。
+
+### 7.3 逐项诚实规则（在 7.2 之上细化）
+
+7.2 是**聚合**规则（「一条证据都没有」才触发）。交付评审进一步要求逐项点名两类
+「看起来没问题、实际不可采信」的状态，已实现为独立规则：
+
+| 规则 | 判定 | 为什么必须点名 |
+|---|---|---|
+| **成功但无执行回执** | `status === SUCCEEDED && runId === null`（该任务没有任何 `AgentRun`） | 「完成」没有执行留痕，可能是状态被直接改写或留痕丢失。若混进「已汇总 N 个数字员工任务」就是虚假交付 |
+| **结论缺少 SUPPORTED 来源验证** | `claim.verifications[0]?.supportStatus !== "SUPPORTED"`（`verifications` 已按 `checkedAt desc` 查，`[0]` 即最新一次） | 最新核验是 `CONTRADICTED / NOT_FOUND / AMBIGUOUS`，或**根本没有核验**（记 `NO_VERIFICATION`），结论就不被来源支持，不能当可用结论 |
+
+两条规则都同时写入 `unknowns` 与 `risks`，因此 `decisionsRequired` /
+`recommendedActions` 会自动切换成「补证 / 返工」分支。
+
+**设计边界（刻意不做）**：不解析专家自由文本去「猜」缺口。规则只依赖可判定的
+结构化字段（`runId` 是否存在、最新 `supportStatus` 取值）。从叙述里做关键词推断
+会让报告结论变成猜测——那正是本系统要避免的事。
+
+**回归**：`tests/product-rnd-fusion.ts` PRD-F4b 注入两类 fixture（一个被直接改成
+`SUCCEEDED` 且无 `AgentRun` 的委派任务；一个最新核验为 `NOT_FOUND` 的 claim），
+PRD-F5 断言二者都出现在 `unknowns` 与 `risks` 中。

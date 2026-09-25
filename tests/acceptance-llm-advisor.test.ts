@@ -144,6 +144,10 @@ async function cleanupFixtures() {
   await prisma.actionProposal.deleteMany({ where: { conversationId } }).catch(() => {});
   await prisma.conversation.deleteMany({ where: { id: conversationId } });
   await prisma.product.deleteMany({ where: { id: productId } });
+  // 夹具清理顺序：AuditEvent.actorId 是 User 的必填外键（AuditEvent_actorId_fkey），
+  // 不先清掉就会在删用户时报 FK 违约，让整套验收红在一个与产品行为无关的清理步骤上。
+  // 生产里审计留痕不可删，这里只清理本套自建夹具的留痕。
+  await prisma.auditEvent.deleteMany({ where: { actorId: userId } });
   await prisma.user.deleteMany({ where: { id: userId } });
   await prisma.organization.deleteMany({ where: { id: orgId } });
   console.log("🧹 已清理本套夹具（组织 / 用户 / 产品 / 会话 / 运行留痕）");

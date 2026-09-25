@@ -48,12 +48,19 @@ const RUN_TAG = `uifb${Date.now()}`;
 const PASSWORD = `UiFb-${crypto.randomBytes(6).toString("hex")}!`;
 
 const HOME = os.homedir();
+/**
+ * 浏览器可执行文件候选：`CHROME_PATH` 覆盖 → **playwright 自己解析的版本** → 历史硬编码版本。
+ *
+ * 「playwright 自己解析」必须排在前面：playwright 升级会换 chromium revision，
+ * 若只留硬编码 revision，升级后本套会直接判定「未找到 chromium」而红，
+ * 看起来像产品问题，实际只是路径过期（2026-09-25 修）。
+ */
 const CHROME_CANDIDATES = [
   process.env.CHROME_PATH,
+  chromium.executablePath(),
   path.join(HOME, "Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"),
   path.join(HOME, "Library/Caches/ms-playwright/chromium-1228/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"),
-  path.join(HOME, "Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"),
-].filter((p): p is string => !!p);
+].filter((p, i, all): p is string => !!p && all.indexOf(p) === i);
 
 let passed = 0;
 const failures: string[] = [];

@@ -4,8 +4,8 @@ PM-next 是一个面向产品负责人和小型团队的 **Department Assistant 
 
 当前融合版不再把“操作很多 Agent 页面”作为最终产品形态，而是让负责人通过项目与对话发起工作，系统在后台完成拆解、专业协作、研究、证据核验、QA、报告和治理衔接。
 
-> 当前交付候选分支：`fusion/pm-os-final`  
-> 合并目标：`main`（PR #1）  
+> 当前基线：`main`  
+> 历史融合候选分支：`fusion/pm-os-final`（PR #1，已合并到 `main`）  
 > 最终交付说明：`docs/FUSION_DELIVERY_2026-09-25.md`
 
 ## 当前核心能力
@@ -130,8 +130,8 @@ Laya 只作为 System-1 快速判断层：
 
 ```bash
 git fetch --all --prune
-git switch fusion/pm-os-final
-git pull --ff-only origin fusion/pm-os-final
+git switch main
+git pull --ff-only origin main
 
 npm ci
 cp .env.example .env
@@ -148,6 +148,45 @@ npm run dev
 ```bash
 npm run db:seed
 ```
+
+### 环境变量
+
+关键变量见 `.env.example`：
+
+- `DATABASE_URL`：应用连接串（开发库，本机默认 `.../hermes_next_dev`）；
+- `TEST_DATABASE_URL`：测试专用库，**必须与开发库不同**——测试启动时会做隔离校验，
+  测试账号若能连上开发库会直接拒绝运行；
+- 模型相关（Muse / Laya 等）默认不配置；未配置时治理、数据库、Workforce、
+  Evidence 与结构化流程仍应保持可运行，系统不得静默切换到未知外部模型。
+
+### 后台 Worker（独立进程）
+
+关掉浏览器后还要继续推进的活（AgentTask 执行、ResearchRun 续跑、Business Event
+分发、Product R&D reconcile）由独立的 `pm-worker` 进程承担，它**不是** `npm run dev`
+的一部分：
+
+```bash
+npm run worker        # 常驻：executor 5s / research 30s / event 10s / reconcile 60s
+npm run worker:once   # 单轮跑完即退出（CI 与本地排查用）
+```
+
+- 单实例保护：靠文件锁 + 心跳（锁目录 `.pm-worker/`，已在 `.gitignore` 中），
+  已有活跃 Worker 时第二个进程会拒绝启动；陈旧锁可被接管；
+- 独立 QA（`qa_verifier`）**刻意不由 Worker 执行**——同一进程既执行又自证会破坏
+  独立性，QA 由独立路径收口；
+- 没有真实输入的专家任务会诚实地停在 `BLOCKED` 并落 `DataGap`，不会编造数字。
+
+### 数据库迁移与验证
+
+```bash
+npx prisma migrate deploy          # 应用全部迁移（幂等）
+npx prisma migrate status          # 检查是否有未应用迁移 / 漂移
+npm run db:verify                  # 空库全量迁移 / 漂移 / 带数据的增量升级
+```
+
+`npm run db:verify`（`scripts/verify-db-chain.sh`）会在本机 PostgreSQL 上创建两个独立
+验证库（`hermes_migrate_verify`、`hermes_upgrade_verify`），验证「从零建库能跑通全部迁移」
+以及「既有库增量升级不丢存量数据」，不改动 dev/test 库。
 
 ## 首次组织初始化
 
@@ -177,6 +216,31 @@ npm run test:product-rnd-fusion
 npm run test:golden-org
 ```
 
+产品研发 / 数字员工链路（数据库相关）：
+
+```bash
+npm run test:qa-retry            # QA fencing token（F1–F6）
+npm run test:qa-dedup            # 并发排队去重
+npm run test:worker              # Executor + Worker（W1–W9）
+npm run test:product-rnd-fusion  # 端到端融合 + 报告诚实性注入
+```
+
+全量扫描（跑完 `package.json` 里所有 `test:*`，逐项退出码 + 日志）：
+
+```bash
+npm run test:sweep
+```
+
+需要数据库的测试要求本机有 PostgreSQL，且 `TEST_DATABASE_URL` 指向独立测试库。
+
+> ⚠️ **CI 覆盖缺口（已知，待收敛）**：当前 9 个 GitHub workflow 只覆盖 52 个
+> `test:*` 脚本中的 24 个，其余 28 个（含 `test:authz`、`test:blueprint`、
+> `test:science`、`test:ui`、`test:llm-e2e`、`test:acceptance` 等）**从未进 CI**。
+> 这些用例长期没被跑，已经积累了若干与产品行为无关的红项（路由未登记进授权矩阵、
+> UI 测试硬编码浏览器绝对路径、夹具清理顺序违反外键、验收断言绑定实时模型措辞）。
+> 上述问题已在 2026-09-25 修复，`npm run test:sweep` 可作为本机全量门禁；
+> 把这些用例纳入 CI 是后续工作。
+
 GitHub PR #1 当前 head 需要同时通过：
 
 - Quality CI
@@ -187,6 +251,7 @@ GitHub PR #1 当前 head 需要同时通过：
 - Experience CI
 - Business Event CI
 - Golden Organization CI
+- Product R&D Delivery CI
 
 只有当前 head 的完整矩阵全绿，才算最终可合并候选。
 

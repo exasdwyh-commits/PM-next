@@ -1193,6 +1193,27 @@ export async function synthesizeProductRndExecutiveReport(
   // 注意：这里只做「零证据绑定」这种可判定的检查，不去解析专家自由文本（那会变成猜测）。
   const hasNoBoundEvidence = evidences.length === 0;
 
+  // 诚实守卫（逐项）：任务被标记 SUCCEEDED，但**没有 AgentRun 回执**——
+  // 「完成」没有执行留痕，等于没有可信证据支撑它是真跑完的（可能是状态被直接改写）。
+  // 这类任务必须在报告里显式点名，而不是混在「已汇总 N 个数字员工任务」里当成正常产出。
+  const succeededWithoutReceipt = specialistNotes.filter(
+    (note) => note.status === AgentTaskStatus.SUCCEEDED && !note.runId
+  );
+
+  // 诚实守卫（逐项）：claim 没有「最新一次核验为 SUPPORTED」的来源验证。
+  // verifications 已按 checkedAt desc 查询，[0] 即最新一次核验：
+  // - 完全没有核验 → NO_VERIFICATION
+  // - 最新一次是 CONTRADICTED / NOT_FOUND / AMBIGUOUS → 结论已不被来源支持
+  // 两种情况都不能当作可用结论，必须列为未闭合项。
+  const claimsWithoutSupportedVerification = evidences.flatMap((evidence) =>
+    evidence.claims
+      .filter((claim) => claim.verifications[0]?.supportStatus !== "SUPPORTED")
+      .map((claim) => ({
+        claim: claim.value,
+        latest: claim.verifications[0]?.supportStatus ?? "NO_VERIFICATION",
+      }))
+  );
+
   const unknowns = [
     ...dataGaps.map(
       (gap) => `${gap.fieldName}: ${gap.description}`
@@ -1207,6 +1228,14 @@ export async function synthesizeProductRndExecutiveReport(
         (note) =>
           `${note.agentName} 未成功完成：${note.errorReason ?? note.status}`
       ),
+    ...succeededWithoutReceipt.map(
+      (note) =>
+        `${note.agentName} 标记为成功但没有 AgentRun 回执：无可信执行留痕，产出不得视为已验证。`
+    ),
+    ...claimsWithoutSupportedVerification.map(
+      (item) =>
+        `结论缺少 SUPPORTED 来源验证（最新核验：${item.latest}）：${item.claim}`
+    ),
     ...(hasNoBoundEvidence
       ? [
           `报告未绑定任何结构化证据（${specialistNotes.length} 个专家任务均未落 claim）：` +
@@ -1223,6 +1252,16 @@ export async function synthesizeProductRndExecutiveReport(
     ...(verificationStatus === "READY_FOR_HUMAN_REVIEW"
       ? []
       : ["独立 QA 尚未通过，报告不得作为自动业务批准依据。"]),
+    ...(succeededWithoutReceipt.length
+      ? [
+          `存在 ${succeededWithoutReceipt.length} 个标记成功但无 AgentRun 回执的任务：其产出不可作为交付依据。`,
+        ]
+      : []),
+    ...(claimsWithoutSupportedVerification.length
+      ? [
+          `存在 ${claimsWithoutSupportedVerification.length} 条最新核验非 SUPPORTED 的结论：不得直接作为业务批准依据。`,
+        ]
+      : []),
     ...(hasNoBoundEvidence
       ? ["报告零证据绑定：所有结论都无法沿引用回到原始来源。"]
       : []),

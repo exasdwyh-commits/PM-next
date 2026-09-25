@@ -64,6 +64,8 @@
     "test:qa-dedup": "tsx scripts/run-test.ts tests/product-rnd-qa-dedup.ts",
     "test:qa-retry": "tsx scripts/run-test.ts tests/product-rnd-qa-retry.ts",
     "test:worker": "tsx scripts/run-test.ts tests/worker-executor.ts",
+    "test:sweep": "bash scripts/run-test-sweep.sh",
+    "db:verify": "bash scripts/verify-db-chain.sh",
     "worker": "tsx scripts/pm-worker.ts",
     "worker:once": "tsx scripts/pm-worker.ts --once",
     "muse:check": "NODE_ENV=production tsx scripts/muse-check.ts",

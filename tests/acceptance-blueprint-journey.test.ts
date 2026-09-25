@@ -59,6 +59,22 @@ async function runBlueprintAcceptance() {
   console.log("🚀 HERMES Next 实施蓝图十大门槛全景端到端验收套件启动 (§11)");
   console.log("================================================================================\n");
 
+  /**
+   * 本套验收必须**可复现**，因此显式关闭顾问 LLM。
+   *
+   * 背景（2026-09-25 修）：此前本套的行为受开发者本地 `.env` 影响——
+   * 本机 `.env` 里 `ADVISOR_LLM_ENABLED=true` 且指向外部模型 API，于是
+   * 「门槛 4」的顾问回复由模型自由生成，段落标题变成模型自己的措辞，
+   * 让 `顾问回复结构化呈现知识事实与切片依据` 这条断言红在一个与产品行为无关的地方；
+   * 而在没有 `.env` 的干净 CI 里走确定性工具路径，同一条断言又会通过。
+   * 同一个测试在不同机器上结论不同，不能作为交付门禁。
+   *
+   * 这里钉死为「无模型」路径，断言的就是系统**保证存在**的那条契约：
+   * 未接入模型时，顾问也必须用确定性工具结果把知识事实与切片结构化呈现出来。
+   * 需要人工观察模型措辞时，用 `DEBUG_ADVISOR=1` 并临时改回 true。
+   */
+  process.env.ADVISOR_LLM_ENABLED = "false";
+
   await assertTestDatabaseSafety(prisma);
 
   const timestamp = Date.now();
@@ -233,6 +249,9 @@ author: 战略发展部
 
   const advisorMsg1 = await sendMessage(sessionA, convo.id, "请问我们公司关于渠道佣金和原料禁用有什么政策规定？");
   assert(advisorMsg1.message.citations !== null, "顾问回复中包含精准的知识库切片引用卡");
+  if (process.env.DEBUG_ADVISOR === "1") {
+    console.log("\n[debug] 顾问回复内容:\n" + advisorMsg1.message.content + "\n[debug] citations:\n" + JSON.stringify(advisorMsg1.message.citations));
+  }
   assert(advisorMsg1.message.content.includes("公司已确认事实") || advisorMsg1.message.content.includes("知识文档切片"), "顾问回复结构化呈现知识事实与切片依据");
 
   // 测试知识缺口报告
