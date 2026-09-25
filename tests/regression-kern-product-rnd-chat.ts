@@ -179,6 +179,87 @@ async function main() {
     assert.match(ambiguousStatus.message.content, /有多个项目存在 Product R&D 记录/);
     assert.match(ambiguousStatus.message.content, /我没有猜要看哪一个/);
 
+
+    console.log("▶ R7 persisted Executive Report can be read directly from Kern");
+    const secondRndWorkItem = await prisma.workItem.findFirstOrThrow({
+      where: {
+        projectId: secondProject.id,
+        title: "产品研发综合评估",
+      },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+    const reportArtifact = await prisma.artifact.create({
+      data: {
+        organizationId: org.id,
+        productVersionId: created.version.id,
+        workItemId: secondRndWorkItem.id,
+        type: "PRODUCT_RND_EXECUTIVE_REPORT",
+        title: "AKK 渠道专项产品研发报告",
+        schemaVersion: "product-rnd-executive-report/v1",
+        contentVersion: 1,
+        producerType: "AI",
+        inputRevision: 1,
+        reviewStatus: "ACCEPTED",
+        content: JSON.stringify({
+          summary: "当前方案可以继续验证，但法规边界与供应报价仍需补证。",
+          verificationStatus: "VERIFIED_WITH_GAPS",
+          conclusions: [
+            {
+              claim: "目标人群与渠道方向具备继续验证价值",
+              claimKind: "INFERENCE",
+              evidenceLevel: "B",
+              evidenceRef: "evidence:test-demand",
+              verificationRefs: ["verification:test-demand"],
+              freshness: "CURRENT",
+            },
+          ],
+          unknowns: ["黑姜原料在目标市场的法规边界仍需确认"],
+          risks: ["供应商正式报价尚未锁定"],
+          decisionsRequired: ["是否按当前剂量方案进入下一轮样品验证"],
+          recommendedActions: ["补齐法规证据", "锁定供应商正式报价"],
+          assumptions: [],
+          advisoryNotes: [],
+          sourceRefs: [],
+          agentRunRefs: [],
+          modelRunRefs: [],
+          knowledgeDebtRefs: [],
+        }),
+      },
+    });
+
+    const beforeReportQueryItems = await prisma.workItem.count({
+      where: { projectId: secondProject.id },
+    });
+
+    const reportReply = await sendMessage(
+      session,
+      conversation.id,
+      "这个产品的研发报告结论、风险和需要我决定的事情是什么"
+    );
+    assert.match(reportReply.message.content, /AKK 渠道专项项目/);
+    assert.match(reportReply.message.content, /当前方案可以继续验证，但法规边界与供应报价仍需补证/);
+    assert.match(reportReply.message.content, /目标人群与渠道方向具备继续验证价值/);
+    assert.match(reportReply.message.content, /供应商正式报价尚未锁定/);
+    assert.match(reportReply.message.content, /黑姜原料在目标市场的法规边界仍需确认/);
+    assert.match(reportReply.message.content, /是否按当前剂量方案进入下一轮样品验证/);
+    assert.match(reportReply.message.content, /补齐法规证据/);
+
+    const afterReportQueryItems = await prisma.workItem.count({
+      where: { projectId: secondProject.id },
+    });
+    assert.equal(
+      afterReportQueryItems,
+      beforeReportQueryItems,
+      "读取研发报告不得创建新的工作项或推进执行"
+    );
+
+    const storedReport = await prisma.artifact.findUniqueOrThrow({
+      where: { id: reportArtifact.id },
+      select: { id: true, reviewStatus: true },
+    });
+    assert.equal(storedReport.reviewStatus, "ACCEPTED");
+
     console.log("✅ Kern 显式启动 Product R&D：单项目直达、重复幂等、多项目不猜、点名可执行");
   } finally {
     await prisma.auditEvent.deleteMany({ where: { actorId: user.id } }).catch(() => {});
