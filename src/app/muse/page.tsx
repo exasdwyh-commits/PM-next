@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default async function MusePage({
   searchParams,
 }: {
-  searchParams: Promise<{ c?: string }>;
+  searchParams: Promise<{ c?: string; product?: string; query?: string }>;
 }) {
   const headerList = await headers();
   const cookieStore = await cookies();
@@ -31,6 +31,8 @@ export default async function MusePage({
   const sp = await searchParams;
   const model = await buildMuseViewModel(session, {
     conversationId: sp?.c ?? null,
+    productId: sp?.product ?? null,
+    initialDraft: sp?.query ?? null,
   });
 
   return <MuseClient model={JSON.parse(JSON.stringify(model))} />;
