@@ -101,7 +101,7 @@ function buildReviewPacketFromReport(report: ChallengeReportCardProps["report"])
 
   sections.push(`## 内部建议\n- 风险等级：${report.overallRisk}\n- 建议动作：${report.recommendation}\n- 建议 MVP：${report.recommendedMVP}\n`);
 
-  sections.push(`---\n生成时间：${report.generatedAt}\n来源：HERMES 科学证据引擎（内部审查包）`);
+  sections.push(`---\n生成时间：${report.generatedAt}\n来源：Kern 科学证据引擎（内部审查包）`);
 
   return sections.join("\n");
 }
