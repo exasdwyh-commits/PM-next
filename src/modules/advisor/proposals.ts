@@ -1002,6 +1002,36 @@ export async function applyProposal(
           forbiddenItems: normalizeText(payload.forbiddenItems) ?? undefined,
           sourceKind: "AI_EXTRACTED",
         });
+
+        // 对话是 Kern 的主操作层：如果这份新产品提议来自一个全局 Kern 会话，
+        // 确认成功后必须在**同一事务**把原会话绑定到刚创建的产品。
+        // 否则用户下一句“继续优化这个产品”会重新落回未绑定上下文，
+        // 被迫跳到产品页再新开会话，破坏 conversation-first 主链。
+        //
+        // 用条件 updateMany 而不是无条件 update：
+        // - 只有仍然未绑定产品的原会话才允许绑定；
+        // - 如果确认前会话上下文已被别的动作改变，整个事务回滚，
+        //   不留下“产品已创建但会话指向别处”的半完成状态。
+        if (proposal.conversationId) {
+          const bound = await tx.conversation.updateMany({
+            where: {
+              id: proposal.conversationId,
+              organizationId: session.organizationId,
+              ownerId: session.userId,
+              productId: null,
+            },
+            data: {
+              productId: created.product.id,
+              kind: "PRODUCT",
+            },
+          });
+          if (bound.count !== 1) {
+            throw new ConflictError(
+              "确认前 Kern 会话上下文已变化，未创建产品。请回到当前会话重新发起新产品提议"
+            );
+          }
+        }
+
         appliedObjectType = "Product";
         appliedObjectId = created.product.id;
         result = {
@@ -1013,6 +1043,7 @@ export async function applyProposal(
           },
           versionTag: created.version.versionTag,
           project: { id: created.project.id, title: created.project.title },
+          conversationBound: Boolean(proposal.conversationId),
         };
       } else if (proposal.actionType === "CREATE_REVISION") {
         throw new UnprocessableEntityError(
