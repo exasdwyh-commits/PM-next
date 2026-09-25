@@ -1,6 +1,6 @@
 # Kern V1.1 · Dynamic Routing & Council Architecture
 
-状态：**已批准方向 / Shadow 第一阶段**
+状态：**已批准方向 / Shadow + 受限 Phase 2 AUTO**
 
 ## 1. 目标
 
@@ -165,19 +165,31 @@ Tech Architect 不直接伪装本机执行。
 - 显式记录 `autoDispatchEligible`，但不等于已经自动执行
 - SOLO / 低风险 SPECIALIST 才可能进入下一阶段自动调度候选
 
-### Phase 1.6 — 当前执行契约
+### Phase 1.6 — 已完成执行契约
 - `tech_architect_agent` 已具备真实 Worker executor strategy
 - 新增 `CODING` policy `tech-architecture-coding`，默认 Profile 仍禁用
 - Tech Architect 只产出架构/代码审查/测试策略等 advisory 结果，不拥有文件、终端、GitHub 或业务写权限
 - 未安装 policy、未启用 Profile、provider runtime 未配置时均 fail closed / BLOCKED
 - routing receipt 新增运行时 dispatch readiness：区分 INLINE_READY、EXECUTOR_READY、MODEL_POLICY_MISSING、MODEL_PROFILE_DISABLED、PROVIDER_RUNTIME_MISSING、NO_CHAT_EXECUTOR、REVIEW_REQUIRED
 - “可以路由给某专家”与“这个专家现在真的能无人值守执行”不再混为一谈
-- 本阶段仍**不自动创建 AgentTask**；先完成执行契约与回执校准，再打开 AUTO
+- 执行契约完成后才允许进入受限 AUTO，避免“会路由但不会执行”
 
-### Phase 2
-- 仅对校准通过的 SOLO / 低风险 SPECIALIST 开放 AUTO
-- PAIR / COUNCIL 保持建议态
-- routing receipt 扩展记录实际派发专家、模型档、耗时、失败与结果
+### Phase 2A — 当前受限 AUTO
+- SOLO 继续走 Kern 当前对话执行路径，不额外创建 AgentTask
+- **仅低风险、单一 `tech_architect_agent` 且 `dispatchReadiness=EXECUTOR_READY` 时自动创建专家 AgentTask**
+- 自动任务以当前用户消息为来源，使用 MANUAL provenance；这不是业务 Autopilot，也不授予额外业务权限
+- 同一 source AgentRun + conversation + agent 使用稳定 triggerRef 去重，重放不得创建第二个专家任务
+- 当前 Kern 回复只显示真实任务状态（如 QUEUED），不把排队说成正在执行
+- Worker 完成 / BLOCKED / 最终 FAILED 后，通过 `kern-conversation-return/v1` 自动把专家回执追加到原会话
+- 回传使用 `kern-conversation-return-receipt/v1` 去重；前端复用现有 2.5 秒消息轮询，无需第二套推送机制
+- routing receipt 在实际排队时标记 `phase=AUTO` 并记录 dispatchTaskId / dispatchTaskStatus / dispatchedAgentCodes / dispatchError
+- Market / Science / Formulation / Compliance / Cost 等其它 SPECIALIST 仍保持 Shadow；不能因为 Product R&D 内有专用 executor 就误认为它们可执行任意聊天任务
+- PAIR / COUNCIL / RED_TEAM / FULL_RND 仍保持现有治理与建议态
+
+### Phase 2B — 后续
+- 基于真实 routing/return receipts 做误路由与成本/质量校准
+- 为其它 Specialist 建立各自的 generic chat executor contract 后，逐个开放，而不是一次性放开
+- PAIR / COUNCIL 继续在 conflict detector / synthesis / QA 契约完整后再启用 AUTO
 
 ### Phase 3
 - 校准后开放 PAIR / COUNCIL
@@ -206,7 +218,7 @@ Tech Architect 不直接伪装本机执行。
 - researchRequired / qaRequired / redTeamRequired
 - autoDispatchEligible
 - authority = ADVISORY_ONLY
-- dispatchedAgentCodes（Shadow 阶段固定为空）
+- dispatchedAgentCodes（Shadow 阶段为空；Phase 2A 只有真实创建专家任务后才写入）
 
 这使下一阶段可以用真实历史回执校准路由，而不是直接把启发式规则升级成自动执行。
 
@@ -223,3 +235,34 @@ Tech Architect 的 Worker 路径使用 Model Gateway 的 `CODING` task class。�
 - 把没有仓库/文件证据的判断说成“已检查代码”。
 
 因此 Phase 2 的 AUTO 开关必须同时满足：路由候选成立 + 单专家低风险 + executor contract 存在 + policy 已绑定 + Profile 显式启用 + provider runtime 可执行。
+
+
+## 11. Phase 2A conversation return contract
+
+Kern 的 Tech Architect AUTO 是“受控 advisory delegation”，不是业务写权限升级。
+
+真实链路：
+
+```text
+用户消息
+→ Kern Collaboration Planner
+→ Runtime Dispatch Readiness
+→ 低风险 + 单 Tech Architect + EXECUTOR_READY
+→ AgentTask(QUEUED)
+→ pm-worker 领取
+→ CODING Model Gateway
+→ AgentRun / ModelRun
+→ SUCCEEDED / BLOCKED / 最终 FAILED
+→ kern-conversation-return/v1
+→ 原 Kern 会话新增一条 Assistant 回执
+```
+
+关键不变量：
+
+1. **没有 Worker/model runtime 就不派发。** disabled Profile 或 runtime 缺失不会制造假任务。
+2. **排队就是排队。** 初始消息只展示数据库里的真实 AgentTask 状态。
+3. **回执属于原用户。** organization、task creator、conversation owner 与 context requestedByUserId 必须一致。
+4. **回执幂等。** 已存在 conversation return receipt 时不重复追加消息。
+5. **模型只负责技术建议。** Tech Architect 仍不能宣称改过文件、GitHub、终端或 Desktop。
+6. **失败不伪装成功。** BLOCKED 与最终 FAILED 都以对应状态回原会话。
+7. **业务治理不变。** Proposal / Approval / Gate / Product R&D / Desktop Runtime 的权限边界不被 AUTO 扩大。
