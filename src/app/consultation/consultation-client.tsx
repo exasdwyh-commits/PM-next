@@ -85,8 +85,8 @@ export default function ConsultationClient({
       status === "ACCEPTED"
         ? {
             title: "采纳反馈并立项修订",
-            label: "采纳意见并建立修订任务说明",
-            placeholder: "填写采纳意见，将作为修订任务说明…",
+            label: "采纳意见并建立修订工作项说明",
+            placeholder: "填写采纳意见，将作为修订工作项说明…",
             confirmText: "采纳并立项",
             tone: "primary",
           }
