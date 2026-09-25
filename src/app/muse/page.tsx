@@ -9,8 +9,8 @@ import { buildMuseViewModel } from "@/modules/muse/read-model";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Muse · 你的部门助理",
-  description: "对话即操作系统：说目标，Muse 自己推进，需要你点头时才回来找你。",
+  title: "科恩 KERN · AI 工作总管",
+  description: "把目标交给科恩：研究、拆解、委派、执行与复核持续推进，只在关键决策时找你。",
 };
 
 export default async function MusePage({
