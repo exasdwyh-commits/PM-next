@@ -213,11 +213,12 @@ export async function buildMuseViewModel(
       : current
         ? "working"
         : "idle";
+    const isKernChief = agent.code === "HERMES_PM";
     return {
-      id: agent.code === "HERMES_PM" ? "e-hermes" : agent.id,
-      name: agent.name,
-      role: agent.roleKey,
-      mark: agent.name.trim().slice(0, 1).toUpperCase() || "A",
+      id: isKernChief ? "e-hermes" : agent.id,
+      name: isKernChief ? "科恩" : agent.name,
+      role: isKernChief ? "AI Chief of Staff" : agent.roleKey,
+      mark: isKernChief ? "K" : agent.name.trim().slice(0, 1).toUpperCase() || "A",
       state,
       currentFocus: current?.goal ?? null,
       load: Math.min(100, tasks.length * 25),
