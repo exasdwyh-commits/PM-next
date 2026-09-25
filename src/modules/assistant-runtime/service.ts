@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import prisma from "@/shared/db";
 import type { SessionContext } from "@/modules/identity/session";
-import { sendMessage as sendLegacyAdvisorMessage } from "@/modules/advisor/service";
+import { executeKernConversationTurn } from "./conversation-engine";
 import { buildDepartmentAssistantContext } from "./context-builder";
 import { runDepartmentAssistantReflexShadow } from "./reflex";
 import { buildKernCollaborationPlanShadow } from "./collaboration-planner";
@@ -23,9 +23,8 @@ function asInputJson(value: unknown): Prisma.InputJsonValue {
 /**
  * Stable conversational entry point for the final product.
  *
- * V1 intentionally reuses the mature Advisor execution path while moving the
- * product identity and context ownership to Department Assistant. This is a
- * migration seam, not a second chat/runtime implementation.
+ * Kern owns the conversation lifecycle. Legacy Advisor remains only as a
+ * temporary domain-capability provider behind conversation-engine.ts.
  */
 export async function sendDepartmentAssistantMessage(
   session: SessionContext,
@@ -41,7 +40,7 @@ export async function sendDepartmentAssistantMessage(
     linkedProjectIds: context.linkedProjectIds,
     confirmedCompanyFactRefs: context.confirmedCompanyFactRefs,
   });
-  const result = await sendLegacyAdvisorMessage(
+  const result = await executeKernConversationTurn(
     session,
     conversationId,
     content,
