@@ -57,7 +57,7 @@ const PRODUCT_SUGGESTIONS = [
 
 const ROLE_LABEL: Record<string, string> = {
   USER: "我",
-  ASSISTANT: "HERMES 助理",
+  ASSISTANT: "Kern 助理",
   SYSTEM: "系统",
   TOOL: "工具",
 };
@@ -311,7 +311,7 @@ export default function AdvisorClient({
       topbarLeft={
         <div className="hermes-topbar-title">
           <span className="eyebrow">DEPARTMENT ASSISTANT</span>
-          <strong>AI 助理</strong>
+          <strong>Kern 助理</strong>
         </div>
       }
       topbarRight={
@@ -326,11 +326,11 @@ export default function AdvisorClient({
           <p className="eyebrow">
             {boundProduct ? `当前产品 · ${boundProduct.identityCode}` : "公司上下文"}
           </p>
-          <h1>{boundProduct ? `${boundProduct.name} AI 助理` : "AI 助理"}</h1>
+          <h1>{boundProduct ? `${boundProduct.name} · Kern` : "Kern 助理"}</h1>
           <p>
             {boundProduct
-              ? `直接说这个产品要解决的问题。Hermes 会结合 ${boundProduct.name}（当前 ${boundProduct.versions[0]?.versionTag || "v1"}）的上下文回答、研究、拆任务或提出变更草案。`
-              : "直接说你想完成什么。Hermes 会结合公司上下文回答、研究、拆解任务，并在需要业务确认时停下来等你决定。"}
+              ? `直接说这个产品要解决的问题。Kern 会结合 ${boundProduct.name}（当前 ${boundProduct.versions[0]?.versionTag || "v1"}）的上下文回答、研究、拆任务或提出变更草案。`
+              : "直接说你想完成什么。Kern 会结合公司上下文回答、研究、拆解任务，并在需要业务确认时停下来等你决定。"}
           </p>
         </div>
         {boundProduct && (
@@ -351,7 +351,7 @@ export default function AdvisorClient({
         <div className="hermes-banner is-info" style={{ marginBottom: 14 }}>
           <strong>模型未配置也可以工作。</strong>
           <div style={{ marginTop: 3 }}>
-            公司状态查询、受控提议和 Hermes Desktop 本机执行继续可用；需要开放式分析时再启用模型即可。
+            公司状态查询、受控提议和 Kern 本机执行继续可用；需要开放式分析时再启用模型即可。
           </div>
         </div>
       )}
@@ -368,7 +368,7 @@ export default function AdvisorClient({
       <div className="hermes-advisor">
         <Panel eyebrow="SESSIONS" title="历史会话" titleSmall={`(${conversations.length})`}>
           {conversations.length === 0 ? (
-            <Empty>还没有历史会话。直接在右侧告诉 Hermes 你想完成什么即可。</Empty>
+            <Empty>还没有历史会话。直接在右侧告诉 Kern 你想完成什么即可。</Empty>
           ) : (
             <div className="hermes-list">
               {conversations.map((c) => (
@@ -480,7 +480,7 @@ export default function AdvisorClient({
                   </div>
                 );
               })}
-              {busy && <div className="hermes-chat-msg is-assistant"><div className="hermes-chat-role">HERMES 助理</div><Thinking label="正在检索公司资料并组织答案…" /></div>}
+              {busy && <div className="hermes-chat-msg is-assistant"><div className="hermes-chat-role">Kern 助理</div><Thinking label="正在检索公司资料并组织答案…" /></div>}
             </div>
           )}
 
@@ -511,7 +511,7 @@ export default function AdvisorClient({
                   send(input);
                 }
               }}
-              placeholder="告诉 Hermes 你想完成什么…（Enter 发送，Shift+Enter 换行）"
+              placeholder="告诉 Kern 你想完成什么…（Enter 发送，Shift+Enter 换行）"
             />
             <button className="hermes-primary-btn" onClick={() => send(input)} disabled={busy || !input.trim()}>
               <Icon name="arrow" size={15} />

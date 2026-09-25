@@ -25,7 +25,7 @@ import { enqueueBusinessEventInTx } from "@/modules/business-events/outbox";
 const DEFAULT_AGENTS = [
   {
     code: "hermes_pm",
-    name: "Hermes PM",
+    name: "Kern PM",
     roleKey: "PRODUCT_LEAD",
     description: "产品负责人和数字员工团队 leader，负责拆解、路由、复核与需要人类拍板时升级。",
     instructions:
@@ -116,7 +116,7 @@ const DEFAULT_AGENTS = [
     code: "desktop_operator",
     name: "Desktop Operator",
     roleKey: "DESKTOP_OPERATOR",
-    description: "负责把 Hermes 的受控任务交给用户本机 Runtime，执行文件、终端、Git、浏览器、剪贴板、通知和本机 Agent 工作。",
+    description: "负责把 Kern 的受控任务交给用户本机 Runtime，执行文件、终端、Git、浏览器、剪贴板、通知和本机 Agent 工作。",
     instructions:
       "只执行 contextSnapshot.desktopAction 中的结构化动作；不得在服务端模拟本机执行。所有动作必须由已登录的用户本机 Runtime 领取并回传真实结果。",
     maxConcurrentTasks: 1,
@@ -335,7 +335,7 @@ export async function bootstrapDefaultWorkforce(session: SessionContext) {
     }
 
     const leader = agents.get("hermes_pm");
-    if (!leader) throw new Error("Hermes PM bootstrap invariant failed");
+    if (!leader) throw new Error("Kern PM bootstrap invariant failed");
 
     const squad = await tx.squad.upsert({
       where: {
@@ -347,8 +347,8 @@ export async function bootstrapDefaultWorkforce(session: SessionContext) {
       create: {
         organizationId: session.organizationId,
         code: DEFAULT_SQUAD_CODE,
-        name: "Hermes Product Squad",
-        description: "Hermes PM 领导的核心产品数字员工团队。",
+        name: "Kern Product Squad",
+        description: "Kern PM 领导的核心产品数字员工团队。",
         instructions:
           "Leader 负责拆解与路由；成员提交结果后由 Leader 复核。需要改变业务事实时进入 Governance Kernel，需要人类判断时进入 WAITING_HUMAN。",
         leaderAgentId: leader.id,
@@ -356,7 +356,7 @@ export async function bootstrapDefaultWorkforce(session: SessionContext) {
       },
       update: {
         leaderAgentId: leader.id,
-        name: "Hermes Product Squad",
+        name: "Kern Product Squad",
       },
       select: { id: true, code: true, leaderAgentId: true },
     });
@@ -382,7 +382,7 @@ export async function bootstrapDefaultWorkforce(session: SessionContext) {
       action: "WORKFORCE_BOOTSTRAPPED",
       objectType: "Squad",
       objectId: squad.id,
-      summary: "初始化 Hermes 数字产品团队与默认 Skills",
+      summary: "初始化 Kern 数字产品团队与默认 Skills",
       details: {
         agentCodes: [...agents.keys()],
         skillKeys: [...skills.keys()],
@@ -641,7 +641,7 @@ export async function createAgentTask(
       // proposed specialist anyway”.
       if (agent.code !== "hermes_pm") {
         throw new UnprocessableEntityError(
-          "ESCALATE_AGENT decision can only create a Hermes PM review task"
+          "ESCALATE_AGENT decision can only create a Kern PM review task"
         );
       }
     } else if (triggerDecisionRun.policyAction === DecisionRunPolicyAction.AUTO) {
@@ -672,7 +672,7 @@ export async function createAgentTask(
         case "signal.should_wake_pm":
           if (result?.value !== true || agent.code !== "hermes_pm") {
             throw new UnprocessableEntityError(
-              "Signal wake decision must be true and target Hermes PM"
+              "Signal wake decision must be true and target Kern PM"
             );
           }
           break;
@@ -688,7 +688,7 @@ export async function createAgentTask(
         case "evidence.should_wake_pm":
           if (result?.value !== true || agent.code !== "hermes_pm") {
             throw new UnprocessableEntityError(
-              "Evidence wake decision must be true and target Hermes PM"
+              "Evidence wake decision must be true and target Kern PM"
             );
           }
           break;

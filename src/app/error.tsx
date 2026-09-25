@@ -22,7 +22,7 @@ export default function Error({
   useEffect(() => {
     // 预留：可在此接入前端错误上报。当前仅记录，避免静默失败。
     if (typeof console !== "undefined") {
-      console.error("[HERMES] 页面渲染失败:", error);
+      console.error("[KERN] 页面渲染失败:", error);
     }
   }, [error]);
 
@@ -51,7 +51,7 @@ export default function Error({
     <main className="hermes-shell">
       <div className="hermes-center-page">
         <div className="hermes-glass hermes-center-card">
-          <span className="hermes-section-label">HERMES · 出错了</span>
+          <span className="hermes-section-label">KERN · 出错了</span>
           <h2>这一页没能读出来</h2>
           <p className="hermes-note" style={{ marginTop: 4 }}>
             你可以重试；若反复出现，把下面这串编号发给管理员。

@@ -251,7 +251,7 @@ export default function ProductOverviewClient({
           <div>
             <span>当前执行</span>
             <strong>{p.projects[0].title}</strong>
-            <small>{labelProjectStage(p.projects[0].stage)} · 进入工作区查看 AI 研发、任务、证据与决策</small>
+            <small>{labelProjectStage(p.projects[0].stage)} · 进入项目查看 AI 研发、工作项、证据与决策</small>
           </div>
           <span className="hermes-primary-btn hermes-btn-sm">
             继续推进

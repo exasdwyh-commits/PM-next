@@ -124,7 +124,7 @@ export default function WarRoomClient({ initialProjects, allUsers, currentSessio
   const disposeFeedback = async (feedbackId: string, status: "ACCEPTED" | "REJECTED") => {
     const reason = await askReason(
       status === "ACCEPTED"
-        ? { title: "采纳反馈并立项修订", label: "采纳意见并建立修订任务说明", placeholder: "填写采纳意见，将作为修订任务说明…", confirmText: "采纳并立项", tone: "primary" }
+        ? { title: "采纳反馈并立项修订", label: "采纳意见并建立修订工作项说明", placeholder: "填写采纳意见，将作为修订工作项说明…", confirmText: "采纳并立项", tone: "primary" }
         : { title: "驳回反馈", label: "驳回反馈理由", placeholder: "填写驳回理由…", confirmText: "确认驳回", tone: "danger" }
     );
     if (!reason) return;

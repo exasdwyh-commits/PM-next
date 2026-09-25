@@ -129,7 +129,7 @@ export default function WorkforceClient({
   const attentionNow = overview.waitingTasks.length + overview.returnReviews.length;
   const heroTagline =
     runningNow > 0
-      ? `Hermes 正在执行 ${runningNow} 项工作。`
+      ? `Kern 正在执行 ${runningNow} 项工作。`
       : attentionNow > 0
         ? `有 ${attentionNow} 项需要你处理。`
         : "当前没有正在执行的自动化工作。";
@@ -231,7 +231,7 @@ export default function WorkforceClient({
       runtime={runtime}
       topbarLeft={
         <div className="hermes-topbar-title">
-          <span className="eyebrow">HERMES · AUTONOMOUS WORKFORCE</span>
+          <span className="eyebrow">KERN · AUTONOMOUS WORKFORCE</span>
           <strong>自动化中心</strong>
         </div>
       }
@@ -244,7 +244,7 @@ export default function WorkforceClient({
             disabled={bootstrapping}
           >
             <Icon name="users" size={16} />
-            {bootstrapping ? "初始化中…" : "初始化 Hermes 团队"}
+            {bootstrapping ? "初始化中…" : "初始化 Kern 团队"}
           </button>
         ) : null
       }
@@ -274,7 +274,7 @@ export default function WorkforceClient({
           emphasis={waitingHuman > 0 ? "decision" : undefined}
           note="不会伪装成已完成"
         />
-        <Kpi label="Squad" value={overview.squads.length} note="Hermes PM 负责路由" />
+        <Kpi label="Squad" value={overview.squads.length} note="Kern PM 负责路由" />
       </KpiRow>
 
       {bootstrapError ? <div className="hermes-banner is-danger">{bootstrapError}</div> : null}
@@ -283,7 +283,7 @@ export default function WorkforceClient({
         <Panel icon="users" title="还没有数字员工">
           <Empty>
             {canBootstrap
-              ? "当前组织尚未初始化 Workforce Kernel。点击右上角即可建立 Hermes PM、Product、Research、Marketing、Ops 和 Red Team。"
+              ? "当前组织尚未初始化 Workforce Kernel。点击右上角即可建立 Kern PM、Product、Research、Marketing、Ops 和 Red Team。"
               : "当前组织尚未初始化数字员工团队，请由组织管理员完成初始化。"}
           </Empty>
         </Panel>
@@ -327,7 +327,7 @@ export default function WorkforceClient({
             <Panel
               icon="nodes"
               title="本机执行"
-              sub="Hermes 在你这台 Mac 上真实执行的工作。排队中的任务需要 Mac 端连上才会开始。"
+              sub="Kern 在你这台 Mac 上真实执行的工作。排队中的任务需要 Mac 端连上才会开始。"
             >
               <DesktopActivityBody overview={desktopOverview} loaded={desktopLoaded} />
             </Panel>

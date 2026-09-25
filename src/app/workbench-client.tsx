@@ -164,7 +164,7 @@ export default function WorkbenchClient({
       runtime={runtime}
       topbarLeft={
         <div className="hermes-topbar-title">
-          <span className="eyebrow">HERMES · DEPARTMENT ASSISTANT</span>
+          <span className="eyebrow">KERN · DEPARTMENT ASSISTANT</span>
           <strong>今日</strong>
         </div>
       }

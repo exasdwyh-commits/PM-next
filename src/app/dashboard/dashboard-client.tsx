@@ -160,7 +160,7 @@ export default function DashboardClient({ initialStats, user, runtime, knowledge
         {/* Work items —— 标签必须过 status-labels，绝不打印数据库枚举（曾把 "IN_PROGRESS" 直接渲染到页面上） */}
         <Panel title="工作项状态">
           {Object.keys(s.workItemGroups).length === 0 ? (
-            <Empty>当前没有工作项。进入具体项目的「任务」页安排第一项工作后，这里会汇总执行状态。</Empty>
+            <Empty>当前没有工作项。进入具体项目的「工作项」页安排第一项工作后，这里会汇总执行状态。</Empty>
           ) : (
             <div className="hermes-inline">
               {Object.entries(s.workItemGroups).map(([k, v]) => (

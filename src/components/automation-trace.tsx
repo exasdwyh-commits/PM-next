@@ -120,7 +120,7 @@ export function AutomationTraceInline({
   return (
     <div className="hermes-note" style={{ marginTop: 9 }}>
       <div className="hermes-row-head" style={{ marginBottom: 5 }}>
-        <strong style={{ fontSize: 12.5 }}>Hermes 自动判断</strong>
+        <strong style={{ fontSize: 12.5 }}>Kern 自动判断</strong>
         <Pill tone={statusTone(trace)}>{outcomeLabel(trace)}</Pill>
       </div>
       <div className="hermes-row-meta">

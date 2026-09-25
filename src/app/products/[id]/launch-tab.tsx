@@ -386,7 +386,7 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
 
       <Panel
         eyebrow="GATE"
-        title="放行门禁"
+        title="上市门禁"
         sub="由服务端逐项校验；未完成阻塞项不会被自动放行"
       >
         <div className={cx("hermes-banner", gate?.ready ? undefined : "is-warn")} style={{ marginTop: 12 }}>
@@ -394,7 +394,7 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
         </div>
 
         {/* 门槛线 G3：依据上市计划（LaunchPlan + evaluateGate）。获准 ≠ 已上市。 */}
-        <GateLine gates={gateNodes} ariaLabel="上市放行门槛" />
+        <GateLine gates={gateNodes} ariaLabel="上市门禁" />
         <p className="viz-source-note">依据：上市计划 + 正式 DecisionPacket。负责人提交 G3，指定决策人审批，负责人不得自批；计划、里程碑、产品版本或项目基线变化会让当前 G3 授权失效。G3 批准 ≠ 已上市，实际上市仍需单独记录真实动作。</p>
 
         <details className="hermes-details" style={{ marginTop: 10 }} open={gate?.ready === false}>

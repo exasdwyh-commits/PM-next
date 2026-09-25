@@ -452,7 +452,7 @@ export default function ProjectDetailClient({
   const handleDisposeFeedback = async (feedbackId: string, status: "ACCEPTED" | "REJECTED") => {
     const reason = await askReason(
       status === "ACCEPTED"
-        ? { title: "采纳反馈并立项修订", label: "采纳意见并建立修订任务说明", placeholder: "填写采纳意见，将作为修订任务说明…", confirmText: "采纳并立项", tone: "primary" }
+        ? { title: "采纳反馈并立项修订", label: "采纳意见并建立修订工作项说明", placeholder: "填写采纳意见，将作为修订工作项说明…", confirmText: "采纳并立项", tone: "primary" }
         : { title: "驳回反馈", label: "驳回反馈理由", placeholder: "填写驳回理由…", confirmText: "确认驳回", tone: "danger" }
     );
     if (!reason) return;
@@ -729,11 +729,11 @@ export default function ProjectDetailClient({
           </div>
         )}
 
-        <div className="hermes-workspace-tabs" role="tablist" aria-label="产品工作区">
+        <div className="hermes-workspace-tabs" role="tablist" aria-label="项目工作区">
           {[
             ["overview", "概览"],
             ["rnd", "AI 研发"],
-            ["tasks", "任务"],
+            ["tasks", "工作项"],
             ["evidence", "证据"],
             ["decisions", "决策"],
             ["records", "记录"],
@@ -774,7 +774,7 @@ export default function ProjectDetailClient({
                   </button>
                 ) : (
                   <button type="button" className="hermes-primary-btn hermes-btn-sm" onClick={() => setActiveWorkspaceTab("tasks")}>
-                    查看任务
+                    查看工作项
                     <Icon name="arrow" size={14} />
                   </button>
                 )
@@ -837,7 +837,7 @@ export default function ProjectDetailClient({
           />
         ) : (
           <Panel title="AI 研发">
-            <Empty>当前产品还没有建立“产品研发综合评估”工作项。可以先在任务页建立，或从 AI 助理发起一轮研发。</Empty>
+            <Empty>当前产品还没有建立“产品研发综合评估”工作项。可以先在工作项页建立，或从 Kern 发起一轮研发。</Empty>
           </Panel>
         )}
         </>)}
@@ -1085,7 +1085,7 @@ export default function ProjectDetailClient({
             title="生产投入与执行"
             sub="样品通过 → 生产准备 → G2 正式授权 → 真实开工 → 真实交付；批准不等于已生产"
           >
-            <GateLine gates={[gateNodes[1]]} ariaLabel="G2 生产投入门槛" />
+            <GateLine gates={[gateNodes[1]]} ariaLabel="G2 生产投入门禁" />
 
             {productionContext?.preparation && project.stage === "SAMPLING" && (
               <div className={`hermes-banner ${productionContext.preparation.ready ? "" : "is-warn"}`} style={{ marginTop: 10 }}>
@@ -1171,7 +1171,7 @@ export default function ProjectDetailClient({
             ) : undefined
           }
         >
-          <GateLine gates={gateNodes} ariaLabel="项目放行门槛线" />
+          <GateLine gates={gateNodes} ariaLabel="项目门禁线" />
           <p className="viz-source-note">
             G1 批准允许投入打样；G2 批准允许投入生产。两者都不等于实际执行完成，真实开工/交付另行记录。
           </p>
@@ -1277,18 +1277,18 @@ export default function ProjectDetailClient({
         <Panel
           eyebrow="执行"
           title={`工作项与交付成果 (${project.workItems.length})`}
-          sub="安排任务、提交交付物与负责人核实验收"
+          sub="安排工作项、提交交付物与负责人核实验收"
           actions={
             isOwner ? (
               <button onClick={() => setShowWorkModal(true)} className="hermes-primary-btn hermes-btn-sm">
                 <Icon name="plus" size={15} />
-                安排任务
+                安排工作项
               </button>
             ) : undefined
           }
         >
           {project.workItems.length === 0 ? (
-            <Empty>暂无工作项。由负责人点击右上角「安排任务」建立第一项工作，或从 Kern 发起研发后生成执行工作。</Empty>
+            <Empty>暂无工作项。由负责人点击右上角「安排工作项」建立第一项工作，或从 Kern 发起研发后生成执行工作。</Empty>
           ) : (
             <div className="hermes-list">
               {project.workItems.map((item: any) => {
@@ -1595,10 +1595,10 @@ export default function ProjectDetailClient({
         {/* Modals stay outside tabs so open forms are not destroyed by tab navigation. */}
         {/* Modal: Create Work Item */}
         {showWorkModal && (
-          <Modal eyebrow="任务" title="安排新任务" onClose={() => setShowWorkModal(false)} wide>
+          <Modal eyebrow="工作项" title="安排新工作项" onClose={() => setShowWorkModal(false)} wide>
             <form onSubmit={handleCreateWorkItem} className="hermes-form-grid">
               <label className="hermes-label">
-                <span>任务名称</span>
+                <span>工作项名称</span>
                 <input
                   type="text"
                   required
@@ -1639,7 +1639,7 @@ export default function ProjectDetailClient({
                 </select>
               </label>
               <label className="hermes-label">
-                <span>前置依赖任务 (F03，可多选)</span>
+                <span>前置依赖工作项 (F03，可多选)</span>
                 <div className="hermes-row is-flat" style={{ maxHeight: 120, overflowY: "auto", padding: 6 }}>
                   {project.workItems.length === 0 ? (
                     <span className="hermes-row-meta">暂无其他任务可选</span>
