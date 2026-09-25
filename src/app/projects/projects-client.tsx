@@ -48,21 +48,21 @@ export default function ProjectsClient({
       topbarLeft={
         <div className="hermes-topbar-title">
           <span className="eyebrow">PROJECTS</span>
-          <strong>项目中心</strong>
+          <strong>执行工作区</strong>
         </div>
       }
       topbarRight={
         <Link href="/products" className="hermes-outline-btn hermes-btn-sm">
-          <Icon name="plus" size={14} />
-          新建项目
+          <Icon name="back" size={14} />
+          返回产品
         </Link>
       }
     >
       <div className="hermes-page-heading">
         <div>
-          <p className="eyebrow">全部项目</p>
-          <h1>项目中心</h1>
-          <p>管理所有产品项目的生命周期、任务、证据与决策</p>
+          <p className="eyebrow">产品执行</p>
+          <h1>执行工作区</h1>
+          <p>这里展示产品内部的执行计划。日常请从「产品」进入，再继续研发、任务、证据与决策。</p>
         </div>
         <div className="hermes-inline">
           {stages.map((s) => (
@@ -77,9 +77,9 @@ export default function ProjectsClient({
         </div>
       </div>
 
-      <Panel icon="grid" eyebrow="LIST" title="项目列表" titleSmall={`(${filtered.length})`}>
+      <Panel icon="grid" eyebrow="LIST" title="工作区列表" titleSmall={`(${filtered.length})`}>
         {filtered.length === 0 ? (
-          <Empty>暂无项目。从产品页创建第一个项目。</Empty>
+          <Empty>暂无执行工作区。请从产品页启动研发或创建执行计划。</Empty>
         ) : (
           <div className="hermes-list">
             {filtered.map((p) => (

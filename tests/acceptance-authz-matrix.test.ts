@@ -4,7 +4,7 @@
  * 与前两套 HTTP 验收的分工：
  * - `acceptance-b01-http.ts`：场景化端到端越权旅程（含状态机与幂等）。
  * - `acceptance-product-center.test.ts`：产品级写路径与项目详情下发字段白名单。
- * - 本套：**穷举登记**。63 条路由 × 84 个方法全部过一遍，重点不是"某个场景对不对"，
+ * - 本套：**穷举登记**。66 条路由 × 89 个方法全部过一遍，重点不是"某个场景对不对"，
  *   而是"有没有哪条路由没被登记"以及"未授权身份有没有拿到成功响应或产生跨租户写入"。
  *
  * 断言：
@@ -43,6 +43,7 @@ import {
   type Expectation,
   type RouteSpec,
 } from "./authz-matrix";
+import { DESKTOP_AGENT_CODE } from "../src/modules/desktop-runtime/contracts";
 
 const BASE = process.env.BASE_URL || "http://127.0.0.1:3110";
 const RUN_TAG = `mx${Date.now()}`;
@@ -53,9 +54,12 @@ const MARK = CROSS_TENANT_MARKER;
  * 否则 1.3 / 1.4 会红——这是刻意的：新 API 面不允许悄悄绕过授权矩阵。
  *
  * 2026-09-25：+1 路由（/api/projects/{id}/product-rnd），+2 方法（GET/POST）。
+ * 2026-09-25（合并远端 main 后）：+3 路由（/api/desktop-runtime/tasks、
+ *   .../tasks/{id}/claim、.../tasks/{id}/finish），+5 方法（desktop GET/POST + claim/finish POST，
+ *   以及 /api/conversations/{id}/messages 新增的 GET）。
  */
-const BASELINE_ROUTES = 63;
-const BASELINE_METHODS = 84;
+const BASELINE_ROUTES = 66;
+const BASELINE_METHODS = 89;
 
 let passed = 0;
 const failures: string[] = [];
@@ -367,6 +371,44 @@ async function main() {
     },
   });
 
+  /**
+   * 本机执行（Desktop Runtime）夹具。
+   *
+   * 为什么自建桌面操作员而**不靠路由自举**：入队路由在找不到 Desktop Operator 时会调
+   * `bootstrapDefaultWorkforce`，而它要求 `OrganizationMember.role = ORG_ADMIN` ——
+   * 矩阵里只有 ownerA 满足。若靠自举，viewer/outsider 的读数就会随「owner 是否已经跑过」
+   * 漂移。夹具先把这个 agent 建出来，读数就与执行顺序无关了。
+   * （cross-org 身份仍无 agent，因此入队对他稳定是 409，见 authz-matrix.ts 的说明。）
+   */
+  const desktopAgentA = await prisma.agent.create({
+    data: {
+      organizationId: orgA.id,
+      code: DESKTOP_AGENT_CODE,
+      name: `${MARK} 桌面操作员`,
+      roleKey: "DESKTOP_OPERATOR",
+      accessMode: "ORGANIZATION",
+      ownerId: ownerA.id,
+      status: "ACTIVE",
+      maxConcurrentTasks: 1,
+    },
+  });
+  const desktopTaskA = await prisma.agentTask.create({
+    data: {
+      organizationId: orgA.id,
+      agentId: desktopAgentA.id,
+      createdByUserId: ownerA.id,
+      goal: "读取剪贴板",
+      status: "QUEUED",
+      availableAt: new Date(0),
+      contextSnapshot: {
+        executionTarget: "DESKTOP",
+        desktopAction: { tool: "clipboard.read" },
+        requestedByUserId: ownerA.id,
+        requestedAt: new Date(0).toISOString(),
+      },
+    },
+  });
+
   const uploadDir = path.join(process.cwd(), ".uploads");
   await fs.promises.mkdir(uploadDir, { recursive: true });
   await fs.promises.writeFile(path.join(uploadDir, `${RUN_TAG}-attachment.txt`), "matrix");
@@ -390,6 +432,7 @@ async function main() {
     [/^\/api\/research-runs\//, runA.id],
     [/^\/api\/work-items\//, workItemA.id],
     [/^\/api\/workforce\/tasks\//, agentTaskA.id],
+    [/^\/api\/desktop-runtime\/tasks\//, desktopTaskA.id],
   ];
   const expand = (template: string): string => {
     if (!template.includes("{")) return template;

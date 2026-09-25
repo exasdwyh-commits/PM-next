@@ -1,0 +1,27 @@
+name: Desktop CI
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+jobs:
+  mac-runtime:
+    runs-on: macos-14
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run test:desktop-runtime
+      - name: Validate macOS installer syntax
+        run: zsh -n scripts/install-hermes-desktop.sh
+      - name: Boot desktop runtime in tool-discovery mode
+        run: npm run desktop -- --print-tools

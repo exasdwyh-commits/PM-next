@@ -1,7 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/modules/identity/session";
 import { sendDepartmentAssistantMessage } from "@/modules/assistant-runtime";
+import { getConversation } from "@/modules/advisor/service";
 import { handleApiError } from "@/shared/api-handler";
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(req);
+    const { id: conversationId } = await params;
+    const conversation = await getConversation(session, conversationId);
+    return NextResponse.json({
+      messages: conversation.messages.map((message) => ({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        createdAt: message.createdAt,
+        citations: message.citations,
+      })),
+    });
+  } catch (error) {
+    return handleApiError(error, req);
+  }
+}
 
 /**
  * 顾问对话（蓝图 §5.3）：写入链全程留痕（AgentRun + ToolCall），
@@ -22,7 +45,13 @@ export async function POST(
     return NextResponse.json(
       {
         runId: result.runId,
-        message: { id: result.message.id, role: result.message.role, content: result.message.content },
+        message: {
+          id: result.message.id,
+          role: result.message.role,
+          content: result.message.content,
+          createdAt: result.message.createdAt,
+          citations: result.message.citations,
+        },
         proposal: result.proposal ?? null,
       },
       { status: 201 }

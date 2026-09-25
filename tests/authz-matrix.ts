@@ -152,12 +152,68 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
   },
   {
     path: "/api/conversations/{id}/messages",
+    method: "GET",
+    authz: "读取会话消息：归属校验同写入（组织 + 本人），非本人会话一律 404",
+    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
+    ownerGate: [200],
+  },
+  {
+    path: "/api/conversations/{id}/messages",
     method: "POST",
     authz: "会话归属校验：非组织内本人会话一律 404；校验前有内容非空检查",
     expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
     ownerGate: [201],
     body: { content: "矩阵探测消息" },
     validationFirst: true,
+  },
+
+  // ---------- 本机执行（Hermes Desktop Runtime） ----------
+  //
+  // 这一组的路由都是**用户自作用域**，不是项目作用域：路径里没有项目 id，
+  // 归属由 `organizationId + createdByUserId` 双限定表达。因此「跨组织」这类身份
+  // 在 claim/finish 上拿到的是 404（查不到属于他的任务），而读接口只是读到自己的空集合。
+  {
+    path: "/api/desktop-runtime/tasks",
+    method: "GET",
+    authz:
+      "本机任务轮询：组织 + 当前用户 + 设备三重限定，任何登录用户只可能看到自己入队的任务",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    query: "deviceId=matrix-probe-device",
+    crossTenant: true,
+  },
+  {
+    path: "/api/desktop-runtime/tasks",
+    method: "POST",
+    authz:
+      "本机任务入队：需登录且本组织已初始化 Desktop Operator（未初始化 409 —— 是业务前置未满足，不是越权）",
+    expect: { anon: [401], foreign: [409], outsider: [201], viewer: [201] },
+    ownerGate: [201],
+    body: { instruction: "读取剪贴板" },
+    phase: 3,
+  },
+  {
+    path: "/api/desktop-runtime/tasks/{id}/claim",
+    method: "POST",
+    authz:
+      "认领本机任务：必须同组织 + 同 createdByUserId + 属于 Desktop Operator，任一不符一律 404",
+    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
+    ownerGate: [200],
+    body: { deviceId: "matrix-probe-device" },
+  },
+  {
+    path: "/api/desktop-runtime/tasks/{id}/finish",
+    method: "POST",
+    authz:
+      "回执本机任务：门禁同 claim（不符一律 404）；门禁通过后 runId/deviceId 与 claim 不匹配属业务冲突 409",
+    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
+    ownerGate: "NOT_DENIED",
+    body: {
+      deviceId: "matrix-probe-device",
+      runId: "matrix-probe-run",
+      outcome: "SUCCEEDED",
+      result: { ok: true, summary: "矩阵探测回执" },
+    },
   },
 
   {

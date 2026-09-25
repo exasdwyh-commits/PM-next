@@ -70,7 +70,12 @@
     "worker": "tsx scripts/pm-worker.ts",
     "worker:once": "tsx scripts/pm-worker.ts --once",
     "muse:check": "NODE_ENV=production tsx scripts/muse-check.ts",
-    "test:assistant-persona": "tsx scripts/run-test.ts tests/assistant-persona-muse.ts"
+    "test:assistant-persona": "tsx scripts/run-test.ts tests/assistant-persona-muse.ts",
+    "test:frontend-v3": "node --import tsx --test tests/frontend-v3-contract.test.ts",
+    "desktop": "tsx scripts/hermes-desktop.ts",
+    "desktop:once": "tsx scripts/hermes-desktop.ts --once",
+    "desktop:install": "zsh scripts/install-hermes-desktop.sh",
+    "test:desktop-runtime": "node --import tsx --test tests/desktop-runtime-contract.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
