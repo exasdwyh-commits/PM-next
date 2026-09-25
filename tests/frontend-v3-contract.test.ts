@@ -279,6 +279,7 @@ test("desktop execution reads as Kern using the Mac, with runtime details second
   assert.ok(desktop.includes("Kern 正在用你的电脑"));
   assert.ok(desktop.includes("开发环境连接方式"));
   assert.ok(desktop.includes("npm run desktop"));
+  assert.equal((desktop.match(/开发环境连接方式/g) || []).length, 2, "developer command must appear only in two secondary help disclosures");
   assert.equal(presence.includes("npm run desktop"), false, "primary presence hint must not lead with implementation commands");
   assert.equal(desktop.includes("Hermes Desktop"), false, "visible desktop UI must not expose the old runtime product name");
 });
