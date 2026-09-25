@@ -38,7 +38,7 @@ export function Rail({
           </button>
         ))}
         {missions.length === 0 ? (
-          <p className="m-rail-empty">还没有对话。</p>
+          <p className="m-hint" style={{ margin: "4px 8px" }}>还没有对话。</p>
         ) : null}
       </div>
       <div className="m-rail-foot">
