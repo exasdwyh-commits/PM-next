@@ -159,6 +159,26 @@ async function main() {
     });
     assert.equal(secondProjectAfter, 1);
 
+
+    console.log("▶ R5 status query reads real Product R&D state without executing");
+    const namedStatus = await sendMessage(
+      session,
+      conversation.id,
+      `「${secondProject.title}」的产品研发进度怎么样`
+    );
+    assert.match(namedStatus.message.content, new RegExp(secondProject.title));
+    assert.match(namedStatus.message.content, /研发工作项：/);
+    assert.match(namedStatus.message.content, /Executive Report：尚未生成/);
+
+    console.log("▶ R6 generic status fails closed when multiple projects both have R&D");
+    const ambiguousStatus = await sendMessage(
+      session,
+      conversation.id,
+      "这个产品研发进度怎么样"
+    );
+    assert.match(ambiguousStatus.message.content, /有多个项目存在 Product R&D 记录/);
+    assert.match(ambiguousStatus.message.content, /我没有猜要看哪一个/);
+
     console.log("✅ Kern 显式启动 Product R&D：单项目直达、重复幂等、多项目不猜、点名可执行");
   } finally {
     await prisma.auditEvent.deleteMany({ where: { actorId: user.id } }).catch(() => {});
