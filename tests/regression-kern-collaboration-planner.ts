@@ -15,6 +15,8 @@ const solo = buildKernCollaborationPlanShadow({
 });
 assert.equal(solo.mode, "SOLO");
 assert.equal(solo.synthesisTier, "FAST");
+assert.equal(solo.autoDispatchEligible, true);
+assert.equal(solo.authority, "ADVISORY_ONLY");
 
 const pair = buildKernCollaborationPlanShadow({
   text: "这个配方剂量和临床证据是否匹配？",
@@ -36,6 +38,7 @@ const council = buildKernCollaborationPlanShadow({
 assert.equal(council.mode, "COUNCIL");
 assert.equal(council.synthesisTier, "FRONTIER");
 assert.equal(council.qaRequired, true);
+assert.equal(council.autoDispatchEligible, false);
 
 const full = buildKernCollaborationPlanShadow({
   text: "对这个产品做一次完整产品研发评估",
@@ -88,5 +91,33 @@ assert.equal(hybrid.mode, "SPECIALIST");
 assert.deepEqual(hybrid.experts, ["compliance_agent"]);
 assert.equal(hybrid.researchRequired, true);
 assert.equal(hybrid.source, "REFLEX");
+
+const technical = buildKernCollaborationPlanShadow({
+  text: "请审查这个 TypeScript API 的接口设计、数据模型和测试策略",
+  productBound: false,
+  reflex: emptyReflex,
+});
+assert.equal(technical.mode, "SPECIALIST");
+assert.deepEqual(technical.experts, ["tech_architect_agent"]);
+assert.equal(technical.autoDispatchEligible, true);
+
+const codeReflex: AssistantReflexShadowResult = {
+  mode: "SHADOW",
+  decisions: {
+    "assistant.expert_class": {
+      value: "CODE",
+      confidence: 0.95,
+      decisionRunId: "d-code",
+      policyAction: "SHADOW",
+    },
+  },
+  error: null,
+};
+const codeSpecialist = buildKernCollaborationPlanShadow({
+  text: "review architecture",
+  productBound: false,
+  reflex: codeReflex,
+});
+assert.deepEqual(codeSpecialist.experts, ["tech_architect_agent"]);
 
 console.log("✅ Kern Collaboration Planner Shadow: SOLO / PAIR / COUNCIL / RED_TEAM / FULL_RND");
