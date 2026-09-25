@@ -347,11 +347,11 @@ export async function executeKernConversationTurn(
     data: {
       runId: run.id,
       toolKey: result.toolKey,
-      inputJson: { intent, query: text },
+      inputJson: { intent, query: text } as any,
       resultJson: {
         text: result.text,
         ...(result.proposal ? { proposal: result.proposal } : {}),
-      },
+      } as any,
       status: failed ? "FAILED" : "SUCCEEDED",
       errorReason,
       startedAt,
@@ -434,7 +434,7 @@ export async function executeKernConversationTurn(
       durationMs,
       outputMessageId: assistantMsg.id,
       errorReason,
-      usageJson,
+      usageJson: usageJson as any,
       costStatus: "unknown",
     },
   });
