@@ -151,16 +151,24 @@ Tech Architect 不直接伪装本机执行。
 
 ## 7. 推进阶段
 
-### Phase 1 — 当前
+### Phase 1 — 已完成
 - Collaboration Plan Shadow
 - 写 AgentRun contextSnapshot
 - 不自动调度
 - 收集真实任务分布与误路由
+- CODE 类任务路由到独立 Tech Architect，不再让 Kern PM 同时承担技术架构专家
+
+### Phase 1.5 — 当前
+- AgentRun 持久化 `kern-routing-receipt/v1`
+- 回执记录推荐模式、专家、模型档、研究/QA/Red Team 要求
+- 显式记录 `authority=ADVISORY_ONLY`
+- 显式记录 `autoDispatchEligible`，但不等于已经自动执行
+- SOLO / 低风险 SPECIALIST 才可能进入下一阶段自动调度候选
 
 ### Phase 2
-- SOLO / SPECIALIST 可 AUTO
+- 仅对校准通过的 SOLO / 低风险 SPECIALIST 开放 AUTO
 - PAIR / COUNCIL 保持建议态
-- routing receipt 记录专家、模型档、耗时、失败与结果
+- routing receipt 扩展记录实际派发专家、模型档、耗时、失败与结果
 
 ### Phase 3
 - 校准后开放 PAIR / COUNCIL
@@ -174,3 +182,21 @@ Tech Architect 不直接伪装本机执行。
 - UNKNOWN 不补齐；
 - Agent 共识不是证据；
 - 顾问团只扩展智力，不扩大权限。
+
+
+## 9. Phase 1.5 implementation note
+
+当前实现新增独立 `tech_architect_agent` 与 `technical_architecture` Skill。它负责架构、接口、数据模型、技术方案、代码审查、测试策略与技术风险；真实文件/终端/GUI 修改仍由 Desktop Operator 或其他受控执行路径完成。
+
+每次 Kern 对话运行现在会在对应 AgentRun 的 `contextSnapshot` 中同时保存：
+
+- `collaborationPlanShadow`
+- `routingReceipt.version = kern-routing-receipt/v1`
+- recommendedMode / recommendedExperts
+- synthesisTier
+- researchRequired / qaRequired / redTeamRequired
+- autoDispatchEligible
+- authority = ADVISORY_ONLY
+- dispatchedAgentCodes（Shadow 阶段固定为空）
+
+这使下一阶段可以用真实历史回执校准路由，而不是直接把启发式规则升级成自动执行。
