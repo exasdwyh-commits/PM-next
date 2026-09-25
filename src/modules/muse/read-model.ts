@@ -5,6 +5,7 @@ import { listProposals } from "@/modules/advisor/proposals";
 import { getDesktopOverview } from "@/modules/desktop-runtime";
 import { getWorkspaceOverview } from "@/modules/workspace/overview";
 import prisma from "@/shared/db";
+import { readKernGraphCitation } from "@/modules/visual-intelligence/contracts";
 import type {
   ActivityItem,
   AiState,
@@ -87,11 +88,17 @@ function messageView(row: {
   createdAt: Date;
   citations: unknown;
 }): Message {
-  const refs = Array.isArray(row.citations)
-    ? row.citations
-        .map((citation, index) => evidenceFromCitation(citation, index, row.createdAt))
-        .filter((ref): ref is EvidenceRef => Boolean(ref))
-    : [];
+  const citations = Array.isArray(row.citations) ? row.citations : [];
+  const graphs = citations
+    .map((citation) => readKernGraphCitation(citation))
+    .filter((graph): graph is NonNullable<typeof graph> => Boolean(graph));
+  const refs = citations
+    .map((citation, index) =>
+      readKernGraphCitation(citation)
+        ? null
+        : evidenceFromCitation(citation, index, row.createdAt)
+    )
+    .filter((ref): ref is EvidenceRef => Boolean(ref));
   return {
     id: row.id,
     author: String(row.role) === "USER" ? "user" : "hermes",
@@ -100,6 +107,7 @@ function messageView(row: {
     state: "success",
     blocks: [
       { kind: "text", text: row.content },
+      ...graphs.map((graph) => ({ kind: "graph" as const, graph })),
       ...(refs.length > 0
         ? ([{ kind: "evidence", title: "来源与回执", refs }] as Message["blocks"])
         : []),
