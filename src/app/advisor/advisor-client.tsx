@@ -269,7 +269,6 @@ export default function AdvisorClient({
     await send("挑战我的判断：这个产品假设哪里最脆弱？");
   };
 
-  const disabled = !runtime.modelConfigured;
   const pendingProposals = proposals.filter((p) => p.status === "PENDING_CONFIRMATION");
   // 决策记录与挑战报告同一约定：默认 3 条，其余由 CollapsibleList「查看全部 / 收起」展开，不静默丢弃。
   const allDecidedProposals = proposals.filter((p) => p.status !== "PENDING_CONFIRMATION");
@@ -331,6 +330,15 @@ export default function AdvisorClient({
           </div>
         )}
       </div>
+
+      {!runtime.modelConfigured && (
+        <div className="hermes-banner is-info" style={{ marginBottom: 14 }}>
+          <strong>模型未配置也可以工作。</strong>
+          <div style={{ marginTop: 3 }}>
+            公司状态查询、受控提议和 Hermes Desktop 本机执行继续可用；需要开放式分析时再启用模型即可。
+          </div>
+        </div>
+      )}
 
       {boundProduct && (
         <div className="hermes-banner is-info" style={{ marginBottom: 14 }}>
