@@ -260,7 +260,7 @@ export default function ProductOverviewClient({
         </Link>
       ) : (
         <Link
-          href={`/advisor?product=${p.id}&query=${encodeURIComponent("我想启动这个产品的一轮完整研发。请先根据当前产品资料整理研发 Brief，并告诉我还缺哪些输入。")}`}
+          href={`/muse?product=${p.id}&query=${encodeURIComponent("我想启动这个产品的一轮完整研发。请先根据当前产品资料整理研发 Brief，并告诉我还缺哪些输入。")}`}
           className="hermes-product-execution-strip"
         >
           <div>
@@ -920,14 +920,14 @@ export default function ProductOverviewClient({
             </Link>
           ) : (
             <Link
-              href={`/advisor?product=${p.id}&query=${encodeURIComponent("我想启动这个产品的一轮完整研发。请先根据当前产品资料整理研发 Brief，并告诉我还缺哪些输入。")}`}
+              href={`/muse?product=${p.id}&query=${encodeURIComponent("我想启动这个产品的一轮完整研发。请先根据当前产品资料整理研发 Brief，并告诉我还缺哪些输入。")}`}
               className="hermes-primary-btn"
             >
               <Icon name="play" size={16} />
               启动研发
             </Link>
           )}
-          <Link href={`/advisor?product=${p.id}`} className="hermes-outline-btn">
+          <Link href={`/muse?product=${p.id}`} className="hermes-outline-btn">
             <Icon name="chat" size={16} />
             和 AI 助理讨论
           </Link>

@@ -581,6 +581,7 @@ export async function listProposals(session: SessionContext, opts: ListProposals
     actionType: r.actionType,
     actionLabel: ACTION_TYPE_LABELS[r.actionType as ProposalActionType] ?? r.actionType,
     status: r.status,
+    conversationId: r.conversationId,
     payloadJson: r.payloadJson,
     proposedBy: r.proposedBy ? { id: r.proposedBy.id, name: r.proposedBy.name } : null,
     product: r.product,

@@ -142,6 +142,10 @@ const messages: Message[] = [
 ];
 
 export const studioModel: StudioModel = {
+  activeMissionId: null,
+  managementHref: "/manage",
+  newConversationProduct: null,
+  initialDraft: "",
   user: { name: "你", role: "产品负责人", org: "Hermes 食品研发部" },
   brief: {
     greeting: "上午好",

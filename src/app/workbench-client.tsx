@@ -154,7 +154,7 @@ export default function WorkbenchClient({
     e.preventDefault();
     const q = command.trim();
     if (!q) return;
-    router.push(`/advisor?query=${encodeURIComponent(q)}`);
+    router.push(`/muse?query=${encodeURIComponent(q)}`);
   };
 
   return (
@@ -220,7 +220,7 @@ export default function WorkbenchClient({
           {QUICK_ACTIONS.map((action) => (
             <Link
               key={action.label}
-              href={`/advisor?query=${encodeURIComponent(action.query)}`}
+              href={`/muse?query=${encodeURIComponent(action.query)}`}
               className="hermes-command-chip"
             >
               {action.label}
@@ -260,7 +260,7 @@ export default function WorkbenchClient({
               <Icon name="arrow" size={14} />
             </Link>
             <Link
-              href={`/advisor?query=${encodeURIComponent("我想创建第一个产品。请先问我最少必要信息，再帮我整理产品 Brief、关键假设和第一轮验证计划。")}`}
+              href={`/muse?query=${encodeURIComponent("我想创建第一个产品。请先问我最少必要信息，再帮我整理产品 Brief、关键假设和第一轮验证计划。")}`}
               className="hermes-onboarding-step is-primary"
             >
               <span>3</span>
@@ -343,7 +343,7 @@ export default function WorkbenchClient({
                     <Icon name="arrow" size={15} />
                   </Link>
                   <Link
-                    href={`/advisor?query=${encodeURIComponent(`帮我分析这个待处理事项：${top.what}。请说明为什么现在要处理、主要风险和建议动作。`)}`}
+                    href={`/muse?query=${encodeURIComponent(`帮我分析这个待处理事项：${top.what}。请说明为什么现在要处理、主要风险和建议动作。`)}`}
                     className="hermes-outline-btn"
                   >
                     和 Hermes 讨论

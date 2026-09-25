@@ -4,12 +4,10 @@ import LogoutButton from "./logout-button";
 import { NavProgress, NavProgressLink } from "./nav-progress";
 
 /**
- * PM-next Frontend V3 shell
+ * PM-next 专业管理后台 shell。
  *
- * 设计目标：导航按“用户每天要完成什么”组织，而不是按后端模块组织。
- * 普通用户只需要理解：今日 → 产品 → AI 助理 → 市场机会 → 公司知识。
- * Agent / Squad / Trace / Dashboard 等实现能力被收进“自动化中心”或对象详情，
- * 低频治理页保留路由但不再占据主导航注意力。
+ * Muse 是默认主操作界面；这里服务产品经理、项目负责人和管理员，
+ * 以完整性、可追踪、可深入为优先，不再承担日常对话入口。
  */
 
 export interface NavItem {
@@ -20,12 +18,21 @@ export interface NavItem {
   hint?: string;
 }
 
-/** 高频业务入口：保持在 5 个以内，确保新用户能直接理解下一步。 */
+/** Muse 与管理后台保持清晰分层：这里只提供返回主操作入口。 */
+export const MUSE_ITEM: NavItem = {
+  key: "muse",
+  label: "返回 Muse",
+  href: "/muse",
+  icon: "chat",
+  hint: "回到日常对话、委派、进度沟通与 Check-in",
+};
+
+/** 专业管理入口：产品、项目、评估与组织知识。 */
 export const NAV_ITEMS: NavItem[] = [
-  { key: "overview", label: "今日", href: "/", icon: "grid", hint: "需要你处理、Hermes 正在工作、产品推进" },
-  { key: "products", label: "产品", href: "/products", icon: "flask", hint: "从产品视角管理研发、打样、生产与上市" },
-  { key: "advisor", label: "AI 助理", href: "/advisor", icon: "chat", hint: "直接描述目标，让 Hermes 研究、拆解并协助推进" },
-  { key: "opportunities", label: "市场机会", href: "/opportunities", icon: "signal", hint: "查看有来源的市场信号与待验证机会" },
+  { key: "manage", label: "管理总览", href: "/manage", icon: "grid", hint: "产品、项目、阻塞、决策与组织运行总览" },
+  { key: "products", label: "产品管理", href: "/products", icon: "flask", hint: "覆盖所有产品的方案、版本、评估、研发、打样、生产与上市" },
+  { key: "projects", label: "项目管理", href: "/projects", icon: "target", hint: "项目执行、任务、证据、决策包与进度管理" },
+  { key: "opportunities", label: "市场机会", href: "/opportunities", icon: "signal", hint: "有来源的市场信号与待验证机会" },
   { key: "knowledge", label: "公司知识", href: "/knowledge", icon: "book", hint: "公司资料、证据、决策与复盘知识" },
 ];
 
@@ -51,7 +58,8 @@ export const SETTINGS_ITEM: NavItem = {
  * 这些入口不再渲染到主导航，但保留标题识别，避免旧 URL / 深链接丢失上下文。
  */
 export const AUXILIARY_ITEMS: NavItem[] = [
-  { key: "projects", label: "项目执行", href: "/projects", icon: "target" },
+  { key: "overview", label: "旧总览", href: "/manage", icon: "grid" },
+  { key: "advisor", label: "旧 AI 助理", href: "/advisor", icon: "chat" },
   { key: "trace", label: "决策追溯", href: "/trace", icon: "search" },
   { key: "war-room", label: "项目作战室", href: "/war-room", icon: "target" },
   { key: "consultation", label: "专家会诊", href: "/consultation", icon: "users" },
@@ -60,6 +68,7 @@ export const AUXILIARY_ITEMS: NavItem[] = [
 ];
 
 export const ALL_NAV_ITEMS: NavItem[] = [
+  MUSE_ITEM,
   ...NAV_ITEMS,
   AUTOMATION_ITEM,
   SETTINGS_ITEM,
@@ -92,9 +101,10 @@ export default function AppShell({
   const current = ALL_NAV_ITEMS.find((it) => it.key === active);
   const activeNavKey =
     {
-      projects: "products",
-      "war-room": "products",
-      consultation: "advisor",
+      overview: "manage",
+      "war-room": "projects",
+      consultation: "products",
+      advisor: "manage",
       dashboard: "workforce",
       trace: "workforce",
       organization: "settings",
@@ -132,8 +142,16 @@ export default function AppShell({
           <div className="hermes-submark">DEPARTMENT OS</div>
         </div>
 
-        <nav className="hermes-nav" aria-label="主导航">
-          {NAV_ITEMS.map((it) => renderItem(it))}
+        <nav className="hermes-nav" aria-label="专业管理后台导航">
+          <div className="hermes-nav-section" aria-label="主操作">
+            <span className="hermes-nav-section-label">主操作</span>
+            {renderItem(MUSE_ITEM, true)}
+          </div>
+
+          <div className="hermes-nav-section" aria-label="专业管理">
+            <span className="hermes-nav-section-label">专业管理</span>
+            {NAV_ITEMS.map((it) => renderItem(it))}
+          </div>
 
           <div className="hermes-nav-section" aria-label="系统">
             <span className="hermes-nav-section-label">系统</span>
