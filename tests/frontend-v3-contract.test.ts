@@ -111,3 +111,31 @@ test("Kern status and runtime permissions remain honest", () => {
     "permission sheet must explain that fine-grained authorization is not wired yet"
   );
 });
+
+test("Kern Today brief is grounded in real workspace and runtime state", () => {
+  const readModel = read("src/modules/muse/read-model.ts");
+  const client = read("src/app/muse/muse-client.tsx");
+
+  assert.ok(
+    readModel.includes("getWorkspaceOverview(session)"),
+    "Today must reuse the real workspace overview"
+  );
+  assert.ok(
+    readModel.includes("task.status === AgentTaskStatus.RUNNING"),
+    "Kern working items must require real RUNNING task state"
+  );
+  assert.ok(
+    readModel.includes('task.phase === "RUNNING"'),
+    "desktop work must require real RUNNING phase"
+  );
+  assert.ok(
+    client.includes('testId="kern-today-important"') &&
+      client.includes('testId="kern-today-working"') &&
+      client.includes('testId="kern-today-needs-you"'),
+    "Today must answer the three primary operating questions"
+  );
+  assert.ok(
+    client.includes("当前没有真实 RUNNING 的数字员工或本机任务。"),
+    "empty working state must be explicit rather than fake activity"
+  );
+});
