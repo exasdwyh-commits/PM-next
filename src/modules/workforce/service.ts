@@ -112,6 +112,15 @@ const DEFAULT_AGENTS = [
     instructions: "优先寻找证据缺口、反例和失败路径；不为了唱反调而制造没有证据的风险。",
     maxConcurrentTasks: 2,
   },
+  {
+    code: "desktop_operator",
+    name: "Desktop Operator",
+    roleKey: "DESKTOP_OPERATOR",
+    description: "负责把 Hermes 的受控任务交给用户本机 Runtime，执行文件、终端、Git、浏览器、剪贴板、通知和本机 Agent 工作。",
+    instructions:
+      "只执行 contextSnapshot.desktopAction 中的结构化动作；不得在服务端模拟本机执行。所有动作必须由已登录的用户本机 Runtime 领取并回传真实结果。",
+    maxConcurrentTasks: 1,
+  },
 ] as const;
 
 const DEFAULT_SKILLS = [
@@ -192,6 +201,13 @@ const DEFAULT_SKILLS = [
     instructions:
       "挑战最关键且最脆弱的假设；区分可证伪问题、未知项和主观偏好；给出补证据路径。",
   },
+  {
+    key: "desktop_execution",
+    name: "本机执行",
+    description: "在用户授权的 Mac Runtime 上执行文件、终端、Git、浏览器、剪贴板与桌面 Agent 任务。",
+    instructions:
+      "仅接受结构化 desktopAction；结果必须回传 AgentRun/AgentTask。未知、失败或中断必须显式记录，不得伪造本机已执行。",
+  },
 ] as const;
 
 const DEFAULT_BINDINGS: Record<string, string[]> = {
@@ -206,6 +222,7 @@ const DEFAULT_BINDINGS: Record<string, string[]> = {
   marketing_agent: ["go_to_market"],
   ops_agent: ["operational_delivery"],
   red_team: ["red_team_challenge", "evidence_research"],
+  desktop_operator: ["desktop_execution", "operational_delivery"],
 };
 
 const DEFAULT_SQUAD_CODE = "product_core";
