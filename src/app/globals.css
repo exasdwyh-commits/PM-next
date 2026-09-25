@@ -276,7 +276,13 @@ button,a { -webkit-tap-highlight-color:transparent; }
 .hermes-chat-cites { display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; }
 .hermes-chat-suggest { display:grid; gap:7px; margin:0 0 14px; padding-top:11px; border-top:1px dashed var(--line); }
 .hermes-chat-suggest-label { font-size:13px; letter-spacing:1.2px; text-transform:uppercase; color:var(--ink-muted); }
-.hermes-chat-composer { display:grid; gap:9px; grid-template-columns:1fr auto; align-items:end; border-top:1px solid var(--line); padding-top:12px; }
+.hermes-chat-composer {
+  display:grid; gap:9px; grid-template-columns:1fr auto; align-items:end;
+  border-top:1px solid var(--line); padding-top:12px;
+  /* 长对话里输入框必须一直够得到：贴住面板底部，不用滚到页尾才能继续说话。 */
+  position:sticky; bottom:0; z-index:2;
+  background:var(--surface); margin-bottom:-2px; padding-bottom:2px;
+}
 .hermes-chat-composer .hermes-primary-btn { min-height:38px; }
 
 /* ==========================================================================

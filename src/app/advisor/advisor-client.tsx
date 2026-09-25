@@ -455,11 +455,19 @@ export default function AdvisorClient({
                         <AdvisorMessageBody role={m.role} content={m.content} />
                         {normalCitations.length > 0 && (
                           <div className="hermes-chat-cites">
-                            {normalCitations.map((c, i) => (
-                              <span key={i} className="hermes-chip">
-                                {labelCitationKind(c.kind)} · {c.title}
-                              </span>
-                            ))}
+                            {normalCitations.map((c, i) =>
+                              // 本机任务的回执有真正可去的地方（自动化中心的「本机执行」），
+                              // 其余引用暂时没有对应详情页，就不要假装可点。
+                              c.kind === "desktop-task" ? (
+                                <Link key={i} href="/workforce" className="hermes-chip">
+                                  {labelCitationKind(c.kind)} · {c.title}
+                                </Link>
+                              ) : (
+                                <span key={i} className="hermes-chip">
+                                  {labelCitationKind(c.kind)} · {c.title}
+                                </span>
+                              )
+                            )}
                           </div>
                         )}
                       </>

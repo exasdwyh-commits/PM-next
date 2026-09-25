@@ -238,10 +238,10 @@ export default function WorkforceClient({
       }
     >
       <HeroBand
-        eyebrow="AGENTS · SQUADS · SKILLS · DELEGATION"
-        mark="WORKFORCE"
-        tagline="让 AI 从顾问变成真正接活的数字员工。"
-        intro="Hermes PM 负责拆解、委派与复核；专业 Agent 各司其职。需要改变业务事实时仍进入治理链，需要你判断时明确停在等待拍板。"
+        eyebrow="等待你处理 · 正在执行 · 最近完成"
+        mark="自动化中心"
+        tagline="Hermes 正在替你推进的工作都在这里。"
+        intro="先看需要你拍板的事，再看正在跑的任务。改变业务事实要经过治理链，需要你判断时会明确停下来等你，不会自己替你决定。"
         quote={
           <>
             Governed Autonomy
@@ -278,6 +278,40 @@ export default function WorkforceClient({
       ) : (
         <div className="hermes-cockpit">
           <div className="hermes-cockpit-main">
+            <Panel
+              icon="target"
+              title="等待你拍板"
+              sub="Agent 主动停止并请求人类判断的任务。"
+            >
+              {overview.waitingTasks.length > 0 ? (
+                <div className="hermes-list">
+                  {overview.waitingTasks.map((task) => (
+                    <div className="hermes-row is-flat" key={task.id}>
+                      <div className="hermes-row-head">
+                        <strong className="hermes-row-title">{task.goal}</strong>
+                        <Pill tone="warn">{task.agent.name}</Pill>
+                      </div>
+                      {task.blockedReason ? (
+                        <div className="hermes-row-body">{task.blockedReason}</div>
+                      ) : null}
+                      {task.workItem ? (
+                        <div style={{ marginTop: 8 }}>
+                          <Link
+                            href={"/projects/" + task.workItem.projectId}
+                            className="hermes-link"
+                          >
+                            查看关联工作项 <Icon name="arrow" size={13} />
+                          </Link>
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <Empty>当前没有数字员工在等待人工判断。</Empty>
+              )}
+            </Panel>
+
             <Panel
               icon="nodes"
               title="本机执行"
@@ -452,39 +486,6 @@ export default function WorkforceClient({
           </div>
 
           <aside className="hermes-cockpit-side">
-            <Panel
-              icon="target"
-              title="等待你拍板"
-              sub="Agent 主动停止并请求人类判断的任务。"
-            >
-              {overview.waitingTasks.length > 0 ? (
-                <div className="hermes-list">
-                  {overview.waitingTasks.map((task) => (
-                    <div className="hermes-row is-flat" key={task.id}>
-                      <div className="hermes-row-head">
-                        <strong className="hermes-row-title">{task.goal}</strong>
-                        <Pill tone="warn">{task.agent.name}</Pill>
-                      </div>
-                      {task.blockedReason ? (
-                        <div className="hermes-row-body">{task.blockedReason}</div>
-                      ) : null}
-                      {task.workItem ? (
-                        <div style={{ marginTop: 8 }}>
-                          <Link
-                            href={"/projects/" + task.workItem.projectId}
-                            className="hermes-link"
-                          >
-                            查看关联工作项 <Icon name="arrow" size={13} />
-                          </Link>
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <Empty>当前没有数字员工在等待人工判断。</Empty>
-              )}
-            </Panel>
 
             <Panel icon="shield" title="自治边界">
               <div className="hermes-list">
