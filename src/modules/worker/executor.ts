@@ -4,6 +4,7 @@ import type { SessionContext } from "@/modules/identity/session";
 import { classifySourceUrl } from "@/modules/evidence/source-trust";
 import { resumeResearchRun } from "@/modules/research/research-run";
 import { finishAgentTask, startAgentTask } from "@/modules/workforce/service";
+import { appendAgentTaskConversationReturn } from "@/modules/workforce/conversation-return";
 import { tryResolveGatewayPolicyForAgentCode } from "@/modules/model-control/service";
 import {
   executePersistedModelGateway,
@@ -573,12 +574,14 @@ const runTechArchitectAgent: ExecutorStrategy = async (context) => {
     },
   });
 
-  const summary = executed.result.text.trim();
+  const output = executed.result.text.trim();
+  const summary = output.slice(0, 4000);
   return {
     kind: "SUCCEEDED",
     summary,
     result: {
       kind: "TECH_ARCHITECT_ADVISORY",
+      output,
       advisoryOnly: true,
       modelRunId: executed.modelRunId,
       profileId: executed.result.profileId,
@@ -774,6 +777,19 @@ export async function executeAgentTask(
       resultSummary: outcome.summary,
     });
 
+    await appendAgentTaskConversationReturn({
+      organizationId: task.organizationId,
+      taskId: task.id,
+      runId: started.run.id,
+      outcome: outcome.kind,
+      summary: outcome.summary,
+    }).catch((returnError: unknown) => {
+      console.error(
+        `[pm-worker] 对话回执失败 task=${task.id}:`,
+        returnError instanceof Error ? returnError.message : String(returnError)
+      );
+    });
+
     return { executed: true, outcome: outcome.kind };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -817,6 +833,19 @@ export async function executeAgentTask(
           availableAt: new Date(Date.now() + backoffForAttempt(attempts)),
           blockedReason: `执行器异常，将在退避后重试（第 ${attempts}/${MAX_EXECUTOR_ATTEMPTS} 次）：${message.slice(0, 400)}`,
         },
+      });
+    } else {
+      await appendAgentTaskConversationReturn({
+        organizationId: task.organizationId,
+        taskId: task.id,
+        runId: started.run.id,
+        outcome: "FAILED",
+        summary: `执行器连续 ${attempts} 次失败：${message}`.slice(0, 4000),
+      }).catch((returnError: unknown) => {
+        console.error(
+          `[pm-worker] 最终失败对话回执失败 task=${task.id}:`,
+          returnError instanceof Error ? returnError.message : String(returnError)
+        );
       });
     }
 
