@@ -10,8 +10,8 @@ const { chromium } = require("playwright");
 
 const BASE = process.env.UI_BASE_URL || "http://127.0.0.1:3221";
 const OUT = process.env.OUTPUT_DIR || "/tmp/kern-mobile-layout";
-const RUN = \`layout-\${Date.now()}-\${crypto.randomBytes(3).toString("hex")}\`;
-const PASSWORD = \`Layout-\${crypto.randomBytes(8).toString("hex")}!\`;
+const RUN = `layout-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
+const PASSWORD = `Layout-${crypto.randomBytes(8).toString("hex")}!`;
 
 type OverflowProbe = {
   scrollWidth: number;
@@ -54,16 +54,16 @@ async function probeOverflow(page: any): Promise<OverflowProbe> {
 }
 
 async function login(page: any, email: string) {
-  await page.goto(\`\${BASE}/login\`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
   await page.fill('input[type="email"]', email);
   await page.fill('input[type="password"]', PASSWORD);
   await page.click('button[type="submit"]');
   await page.waitForTimeout(1600);
-  assert.equal(page.url().includes("/login"), false, \`登录失败：\${page.url()}\`);
+  assert.equal(page.url().includes("/login"), false, `登录失败：${page.url()}`);
 }
 
 async function launchState(page: any, productId: string, tier: string) {
-  await page.goto(\`\${BASE}/products/\${productId}?tab=launch\`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/products/${productId}?tab=launch`, { waitUntil: "domcontentloaded" });
   const button = page.getByRole("button", { name: "建立上市计划" });
   await button.waitFor({ state: "visible", timeout: 15000 });
   assert.equal(await button.isDisabled(), false, "上市计划按钮不应被权限禁用");
@@ -71,14 +71,14 @@ async function launchState(page: any, productId: string, tier: string) {
   await page.getByRole("heading", { name: "建立上市计划" }).waitFor({ state: "visible", timeout: 10000 });
   await page.waitForTimeout(300);
   const probe = await probeOverflow(page);
-  console.log(\`[B1 launch \${tier}] scroll=\${probe.scrollWidth} client=\${probe.clientWidth} overflow=\${probe.overflow}\`);
+  console.log(`[B1 launch ${tier}] scroll=${probe.scrollWidth} client=${probe.clientWidth} overflow=${probe.overflow}`);
   if (probe.offenders.length) console.log("[B1 launch offenders]", JSON.stringify(probe.offenders));
-  await page.screenshot({ path: path.join(OUT, \`launch-\${tier}.png\`), fullPage: true });
-  assert.ok(probe.overflow <= 1, \`B1 launch \${tier} 横向溢出 \${probe.overflow}px\`);
+  await page.screenshot({ path: path.join(OUT, `launch-${tier}.png`), fullPage: true });
+  assert.ok(probe.overflow <= 1, `B1 launch ${tier} 横向溢出 ${probe.overflow}px`);
 }
 
 async function costState(page: any, productId: string, tier: string) {
-  await page.goto(\`\${BASE}/products/\${productId}?tab=cost\`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/products/${productId}?tab=cost`, { waitUntil: "domcontentloaded" });
   const values: Array<[RegExp, string]> = [
     [/直接材料成本/, "10"],
     [/外包装成本/, "2"],
@@ -94,14 +94,14 @@ async function costState(page: any, productId: string, tier: string) {
   await page.locator('input[placeholder*="情景名称"]').waitFor({ state: "visible", timeout: 10000 });
   await page.waitForTimeout(300);
   const probe = await probeOverflow(page);
-  console.log(\`[B1 cost \${tier}] scroll=\${probe.scrollWidth} client=\${probe.clientWidth} overflow=\${probe.overflow}\`);
+  console.log(`[B1 cost ${tier}] scroll=${probe.scrollWidth} client=${probe.clientWidth} overflow=${probe.overflow}`);
   if (probe.offenders.length) console.log("[B1 cost offenders]", JSON.stringify(probe.offenders));
-  await page.screenshot({ path: path.join(OUT, \`cost-\${tier}.png\`), fullPage: true });
-  assert.ok(probe.overflow <= 1, \`B1 cost \${tier} 横向溢出 \${probe.overflow}px\`);
+  await page.screenshot({ path: path.join(OUT, `cost-${tier}.png`), fullPage: true });
+  assert.ok(probe.overflow <= 1, `B1 cost ${tier} 横向溢出 ${probe.overflow}px`);
 }
 
 async function bubbleState(page: any) {
-  await page.goto(\`\${BASE}/opportunities\`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/opportunities`, { waitUntil: "domcontentloaded" });
   await page.locator(".bubble-scroll").first().waitFor({ state: "visible", timeout: 10000 });
   const probe = await page.evaluate(() => {
     const scroller = document.querySelector(".bubble-scroll") as HTMLElement | null;
@@ -123,7 +123,7 @@ async function bubbleState(page: any) {
   assert.ok(probe, "B2 未找到气泡轴实际 DOM");
   console.log("[B2 bubble 390]", JSON.stringify(probe));
   await page.screenshot({ path: path.join(OUT, "bubble-390.png"), fullPage: true });
-  assert.ok((probe?.clippedLeft ?? 0) <= 1, \`B2 bubble Y 轴左侧被裁 \${probe?.clippedLeft}px\`);
+  assert.ok((probe?.clippedLeft ?? 0) <= 1, `B2 bubble Y 轴左侧被裁 ${probe?.clippedLeft}px`);
 }
 
 async function main() {
@@ -131,12 +131,12 @@ async function main() {
   fs.mkdirSync(OUT, { recursive: true });
 
   const org = await prisma.organization.create({
-    data: { code: \`\${RUN}_ORG\`, name: "移动布局验收组织" },
+    data: { code: `${RUN}_ORG`, name: "移动布局验收组织" },
   });
   const owner = await prisma.user.create({
     data: {
       organizationId: org.id,
-      email: \`\${RUN}@hermes.test\`,
+      email: `${RUN}@hermes.test`,
       name: "布局验收负责人",
       passwordHash: hashPassword(PASSWORD),
     },
@@ -145,7 +145,7 @@ async function main() {
     data: {
       organizationId: org.id,
       name: "移动布局验收产品",
-      identityCode: \`\${RUN}_SKU\`,
+      identityCode: `${RUN}_SKU`,
       targetAudience: "布局验收人群",
       marketPath: "验收渠道",
       devMode: "NEW_PRODUCT",
