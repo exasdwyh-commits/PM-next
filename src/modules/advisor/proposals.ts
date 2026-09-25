@@ -18,6 +18,7 @@ import { ConflictError, ForbiddenError, NotFoundError, UnprocessableEntityError 
 import { OrgRole, Prisma, Role } from "@prisma/client";
 import { SessionContext } from "../identity/session";
 import { createWorkItemInTx } from "../work/service";
+import { createDevelopmentProductInTx } from "../products/service";
 import { FIELD_LABELS, ProductSpecField, createRevision } from "../product-development/revision";
 import { analyzeProductVersion } from "../product-development/analysis";
 
@@ -25,14 +26,24 @@ import { analyzeProductVersion } from "../product-development/analysis";
 // 动作类型与字段白名单
 // ---------------------------------------------------------------------------
 
-export type ProposalActionType = "CREATE_WORK_ITEM" | "UPDATE_FIELD" | "CREATE_REVISION";
+export type ProposalActionType =
+  | "CREATE_WORK_ITEM"
+  | "UPDATE_FIELD"
+  | "CREATE_REVISION"
+  | "CREATE_PRODUCT";
 
-const ACTION_TYPES: ProposalActionType[] = ["CREATE_WORK_ITEM", "UPDATE_FIELD", "CREATE_REVISION"];
+const ACTION_TYPES: ProposalActionType[] = [
+  "CREATE_WORK_ITEM",
+  "UPDATE_FIELD",
+  "CREATE_REVISION",
+  "CREATE_PRODUCT",
+];
 
 export const ACTION_TYPE_LABELS: Record<ProposalActionType, string> = {
   CREATE_WORK_ITEM: "创建内部工作项",
   UPDATE_FIELD: "修改产品方案字段",
   CREATE_REVISION: "创建产品新版本",
+  CREATE_PRODUCT: "新建产品并立项",
 };
 
 /**
@@ -141,6 +152,26 @@ async function assertProposalMutationAuthorized(
     });
     if (!membership || membership.role !== Role.OWNER) {
       throw new ForbiddenError("Only project owner can manage work-item proposals");
+    }
+    return;
+  }
+
+  if (target.actionType === "CREATE_PRODUCT") {
+    // 产品还不存在，没有产品级角色可查。门槛对齐它最终要调用的业务命令
+    // （POST /api/products/ingest → createDevelopmentProduct）：任何本组织成员都能入库，
+    // 建的人成为 OWNER。这里不发明比产品入库表单更严的限制 ——
+    // 那会让「对话里能说、页面上能点」出现无法解释的差异。
+    const membership = await tx.organizationMember.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId: session.organizationId,
+          userId: session.userId,
+        },
+      },
+      select: { role: true },
+    });
+    if (!membership) {
+      throw new ForbiddenError("你不是该组织成员，不能新建产品");
     }
     return;
   }
@@ -353,6 +384,41 @@ export async function createProposal(
 
     normalizedPayload = { projectId: project.id, projectTitle: project.title, title, target, deliverableReq };
     projectId = project.id;
+  } else if (actionType === "CREATE_PRODUCT") {
+    // 五个必填项与产品入库表单完全一致（见 products/service.ts createDevelopmentProductInTx）。
+    // 缺项就在这里拒绝，不允许用占位值凑齐 —— 提议卡上写的每个字都必须是用户自己说过的话，
+    // 确认之后这些值会原样成为产品的 v1 版本内容。
+    const fields = {
+      name: normalizeText(raw.name),
+      coreIdea: normalizeText(raw.coreIdea),
+      targetAudience: normalizeText(raw.targetAudience),
+      coreSellingPoints: normalizeText(raw.coreSellingPoints),
+      targetChannels: normalizeText(raw.targetChannels),
+    };
+    const missing = (
+      [
+        ["名称", fields.name],
+        ["一句话想法", fields.coreIdea],
+        ["目标人群与场景", fields.targetAudience],
+        ["核心卖点", fields.coreSellingPoints],
+        ["预期渠道", fields.targetChannels],
+      ] as const
+    )
+      .filter(([, v]) => !v)
+      .map(([k]) => k);
+    if (missing.length > 0) {
+      throw new UnprocessableEntityError(`新建产品提议缺少必填项：${missing.join("、")}`);
+    }
+
+    normalizedPayload = {
+      ...fields,
+      // 选填项缺失时保持 null。产品入库会把它们如实记进版本的 unknowns，
+      // 不要在这里补默认值，否则用户会以为自己填过。
+      priceExpectation: normalizeText(raw.priceExpectation),
+      formSpec: normalizeText(raw.formSpec),
+      forbiddenItems: normalizeText(raw.forbiddenItems),
+    };
+    // 产品尚不存在：没有 productId、没有版本指纹可冻结，也就不存在「基线已变」的冲突。
   } else {
     // CREATE_REVISION：顾问通道尚未实现（多轮优化有独立面板与命令，避免两条路径写同一份版本）
     throw new UnprocessableEntityError(
@@ -919,6 +985,33 @@ export async function applyProposal(
           productId,
           versionId: revision.versionId,
           previousRunId: revision.previousRunId,
+        };
+      } else if (proposal.actionType === "CREATE_PRODUCT") {
+        // 走产品入库这条既有业务命令，一次原子建出 Product + v1 + Project + 成员 + 审计。
+        // sourceKind 记 AI_EXTRACTED：字段是从对话里提取的草稿，用户在提议卡上确认过，
+        // 这与手工填表不是同一种来源，后续要能分辨。
+        const created = await createDevelopmentProductInTx(tx, session, {
+          name: String(payload.name ?? ""),
+          coreIdea: String(payload.coreIdea ?? ""),
+          targetAudience: String(payload.targetAudience ?? ""),
+          coreSellingPoints: String(payload.coreSellingPoints ?? ""),
+          targetChannels: String(payload.targetChannels ?? ""),
+          priceExpectation: normalizeText(payload.priceExpectation) ?? undefined,
+          formSpec: normalizeText(payload.formSpec) ?? undefined,
+          forbiddenItems: normalizeText(payload.forbiddenItems) ?? undefined,
+          sourceKind: "AI_EXTRACTED",
+        });
+        appliedObjectType = "Product";
+        appliedObjectId = created.product.id;
+        result = {
+          product: {
+            id: created.product.id,
+            name: created.product.name,
+            identityCode: created.product.identityCode,
+            lifecycleStage: created.product.lifecycleStage,
+          },
+          versionTag: created.version.versionTag,
+          project: { id: created.project.id, title: created.project.title },
         };
       } else if (proposal.actionType === "CREATE_REVISION") {
         throw new UnprocessableEntityError(

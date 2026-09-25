@@ -198,6 +198,23 @@ export async function createDevelopmentProduct(
   session: SessionContext,
   params: CreateDevelopmentProductParams
 ) {
+  return prisma.$transaction((tx) => createDevelopmentProductInTx(tx, session, params));
+}
+
+/**
+ * 与 createDevelopmentProduct 完全同一套校验与写入，只是复用调用方的事务。
+ *
+ * 为什么需要它：顾问提议的「确认并应用」本身就跑在一个事务里
+ * （见 advisor/proposals.ts 的 applyProposal）。在那里面再调用会自己开事务的版本，
+ * 会另开一条连接、看到的是外层写入之前的快照，并且失败时两边不会一起回滚 ——
+ * 结果可能是提议标成 APPLIED 而产品没建出来。写法照本仓库既有的
+ * createWorkItemInTx 范式，不发明新模式。
+ */
+export async function createDevelopmentProductInTx(
+  tx: Prisma.TransactionClient,
+  session: SessionContext,
+  params: CreateDevelopmentProductParams
+) {
   const name = params.name?.trim();
   const coreIdea = params.coreIdea?.trim();
   const targetAudience = params.targetAudience?.trim();
@@ -229,90 +246,86 @@ export async function createDevelopmentProduct(
   // 因此这里必须按 `organizationId + identityCode` 复合键查重：
   // 用 `findUnique({ where: { identityCode } })` 既不再合法（identityCode 不是单列唯一），
   // 也会把「别的组织已用此码」误判成本组织冲突。
-  const dup = await prisma.product.findUnique({
+  const dup = await tx.product.findUnique({
     where: { organizationId_identityCode: { organizationId: session.organizationId, identityCode } },
   });
   if (dup) identityCode = autoIdentityCode(name);
 
-  const result = await prisma.$transaction(async (tx) => {
-    const product = await tx.product.create({
-      data: {
-        organizationId: session.organizationId,
-        name,
-        identityCode,
-        targetAudience,
-        marketPath: targetChannels, // 复用既有非空字段承载「预期渠道」
-        devMode: "NEW_PRODUCT",
+  const product = await tx.product.create({
+    data: {
+      organizationId: session.organizationId,
+      name,
+      identityCode,
+      targetAudience,
+      marketPath: targetChannels, // 复用既有非空字段承载「预期渠道」
+      devMode: "NEW_PRODUCT",
+      coreIdea,
+      coreSellingPoints,
+      targetChannels,
+      ownerId: session.userId,
+      lifecycleStage: ProductLifecycleStage.IDEA,
+      targetLaunchDate,
+      priceExpectation: params.priceExpectation?.trim() || null,
+      formSpec: params.formSpec?.trim() || null,
+      forbiddenItems: params.forbiddenItems?.trim() || null,
+      sourceKind: params.sourceKind === "AI_EXTRACTED" ? "AI_EXTRACTED" : "MANUAL",
+    },
+  });
+
+  const version = await tx.productVersion.create({
+    data: {
+      productId: product.id,
+      versionTag: "v1",
+      specs: {
         coreIdea,
         coreSellingPoints,
         targetChannels,
-        ownerId: session.userId,
-        lifecycleStage: ProductLifecycleStage.IDEA,
-        targetLaunchDate,
-        priceExpectation: params.priceExpectation?.trim() || null,
         formSpec: params.formSpec?.trim() || null,
+        priceExpectation: params.priceExpectation?.trim() || null,
         forbiddenItems: params.forbiddenItems?.trim() || null,
-        sourceKind: params.sourceKind === "AI_EXTRACTED" ? "AI_EXTRACTED" : "MANUAL",
-      },
-    });
-
-    const version = await tx.productVersion.create({
-      data: {
-        productId: product.id,
-        versionTag: "v1",
-        specs: {
-          coreIdea,
-          coreSellingPoints,
-          targetChannels,
-          formSpec: params.formSpec?.trim() || null,
-          priceExpectation: params.priceExpectation?.trim() || null,
-          forbiddenItems: params.forbiddenItems?.trim() || null,
-          sourceKind: product.sourceKind,
-        } as Prisma.InputJsonValue,
-        targetCost: params.targetCost ?? null,
-        unknowns: {
-          note: "入库时未提供的字段保持未知，不补造数值",
-          missing: [
-            ...(params.priceExpectation ? [] : ["priceExpectation"]),
-            ...(params.targetCost === undefined || params.targetCost === null ? ["targetCost"] : []),
-            ...(params.formSpec ? [] : ["formSpec"]),
-            ...(targetLaunchDate ? [] : ["targetLaunchDate"]),
-          ],
-        } as Prisma.InputJsonValue,
-        isImmutable: true,
-        isConfirmed: false,
-      },
-    });
-
-    const project = await tx.project.create({
-      data: {
-        organizationId: session.organizationId,
-        title: name,
-        target: coreIdea,
-        mode: ProjectMode.NEW_PRODUCT,
-        isDemo: false,
-        productId: product.id,
-        productVersionId: version.id,
-        ownerId: session.userId,
-      },
-    });
-
-    await tx.projectMember.create({
-      data: { projectId: project.id, userId: session.userId, role: Role.OWNER },
-    });
-
-    await createAuditEventInTx(tx, {
-      actorId: session.userId,
-      action: "PRODUCT_INGESTED",
-      objectType: "Product",
-      objectId: product.id,
-      summary: `产品入库 "${name}"（${identityCode}），同时创建初始版本 v1 与首次开发项目`,
-    });
-
-    return { product, version, project };
+        sourceKind: product.sourceKind,
+      } as Prisma.InputJsonValue,
+      targetCost: params.targetCost ?? null,
+      unknowns: {
+        note: "入库时未提供的字段保持未知，不补造数值",
+        missing: [
+          ...(params.priceExpectation ? [] : ["priceExpectation"]),
+          ...(params.targetCost === undefined || params.targetCost === null ? ["targetCost"] : []),
+          ...(params.formSpec ? [] : ["formSpec"]),
+          ...(targetLaunchDate ? [] : ["targetLaunchDate"]),
+        ],
+      } as Prisma.InputJsonValue,
+      isImmutable: true,
+      isConfirmed: false,
+    },
   });
 
-  return result;
+  const project = await tx.project.create({
+    data: {
+      organizationId: session.organizationId,
+      title: name,
+      target: coreIdea,
+      mode: ProjectMode.NEW_PRODUCT,
+      isDemo: false,
+      productId: product.id,
+      productVersionId: version.id,
+      ownerId: session.userId,
+    },
+  });
+
+  await tx.projectMember.create({
+    data: { projectId: project.id, userId: session.userId, role: Role.OWNER },
+  });
+
+  await createAuditEventInTx(tx, {
+    actorId: session.userId,
+    action: "PRODUCT_INGESTED",
+    objectType: "Product",
+    objectId: product.id,
+    summary: `产品入库 "${name}"（${identityCode}），同时创建初始版本 v1 与首次开发项目`,
+  });
+
+  return { product, version, project };
 }
 
 /**
