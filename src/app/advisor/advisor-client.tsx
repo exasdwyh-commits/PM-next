@@ -249,7 +249,8 @@ export default function AdvisorClient({
           id: data.message.id,
           role: "ASSISTANT",
           content: data.message.content,
-          createdAt: new Date().toISOString(),
+          createdAt: data.message.createdAt || new Date().toISOString(),
+          citations: data.message.citations ?? null,
         },
       ]);
       // 本轮若产出了待确认提议，立刻反映到列表里（提议 ≠ 执行，仍需人工确认）
