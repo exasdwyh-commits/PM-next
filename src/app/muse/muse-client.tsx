@@ -363,7 +363,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
             ) : (
               <>
                 {goal.productId ? (
-                  <p className="m-context-line">
+                  <p className="m-hint">
                     已关联「{goal.productName || goal.productId}」
                     <a href={`/products/${goal.productId}`}>查看工作台</a>
                   </p>
