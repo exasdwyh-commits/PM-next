@@ -263,7 +263,7 @@ export function DesktopConversationStrip({
             有 {overview.waitingRuntimeCount} 项本机任务在排队，但现在不会执行。
           </strong>
           <span>{overview.presence.hint ?? "需要先让 Mac 端连上 Kern。"}</span>
-          <code>npm run desktop</code>
+          <details className="hermes-details hermes-desktop-dev-help"><summary>开发环境连接方式</summary><code>npm run desktop</code></details>
         </div>
       ) : null}
 
@@ -320,7 +320,7 @@ export function DesktopActivityBody({
               : overview.presence.label}
           </strong>
           <span>{overview.presence.hint ?? ""}</span>
-          <code>npm run desktop</code>
+          <details className="hermes-details hermes-desktop-dev-help"><summary>开发环境连接方式</summary><code>npm run desktop</code></details>
         </div>
       ) : null}
 

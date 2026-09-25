@@ -1,9 +1,9 @@
 /* ==========================================================================
-   MUSE Surface · 设计语言
+   KERN Surface · 设计语言
    主张：对话即操作系统。界面不是仪表盘，是一块安静的画布。
    1) 一条主轴（会话）+ 就地展开的卡片 + 抽屉；没有常驻密集面板。
    2) 一个强调渐变，其余全部中性；状态靠形状/文案/动效，不靠色块堆叠。
-   3) 大半径、大留白、大字号；chrome 尽量半透明并让位于内容。
+   3) 大半径、大留白、大字号；chrome 保持克制、实体化，让内容层级而不是玻璃效果承担视觉组织。
    4) 浅色深色同为一等公民（prefers-color-scheme）。
    本层自带令牌，不依赖 quiet-enterprise，可独立演进。
    ========================================================================== */
@@ -12,8 +12,8 @@
   /* 画布 */
   --m-canvas:      #F7F7F9;
   --m-canvas-2:    #FFFFFF;
-  --m-surface:     rgba(255,255,255,.92);
-  --m-surface-2:   rgba(255,255,255,.66);
+  --m-surface:     #FFFFFF;
+  --m-surface-2:   #FAFAFC;
   --m-surface-sunk:#F1F2F6;
   --m-hairline:    rgba(12,16,28,.08);
   --m-hairline-2:  rgba(12,16,28,.14);
@@ -72,8 +72,8 @@
   .muse {
     --m-canvas: #0A0B0F;
     --m-canvas-2: #12141A;
-    --m-surface: rgba(24,27,34,.86);
-    --m-surface-2: rgba(30,34,42,.58);
+    --m-surface: #16191F;
+    --m-surface-2: #1C2028;
     --m-surface-sunk: #15181F;
     --m-hairline: rgba(255,255,255,.09);
     --m-hairline-2: rgba(255,255,255,.16);
@@ -93,17 +93,10 @@
   }
 }
 
-/* 画布氛围：两团极淡光晕，深浅两套都不会变成死底 */
-.muse::before {
-  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  background:
-    radial-gradient(880px 520px at 22% -12%, rgba(61,99,245,.10), transparent 64%),
-    radial-gradient(760px 480px at 100% 0%, rgba(122,91,255,.09), transparent 60%);
-}
 .muse *:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; border-radius: 6px; }
 .m-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-/* ══ 左栏：目标（不是导航菜单，是「我交给 Muse 的事」） ══════════════════ */
+/* ══ 左栏：目标（不是导航菜单，是「我交给 Kern 的事」） ══════════════════ */
 .m-rail { position: relative; z-index: 2; display: flex; flex-direction: column; min-height: 0; padding: 18px 14px 14px; gap: 14px; }
 .m-brand { display: flex; align-items: center; gap: 10px; padding: 2px 6px 0; }
 .m-brand-mark { width: 30px; height: 30px; border-radius: 10px; background: var(--m-grad); box-shadow: var(--m-glow); display: grid; place-items: center; color: var(--m-on-accent); font-weight: 700; font-size: 14px; }
@@ -160,7 +153,7 @@
 .m-tag[data-live="true"] i { animation: m-beat 1.5s ease-in-out infinite; }
 @keyframes m-beat { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .3; transform: scale(.6); } }
 
-.m-card { border: 1px solid var(--m-hairline); border-radius: var(--m-r-lg); background: var(--m-surface); box-shadow: var(--m-sh-1); backdrop-filter: blur(20px) saturate(140%); -webkit-backdrop-filter: blur(20px) saturate(140%); animation: m-rise .34s cubic-bezier(.2,.7,.3,1) both; }
+.m-card { border: 1px solid var(--m-hairline); border-radius: var(--m-r-lg); background: var(--m-surface); box-shadow: var(--m-sh-1); animation: m-rise .34s cubic-bezier(.2,.7,.3,1) both; }
 @keyframes m-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .m-card-pad { padding: 18px 20px; }
 .m-card-head { display: flex; align-items: center; gap: 11px; padding: 15px 18px; border-bottom: 1px solid var(--m-hairline); }
@@ -170,7 +163,7 @@
 .m-hint { margin: 0; color: var(--m-ink-4); font-size: var(--m-t-sm); }
 .m-quiet { color: var(--m-ink-3); }
 
-/* ══ 会话：Muse 说话不套气泡，像人在页面上写字；用户说话才是气泡 ══════════ */
+/* ══ 会话：Kern 说话不套气泡，像人在页面上写字；用户说话才是气泡 ══════════ */
 .m-turn { display: grid; gap: 12px; }
 .m-turn[data-who="me"] { justify-items: end; }
 .m-said { max-width: 82%; padding: 12px 17px; border-radius: 20px 20px 6px 20px; background: var(--m-grad); color: var(--m-on-accent); box-shadow: var(--m-glow); font-size: var(--m-t-body); }
@@ -179,7 +172,7 @@
 .m-who-av { width: 22px; height: 22px; border-radius: 7px; background: var(--m-grad); color: var(--m-on-accent); display: grid; place-items: center; font-size: 11px; font-weight: 700; }
 .m-prose { margin: 0; font-size: var(--m-t-lead); line-height: 1.62; color: var(--m-ink); max-width: 66ch; }
 
-/* 计划：Muse 的核心表达。竖线 + 节点，节点形状本身就编码状态 */
+/* 计划：Kern 的核心表达。竖线 + 节点，节点形状本身就编码状态 */
 .m-plan { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
 .m-step { position: relative; display: grid; grid-template-columns: 26px minmax(0,1fr) auto; gap: 12px; padding: 10px 0; align-items: start; }
 .m-step:not(:last-child)::before { content: ""; position: absolute; left: 12.5px; top: 30px; bottom: -4px; width: 1.5px; background: var(--m-hairline-2); }
@@ -226,9 +219,9 @@
 .m-src > span:not(.m-tag) { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .m-src > small { color: var(--m-ink-4); font-size: var(--m-t-xs); white-space: nowrap; }
 
-/* ══ 输入：悬浮胶囊，Muse 的「跟人说话」隐喻 ═══════════════════════════ */
+/* ══ 输入：悬浮胶囊，Kern 的「跟人说话」隐喻 ═══════════════════════════ */
 .m-dock { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 22px 22px; background: linear-gradient(180deg, transparent, var(--m-canvas) 58%); pointer-events: none; }
-.m-dock-inner { width: min(var(--m-lane), 100%); margin: 0 auto; pointer-events: auto; border: 1px solid var(--m-hairline-2); border-radius: var(--m-r-xl); background: var(--m-surface); box-shadow: var(--m-sh-2); backdrop-filter: blur(22px) saturate(150%); -webkit-backdrop-filter: blur(22px) saturate(150%); transition: border-color .2s ease, box-shadow .2s ease; }
+.m-dock-inner { width: min(var(--m-lane), 100%); margin: 0 auto; pointer-events: auto; border: 1px solid var(--m-hairline-2); border-radius: var(--m-r-xl); background: var(--m-surface); box-shadow: var(--m-sh-2); transition: border-color .2s ease, box-shadow .2s ease; }
 .m-dock-inner:focus-within { border-color: var(--m-accent-line); box-shadow: var(--m-sh-2), 0 0 0 4px var(--m-accent-wash); }
 .m-dock textarea { display: block; width: 100%; min-height: 54px; overflow-y: auto; max-height: 190px; resize: none; padding: 16px 20px 6px; border: 0; outline: 0; background: transparent; color: var(--m-ink); font: inherit; font-size: var(--m-t-lead); line-height: 1.5; }
 .m-dock textarea::placeholder { color: var(--m-ink-4); }
@@ -239,7 +232,7 @@
 .m-kbd { color: var(--m-ink-4); font-size: var(--m-t-xs); }
 
 /* ══ 抽屉：追溯 / 信任与权限 ═══════════════════════════════════════════ */
-.m-scrim { position: fixed; inset: 0; z-index: 60; background: rgba(8,10,16,.44); backdrop-filter: blur(3px); animation: m-fade .2s ease both; }
+.m-scrim { position: fixed; inset: 0; z-index: 60; background: rgba(8,10,16,.52); animation: m-fade .2s ease both; }
 @keyframes m-fade { from { opacity: 0 } to { opacity: 1 } }
 .m-sheet { position: fixed; z-index: 61; top: 12px; right: 12px; bottom: 12px; width: min(460px, calc(100vw - 24px)); display: flex; flex-direction: column; border: 1px solid var(--m-hairline); border-radius: var(--m-r-xl); background: var(--m-canvas-2); box-shadow: var(--m-sh-3); overflow: hidden; animation: m-in .3s cubic-bezier(.2,.75,.3,1) both; }
 @keyframes m-in { from { opacity: 0; transform: translateX(18px) scale(.99) } to { opacity: 1; transform: none } }

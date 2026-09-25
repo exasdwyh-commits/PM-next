@@ -91,7 +91,7 @@ export function readDesktopPresence(input: {
       lastSeenAt: null,
       secondsSinceLastSeen: null,
       label: "本机连接未确认",
-      hint: "Kern 还没有检测到你的 Mac。请启动 Kern 本机执行；开发环境可运行 npm run desktop。连接后这里会显示设备名。",
+      hint: "Kern 还没有检测到你的 Mac。请启动 Kern 本机执行；连接后这里会显示设备名。",
     };
   }
 
@@ -119,7 +119,7 @@ export function readDesktopPresence(input: {
       elapsed >= DESKTOP_STALE_WINDOW_MS
         ? `本机已断开 · ${record.deviceId}`
         : `本机连接不稳定 · ${record.deviceId}`,
-    hint: "排队的本机任务要等 Kern 重新连上这台 Mac 才会执行。开发环境请确认 npm run desktop 仍在运行。",
+    hint: "排队的本机任务要等 Kern 重新连上这台 Mac 才会执行。请确认 Kern 本机执行仍在运行。",
   };
 }
 
