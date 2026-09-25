@@ -48,6 +48,10 @@ export function Rail({
         ))}
       </div>
       <div className="m-rail-foot">
+        <button type="button" className="m-new" onClick={() => { window.location.href = "/manage"; }}>
+          <I.plan />
+          进入专业管理后台
+        </button>
         <button type="button" className="m-me" onClick={onTrust}>
           <span className="m-me-av" aria-hidden>我</span>
           <span>
