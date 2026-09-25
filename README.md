@@ -222,7 +222,7 @@ npm run db:seed
 - `DATABASE_URL`：应用连接串（开发库，本机默认 `.../hermes_next_dev`）；
 - `TEST_DATABASE_URL`：测试专用库，**必须与开发库不同**——测试启动时会做隔离校验，
   测试账号若能连上开发库会直接拒绝运行；
-- 模型相关（Muse / Laya 等）默认不配置；未配置时治理、数据库、Workforce、
+- 模型相关（本地模型 / Laya 等）默认不配置；未配置时治理、数据库、Workforce、
   Evidence 与结构化流程仍应保持可运行，系统不得静默切换到未知外部模型。
 
 ### 后台 Worker（独立进程）
