@@ -27,7 +27,6 @@ import prisma from "../src/shared/db";
 import { assertTestDatabaseSafety } from "./test-safety";
 import {
   bootstrapDefaultWorkforce,
-  createAgentTask,
   finishAgentTask,
   startAgentTask,
 } from "../src/modules/workforce/service";
@@ -49,6 +48,8 @@ import {
 } from "../src/modules/worker/loops";
 import { resolveWorkerSession } from "../src/modules/worker/identity";
 import { acquireWorkerLock, releaseWorkerLock } from "../src/modules/worker";
+import { enqueueKernSpecialistDispatch } from "../src/modules/assistant-runtime/specialist-dispatch";
+import { appendAgentTaskConversationReturn } from "../src/modules/workforce/conversation-return";
 
 const SPECIALIST_CODES = [
   "research_agent",
@@ -110,32 +111,88 @@ async function main() {
 
     await bootstrapDefaultWorkforce(session);
 
-    console.log("▶ W1b Tech Architect safe-off：未配置 CODING 模型时必须 BLOCKED");
-    const techArchitect = await prisma.agent.findUniqueOrThrow({
-      where: {
-        organizationId_code: {
-          organizationId: org.id,
-          code: "tech_architect_agent",
-        },
+    console.log("▶ W1b Kern AUTO 回传：幂等排队 + safe-off + 回原会话");
+    const conversation = await prisma.conversation.create({
+      data: {
+        organizationId: org.id,
+        ownerId: owner.id,
+        kind: "ADVISOR",
+        title: "Kern specialist return test",
       },
     });
-    const techTask = await createAgentTask(session, {
-      agentId: techArchitect.id,
+    const fakeReady = {
+      version: "kern-dispatch-readiness/v1" as const,
+      eligible: true,
+      state: "EXECUTOR_READY" as const,
+      executor: "WORKER" as const,
+      agentCode: "tech_architect_agent",
+      taskClass: "CODING" as const,
+      reason: "test-only ready contract",
+    };
+    const dispatch = await enqueueKernSpecialistDispatch({
+      session,
+      conversationId: conversation.id,
+      sourceRunId: "source-run-" + tag,
       goal: "审查当前 API 架构并给出测试策略；不要执行任何代码修改。",
+      readiness: fakeReady,
     });
-    const techOutcome = await executeAgentTask(session, techTask.id);
+    assert.ok(dispatch);
+    assert.equal(dispatch.created, true);
+    assert.equal(dispatch.status, AgentTaskStatus.QUEUED);
+
+    const replay = await enqueueKernSpecialistDispatch({
+      session,
+      conversationId: conversation.id,
+      sourceRunId: "source-run-" + tag,
+      goal: "审查当前 API 架构并给出测试策略；不要执行任何代码修改。",
+      readiness: fakeReady,
+    });
+    assert.ok(replay);
+    assert.equal(replay.created, false);
+    assert.equal(replay.taskId, dispatch.taskId);
+    assert.equal(
+      await prisma.agentTask.count({
+        where: { organizationId: org.id, triggerRef: dispatch.triggerRef },
+      }),
+      1,
+      "same source run must not create duplicate specialist tasks"
+    );
+
+    const techOutcome = await executeAgentTask(session, dispatch.taskId);
     assert.equal(techOutcome.executed, true);
     assert.equal(techOutcome.outcome, "BLOCKED");
+
     const blockedTech = await prisma.agentTask.findUniqueOrThrow({
-      where: { id: techTask.id },
+      where: { id: dispatch.taskId },
       include: { runs: { orderBy: { createdAt: "desc" }, take: 1 } },
     });
     assert.equal(blockedTech.status, AgentTaskStatus.BLOCKED);
-    assert.match(
-      blockedTech.runs[0]?.outputSummary ?? "",
-      /Tech Architect 未执行/
+    assert.match(blockedTech.runs[0]?.outputSummary ?? "", /Tech Architect 未执行/);
+
+    const returnedMessages = await prisma.message.findMany({
+      where: { conversationId: conversation.id, role: "ASSISTANT" },
+      orderBy: { createdAt: "asc" },
+    });
+    assert.equal(returnedMessages.length, 1);
+    assert.match(returnedMessages[0].content, /Kern 顾问团回执/);
+    assert.match(returnedMessages[0].content, /Tech Architect 未执行/);
+
+    const repeatedReturn = await appendAgentTaskConversationReturn({
+      organizationId: org.id,
+      taskId: dispatch.taskId,
+      runId: blockedTech.runs[0].id,
+      outcome: "BLOCKED",
+      summary: blockedTech.runs[0].outputSummary ?? "blocked",
+    });
+    assert.equal(repeatedReturn?.created, false);
+    assert.equal(
+      await prisma.message.count({
+        where: { conversationId: conversation.id, role: "ASSISTANT" },
+      }),
+      1,
+      "conversation return must be idempotent"
     );
-    console.log("✅ Tech Architect 无模型时诚实 BLOCKED，不伪造执行");
+    console.log("✅ Kern specialist 排队幂等；无模型诚实 BLOCKED；回执只回写一次");
 
     const project = await prisma.project.create({
       data: {
