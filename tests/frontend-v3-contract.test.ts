@@ -38,6 +38,50 @@ test("Kern is the primary operating shell and management stays independent", () 
   assert.ok(manage.includes("<WorkbenchClient"), "traditional management overview must remain available");
 });
 
+test("Kern owns conversation lifecycle instead of legacy Advisor", () => {
+  const api = read("src/app/api/conversations/route.ts");
+  const messages = read("src/app/api/conversations/[id]/messages/route.ts");
+  const page = read("src/app/advisor/page.tsx");
+  const runtimeIndex = read("src/modules/assistant-runtime/index.ts");
+  const conversations = read("src/modules/assistant-runtime/conversations.ts");
+  const legacyAdvisor = read("src/modules/advisor/service.ts");
+
+  assert.equal(
+    api.includes("@/modules/advisor/service"),
+    false,
+    "conversation create/list API must not depend on legacy Advisor lifecycle"
+  );
+  assert.equal(
+    messages.includes("@/modules/advisor/service"),
+    false,
+    "conversation message reads must be owned by Kern runtime"
+  );
+  assert.equal(
+    page.includes("@/modules/advisor/service"),
+    false,
+    "Kern page must not source conversation lifecycle from legacy Advisor"
+  );
+  assert.ok(runtimeIndex.includes('export * from "./conversations";'));
+  assert.ok(conversations.includes("listKernConversations"));
+  assert.ok(conversations.includes("createKernConversation"));
+  assert.ok(conversations.includes("getKernConversation"));
+  assert.ok(
+    conversations.includes("organizationId: session.organizationId") &&
+      conversations.includes("ownerId: session.userId"),
+    "Kern conversation reads must remain scoped to organization and owner"
+  );
+  assert.ok(
+    conversations.includes('throw new NotFoundError("Product not found")'),
+    "product-bound conversations must validate product ownership before creation"
+  );
+  assert.ok(
+    legacyAdvisor.includes("export const listConversations = listKernConversations") &&
+      legacyAdvisor.includes("export const createConversation = createKernConversation") &&
+      legacyAdvisor.includes("export const getConversation = getKernConversation"),
+    "legacy Advisor names may remain only as compatibility aliases"
+  );
+});
+
 test("management conversations route back through Kern", () => {
   const home = read("src/app/workbench-client.tsx");
   assert.ok(home.includes("今天想让 Kern 做什么？"));
