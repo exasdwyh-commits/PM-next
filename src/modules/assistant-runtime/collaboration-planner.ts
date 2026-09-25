@@ -72,7 +72,7 @@ export function buildKernCollaborationPlanShadow(input: {
   }
 
   const keywordRules: Array<[RegExp, string, string]> = [
-    [/(市场|竞品|用户需求|渠道|价格带|成交价)/, "research_agent", "MARKET_SIGNAL"],
+    [/(市场规模|市场需求|市场竞争|竞品|用户需求|渠道|价格带|成交价)/, "research_agent", "MARKET_SIGNAL"],
     [/(论文|临床|科学证据|机制|人群|剂量证据)/, "scientific_evidence_agent", "SCIENCE_SIGNAL"],
     [/(配方|剂量|剂型|原料组合|规格设计|相容性)/, "formulation_agent", "FORMULATION_SIGNAL"],
     [/(法规|合规|宣称|备案|进口|跨境|允许添加)/, "compliance_agent", "COMPLIANCE_SIGNAL"],
