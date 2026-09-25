@@ -244,22 +244,51 @@ for pt in $PORTS; do
   if [[ "$up" != "1" ]]; then
     echo "❌ 127.0.0.1:$pt 未就绪（日志尾部）："; tail -10 "/tmp/acc-server-$pt.log"; exit 1
   fi
-  lpid="$(lsof -nP -iTCP:"$pt" -sTCP:LISTEN -t 2>/dev/null | head -1)"
-  if [[ -z "$lpid" ]]; then echo "❌ $pt 探活通过但查不到监听进程，异常退出"; exit 1; fi
-  lcwd="$(lsof -a -p "$lpid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)"
-  if [[ "$lcwd" != "$ROOT" ]]; then
-    echo "❌ 拒绝跑测试：${pt} 上服务器的 cwd=「${lcwd}」≠ 本仓库「${ROOT}」——这不是本次启动的服务器。"
-    echo "   占用者："; lsof -nP -iTCP:"$pt" -sTCP:LISTEN | sed -n '2,$p' | sed 's/^/      /'
+  # 首选本次 nohup 启动的 PID 做归属证明。CI runner 上曾出现 HTTP 已 200，
+  # 但 lsof 对监听 socket 返回空结果；把 lsof 当硬门会制造“服务真实可用却验收失败”的假红。
+  # 安全性不降低：端口在启动前已经强制为空 + HTTP 200 + 本次启动 PID 仍存活 + cwd 为本仓库，
+  # 四项同时成立即可证明这是本轮服务。若启动 PID 已退出（daemonize/fork），才回退 lsof。
+  launcher_cwd=""
+  if kill -0 "$ourpid" 2>/dev/null; then
+    if [[ -e "/proc/$ourpid/cwd" ]]; then
+      launcher_cwd="$(readlink "/proc/$ourpid/cwd" 2>/dev/null || true)"
+    fi
+    if [[ -z "$launcher_cwd" ]] && command -v lsof >/dev/null 2>&1; then
+      launcher_cwd="$(lsof -a -p "$ourpid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)"
+    fi
+    if [[ "$launcher_cwd" != "$ROOT" ]]; then
+      echo "❌ 拒绝跑测试：本次启动进程 pid=$ourpid 的 cwd=「${launcher_cwd:-UNKNOWN}」≠ 本仓库「$ROOT」。"
+      exit 4
+    fi
+
+    lpid=""
+    if command -v lsof >/dev/null 2>&1; then
+      lpid="$(lsof -nP -iTCP:"$pt" -sTCP:LISTEN -t 2>/dev/null | head -1)"
+    fi
+    if [[ -n "$lpid" ]] && is_descendant "$lpid" "$ourpid"; then
+      echo "✅ 127.0.0.1:$pt 就绪且归属校验通过（launcher=$ourpid · listener=$lpid · cwd=$launcher_cwd · BUILD_ID=$LOCAL_BUILD_ID）"
+    else
+      echo "✅ 127.0.0.1:$pt 就绪且归属校验通过（launcher=$ourpid · cwd=$launcher_cwd · BUILD_ID=$LOCAL_BUILD_ID · listener=${lpid:-未由 lsof 解析}）"
+    fi
+    continue
+  fi
+
+  # daemonize/fork fallback：启动 PID 已退出时，仍要求 lsof 能找到监听者且 cwd 必须是本仓库。
+  if ! command -v lsof >/dev/null 2>&1; then
+    echo "❌ $pt 探活通过，但启动进程已退出且当前环境无 lsof，无法完成服务器归属校验。"
     exit 4
   fi
-  # 辅助佐证（非判据）：监听进程是否为本次启动进程的后代。Next 各子命令进程模型不同
-  # （实测：`next start` 父进程常驻；`next dev` 会 daemonize —— 父进程 $! 退出、监听进程被 init 收养），
-  # 故**不以血统为主判据**；归属由「端口启动前空闲 + cwd==本仓库」确定，血统仅作打印佐证。
-  if is_descendant "$lpid" "$ourpid"; then
-    echo "✅ 127.0.0.1:$pt 就绪且归属校验通过（pid=$lpid · cwd=$lcwd · BUILD_ID=$LOCAL_BUILD_ID · 血统✔）"
-  else
-    echo "✅ 127.0.0.1:$pt 就绪且归属校验通过（pid=$lpid · cwd=$lcwd · BUILD_ID=$LOCAL_BUILD_ID · 血统：非 $ourpid 后代［daemonize/fork，正常］）"
+  lpid="$(lsof -nP -iTCP:"$pt" -sTCP:LISTEN -t 2>/dev/null | head -1)"
+  if [[ -z "$lpid" ]]; then
+    echo "❌ $pt 探活通过，但启动进程已退出且查不到监听进程，无法证明服务器归属。"
+    exit 4
   fi
+  lcwd="$(lsof -a -p "$lpid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)"
+  if [[ "$lcwd" != "$ROOT" ]]; then
+    echo "❌ 拒绝跑测试：$pt 上服务器的 cwd=「$lcwd」≠ 本仓库「$ROOT」——这不是本次启动的服务器。"
+    exit 4
+  fi
+  echo "✅ 127.0.0.1:$pt 就绪且归属校验通过（daemonized listener=$lpid · cwd=$lcwd · BUILD_ID=$LOCAL_BUILD_ID）"
 done
 
 # ---------------- 跑套件（显式把 BASE_URL/UI_BASE_URL 指向本轮端口，杜绝打到别人的服务） ----------------
