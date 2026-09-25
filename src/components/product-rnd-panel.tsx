@@ -217,7 +217,7 @@ export function ProductRndPanel({
       eyebrow="AI 产品研发"
       icon="automation"
       title="研发工作流"
-      sub="Hermes 负责拆解和监督；专业数字员工完成研究，独立 QA 复核，最后生成可供负责人决策的管理报告。"
+      sub="Kern 负责拆解和监督；专业数字员工完成研究，独立 QA 复核，最后生成可供负责人决策的管理报告。"
       actions={
         parentTaskId ? (
           <Button
