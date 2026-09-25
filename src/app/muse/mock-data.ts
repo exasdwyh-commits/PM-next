@@ -149,6 +149,15 @@ export const studioModel: StudioModel = {
   user: { name: "你", role: "产品负责人", org: "Kern 食品研发部" },
   brief: {
     greeting: "上午好",
+    today: {
+      generatedAt: "2026-09-25T09:45:00.000Z",
+      scopeLabel: "演示夹具",
+      degraded: false,
+      degradedNote: null,
+      important: [],
+      working: [],
+      needsYou: [],
+    },
     decisions,
     missions,
     suggestions: [
