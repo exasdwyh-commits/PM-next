@@ -320,7 +320,7 @@ export default function WorkforceClient({
                   ))}
                 </div>
               ) : (
-                <Empty>当前没有数字员工在等待人工判断。</Empty>
+                <Empty>当前没有数字员工等待人工判断。可以继续让 Kern 推进；需要你决策或补充信息时会在这里出现。</Empty>
               )}
             </Panel>
 
@@ -449,7 +449,7 @@ export default function WorkforceClient({
                   ))}
                 </div>
               ) : (
-                <Empty>当前没有专业 Agent 返回结果等待复核。</Empty>
+                <Empty>当前没有专业 Agent 返回结果等待复核。启动或继续相关工作后，需要复核的真实返回结果会在这里出现。</Empty>
               )}
             </Panel>
 
