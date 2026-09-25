@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Decision, EvidenceRef, Message, StudioModel, TodayItem } from "./types";
 import { readKernGraphCitation } from "@/modules/visual-intelligence/contracts";
+import type { KernGraphV1 } from "@/modules/visual-intelligence/contracts";
 import { Btn, I, StateTag } from "./components/kit";
 import { CheckIn, Plan, Sources, Turn, Working } from "./components/turn";
 import { Palette, SourceSheet, TrailSheet, TrustSheet } from "./components/sheets";
@@ -27,7 +28,7 @@ function fromApiMessage(message: ApiMessage): Message {
   const citations = Array.isArray(message.citations) ? message.citations : [];
   const graphs = citations
     .map((raw) => readKernGraphCitation(raw))
-    .filter((graph): graph is NonNullable<typeof graph> => Boolean(graph));
+    .filter((graph): graph is KernGraphV1 => graph !== null);
 
   const refs: EvidenceRef[] = citations.flatMap((raw, index) => {
     if (readKernGraphCitation(raw)) return [];
