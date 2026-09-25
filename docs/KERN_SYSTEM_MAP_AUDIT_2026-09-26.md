@@ -41,11 +41,22 @@
 5. **Visual Intelligence 已降级为按需工具**  
    普通聊天不自动展示顾问团和结构图；用户明确要求“画 / 拆解 / 可视化”才出现。
 
+## 本轮整体改造状态
+
+这份地图审查已经进入实施阶段：
+
+- **P0 已完成第一阶段**：主聊天链从 `advisor.sendMessage` 迁到 `assistant-runtime/conversation-engine.ts`。Advisor 只作为 `LEGACY_ADVISOR_COMPAT` capability provider，Conversation CRUD 也已归到 Assistant Runtime。
+- **Conversation 语义已清理**：Kern Chat ViewModel 使用 `ConversationSummary / activeConversationId / conversationId`，不再把会话称为 Mission，也不再预加载 Today 管理驾驶舱。
+- **Autonomy 已升级**：从动作白名单改为 capability risk assessment，显式考虑 reversibility / external side effect / financial / permission / production release / formal gate / destructive / ambiguity。
+- **Project Map Builder 已落地**：可从真实 source file + static import 生成 VERIFIED KernGraph，并转换为 Archify architecture spec；`npm run kern:map` 可重复生成项目地图。
+
+当前尚未完全移除 Legacy Advisor provider；下一轮继续把领域 capability 按模块从 `advisor/service.ts` 抽出，而不是再把运行时逻辑放回去。
+
 ## 地图暴露出的结构债
 
-### P0 · Assistant Runtime 仍依赖 Legacy Advisor 核心
+### P0 · Legacy Advisor capability provider 仍待继续拆分
 
-`src/modules/assistant-runtime/service.ts` 目前仍通过 `sendLegacyAdvisorMessage` 进入 `src/modules/advisor/service.ts`。
+`src/modules/assistant-runtime/service.ts` 已不再调用 `sendLegacyAdvisorMessage`。当前过渡依赖是 `conversation-engine.ts` 调用 Advisor 暂存的 intent/tool capability provider。
 
 结果是：
 
