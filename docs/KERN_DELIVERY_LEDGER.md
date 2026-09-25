@@ -23,16 +23,16 @@
 - B5 · Kern / 产品 / 项目 / 工作项 / 门禁 / 决策包术语收口：`3211a85c`
 - A2/A4/A5 · 最终视觉系统 / Executive Report / 本机助理叙事：`9ace96db`
 
-## 当前批次
+## 当前状态
 
-分支：`release/kern-v1-beta-final-acceptance`
+**V1/Beta 已冻结并通过最终验收。**
 
-目标：
-
-1. 不再增加功能，只做最终验收与文档收口。
-2. 扩展移动走查到 Kern 主操作界面 1440 / 390。
-3. 通过 `package.json` 交付契约入口触发 10 条核心工作流；移动测试文件同时触发 Mobile Conditional Layout CI。
-4. **同一 PR head 11/11 CI 全绿**后，才把该 head 认定为 V1/Beta 交付候选。
+- validated PR head：`cfff5fe0d30dd81fbae496d9d4e073157465d2f0`
+- final main merge commit：`e49491c8f866771b0f01244241e538fe0e97d073`
+- validated tree：`6706dd425b2345442ae3e9aff32917b9bb1e4aaf`
+- PR：#14 `release: run Kern V1 beta final acceptance`
+- 结果：同一 validated head 上 **11 / 11 GitHub Actions workflow 全绿**
+- 2026-09-25 收口时：开放 PR = 0，开放 Issue = 0。
 
 ## 当前事实判断
 
@@ -41,10 +41,13 @@
 - Desktop Runtime 的排队 / 领取 / 回执已经真实落库，本批只优化用户叙事，不改变执行语义。
 - 管理后台继续保持传统、完整、可深入；Kern 是默认日常操作层，不把后台再改成聊天壳。
 
-## 下一批
+## 后续工作原则
 
-当前批次全绿后不再扩功能：
+V1/Beta 不再继续“顺手优化”。后续只从真实试用反馈进入新批次：
 
-- 合并最终验收 PR；
-- 记录 validated PR head 与 main merge commit；
-- 只处理真实复现的 P0/P1，不做“顺手优化”。
+1. 真实部署 / Demo / 使用中复现的 P0、P1；
+2. 客户或内部产品经理明确提出的管理后台缺口；
+3. Kern 主操作层真实使用中的对话、委派、Check-in、本机执行体验问题；
+4. 下一版本功能进入独立 V1.1 规划，不直接改冻结基线。
+
+继续工作时，先核对 `main` 是否仍包含上述 validated head，再检查当前 PR / Issue / CI。
