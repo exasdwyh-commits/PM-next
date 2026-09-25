@@ -80,7 +80,8 @@
     "test:mobile-layout": "OUTPUT_DIR=/tmp/kern-mobile-layout bash scripts/acc-server.sh --port 3220 3221 tests/ui-mobile-conditional-layout.ts",
     "test:visual-intelligence": "tsx tests/regression-kern-visual-intelligence.ts",
     "test:kern-autonomy": "node --import tsx --test tests/kern-autonomy-policy.test.ts",
-    "test:kern-project-map": "tsx tests/kern-project-map.ts"
+    "test:kern-project-map": "tsx tests/kern-project-map.ts",
+    "test:kern-runtime-architecture": "node --import tsx --test tests/kern-runtime-architecture.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
