@@ -215,6 +215,31 @@ export const WORK_ITEM_STATUS_LABELS: Record<string, string> = {
   ACCEPTED: "已验收",
 };
 
+/** 工作项执行者类型（WorkExecutorType） */
+export const WORK_EXECUTOR_TYPE_LABELS: Record<string, string> = {
+  HUMAN: "人工执行",
+  TEST_AGENT: "测试 Agent",
+  DIGITAL_WORKER: "数字员工",
+};
+
+/**
+ * 交付物类型。Artifact.type 在 Prisma 中是 String，不是 enum；
+ * 这里登记当前项目提交 UI 与结构化成果解析器实际允许/使用的值。
+ * 未登记的新类型仍由 labelOf 回退原始值，避免静默空白。
+ */
+export const ARTIFACT_TYPE_LABELS: Record<string, string> = {
+  RESEARCH_REPORT: "研究报告",
+  SAMPLE_ROUND: "样品轮次",
+  SUPPLIER_QUOTE: "供应商报价",
+  PROFESSIONAL_CONFIRMATION: "专业确认",
+  PROFESSIONAL_ANALYSIS: "专业分析",
+  PACKAGING_BRIEF: "包装确认",
+  PRODUCTION_PLAN: "生产计划",
+  PRODUCTION_RECORD: "生产记录",
+  COST_SCENARIO: "成本情景",
+  BUSINESS_OBSERVATION: "业务观察",
+};
+
 /** 反馈（咨询台）状态 */
 export const FEEDBACK_STATUS_LABELS: Record<string, string> = {
   OPEN: "待处置",
@@ -415,6 +440,8 @@ export const labelDecisionOutcome = (k?: string | null) => labelOf(DECISION_OUTC
 export const labelLaunchPlanStatus = (k?: string | null) => labelOf(LAUNCH_PLAN_STATUS_LABELS, k);
 export const labelLaunchMilestoneStatus = (k?: string | null) => labelOf(LAUNCH_MILESTONE_STATUS_LABELS, k);
 export const labelWorkItemStatus = (k?: string | null) => labelOf(WORK_ITEM_STATUS_LABELS, k);
+export const labelWorkExecutorType = (k?: string | null) => labelOf(WORK_EXECUTOR_TYPE_LABELS, k);
+export const labelArtifactType = (k?: string | null) => labelOf(ARTIFACT_TYPE_LABELS, k);
 export const labelFeedbackStatus = (k?: string | null) => labelOf(FEEDBACK_STATUS_LABELS, k);
 export const labelArtifactReviewStatus = (k?: string | null) => labelOf(ARTIFACT_REVIEW_STATUS_LABELS, k);
 export const labelArtifactApplicabilityStatus = (k?: string | null) => labelOf(ARTIFACT_APPLICABILITY_STATUS_LABELS, k);
