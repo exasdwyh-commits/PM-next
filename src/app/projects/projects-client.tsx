@@ -48,7 +48,7 @@ export default function ProjectsClient({
       topbarLeft={
         <div className="hermes-topbar-title">
           <span className="eyebrow">PROJECTS</span>
-          <strong>执行工作区</strong>
+          <strong>项目管理</strong>
         </div>
       }
       topbarRight={
@@ -61,8 +61,8 @@ export default function ProjectsClient({
       <div className="hermes-page-heading">
         <div>
           <p className="eyebrow">产品执行</p>
-          <h1>执行工作区</h1>
-          <p>这里展示产品内部的执行计划。日常请从「产品」进入，再继续研发、任务、证据与决策。</p>
+          <h1>项目管理</h1>
+          <p>这里展示产品关联项目的执行计划。日常可从「产品」进入，再继续研发、工作项、证据与决策。</p>
         </div>
         <div className="hermes-inline">
           {stages.map((s) => (
@@ -77,9 +77,9 @@ export default function ProjectsClient({
         </div>
       </div>
 
-      <Panel icon="grid" eyebrow="LIST" title="工作区列表" titleSmall={`(${filtered.length})`}>
+      <Panel icon="grid" eyebrow="LIST" title="项目列表" titleSmall={`(${filtered.length})`}>
         {filtered.length === 0 ? (
-          <Empty>暂无执行工作区。请从产品页启动研发或创建执行计划。</Empty>
+          <Empty>暂无项目。请从产品页启动研发或创建项目，建立后即可管理工作项、证据与决策。</Empty>
         ) : (
           <div className="hermes-list">
             {filtered.map((p) => (
@@ -99,7 +99,7 @@ export default function ProjectsClient({
                     {p.decisionMaker ? ` · 决策人: ${p.decisionMaker.name}` : ""}
                   </span>
                   <span>
-                    {p._count.workItems} 任务 · {p._count.evidences} 证据 · {p._count.decisionPackets} 决策
+                    {p._count.workItems} 工作项 · {p._count.evidences} 证据 · {p._count.decisionPackets} 决策
                   </span>
                   <span>{fmtDateTime(p.updatedAt)}</span>
                 </div>
