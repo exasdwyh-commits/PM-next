@@ -70,7 +70,7 @@ function fromApiMessage(message: ApiMessage): Message {
 export default function KernClient({ model }: { model: StudioModel }) {
   const router = useRouter();
   const { brief, employees, runtime } = model;
-  const [goalId, setGoalId] = useState<string | null>(model.activeMissionId);
+  const [conversationId, setConversationId] = useState<string | null>(model.activeConversationId);
   const [messages, setMessages] = useState<Message[]>(model.messages);
   const [draft, setDraft] = useState(model.initialDraft);
   const [sending, setSending] = useState(false);
@@ -82,26 +82,26 @@ export default function KernClient({ model }: { model: StudioModel }) {
   const tailRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    setGoalId(model.activeMissionId);
+    setConversationId(model.activeConversationId);
     setMessages(model.messages);
-  }, [model.activeMissionId, model.messages]);
+  }, [model.activeConversationId, model.messages]);
 
-  const goal = useMemo(
-    () => brief.missions.find((mission) => mission.id === goalId) ?? null,
-    [brief.missions, goalId]
+  const conversation = useMemo(
+    () => brief.conversations.find((item) => item.id === conversationId) ?? null,
+    [brief.conversations, conversationId]
   );
   const pending = brief.decisions.filter((decision) => !resolved[decision.id]);
-  const goalDecisions = pending.filter(
+  const conversationDecisions = pending.filter(
     (decision) =>
       goal &&
-      decision.missionId === goal.id &&
+      decision.missionId === conversation.id &&
       decision.gate !== "Proposal / Approval"
   );
 
   useEffect(() => {
-    if (!goalId) return;
+    if (!conversationId) return;
     tailRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [goalId, messages.length, sending]);
+  }, [conversationId, messages.length, sending]);
 
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
@@ -115,13 +115,13 @@ export default function KernClient({ model }: { model: StudioModel }) {
   }, []);
 
   useEffect(() => {
-    if (!goalId) return;
+    if (!conversationId) return;
     let disposed = false;
 
     const refreshMessages = async () => {
       if (disposed || sending || document.visibilityState === "hidden") return;
       try {
-        const response = await fetch(`/api/conversations/${goalId}/messages`, {
+        const response = await fetch(`/api/conversations/${conversationId}/messages`, {
           cache: "no-store",
         });
         if (!response.ok) return;
@@ -146,7 +146,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [goalId, sending]);
+  }, [conversationId, sending]);
 
   const openSource = useCallback(
     (ref: EvidenceRef) => setSheet({ kind: "source", ref }),
@@ -169,7 +169,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
     setMessages((current) => [...current, mine]);
 
     try {
-      let conversationId = goalId;
+      let conversationId = conversationId;
       if (!conversationId) {
         const create = await fetch("/api/conversations", {
           method: "POST",
@@ -182,7 +182,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
         const created = await create.json();
         if (!create.ok) throw new Error(created.message || "创建会话失败");
         conversationId = created.id;
-        setGoalId(conversationId);
+        setConversationId(conversationId);
         window.history.replaceState(null, "", `/muse?c=${conversationId}`);
       }
 
@@ -219,7 +219,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
     } finally {
       setSending(false);
     }
-  }, [draft, goalId, router, sending]);
+  }, [draft, conversationId, router, sending]);
 
   const resolve = useCallback(
     async (decision: Decision, choice: Decision["options"][number]) => {
@@ -301,16 +301,16 @@ export default function KernClient({ model }: { model: StudioModel }) {
     [decisionBusy, router]
   );
 
-  const pickGoal = useCallback(
+  const pickConversation = useCallback(
     (id: string | null) => {
       setRailOpen(false);
       if (!id) {
-        setGoalId(null);
+        setConversationId(null);
         setMessages([]);
         router.push("/muse");
         return;
       }
-      setGoalId(id);
+      setConversationId(id);
       router.push(`/muse?c=${id}`);
     },
     [router]
@@ -320,11 +320,11 @@ export default function KernClient({ model }: { model: StudioModel }) {
     <div className="muse" data-rail={railOpen ? "open" : undefined}>
       <Rail
         user={model.user}
-        missions={brief.missions}
-        activeId={goalId}
+        conversations={brief.conversations}
+        activeId={conversationId}
         runtime={runtime}
-        onPick={pickGoal}
-        onNew={() => pickGoal(null)}
+        onPick={pickConversation}
+        onNew={() => pickConversation(null)}
         onTrust={() => setSheet({ kind: "trust" })}
         onClose={() => setRailOpen(false)}
       />
@@ -342,7 +342,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
             >
               <I.menu />
             </button>
-            <h1 className="m-top-title">{goal ? goal.title : "Kern"}</h1>
+            <h1 className="m-top-title">{goal ? conversation.title : "Kern"}</h1>
             <div className="m-top-acts">
               <Btn size="sm" onClick={() => setPalette(true)}>
                 <I.search />
@@ -358,14 +358,14 @@ export default function KernClient({ model }: { model: StudioModel }) {
 
         <div className="m-scroll">
           <div className="m-lane">
-            {goal === null ? (
+            {conversation === null ? (
               <Blank seeds={brief.suggestions} onSeed={setDraft} />
             ) : (
               <>
-                {goal.productId ? (
+                {conversation.productId ? (
                   <p className="m-hint">
-                    已关联「{goal.productName || goal.productId}」
-                    <a href={`/products/${goal.productId}`}>查看工作台</a>
+                    已关联「{conversation.productName || conversation.productId}」
+                    <a href={`/products/${conversation.productId}`}>查看工作台</a>
                   </p>
                 ) : null}
                 {messages.map((message) => (
@@ -376,7 +376,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
                     onOpenSource={openSource}
                   />
                 ))}
-                {goalDecisions.map((decision) => (
+                {conversationDecisions.map((decision) => (
                   <CheckIn
                     key={decision.id}
                     d={decision}
@@ -404,7 +404,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
       {sheet?.kind === "trail" ? (
         <TrailSheet
           activity={model.activity}
-          missions={brief.missions}
+          conversations={brief.conversations}
           onClose={() => setSheet(null)}
         />
       ) : null}
@@ -416,9 +416,9 @@ export default function KernClient({ model }: { model: StudioModel }) {
       ) : null}
       {palette ? (
         <Palette
-          missions={brief.missions}
+          conversations={brief.conversations}
           onClose={() => setPalette(false)}
-          onPick={pickGoal}
+          onPick={pickConversation}
         />
       ) : null}
     </div>
