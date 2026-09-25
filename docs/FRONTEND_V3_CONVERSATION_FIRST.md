@@ -6,13 +6,16 @@
 
 ## Product rule
 
+> Product brand: **科恩 KERN** — AI 工作总管 / AI Chief of Staff. The `/muse` route is a compatibility path, not a user-facing product name.
+
+
 The frontend must hide internal orchestration complexity from ordinary users.
 
 Primary interaction loop:
 
 ```
 Describe goal
-→ Hermes understands context
+→ KERN understands context
 → system researches / decomposes / executes
 → user reviews result
 → user makes business decision
@@ -43,7 +46,7 @@ Legacy routes remain available for compatibility but are grouped into the primar
 The home screen answers only three questions:
 
 1. What needs my decision or review now?
-2. What is Hermes currently doing?
+2. What is KERN currently doing?
 3. What should I start or continue next?
 
 The global command input reuses the existing `/advisor?query=` flow. Do not present fake command execution.
