@@ -7,9 +7,12 @@
 #   ui-b01-evidence / ui-feedback-layer / ui-quiet-enterprise（Playwright 套件）
 # 手动「起服务 → 探活 → 跑套件」踩过的坑，每个坑的报错文案都指向错误的方向：
 #
-#   1. `.next/BUILD_ID` 会莫名缺失 → `next start` 报
+#   1. `BUILD_ID`（`next start` 的准入标识）缺失 → `next start` 报
 #      "Could not find a production build"，看起来像构建问题，实际只是缺一个标识文件。
-#      （实测：build → start → kill 三步都不删它，所以是环境里别的东西删的；本脚本不追因，缺了就重建。）
+#      本脚本用**自己的**构建目录（默认 `.next-acc`，见下方「独立构建目录」），所以缺了只意味着
+#      「本目录还没建过 / 被清过」，缺了就重建，不必追因。
+#      ⚠️ 历史坑（2026-09-25 之前）：本脚本曾直接用共享的 `.next`，而它的 BUILD_ID 会被
+#      别的进程（验收构建自身、并行 agent 的 build）反复重写或删除，表现为「莫名缺失」。
 #   2. 用 run_in_background 托管 `(cmd &)` 时，任务一结束进程即被回收。下一条命令再跑套件就
 #      只看到 `fetch failed` —— 会被误读成业务失败。
 #   3. 忘了先探活就开始跑，失败信息同样是 `fetch failed`，看不出「服务没起来」。
@@ -83,6 +86,53 @@ if [[ -n "${occupied// /}" ]]; then
   exit 3
 fi
 
+# ---------- 独立构建目录：不与 `next dev` 争抢 `.next`（勿回退成默认 .next） ----------
+#
+# 为什么必须独立（2026-09-25 实测事故）：
+#   本脚本「构建 → 起服务 → 跑套件」都在同一工作树里，而 `next build` 默认**原地重写** `.next`。
+#   当本机同时有一个 `next dev` 在跑（它持续读写 `.next`），一次验收构建就会把 dev server 的
+#   chunk 从脚下抽走，dev 侧开始持续 500，报错是：
+#     Cannot find module './1331.js'
+#     ENOENT: no such file or directory, open '.next/server/vendor-chunks/next.js'
+#   报错指向 webpack chunk 缺失，看着像代码写坏了，实际是「构建目录被别的进程重写了」——
+#   归因极易跑偏，会让人去翻源码找不存在的 bug。
+#   实测：一个已经跑满 12h 的 dev server 就是这样被打死的。注意**端口隔离挡不住它** ——
+#   本脚本早就避开 3100（见文件头「坑 5」），但构建目录仍是共享的，所以照样出事。
+#   `next.config.ts` 里 `NEXT_DIST_DIR` 逃生门早已备好、`.gitignore` 也早有 `.next-verify/`，
+#   只是本脚本一直没接上 —— 这里补上，让验收构建与 dev 彻底分家。
+#
+# 默认 `.next-acc`。需要并行跑多份验收时各自指定目录，免得它们互相争抢同一个构建目录：
+#   ACC_DIST_DIR=.next-acc-3200 npm run test:ui
+DIST_DIR="${ACC_DIST_DIR:-.next-acc}"
+export NEXT_DIST_DIR="$DIST_DIR"
+
+# ---------- 收工还原 Next 托管的两文件：next-env.d.ts / tsconfig.json ----------
+#
+# Next 会把自己的构建目录写进这两个**它自动管理**的文件（`next-env.d.ts` 里的
+# `/// <reference path="./<distDir>/types/routes.d.ts" />`、`tsconfig.json` 的 `include`）。
+# 我们用非默认目录，若不还原，每跑一次验收就会把它们留成脏文件，并且 `.next`（dev 用）
+# 与 `.next-acc`（验收用）的类型引用来回翻转 —— 极易被 `git add -A` 顺手提交成噪音。
+# 故：构建前备份，收工还原。**只还原「确实被改写成指向本次构建目录」的情况**，
+# 内容没变或被人手工编辑过的一律不碰（避免覆盖人的改动）。
+MANAGED_FILES=(next-env.d.ts tsconfig.json)
+MANAGED_BACKUP="$(mktemp -d)"
+for _f in "${MANAGED_FILES[@]}"; do
+  [[ -f "$_f" ]] && cp "$_f" "$MANAGED_BACKUP/${_f//\//_}"
+done
+restore_managed_files() {
+  local f b
+  for f in "${MANAGED_FILES[@]}"; do
+    b="$MANAGED_BACKUP/${f//\//_}"
+    [[ -f "$b" && -f "$f" ]] || continue
+    cmp -s "$f" "$b" && continue
+    grep -q -- "$DIST_DIR" "$f" 2>/dev/null || continue
+    cp "$b" "$f"
+  done
+  rm -rf "$MANAGED_BACKUP"
+}
+# 先挂一道早退兜底；后面定义 cleanup 后改成串联（bash 同一信号只保留最后一个 trap）。
+trap restore_managed_files EXIT
+
 # ---------- 构建产物新鲜度（本脚本最容易造成「假绿」的地方，勿回退） ----------
 #
 # ⚠️ `next start` 服务的是 `.next` 里的**构建产物**，不是 `src/` 源码。所以「改了源码但没重建」
@@ -91,10 +141,10 @@ fi
 # 于是任何"改源码 → 跑验收"的流程都会假绿（QA 实测踩到：把缺陷修复注释掉后矩阵仍报 529 全绿）。
 # 现在改为：BUILD_ID 缺失，**或**任一被监视的源文件比 BUILD_ID 新 → 重建。
 # （落地前的唯一可靠手工办法是 `rm -rf .next`；本条就是把它自动化。）
-BUILD_ID_FILE=".next/BUILD_ID"
+BUILD_ID_FILE="$DIST_DIR/BUILD_ID"
 build_reason=""
 if [[ ! -f "$BUILD_ID_FILE" ]]; then
-  build_reason=".next/BUILD_ID 缺失（该文件为 next start 的准入标识）"
+  build_reason="$DIST_DIR/BUILD_ID 缺失（该文件为 next start 的准入标识）"
 else
   watch_paths=()
   for p in src prisma package.json tsconfig.json next.config.ts next.config.js next.config.mjs; do
@@ -127,7 +177,7 @@ if [[ -n "$build_reason" ]]; then
     echo "❌ 构建失败："; tail -25 /tmp/acc-build.log; exit 1
   fi
 fi
-LOCAL_BUILD_ID="$(cat .next/BUILD_ID)"
+LOCAL_BUILD_ID="$(cat "$BUILD_ID_FILE")"
 echo "🔨 BUILD_ID = $LOCAL_BUILD_ID"
 
 # ---------------- 起服务（记录本次启动的 PID，供归属校验与收工回收） ----------------
@@ -148,7 +198,7 @@ cleanup() {
   fi
   sleep 1
 }
-trap cleanup EXIT
+trap 'restore_managed_files; cleanup' EXIT
 
 for pt in $PORTS; do
   nohup env NODE_OPTIONS= NODE_ENV=production DEV_MOCK_AUTH=false DATABASE_URL="$TEST_DATABASE_URL" \
@@ -160,7 +210,8 @@ done
 # ---------------- 就绪探活 + 服务器归属校验 ----------------
 # 归属校验口径（确定性方案；文件头「坑 5」）：
 #   ① 端口在启动前是空闲的（上面已强制；被占则直接退出）；
-#   ② 端口上**监听进程的 cwd 必须 == 本仓库根（物理路径）** —— 证明它服务的是本仓库的 `.next`。
+#   ② 端口上**监听进程的 cwd 必须 == 本仓库根（物理路径）** —— 证明它服务的是本仓库的构建产物
+#      （$DIST_DIR，见上方「独立构建目录」）。
 #   ①② 同时成立 ⇒ 这台服务器 = 本次构建产出的那台。
 #   为什么不直接比 BUILD_ID：`/api/health` 匿名只回 `{"status":...}`（不暴露构建标识，见
 #     src/app/api/health/route.ts）；而「端口启动前空闲 + 监听进程 cwd==本仓库」已能确定性地

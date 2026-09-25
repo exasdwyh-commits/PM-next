@@ -24,6 +24,29 @@ set -a; . ./.env; set +a
 
 bash scripts/prepare-test-database.sh
 
+# ---------- 独立构建目录 + Next 托管文件还原 ----------
+# 口径与改因完全同 acc-server.sh 的「独立构建目录」「收工还原 Next 托管的两文件」两段
+# （那里记录了 2026-09-25 打死一个跑了 12h 的 dev server 的实测事故）。此处不重复解释。
+DIST_DIR="${ACC_DIST_DIR:-.next-acc}"
+export NEXT_DIST_DIR="$DIST_DIR"
+
+MANAGED_FILES=(next-env.d.ts tsconfig.json)
+MANAGED_BACKUP="$(mktemp -d)"
+for _f in "${MANAGED_FILES[@]}"; do
+  [[ -f "$_f" ]] && cp "$_f" "$MANAGED_BACKUP/${_f//\//_}"
+done
+restore_managed_files() {
+  local f b
+  for f in "${MANAGED_FILES[@]}"; do
+    b="$MANAGED_BACKUP/${f//\//_}"
+    [[ -f "$b" && -f "$f" ]] || continue
+    cmp -s "$f" "$b" && continue
+    grep -q -- "$DIST_DIR" "$f" 2>/dev/null || continue
+    cp "$b" "$f"
+  done
+  rm -rf "$MANAGED_BACKUP"
+}
+
 ROOT="$(pwd -P)"
 PIDS=()
 cleanup() {
@@ -37,7 +60,7 @@ cleanup() {
   done
   sleep 0.5
 }
-trap cleanup EXIT
+trap 'restore_managed_files; cleanup' EXIT
 
 # 端口占用检查：不静默换端口、不杀占用者
 for pt in $API_PORT $MOCK_PORT; do
@@ -49,11 +72,11 @@ for pt in $API_PORT $MOCK_PORT; do
 done
 
 # 构建产物新鲜度（同 acc-server.sh 的防假绿口径）
-BUILD_ID_FILE=".next/BUILD_ID"
+BUILD_ID_FILE="$DIST_DIR/BUILD_ID"
 build_reason=""
 if [[ $SKIP_BUILD -ne 1 ]]; then
   if [[ ! -f "$BUILD_ID_FILE" ]]; then
-    build_reason=".next/BUILD_ID 缺失"
+    build_reason="$DIST_DIR/BUILD_ID 缺失"
   else
     newer=$(find src prisma package.json tsconfig.json next.config.ts next.config.js next.config.mjs -type f \
       \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.mjs' \
@@ -68,7 +91,7 @@ if [[ -n "$build_reason" ]]; then
     echo "❌ 构建失败："; tail -25 /tmp/llm-e2e-build.log; exit 1
   fi
 fi
-echo "🔨 BUILD_ID = $(cat .next/BUILD_ID)"
+echo "🔨 BUILD_ID = $(cat "$BUILD_ID_FILE")"
 
 # 1. mock LLM 端点
 (MOCK_LLM_PORT="$MOCK_PORT" nohup node scripts/mock-openai-server.cjs > /tmp/llm-e2e-mock.log 2>&1 &

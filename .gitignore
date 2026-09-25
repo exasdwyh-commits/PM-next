@@ -30,8 +30,9 @@ yarn-error.log*
 .DS_Store
 *.pem
 
-# 构建产物（.next-verify 为本地验收构建目录，可达 150M+，禁止入库）
+# 构建产物（.next-verify / .next-acc 为本地验收构建目录，可达 150M+，禁止入库）
 .next-verify/
+.next-acc/
 .next-kernel/
 tsconfig.tsbuildinfo
 
