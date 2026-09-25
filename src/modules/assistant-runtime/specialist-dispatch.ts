@@ -1,4 +1,9 @@
-import { AgentTaskStatus, AgentTriggerType, Prisma } from "@prisma/client";
+import {
+  AgentLifecycleStatus,
+  AgentTaskStatus,
+  AgentTriggerType,
+  Prisma,
+} from "@prisma/client";
 import prisma from "@/shared/db";
 import type { SessionContext } from "@/modules/identity/session";
 import { createAgentTask } from "@/modules/workforce/service";
@@ -46,7 +51,7 @@ export async function enqueueKernSpecialistDispatch(input: {
     where: {
       organizationId: input.session.organizationId,
       code: readiness.agentCode,
-      status: "ACTIVE",
+      status: AgentLifecycleStatus.ACTIVE,
     },
     select: { id: true, code: true },
   });
