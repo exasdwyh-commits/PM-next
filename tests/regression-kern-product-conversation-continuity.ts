@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { OrgRole } from "@prisma/client";
 import prisma from "../src/shared/db";
 import { assertTestDatabaseSafety } from "./test-safety";
-import { createConversation, sendMessage } from "../src/modules/advisor/service";
+import { createKernConversation, sendDepartmentAssistantMessage } from "../src/modules/assistant-runtime";
 
 async function main() {
   if (!process.env.TEST_DATABASE_URL) {
@@ -39,19 +39,19 @@ async function main() {
 
   try {
     console.log("▶ K1 create a new product from one Kern conversation");
-    const conversation = await createConversation(session, {
+    const conversation = await createKernConversation(session, {
       title: "AKK 新产品讨论",
       productId: null,
     });
 
-    const first = await sendMessage(
+    const first = await sendDepartmentAssistantMessage(
       session,
       conversation.id,
       "我想做一款给 25-45 岁女性的餐前轻体饮"
     );
     assert.equal(first.proposal, null, "第一句只应累积草稿，不应提前写产品");
 
-    const second = await sendMessage(
+    const second = await sendDepartmentAssistantMessage(
       session,
       conversation.id,
       [
@@ -96,7 +96,7 @@ async function main() {
     assert.ok(createdProject, "确认后应沿既有业务命令同时创建产品项目");
 
     console.log("▶ K3 the next sentence continues against the same product context");
-    const third = await sendMessage(
+    const third = await sendDepartmentAssistantMessage(
       session,
       conversation.id,
       "把目标人群改成 25-45 岁轻体女性"

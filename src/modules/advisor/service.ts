@@ -1,13 +1,9 @@
 /**
- * AI 顾问（蓝图 §5、§6、§8）
+ * Legacy Advisor capability provider.
  *
- * 本版定位（**必须如实标注，不得宣称已具备通用对话能力**）：
- * - 未配置模型端点时 runMode = TEST_STUB，回复由**确定性工具**产出，不是语言模型生成；
- * - 意图路由走受约束的白名单执行器，模型不直接写数据库；
- * - 写入链留痕：AgentRun + ToolCall 全程落库，可查回执；
- * - 费用未知即标 unknown，不编造 token 与金额。
- *
- * 接入真实模型后，只需替换 runAgent 中的 reply 生成部分，其余链路不变。
+ * Kern 的主对话生命周期已经由 assistant-runtime/conversation-engine.ts 所有。
+ * 本文件暂时保留历史领域解析与 capability 执行器，供迁移期复用。
+ * 新的对话编排、会话 CRUD、自主策略不得继续添加到这里。
  */
 
 import crypto from "crypto";
@@ -20,7 +16,6 @@ import { listProductBoard } from "../products/service";
 import {
   ADVISOR_FIELD_LABELS,
   ADVISOR_FIELD_WHITELIST,
-  applyProposal,
   createProposal,
   listProposals,
   supersedeStaleProposals,
@@ -37,7 +32,12 @@ import {
   type AdvisorLLMMessage,
 } from "./llm";
 import { buildDepartmentAssistantSystemPrompt } from "@/modules/assistant-runtime/persona";
-import { shouldAutoApplyChatProposal } from "@/modules/assistant-runtime/autonomy";
+import {
+  createKernConversation,
+  getKernConversation,
+  listKernConversations,
+} from "@/modules/assistant-runtime/conversations";
+import { applyExplicitChatProposal } from "@/modules/assistant-runtime/proposal-executor";
 import { buildKernPlannerMessages, parseKernPlannerIntent } from "@/modules/assistant-runtime/planner";
 import type { ScientificEvidenceInput } from "../research/scientific-evidence";
 import { tryResolveGatewayPolicyForAgentCode } from "@/modules/model-control/service";
@@ -55,60 +55,18 @@ import {
 import { getProductRndProgramStatus, startProductRndProgram } from "@/modules/product-rnd";
 import { labelAgentTaskStatus, labelWorkItemStatus } from "@/shared/status-labels";
 
-export async function listConversations(
-  session: SessionContext,
-  options?: { productId?: string | null }
-) {
-  const where: any = { organizationId: session.organizationId, ownerId: session.userId, archivedAt: null };
-  if (options?.productId !== undefined) {
-    where.productId = options.productId;
-  }
-  return prisma.conversation.findMany({
-    where,
-    orderBy: { updatedAt: "desc" },
-    take: 50,
-    include: {
-      messages: { orderBy: { createdAt: "desc" }, take: 1, select: { content: true, createdAt: true, role: true } },
-      _count: { select: { messages: true } },
-    },
-  });
-}
-
-export async function createConversation(
-  session: SessionContext,
-  params: { title?: string; productId?: string | null }
-) {
-  const title = params.title?.trim() || "新对话";
-  return prisma.conversation.create({
-    data: {
-      organizationId: session.organizationId,
-      ownerId: session.userId,
-      kind: params.productId ? "PRODUCT" : "ADVISOR",
-      title,
-      productId: params.productId || null,
-    },
-  });
-}
-
-export async function getConversation(session: SessionContext, conversationId: string) {
-  const convo = await prisma.conversation.findUnique({
-    where: { id: conversationId },
-    include: {
-      messages: { orderBy: { createdAt: "asc" } },
-      runs: { orderBy: { createdAt: "desc" }, take: 5, include: { toolCalls: true } },
-    },
-  });
-  if (!convo || convo.organizationId !== session.organizationId || convo.ownerId !== session.userId) {
-    throw new NotFoundError("Conversation not found");
-  }
-  return convo;
-}
+/** @deprecated Use assistant-runtime/conversations. */
+export const listConversations = listKernConversations;
+/** @deprecated Use assistant-runtime/conversations. */
+export const createConversation = createKernConversation;
+/** @deprecated Use assistant-runtime/conversations. */
+export const getConversation = getKernConversation;
 
 // ---------------------------------------------------------------------------
 // 意图路由：受约束的白名单执行器（蓝图 §8：免费模型无原生工具调用时也用同一层）
 // ---------------------------------------------------------------------------
 
-type Intent =
+export type Intent =
   | "WORKSPACE_STATUS"
   | "PENDING_DECISIONS"
   | "PRODUCT_STATUS"
@@ -318,7 +276,7 @@ function routeIntent(text: string, productBound: boolean): Intent {
   return "UNSUPPORTED";
 }
 
-interface IntentRoutingDecision {
+export interface IntentRoutingDecision {
   intent: Intent;
   source: "DETERMINISTIC" | "KERN_PLANNER" | "DETERMINISTIC_FALLBACK";
   plannerModelRunId: string | null;
@@ -333,7 +291,7 @@ interface IntentRoutingDecision {
  * - Planner 的可选 intent 集合不包含 DESKTOP_EXECUTION / PROPOSE_*；
  * - 模型未配置、失败、输出非法时回落 UNSUPPORTED，不假装已经理解。
  */
-async function resolveIntentWithKernPlanner(
+export async function resolveIntentWithKernPlanner(
   session: SessionContext,
   input: {
     conversationId: string;
@@ -425,13 +383,13 @@ async function resolveIntentWithKernPlanner(
   }
 }
 
-interface ToolContext {
+export interface ToolContext {
   conversationId: string;
   productId: string | null;
   text: string;
 }
 
-interface ToolResult {
+export interface ToolResult {
   toolKey: string;
   text: string;
   citations: { kind: string; ref: string; title: string }[];
@@ -442,64 +400,8 @@ interface ToolResult {
 }
 
 
-async function applyExplicitChatProposal(
-  session: SessionContext,
-  input: {
-    intent: Intent;
-    runId: string;
-    result: ToolResult;
-  }
-): Promise<ToolResult> {
-  const proposal = input.result.proposal;
-  if (
-    !proposal ||
-    !shouldAutoApplyChatProposal({
-      intent: input.intent,
-      actionType: proposal.actionType,
-    })
-  ) {
-    return input.result;
-  }
 
-  try {
-    const receipt = await applyProposal(session, proposal.proposalId, {
-      idempotencyKey: `kern-chat:${input.runId}:${proposal.proposalId}`,
-      reason: "用户已在 Kern 对话中明确授权该低风险内部动作",
-    });
-
-    const label =
-      proposal.actionType === "UPDATE_FIELD"
-        ? "已按你的指令更新产品方案，并保留版本与审计回执。"
-        : proposal.actionType === "CREATE_WORK_ITEM"
-          ? "已按你的指令创建内部工作项，并写入审计回执。"
-          : proposal.actionType === "CREATE_PRODUCT"
-            ? "已按你在本次对话中给出的信息创建产品、初始版本和项目，并继续绑定在这个会话里。"
-            : "已执行。";
-
-    return {
-      ...input.result,
-      text: label,
-      citations: [
-        ...input.result.citations.filter((citation) => citation.kind !== "proposal"),
-        {
-          kind: "action-receipt",
-          ref: receipt.proposalId,
-          title: `执行回执：${proposal.actionType}`,
-        },
-      ],
-      proposal: null,
-    };
-  } catch (error: unknown) {
-    const reason = error instanceof Error ? error.message : String(error);
-    return {
-      ...input.result,
-      text: `我理解你的执行指令，但这次没有完成：${reason}`,
-      proposal: null,
-    };
-  }
-}
-
-async function runTool(session: SessionContext, intent: Intent, ctx: ToolContext): Promise<ToolResult> {
+export async function runTool(session: SessionContext, intent: Intent, ctx: ToolContext): Promise<ToolResult> {
   switch (intent) {
     case "DESKTOP_EXECUTION": {
       const queued = await enqueueDesktopTask(session, {
@@ -1467,7 +1369,7 @@ async function runTool(session: SessionContext, intent: Intent, ctx: ToolContext
   }
 }
 
-function advisorModelRouteForIntent(intent: Intent): {
+export function advisorModelRouteForIntent(intent: Intent): {
   agentCode: string;
   taskClass: ModelTaskClass;
 } {

@@ -1,14 +1,14 @@
 "use client";
-/** 外壳：目标轨道、输入坞、空态。目标 = 一件你交给 Kern 去推进的事。 */
+/** Kern 对话外壳：最近会话、输入坞、空态。 */
 import { useRef } from "react";
-import type { Mission, RuntimeStatus, StudioModel } from "../types";
+import type { ConversationSummary, RuntimeStatus, StudioModel } from "../types";
 import { Btn, I } from "./kit";
 
 export function Rail({
-  user, missions, activeId, runtime, onPick, onNew, onTrust, onClose,
+  user, conversations, activeId, runtime, onPick, onNew, onTrust, onClose,
 }: {
   user: StudioModel["user"];
-  missions: Mission[];
+  conversations: ConversationSummary[];
   activeId: string | null;
   runtime: RuntimeStatus;
   onPick: (id: string | null) => void;
@@ -31,13 +31,13 @@ export function Rail({
       </button>
       <div className="m-rail-scroll">
         <p className="m-rail-label">最近对话</p>
-        {missions.map((m) => (
-          <button key={m.id} type="button" className="m-goal" aria-current={activeId === m.id ? "true" : undefined} onClick={() => onPick(m.id)}>
-            <span className="m-goal-title">{m.title}</span>
-            <span className="m-goal-sub">{m.productName || m.goal}</span>
+        {conversations.map((conversation) => (
+          <button key={conversation.id} type="button" className="m-goal" aria-current={activeId === conversation.id ? "true" : undefined} onClick={() => onPick(conversation.id)}>
+            <span className="m-goal-title">{conversation.title}</span>
+            <span className="m-goal-sub">{conversation.productName || conversation.preview}</span>
           </button>
         ))}
-        {missions.length === 0 ? (
+        {conversations.length === 0 ? (
           <p className="m-hint" style={{ margin: "4px 8px" }}>还没有对话。</p>
         ) : null}
       </div>

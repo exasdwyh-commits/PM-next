@@ -1,35 +1,145 @@
 /**
- * Kern conversation-first autonomy policy.
+ * Kern risk-based autonomy policy.
  *
- * The user should not have to approve the same low-risk instruction twice.
- * This policy only covers deterministic chat commands that already passed
- * existing authorization/version checks through ActionProposal.
- *
- * Protected business gates, destructive/external actions and ambiguous
- * operations stay outside this list and continue to require human control.
+ * Product rule: a clear user instruction is already authorization for ordinary
+ * internal work. Ask again only when the capability itself carries a protected
+ * side effect or the target is genuinely ambiguous.
  */
 
-export type KernAutoApplyProposalAction =
-  | "UPDATE_FIELD"
-  | "CREATE_WORK_ITEM"
-  | "CREATE_PRODUCT";
+export type KernAutonomyDecision = "AUTO" | "ASK" | "DENY";
+export type KernReversibility = "REVERSIBLE" | "COMPENSATABLE" | "IRREVERSIBLE";
 
-const AUTO_APPLY_BY_INTENT: Record<string, ReadonlySet<KernAutoApplyProposalAction>> = {
-  PROPOSE_FIELD_CHANGE: new Set(["UPDATE_FIELD"]),
-  PROPOSE_CREATE_WORK_ITEM: new Set(["CREATE_WORK_ITEM"]),
-  NEW_PRODUCT_INTAKE: new Set(["CREATE_PRODUCT"]),
+export interface KernCapabilityRisk {
+  capability: string;
+  explicitUserInstruction: boolean;
+  targetResolved: boolean;
+  reversibility: KernReversibility;
+  externalSideEffect: boolean;
+  financialImpact: boolean;
+  permissionSensitive: boolean;
+  productionRelease: boolean;
+  formalBusinessGate: boolean;
+  destructive: boolean;
+}
+
+export interface KernAutonomyAssessment {
+  decision: KernAutonomyDecision;
+  reasons: string[];
+}
+
+export function assessKernCapabilityRisk(
+  input: KernCapabilityRisk
+): KernAutonomyAssessment {
+  const reasons: string[] = [];
+
+  if (!input.explicitUserInstruction) {
+    return { decision: "ASK", reasons: ["EXPLICIT_INSTRUCTION_REQUIRED"] };
+  }
+  if (!input.targetResolved) {
+    return { decision: "ASK", reasons: ["AMBIGUOUS_TARGET"] };
+  }
+
+  if (input.financialImpact) reasons.push("FINANCIAL_IMPACT");
+  if (input.externalSideEffect) reasons.push("EXTERNAL_SIDE_EFFECT");
+  if (input.permissionSensitive) reasons.push("PERMISSION_SENSITIVE");
+  if (input.productionRelease) reasons.push("PRODUCTION_RELEASE");
+  if (input.formalBusinessGate) reasons.push("FORMAL_BUSINESS_GATE");
+  if (input.destructive) reasons.push("DESTRUCTIVE");
+  if (input.reversibility === "IRREVERSIBLE") reasons.push("IRREVERSIBLE");
+
+  if (reasons.length > 0) {
+    return { decision: "ASK", reasons };
+  }
+
+  return {
+    decision: "AUTO",
+    reasons: [
+      input.reversibility === "REVERSIBLE"
+        ? "INTERNAL_REVERSIBLE"
+        : "INTERNAL_COMPENSATABLE",
+    ],
+  };
+}
+
+type ProposalAutonomyProfile = {
+  intent: string;
+  actionType: string;
+  risk: Omit<KernCapabilityRisk, "capability" | "explicitUserInstruction" | "targetResolved">;
 };
 
+const PROPOSAL_AUTONOMY_PROFILES: ProposalAutonomyProfile[] = [
+  {
+    intent: "PROPOSE_FIELD_CHANGE",
+    actionType: "UPDATE_FIELD",
+    risk: {
+      reversibility: "REVERSIBLE",
+      externalSideEffect: false,
+      financialImpact: false,
+      permissionSensitive: false,
+      productionRelease: false,
+      formalBusinessGate: false,
+      destructive: false,
+    },
+  },
+  {
+    intent: "PROPOSE_CREATE_WORK_ITEM",
+    actionType: "CREATE_WORK_ITEM",
+    risk: {
+      reversibility: "REVERSIBLE",
+      externalSideEffect: false,
+      financialImpact: false,
+      permissionSensitive: false,
+      productionRelease: false,
+      formalBusinessGate: false,
+      destructive: false,
+    },
+  },
+  {
+    intent: "NEW_PRODUCT_INTAKE",
+    actionType: "CREATE_PRODUCT",
+    risk: {
+      reversibility: "COMPENSATABLE",
+      externalSideEffect: false,
+      financialImpact: false,
+      permissionSensitive: false,
+      productionRelease: false,
+      formalBusinessGate: false,
+      destructive: false,
+    },
+  },
+];
+
+export function assessChatProposalAutonomy(input: {
+  intent: string;
+  actionType: string;
+  targetResolved?: boolean;
+}): KernAutonomyAssessment {
+  const profile = PROPOSAL_AUTONOMY_PROFILES.find(
+    (candidate) =>
+      candidate.intent === input.intent &&
+      candidate.actionType === input.actionType
+  );
+
+  if (!profile) {
+    return { decision: "ASK", reasons: ["NO_AUTO_PROFILE"] };
+  }
+
+  return assessKernCapabilityRisk({
+    capability: `proposal:${input.actionType}`,
+    explicitUserInstruction: true,
+    targetResolved: input.targetResolved ?? true,
+    ...profile.risk,
+  });
+}
+
+/** Compatibility helper for the current proposal executor. */
 export function shouldAutoApplyChatProposal(input: {
   intent: string;
   actionType: string;
+  targetResolved?: boolean;
 }): boolean {
-  const allowed = AUTO_APPLY_BY_INTENT[input.intent];
-  return Boolean(
-    allowed &&
-      allowed.has(input.actionType as KernAutoApplyProposalAction)
-  );
+  return assessChatProposalAutonomy(input).decision === "AUTO";
 }
 
 export const KERN_HUMAN_GATE_PRINCIPLE =
-  "Only interrupt the user for protected, irreversible, external-commitment, payment, permission, destructive, production-release, or genuinely ambiguous actions.";
+  "Ask only for protected, irreversible, external, financial, permission-sensitive, production-release, formal-gate, destructive, or genuinely ambiguous actions.";
