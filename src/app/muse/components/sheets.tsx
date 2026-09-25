@@ -1,5 +1,5 @@
 "use client";
-/** 抽屉层：审计轨迹、来源详情、信任与权限、命令面板。Muse 的可信度来自这四块。 */
+/** 抽屉层：审计轨迹、来源详情、信任与权限、命令面板。科恩的可信度来自这四块。 */
 import { useEffect, useMemo, useState } from "react";
 import type { ActivityItem, EvidenceRef, Mission, RuntimeStatus } from "../types";
 import { Btn, CONF, I, Tag } from "./kit";
@@ -29,13 +29,13 @@ function Sheet({ title, sub, onClose, children }: { title: string; sub?: string;
   );
 }
 
-/** “Muse 做过什么、接下来打算做什么” —— 完整可读的轨迹，不是日志。 */
+/** “科恩做过什么、接下来打算做什么” —— 完整可读的轨迹，不是日志。 */
 export function TrailSheet({ activity, missions, onClose }: { activity: ActivityItem[]; missions: Mission[]; onClose: () => void }) {
   const planned = missions.flatMap((m) =>
     m.steps.filter((s) => s.state === "idle").map((s) => ({ id: `${m.id}-${s.id}`, title: s.title, mission: m.title })),
   );
   return (
-    <Sheet title="轨迹" sub="Muse 做过的每一步，以及接下来打算做的事" onClose={onClose}>
+    <Sheet title="轨迹" sub="科恩做过的每一步，以及接下来打算做的事" onClose={onClose}>
       <h3 className="m-sheet-sub">已经发生</h3>
       <ol className="m-trail">
         {activity.map((a) => (
@@ -80,22 +80,22 @@ export function SourceSheet({ ref_, onClose }: { ref_: EvidenceRef; onClose: () 
         <i>采集时间</i><span>{ref_.capturedAt}</span>
         <i>复核</i><span>{ref_.verified ? "已由独立 QA 复核" : "尚未复核"}</span>
       </div>
-      {ref_.excerpt ? <blockquote className="m-quote">{ref_.excerpt}</blockquote> : <p className="m-quiet">没有可引用的原文片段，Muse 不会替它编一段。</p>}
+      {ref_.excerpt ? <blockquote className="m-quote">{ref_.excerpt}</blockquote> : <p className="m-quiet">没有可引用的原文片段，科恩不会替它编一段。</p>}
       {ref_.confidence === "unknown" ? (
-        <p className="m-hint">这条依然是 UNKNOWN。Muse 不会把它当成结论使用，只会提示你补齐。</p>
+        <p className="m-hint">这条依然是 UNKNOWN。科恩不会把它当成结论使用，只会提示你补齐。</p>
       ) : null}
     </Sheet>
   );
 }
 
-/** 逐能力授权：Muse 能碰什么，由你一项一项决定。 */
+/** 逐能力授权：科恩能碰什么，由你一项一项决定。 */
 export function TrustSheet({ runtime, onClose }: { runtime: RuntimeStatus; onClose: () => void }) {
   const [on, setOn] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(runtime.capabilities.map((c, i) => [c, i < 4])),
   );
   return (
     <Sheet title="信任与权限" sub={`${runtime.host} · ${runtime.connected ? "已连接" : "未连接"} · 最近心跳 ${runtime.lastHeartbeat}`} onClose={onClose}>
-      <p className="m-quiet">Muse 只会用你打开的能力。关掉的项目，它会改成先问你。</p>
+      <p className="m-quiet">科恩只会用你打开的能力。关掉的项目，它会改成先问你。</p>
       <div className="m-perms">
         {runtime.capabilities.map((c) => (
           <div key={c} className="m-perm">
@@ -153,7 +153,7 @@ export function Palette({ missions, onClose, onPick }: { missions: Mission[]; on
               </button>
             </li>
           ))}
-          {hits.length === 0 ? <li><p className="m-quiet" style={{ padding: "10px 14px" }}>没有匹配的目标。直接回车让 Muse 把它当新目标。</p></li> : null}
+          {hits.length === 0 ? <li><p className="m-quiet" style={{ padding: "10px 14px" }}>没有匹配的目标。直接回车让科恩把它当新目标。</p></li> : null}
         </ul>
         <footer className="m-cmd-foot">
           <Btn size="sm" onClick={onClose}>关闭</Btn>
