@@ -65,7 +65,7 @@ export default function MuseClient({ model }: { model: StudioModel }) {
   const { brief, employees, runtime } = model;
   const [goalId, setGoalId] = useState<string | null>(model.activeMissionId);
   const [messages, setMessages] = useState<Message[]>(model.messages);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(model.initialDraft);
   const [sending, setSending] = useState(false);
   const [decisionBusy, setDecisionBusy] = useState<string | null>(null);
   const [sheet, setSheet] = useState<SheetState>(null);
@@ -158,7 +158,10 @@ export default function MuseClient({ model }: { model: StudioModel }) {
         const create = await fetch("/api/conversations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: text.slice(0, 60) || "新任务" }),
+          body: JSON.stringify({
+            title: text.slice(0, 60) || "新任务",
+            productId: model.newConversationProduct?.id ?? null,
+          }),
         });
         const created = await create.json();
         if (!create.ok) throw new Error(created.message || "创建会话失败");
