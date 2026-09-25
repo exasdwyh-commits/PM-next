@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Decision, EvidenceRef, Message, StudioModel, TodayItem } from "./types";
+import { readKernGraphCitation } from "@/modules/visual-intelligence/contracts";
 import { Btn, I, StateTag } from "./components/kit";
 import { CheckIn, Plan, Sources, Turn, Working } from "./components/turn";
 import { Palette, SourceSheet, TrailSheet, TrustSheet } from "./components/sheets";
@@ -23,27 +24,31 @@ type ApiMessage = {
 };
 
 function fromApiMessage(message: ApiMessage): Message {
-  const refs: EvidenceRef[] = Array.isArray(message.citations)
-    ? message.citations.flatMap((raw, index) => {
-        if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
-        const item = raw as Record<string, unknown>;
-        const ref = typeof item.ref === "string" ? item.ref : null;
-        const title = typeof item.title === "string" ? item.title : null;
-        if (!ref && !title) return [];
-        const kind = typeof item.kind === "string" ? item.kind : "internal";
-        return [
-          {
-            id: ref || `citation-${message.id}-${index}`,
-            title: title || ref || "未命名来源",
-            kind: kind.includes("desktop") ? ("runtime" as const) : ("internal" as const),
-            source: kind,
-            confidence: "unknown" as const,
-            verified: false,
-            capturedAt: message.createdAt,
-          },
-        ];
-      })
-    : [];
+  const citations = Array.isArray(message.citations) ? message.citations : [];
+  const graphs = citations
+    .map((raw) => readKernGraphCitation(raw))
+    .filter((graph): graph is NonNullable<typeof graph> => Boolean(graph));
+
+  const refs: EvidenceRef[] = citations.flatMap((raw, index) => {
+    if (readKernGraphCitation(raw)) return [];
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+    const item = raw as Record<string, unknown>;
+    const ref = typeof item.ref === "string" ? item.ref : null;
+    const title = typeof item.title === "string" ? item.title : null;
+    if (!ref && !title) return [];
+    const kind = typeof item.kind === "string" ? item.kind : "internal";
+    return [
+      {
+        id: ref || `citation-${message.id}-${index}`,
+        title: title || ref || "未命名来源",
+        kind: kind.includes("desktop") ? ("runtime" as const) : ("internal" as const),
+        source: kind,
+        confidence: "unknown" as const,
+        verified: false,
+        capturedAt: message.createdAt,
+      },
+    ];
+  });
 
   return {
     id: message.id,
@@ -53,6 +58,7 @@ function fromApiMessage(message: ApiMessage): Message {
     state: "success",
     blocks: [
       { kind: "text", text: message.content },
+      ...graphs.map((graph) => ({ kind: "graph" as const, graph })),
       ...(refs.length > 0
         ? ([{ kind: "evidence", title: "来源与回执", refs }] as Message["blocks"])
         : []),
