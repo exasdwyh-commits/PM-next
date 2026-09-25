@@ -373,7 +373,7 @@ export default function ProductOverviewClient({
         </summary>
         <div style={{ marginTop: 10 }}>
           {overview.recentChanges.length === 0 ? (
-            <Empty>暂无审计记录。</Empty>
+            <Empty>还没有审计记录。对产品执行受治理的修改、审批或自动化动作后，会在这里留下可追溯记录。</Empty>
           ) : (
             <>
               <CollapsibleList
@@ -663,7 +663,7 @@ export default function ProductOverviewClient({
             </p>
           </>
         ) : (
-          <Empty>还没有版本记录。</Empty>
+          <Empty>还没有版本记录。先建立并确认首个产品版本，后续修订会在这里按版本保留。</Empty>
         )}
       </section>
 
@@ -738,7 +738,7 @@ export default function ProductOverviewClient({
           <h2 className="hermes-theme-title">关联项目执行与报价进度</h2>
         </div>
         {p.projects.length === 0 ? (
-          <Empty>暂无关联开发项目。</Empty>
+          <Empty>暂无关联开发项目。可让 Kern 启动产品研发，或从项目管理创建执行项目并绑定该产品。</Empty>
         ) : (
           <div className="hermes-list">
             {p.projects.map((proj: any) => (
