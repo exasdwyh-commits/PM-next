@@ -14,7 +14,7 @@ import { fmtDateTime } from "@/shared/datetime";
 const AUDIT_PREVIEW_COUNT = 10;
 
 export default function RecentAuditList({ audits }: { audits: any[] }) {
-  if (audits.length === 0) return <Empty>暂无审计事件。</Empty>;
+  if (audits.length === 0) return <Empty>还没有审计事件。完成一次受治理的配置、审批或业务变更后，会在这里留下记录。</Empty>;
 
   return (
     <CollapsibleList
