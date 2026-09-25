@@ -19,12 +19,12 @@ export interface NavItem {
 }
 
 /** Muse 与管理后台保持清晰分层：这里只提供返回主操作入口。 */
-export const MUSE_ITEM: NavItem = {
-  key: "muse",
-  label: "返回 Muse",
+export const KERN_ITEM: NavItem = {
+  key: "kern",
+  label: "返回 Kern",
   href: "/muse",
   icon: "chat",
-  hint: "回到日常对话、委派、进度沟通与 Check-in",
+  hint: "回到 Kern 的日常对话、委派、进度沟通与 Check-in",
 };
 
 /** 专业管理入口：产品、项目、评估与组织知识。 */
@@ -68,7 +68,7 @@ export const AUXILIARY_ITEMS: NavItem[] = [
 ];
 
 export const ALL_NAV_ITEMS: NavItem[] = [
-  MUSE_ITEM,
+  KERN_ITEM,
   ...NAV_ITEMS,
   AUTOMATION_ITEM,
   SETTINGS_ITEM,
@@ -145,7 +145,7 @@ export default function AppShell({
         <nav className="hermes-nav" aria-label="专业管理后台导航">
           <div className="hermes-nav-section" aria-label="主操作">
             <span className="hermes-nav-section-label">主操作</span>
-            {renderItem(MUSE_ITEM, true)}
+            {renderItem(KERN_ITEM, true)}
           </div>
 
           <div className="hermes-nav-section" aria-label="专业管理">
