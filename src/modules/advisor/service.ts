@@ -50,7 +50,8 @@ import {
   isDesktopInstruction,
   readDesktopPresence,
 } from "@/modules/desktop-runtime";
-import { startProductRndProgram } from "@/modules/product-rnd";
+import { getProductRndProgramStatus, startProductRndProgram } from "@/modules/product-rnd";
+import { labelAgentTaskStatus, labelWorkItemStatus } from "@/shared/status-labels";
 
 export async function listConversations(
   session: SessionContext,
@@ -114,6 +115,7 @@ type Intent =
   | "PROPOSE_CREATE_WORK_ITEM"
   | "NEW_PRODUCT_INTAKE"
   | "START_PRODUCT_RND"
+  | "PRODUCT_RND_STATUS"
   | "KNOWLEDGE_SEARCH"
   | "CHALLENGE_THESIS"
   | "DESKTOP_EXECUTION"
@@ -128,6 +130,9 @@ const TASK_VERB = /(?:创建任务|建立任务|安排任务|记个待办|生成
  */
 const PRODUCT_RND_START =
   /(?:(?:开始|启动|发起|跑一轮|继续|推进).{0,10}(?:AI\s*)?(?:产品研发|研发评估)|(?:AI\s*)?(?:产品研发|研发评估).{0,10}(?:开始|启动|发起|跑一轮|继续|推进))/i;
+
+const PRODUCT_RND_STATUS =
+  /(?:(?:产品研发|AI\s*研发|研发评估).{0,12}(?:进度|状态|到哪|做到哪|怎么样|如何了|怎样了)|(?:进度|状态|到哪|做到哪|怎么样|如何了|怎样了).{0,12}(?:产品研发|AI\s*研发|研发评估))/i;
 
 function parseWorkItemTask(text: string): { title: string } | null {
   const match = TASK_VERB.exec(text);
@@ -287,6 +292,7 @@ function routeIntent(text: string, productBound: boolean): Intent {
   if (productBound && CHANGE_VERB.test(text) && matchField(text)) return "PROPOSE_FIELD_CHANGE";
   if (isDesktopInstruction(text)) return "DESKTOP_EXECUTION";
   if (PRODUCT_RND_START.test(text)) return "START_PRODUCT_RND";
+  if (PRODUCT_RND_STATUS.test(text)) return "PRODUCT_RND_STATUS";
   // 新建产品只在未绑定产品的会话里接：产品会话已经锁定在某个产品上，
   // 在那里再建一个别的产品，用户无法判断自己到底在改哪一个。
   // 补齐字段的后续消息（只有「标签：值」、没有动词）也要落到这里，否则会被
@@ -581,6 +587,184 @@ async function runTool(session: SessionContext, intent: Intent, ctx: ToolContext
             ref: started.parentRun.id,
             title: "Product R&D parent run",
           },
+        ],
+      };
+    }
+    case "PRODUCT_RND_STATUS": {
+      if (!ctx.productId) {
+        return {
+          toolKey: "product-rnd.status",
+          text:
+            "当前 Kern 会话没有绑定产品，因此无法判断某个产品的研发进度。请先进入具体产品会话，或在这个会话里建立并确认产品。",
+          citations: [],
+        };
+      }
+
+      const product = await prisma.product.findFirst({
+        where: {
+          id: ctx.productId,
+          organizationId: session.organizationId,
+        },
+        select: {
+          id: true,
+          name: true,
+          projects: {
+            orderBy: { updatedAt: "desc" },
+            select: {
+              id: true,
+              title: true,
+              stage: true,
+              workItems: {
+                where: {
+                  title: "产品研发综合评估",
+                  executorType: "DIGITAL_WORKER",
+                },
+                orderBy: { createdAt: "desc" },
+                take: 1,
+                select: {
+                  id: true,
+                  status: true,
+                  createdAt: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!product) {
+        return {
+          toolKey: "product-rnd.status",
+          text: "当前会话绑定的产品已不存在，无法读取研发进度。",
+          citations: [],
+        };
+      }
+
+      if (product.projects.length === 0) {
+        return {
+          toolKey: "product-rnd.status",
+          text: `产品「${product.name}」还没有关联项目，因此也没有 Product R&D 进度。`,
+          citations: [{ kind: "product", ref: product.id, title: product.name }],
+        };
+      }
+
+      const mentioned = product.projects.filter((item) => ctx.text.includes(item.title));
+      const withRnd = product.projects.filter((item) => item.workItems.length > 0);
+
+      let project:
+        | (typeof product.projects)[number]
+        | null = null;
+
+      if (mentioned.length === 1) {
+        project = mentioned[0];
+      } else if (mentioned.length > 1) {
+        project = null;
+      } else if (product.projects.length === 1) {
+        project = product.projects[0];
+      } else if (withRnd.length === 1) {
+        project = withRnd[0];
+      }
+
+      if (!project) {
+        return {
+          toolKey: "product-rnd.status",
+          text: [
+            withRnd.length > 1
+              ? `产品「${product.name}」有多个项目存在 Product R&D 记录，我没有猜要看哪一个。`
+              : `产品「${product.name}」关联了多个项目，我无法唯一确定要看哪一个研发进度。`,
+            "请直接说项目名称，例如“「项目名称」的产品研发进度怎么样”。",
+            "",
+            ...product.projects.map((item, index) => {
+              const latest = item.workItems[0];
+              return latest
+                ? `${index + 1}. ${item.title}：${labelWorkItemStatus(latest.status)}`
+                : `${index + 1}. ${item.title}：尚未启动 Product R&D`;
+            }),
+          ].join("\n"),
+          citations: product.projects.map((item) => ({
+            kind: "project",
+            ref: item.id,
+            title: item.title,
+          })),
+        };
+      }
+
+      const workItem = project.workItems[0] ?? null;
+      if (!workItem) {
+        return {
+          toolKey: "product-rnd.status",
+          text: [
+            `项目「${project.title}」尚未启动 Product R&D。`,
+            "如果要现在开始，请明确说“启动产品研发”。",
+          ].join("\n"),
+          citations: [
+            { kind: "product", ref: product.id, title: product.name },
+            { kind: "project", ref: project.id, title: project.title },
+          ],
+        };
+      }
+
+      const status = await getProductRndProgramStatus(session, {
+        projectId: project.id,
+        workItemId: workItem.id,
+      });
+
+      const taskLines = status.tasks.length
+        ? status.tasks.map(
+            (task) =>
+              `- ${task.agentName}：${labelAgentTaskStatus(task.status)}` +
+              (task.latestRun?.errorReason
+                ? `（失败原因：${task.latestRun.errorReason}）`
+                : "")
+          )
+        : ["- 还没有专业数字员工任务记录"];
+
+      const taskCounts = new Map<string, number>();
+      for (const task of status.tasks) {
+        taskCounts.set(task.status, (taskCounts.get(task.status) ?? 0) + 1);
+      }
+      const countSummary = [...taskCounts.entries()]
+        .map(([key, value]) => `${labelAgentTaskStatus(key)} ${value}`)
+        .join("、");
+
+      const report = status.latestReport;
+      const preview = report?.preview ?? null;
+      const reportLine = report
+        ? `Executive Report：已生成 v${report.contentVersion}（${report.reviewStatus}）`
+        : "Executive Report：尚未生成";
+
+      return {
+        toolKey: "product-rnd.status",
+        text: [
+          `产品：${product.name}`,
+          `项目：${project.title}`,
+          `研发工作项：${labelWorkItemStatus(status.workItem.status)}`,
+          `专业任务：${status.tasks.length} 项${countSummary ? `（${countSummary}）` : ""}`,
+          reportLine,
+          preview
+            ? `报告当前 UNKNOWN：${preview.unknowns.length} 项；需要负责人决定：${preview.decisionsRequired.length} 项。`
+            : "当前还不能把“已启动/正在运行”说成“研发已完成”。",
+          "",
+          "专业任务状态：",
+          ...taskLines,
+        ].join("\n"),
+        citations: [
+          { kind: "product", ref: product.id, title: product.name },
+          { kind: "project", ref: project.id, title: project.title },
+          {
+            kind: "work-item",
+            ref: status.workItem.id,
+            title: "产品研发综合评估",
+          },
+          ...(report
+            ? [
+                {
+                  kind: "artifact",
+                  ref: report.id,
+                  title: report.title,
+                },
+              ]
+            : []),
         ],
       };
     }
@@ -1094,6 +1278,7 @@ export async function sendMessage(
     "knowledge.search",
     "desktop.runtime",
     "product-rnd.start",
+    "product-rnd.status",
   ];
 
   let run;
