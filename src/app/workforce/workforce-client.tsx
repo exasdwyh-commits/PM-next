@@ -122,6 +122,17 @@ export default function WorkforceClient({
   const { overview: desktopOverview, loaded: desktopLoaded } = useDesktopOverview({
     intervalMs: 6000,
   });
+  // 页头这句话是现在进行时，必须跟真实计数一致：没有任何在跑或待办时，
+  // 不能一直宣称「Hermes 正在替你推进工作」。
+  const runningNow = overview.agents.reduce((sum, a) => sum + a.presence.running, 0);
+  const attentionNow = overview.waitingTasks.length + overview.returnReviews.length;
+  const heroTagline =
+    runningNow > 0
+      ? `Hermes 正在执行 ${runningNow} 项工作。`
+      : attentionNow > 0
+        ? `有 ${attentionNow} 项需要你处理。`
+        : "当前没有正在执行的自动化工作。";
+
   const [bootstrapping, setBootstrapping] = React.useState(false);
   const [bootstrapError, setBootstrapError] = React.useState<string | null>(null);
   const [reviewBusyId, setReviewBusyId] = React.useState<string | null>(null);
@@ -240,7 +251,7 @@ export default function WorkforceClient({
       <HeroBand
         eyebrow="等待你处理 · 正在执行 · 最近完成"
         mark="自动化中心"
-        tagline="Hermes 正在替你推进的工作都在这里。"
+        tagline={heroTagline}
         intro="先看需要你拍板的事，再看正在跑的任务。改变业务事实要经过治理链，需要你判断时会明确停下来等你，不会自己替你决定。"
         quote={
           <>

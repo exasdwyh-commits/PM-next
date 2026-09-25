@@ -143,6 +143,13 @@ export default function WorkbenchClient({
   const signalItems = overview.opportunities.items.slice(0, 5);
   const completedItems = overview.recentlyCompleted.items.slice(0, 4);
 
+  // 「正在工作」是现在进行时，只有窗口内真的有自动化活动才能这么说；
+  // 全零时这块是历史统计，标题就按统计说，不要让空面板宣告 Hermes 在干活。
+  const hasAutomationActivity =
+    workforceActivity.eventCount > 0 ||
+    workforceActivity.attentionCount > 0 ||
+    workforceActivity.recentTraces.length > 0;
+
   const submitCommand = (e: React.FormEvent) => {
     e.preventDefault();
     const q = command.trim();
@@ -406,8 +413,12 @@ export default function WorkbenchClient({
         <aside className="hermes-today-side">
           <Panel
             icon="nodes"
-            title="Hermes 正在工作"
-            sub={`最近 ${workforceActivity.windowHours} 小时的真实自动化活动`}
+            title={hasAutomationActivity ? "Hermes 正在工作" : "自动化活动"}
+            sub={
+              hasAutomationActivity
+                ? `最近 ${workforceActivity.windowHours} 小时的真实自动化活动`
+                : `最近 ${workforceActivity.windowHours} 小时没有自动化活动`
+            }
             actions={
               <Link href="/workforce" className="hermes-link">
                 查看自动化中心 <Icon name="arrow" size={13} />
@@ -474,7 +485,9 @@ export default function WorkbenchClient({
                     <Icon name="check" size={14} />
                     <span>
                       <strong>{item.title}</strong>
-                      <small>{item.meta || "已完成"}</small>
+                      {/* 这个列表只收 ACCEPTED 工作项，所以缺 meta 时按真实状态说「已验收」，
+                          不要用一句泛泛的「已完成」替代缺失信息。 */}
+                      <small>{item.meta || "已验收"}</small>
                     </span>
                   </Link>
                 ))}

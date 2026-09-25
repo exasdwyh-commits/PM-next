@@ -300,7 +300,10 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
           ? "正式 G3 已批准，等待真实渠道/供货动作后确认实际上市。"
           : g3InReview
             ? "正式 G3 已提交，等待指定决策人审批。"
-            : "里程碑已全部完成，可提交正式 G3 上市授权审批。";
+            // 没有里程碑 ≠ 里程碑都做完了。空计划说成「已全部完成」是凭空的完成断言。
+            : milestones.length === 0
+              ? "还没有上市里程碑，先排出里程碑再谈提交正式 G3。"
+              : "里程碑已全部完成，可提交正式 G3 上市授权审批。";
 
   const g3State: GateNode["state"] = hasFormalG3 || isLaunched
     ? "passed"
@@ -315,7 +318,10 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
         ? "正式 G3 待审批"
         : gate?.ready
           ? "可提交正式 G3"
-          : `门禁未满足：${gate?.blockers?.length ?? 0} 项`;
+          // 没有门禁评估时，不能把「不知道差几项」印成「差 0 项」。
+          : gate?.blockers
+            ? `门禁未满足：${gate.blockers.length} 项`
+            : "门禁状态未评估";
   const gateNodes: GateNode[] = [
     { key: "G3", label: "上市授权", state: g3State, source: "decision-packet", detail: g3Detail, refId: g3Packet?.id ?? plan.id },
   ];

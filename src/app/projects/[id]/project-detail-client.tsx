@@ -547,17 +547,27 @@ export default function ProjectDetailClient({
     );
     if (!reason) return;
     try {
-      await apiCall(`/api/decision-packets/${packetId}/decide`, "POST", {
+      const res = await apiCall(`/api/decision-packets/${packetId}/decide`, "POST", {
         decision,
         reason,
         idempotencyKey: `idemp-${Date.now()}`,
       });
       const decidedPacket = (project.decisionPackets ?? []).find((p: any) => p.id === packetId);
+      // 推进结果只认服务端返回：阶段和后续任务都可能因门禁/模式约束没有发生，
+      // 客户端照剧本宣布「已推进至 SAMPLING 并生成任务」就是在替后端编结果。
+      const newStage: string | null = res?.project?.stage ?? null;
+      const nextWorkItemTitle: string | null = res?.nextWorkItem?.title ?? null;
       showMsg(
         decision === "APPROVE"
           ? decidedPacket?.gate === "PRODUCTION_GATE"
             ? "正式 G2 已批准；项目仍停在生产准备，真实开工需另行确认"
-            : "研发打样门已批准！项目已推进至 SAMPLING 并生成打样准备任务"
+            : [
+                "研发打样门已批准。",
+                newStage ? `项目当前阶段：${labelProjectStage(newStage)}。` : "",
+                nextWorkItemTitle ? `已生成后续任务「${nextWorkItemTitle}」。` : "",
+              ]
+                .filter(Boolean)
+                .join("")
           : "已做出决策"
       );
       await reloadProject();
@@ -575,7 +585,16 @@ export default function ProjectDetailClient({
       key: st,
       label: labelProjectStage(st),
       state,
-      note: project.stage === st ? "当前进行中" : state === "done" ? "已完成" : "未开始",
+      // 只有当前阶段是实测事实。更早的阶段只能说「已走过」——
+      // 这里没有逐阶段的完成记录，说「已完成」是从数组下标推出来的断言。
+      note:
+        project.stage === st
+          ? "当前进行中"
+          : state === "done"
+            ? "已走过"
+            : state === "unknown"
+              ? "阶段未知"
+              : "未开始",
     };
   });
 

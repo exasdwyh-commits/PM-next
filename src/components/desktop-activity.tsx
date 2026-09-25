@@ -234,13 +234,25 @@ export function DesktopConversationStrip({
     (t) => t.phase === "WAITING_RUNTIME" || t.phase === "RUNNING" || t.phase === "NEEDS_YOU"
   );
   const stuck = overview.waitingRuntimeCount > 0 && overview.presence.status !== "ONLINE";
+  // 标题必须跟真实相位一致：只有确实有任务在执行时才能说「正在用你的电脑」。
+  // 全部结束、或排队但 Mac 没连上时说成现在进行时，就是这个组件自己要防的误读。
+  const title =
+    overview.runningCount > 0
+      ? "Hermes 正在用你的电脑"
+      : overview.waitingRuntimeCount > 0
+        ? stuck
+          ? "本机任务在排队，尚未开始"
+          : "本机任务在排队，等待领取"
+        : overview.needsYouCount > 0
+          ? "本机任务需要你处理"
+          : "本机执行记录";
 
   return (
     <section className="hermes-desktop-strip" aria-label="本机执行">
       <div className="hermes-desktop-strip-head">
         <div className="hermes-desktop-strip-title">
           <Icon name="nodes" size={15} />
-          <strong>Hermes 正在用你的电脑</strong>
+          <strong>{title}</strong>
         </div>
         <DesktopPresenceChip presence={overview.presence} />
       </div>

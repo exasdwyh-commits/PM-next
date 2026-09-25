@@ -96,7 +96,12 @@ function outcomeLabel(trace: AutomationTraceView) {
   if (trace.receipt?.status === "WAITING_HUMAN") return "等待人工判断";
   if (trace.receipt?.status === "FAILED" || trace.eventStatus === "FAILED") return "自动化失败";
   if (!trace.receipt) return "等待派发";
-  return "判断处理中";
+  // 剩下的只有 PENDING / PROCESSING / 已触发但没落 AgentTask 三种。
+  // 一律说「判断处理中」会把排队和触发后没落任务的异常都描述成正在判断。
+  if (trace.receipt.status === "PROCESSING") return "判断处理中";
+  if (trace.receipt.status === "PENDING") return "等待判断";
+  if (trace.receipt.status === "TRIGGERED") return "已触发，未记录到 Agent 任务";
+  return "状态未知";
 }
 
 export function AutomationTraceInline({

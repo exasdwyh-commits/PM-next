@@ -82,6 +82,8 @@ interface SavedScenario {
   unit: string;
   currency: string;
   expenseBase: string;
+  /** 保存时的原始输入。早期保存的情景可能没有，此时不能假装能载入。 */
+  costInput?: Partial<CostInput> | null;
   result: number;
   netProfit: number;
   contentVersion: number;
@@ -127,7 +129,8 @@ export default function CostCalculator({
     packagingCost: "",
     manufacturingCost: "",
     certificationCost: "",
-    monthlyFixed: "5000",
+    // 不预填月固定成本：它直接决定盈亏平衡量，凭空给一个数会被当成用户自己填的。
+    monthlyFixed: "",
     retailPrice: "",
     channel: "XINXUAN",
     invoiceType: "达人开票",
@@ -212,10 +215,60 @@ export default function CostCalculator({
   };
 
   // ── TASK-012: 从已保存情景恢复表单 ──
+  // 真回填：把保存时的 costInput 写回表单并当场复算。
+  // 拿不到 costInput 时必须说清楚没载入 —— 只弹一句「已加载」而表单还是上一次的输入，
+  // 会让接下来算出的每个数字都被归到错的情景名下。
   const loadScenario = (scenario: SavedScenario) => {
-    // 根据 scenarioName 匹配还原（简化版：恢复到计算状态即可）
-    // 完整版需从 Artifact 读取 costInput 并回填表单，此处仅触发重新计算
-    setSaveMsg(`已加载「${scenario.scenarioName}」`);
+    const input = scenario.costInput;
+    if (!input) {
+      setError(null);
+      setSaveMsg(
+        `「${scenario.scenarioName}」没有保存输入明细，无法回填表单。可按当前输入重新计算并另存一版。`
+      );
+      return;
+    }
+    const str = (v: number | undefined | null): string =>
+      v === undefined || v === null || Number.isNaN(v) ? "" : String(v);
+    const channel = (input.channel ?? form.channel) as Channel;
+    const preset = CHANNEL_PRESETS[channel] ?? CHANNEL_PRESETS.XINXUAN;
+    setForm({
+      materialCost: str(input.materialCost),
+      packagingCost: str(input.packagingCost),
+      manufacturingCost: str(input.manufacturingCost),
+      certificationCost: str(input.certificationCost),
+      monthlyFixed: str(input.monthlyFixed),
+      retailPrice: str(input.retailPrice),
+      channel,
+      invoiceType: (input.invoiceType ?? form.invoiceType) as string,
+      expressType: (input.expressType ?? form.expressType) as string,
+      commissionRate: str(input.commissionRate ?? preset.commissionRate),
+      platformFeeRate: str(input.platformFeeRate ?? preset.platformFeeRate),
+      marketingRate: str(input.marketingRate ?? preset.marketingRate),
+      marketReferencePrice: str(input.marketReferencePrice),
+      targetMarginRate: str(input.targetMarginRate),
+    });
+    setError(null);
+    // 复算用回填后的输入，不用 state（setForm 这一轮还没生效）。
+    const required: Array<keyof CostInput> = [
+      "materialCost",
+      "packagingCost",
+      "manufacturingCost",
+      "certificationCost",
+      "monthlyFixed",
+      "retailPrice",
+    ];
+    const complete = required.every(
+      (k) => typeof input[k] === "number" && Number.isFinite(input[k] as number)
+    );
+    if (!complete) {
+      setResult(null);
+      setSaveMsg(
+        `已回填「${scenario.scenarioName}」的输入，但其中有缺项，补齐后再点「计算」。`
+      );
+      return;
+    }
+    setResult(calcCost(applyDefaults({ ...(input as CostInput), channel })));
+    setSaveMsg(`已载入「${scenario.scenarioName}」的输入并复算。`);
   };
 
   // ── TASK-012: 对比模式切换 ──

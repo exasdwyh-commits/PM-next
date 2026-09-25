@@ -996,12 +996,18 @@ export default function ChannelRoutesPanel({ productId }: { productId: string })
                         ? "未知"
                         : Number(assessment.diagnosticIndex).toFixed(1)}
                     </span>
+                    {/* 缺值走 num() 判空：直接 Number()*100 会把「没有覆盖率」印成确定的 0%。 */}
                     <span>
-                      覆盖率 {(Number(assessment.coverageRatio) * 100).toFixed(0)}%
+                      覆盖率{" "}
+                      {num(assessment.coverageRatio) === null
+                        ? "未知"
+                        : `${(num(assessment.coverageRatio)! * 100).toFixed(0)}%`}
                     </span>
                     <span>
                       已验证覆盖{" "}
-                      {(Number(assessment.verifiedCoverageRatio) * 100).toFixed(0)}%
+                      {num(assessment.verifiedCoverageRatio) === null
+                        ? "未知"
+                        : `${(num(assessment.verifiedCoverageRatio)! * 100).toFixed(0)}%`}
                     </span>
                   </div>
                   {list(assessment.reasons).length > 0 ? (

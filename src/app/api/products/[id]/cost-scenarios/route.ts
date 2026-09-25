@@ -70,6 +70,9 @@ export async function GET(
           unit: parsed.unit,
           currency: parsed.currency,
           expenseBase: parsed.expenseBase,
+          // costInput 必须回传：没有它，前端的「载入情景」只能假装载入 ——
+          // 情景列表里的数字属于旧情景，表单里的输入还是上一次的，用户会把两者当成一套。
+          costInput: parsed.costInput ?? null,
           result: parsed.result,
           netProfit: parsed.netProfit,
           contentVersion: artifact.contentVersion,

@@ -105,7 +105,9 @@ export default function WarRoomClient({ initialProjects, allUsers, currentSessio
     // 取消 / Esc / 点遮罩 → null：不触发任何写操作
     if (!reason) return;
     return act(() => apiCall(`/api/decision-packets/${packetId}/decide`, "POST", { decision, reason, idempotencyKey: `warroom-${Date.now()}` }),
-      decision === "APPROVE" ? "打样门已批准，项目推进至 SAMPLING" : "已退回修改");
+      // 阶段是否推进由服务端门禁决定（FIXED_PRODUCT 等模式就不会推进），
+      // 这里不替它宣布结果；实际阶段以刷新后的项目数据为准。
+      decision === "APPROVE" ? "打样门已批准" : "已退回修改");
   };
 
   const reviewWork = async (workItemId: string, accepted: boolean) => {

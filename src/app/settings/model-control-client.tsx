@@ -355,7 +355,8 @@ export default function ModelControlClient({
                     action: "SAVE_PROFILE",
                     ...profileForm,
                     capabilities: profileForm.capabilities.split(",").map((item) => item.trim()).filter(Boolean),
-                    health: "HEALTHY",
+                    // 不从客户端断言 health：这个模型还没被探测过，
+                    // 由服务端按 schema 默认值落库，健康度只在真实探测后才有意义。
                     enabled: false,
                     contextWindow: null,
                     dataPolicyNote: null,
