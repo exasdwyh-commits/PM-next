@@ -216,6 +216,49 @@ export default function WorkbenchClient({
         </div>
       </section>
 
+      {overview.portfolio.productCount === 0 ? (
+        <section className="hermes-onboarding" aria-labelledby="hermes-onboarding-title">
+          <div className="hermes-onboarding-head">
+            <div>
+              <span className="eyebrow">GET STARTED</span>
+              <h2 id="hermes-onboarding-title">第一次使用，三步就够了</h2>
+              <p>不用先研究 Agent、项目或治理对象。把基础环境准备好，然后直接告诉 Hermes 你想做什么。</p>
+            </div>
+            <Badge tone="info">尚未创建产品</Badge>
+          </div>
+
+          <div className="hermes-onboarding-steps">
+            <Link href="/settings" className="hermes-onboarding-step">
+              <span>1</span>
+              <div>
+                <strong>确认 AI 与模型</strong>
+                <small>配置可用模型；未配置时结构化治理能力仍可运行。</small>
+              </div>
+              <Icon name="arrow" size={14} />
+            </Link>
+            <Link href="/knowledge" className="hermes-onboarding-step">
+              <span>2</span>
+              <div>
+                <strong>补充公司知识</strong>
+                <small>导入产品、渠道、规范与历史资料，让建议带上公司上下文。</small>
+              </div>
+              <Icon name="arrow" size={14} />
+            </Link>
+            <Link
+              href={`/advisor?query=${encodeURIComponent("我想创建第一个产品。请先问我最少必要信息，再帮我整理产品 Brief、关键假设和第一轮验证计划。")}`}
+              className="hermes-onboarding-step is-primary"
+            >
+              <span>3</span>
+              <div>
+                <strong>告诉 Hermes 你的产品想法</strong>
+                <small>从对话开始，不需要先手工建立复杂项目结构。</small>
+              </div>
+              <Icon name="arrow" size={14} />
+            </Link>
+          </div>
+        </section>
+      ) : null}
+
       {overview.degraded ? (
         <div className="hermes-home-alert" role="status">
           <strong>部分信息暂未更新。</strong>
