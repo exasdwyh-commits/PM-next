@@ -3,6 +3,7 @@ import type { SessionContext } from "@/modules/identity/session";
 import { getConversation, listConversations } from "@/modules/advisor/service";
 import { listProposals } from "@/modules/advisor/proposals";
 import { getDesktopOverview } from "@/modules/desktop-runtime";
+import { getWorkspaceOverview } from "@/modules/workspace/overview";
 import prisma from "@/shared/db";
 import type {
   ActivityItem,
@@ -13,6 +14,7 @@ import type {
   Message,
   Mission,
   StudioModel,
+  TodayItem,
 } from "@/app/muse/types";
 
 const ACTIVE_TASK_STATUSES: AgentTaskStatus[] = [
@@ -34,7 +36,21 @@ function taskState(status: AgentTaskStatus): AiState {
   ) {
     return "needs-review";
   }
-  return "working";
+  if (status === AgentTaskStatus.RUNNING) return "working";
+  return "idle";
+}
+
+function uniqueToday(items: TodayItem[], limit: number): TodayItem[] {
+  const seen = new Set<string>();
+  const result: TodayItem[] = [];
+  for (const item of items) {
+    const key = `${item.source}:${item.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(item);
+    if (result.length >= limit) break;
+  }
+  return result;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -130,8 +146,15 @@ export async function buildKernViewModel(
   const activeConversationId =
     requested && conversations.some((c) => c.id === requested) ? requested : null;
 
-  const [activeConversation, proposals, desktop, agentRows, activeTasks, conversationRuns] =
-    await Promise.all([
+  const [
+    activeConversation,
+    proposals,
+    desktop,
+    workspace,
+    agentRows,
+    activeTasks,
+    conversationRuns,
+  ] = await Promise.all([
       activeConversationId
         ? getConversation(session, activeConversationId).catch(() => null)
         : Promise.resolve(null),
@@ -140,6 +163,7 @@ export async function buildKernViewModel(
         conversationId: activeConversationId,
         limit: 12,
       }),
+      getWorkspaceOverview(session),
       prisma.agent.findMany({
         where: {
           organizationId: session.organizationId,
@@ -224,7 +248,7 @@ export async function buildKernViewModel(
     const current = reviewTask ?? tasks[0] ?? null;
     const state: AiState = reviewTask
       ? "needs-review"
-      : current
+      : current?.status === AgentTaskStatus.RUNNING
         ? "working"
         : "idle";
     return {
@@ -233,7 +257,7 @@ export async function buildKernViewModel(
       role: agent.roleKey,
       mark: agent.name.trim().slice(0, 1).toUpperCase() || "A",
       state,
-      currentFocus: current?.goal ?? null,
+      currentFocus: state === "idle" ? null : current?.goal ?? null,
       load: Math.min(100, tasks.length * 25),
       skills: agent.skillBindings.map((binding) => binding.skill.name),
     };
@@ -264,7 +288,7 @@ export async function buildKernViewModel(
     const latestRun = latestRunByConversation.get(conversation.id);
     const state: AiState = pendingByConversation.has(conversation.id)
       ? "needs-review"
-      : latestRun === AgentRunStatus.QUEUED || latestRun === AgentRunStatus.RUNNING
+      : latestRun === AgentRunStatus.RUNNING
         ? "working"
         : latestRun === AgentRunStatus.WAITING_CONFIRMATION
           ? "needs-review"
@@ -313,6 +337,129 @@ export async function buildKernViewModel(
       )
     : [];
 
+  const agentName = new Map(agentRows.map((agent) => [agent.id, agent.name]));
+  const desktopTaskIds = new Set(desktop.tasks.map((task) => task.taskId));
+
+  const proposalItems: TodayItem[] = proposals.map((proposal) => ({
+    id: proposal.id,
+    title: proposal.actionLabel,
+    meta: proposal.product?.name || proposal.project?.title || "待确认业务变更",
+    href: proposal.conversationId ? `/muse?c=${proposal.conversationId}` : "/manage",
+    state: "needs-review",
+    source: "proposal",
+  }));
+
+  const workspaceDecisionItems: TodayItem[] = workspace.pendingDecisions.items.map((item) => ({
+    id: item.id,
+    title: item.title,
+    meta: item.meta ?? "等待负责人决策",
+    href: item.href ?? "/manage",
+    state: "needs-review",
+    source: "decision",
+  }));
+
+  const blockerItems: TodayItem[] = workspace.blockers.items.map((item) => ({
+    id: item.id,
+    title: item.title,
+    meta: item.meta ?? "真实阻塞项",
+    href: item.href ?? "/manage",
+    state: "error",
+    source: "blocker",
+  }));
+
+  const todoItems: TodayItem[] = workspace.todos.items.map((item) => ({
+    id: item.id,
+    title: item.title,
+    meta: item.meta ?? "待处理工作项",
+    href: item.href ?? "/manage",
+    state: "idle",
+    source: "todo",
+  }));
+
+  const activeAgentItems: TodayItem[] = activeTasks
+    .filter(
+      (task) =>
+        task.status === AgentTaskStatus.RUNNING && !desktopTaskIds.has(task.id)
+    )
+    .map((task) => ({
+      id: task.id,
+      title: task.goal,
+      meta: agentName.get(task.agentId) ?? "数字员工",
+      href: "/workforce",
+      state: "working" as const,
+      source: "agent-task" as const,
+    }));
+
+  const desktopWorkingItems: TodayItem[] = desktop.tasks
+    .filter((task) => task.phase === "RUNNING")
+    .map((task) => ({
+      id: task.taskId,
+      title: task.goal,
+      meta: task.claim?.deviceId
+        ? `本机执行 · ${task.claim.deviceId}`
+        : "本机执行",
+      href: task.conversationId ? `/muse?c=${task.conversationId}` : "/workforce",
+      state: "working" as const,
+      source: "desktop-task" as const,
+    }));
+
+  const taskNeedsYouItems: TodayItem[] = activeTasks
+    .filter(
+      (task) =>
+        (task.status === AgentTaskStatus.BLOCKED ||
+          task.status === AgentTaskStatus.WAITING_HUMAN ||
+          task.status === AgentTaskStatus.SUBMITTED) &&
+        !desktopTaskIds.has(task.id)
+    )
+    .map((task) => ({
+      id: task.id,
+      title: task.goal,
+      meta:
+        task.status === AgentTaskStatus.SUBMITTED
+          ? "等待验收"
+          : task.status === AgentTaskStatus.WAITING_HUMAN
+            ? "等待人工输入"
+            : "已阻塞",
+      href: "/workforce",
+      state: "needs-review" as const,
+      source: "agent-task" as const,
+    }));
+
+  const desktopNeedsYouItems: TodayItem[] = desktop.tasks
+    .filter((task) => task.phase === "NEEDS_YOU")
+    .map((task) => ({
+      id: task.taskId,
+      title: task.goal,
+      meta: "本机任务需要人工处理",
+      href: task.conversationId ? `/muse?c=${task.conversationId}` : "/workforce",
+      state: "needs-review" as const,
+      source: "desktop-task" as const,
+    }));
+
+  const todayNeedsYou = uniqueToday(
+    [
+      ...proposalItems,
+      ...workspaceDecisionItems,
+      ...taskNeedsYouItems,
+      ...desktopNeedsYouItems,
+      ...blockerItems,
+    ],
+    10
+  );
+  const todayImportant = uniqueToday(
+    [
+      ...proposalItems,
+      ...blockerItems,
+      ...workspaceDecisionItems,
+      ...todoItems,
+    ],
+    8
+  );
+  const todayWorking = uniqueToday(
+    [...activeAgentItems, ...desktopWorkingItems],
+    8
+  );
+
   const requestedProductId = input.productId?.trim() || null;
   const requestedProductName = requestedProductId
     ? productName.get(requestedProductId) ?? null
@@ -333,6 +480,15 @@ export async function buildKernViewModel(
     },
     brief: {
       greeting: "欢迎回来",
+      today: {
+        generatedAt: workspace.meta.generatedAt,
+        scopeLabel: workspace.meta.scopeLabel,
+        degraded: workspace.degraded,
+        degradedNote: workspace.degradedNote,
+        important: todayImportant,
+        working: todayWorking,
+        needsYou: todayNeedsYou,
+      },
       decisions: proposals.map(proposalDecision),
       missions,
       suggestions: [
