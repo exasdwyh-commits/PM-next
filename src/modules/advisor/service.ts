@@ -20,7 +20,6 @@ import { listProductBoard } from "../products/service";
 import {
   ADVISOR_FIELD_LABELS,
   ADVISOR_FIELD_WHITELIST,
-  applyProposal,
   createProposal,
   listProposals,
   supersedeStaleProposals,
@@ -37,7 +36,7 @@ import {
   type AdvisorLLMMessage,
 } from "./llm";
 import { buildDepartmentAssistantSystemPrompt } from "@/modules/assistant-runtime/persona";
-import { shouldAutoApplyChatProposal } from "@/modules/assistant-runtime/autonomy";
+import { applyExplicitChatProposal } from "@/modules/assistant-runtime/proposal-executor";
 import { buildKernPlannerMessages, parseKernPlannerIntent } from "@/modules/assistant-runtime/planner";
 import type { ScientificEvidenceInput } from "../research/scientific-evidence";
 import { tryResolveGatewayPolicyForAgentCode } from "@/modules/model-control/service";
@@ -442,62 +441,6 @@ interface ToolResult {
 }
 
 
-async function applyExplicitChatProposal(
-  session: SessionContext,
-  input: {
-    intent: Intent;
-    runId: string;
-    result: ToolResult;
-  }
-): Promise<ToolResult> {
-  const proposal = input.result.proposal;
-  if (
-    !proposal ||
-    !shouldAutoApplyChatProposal({
-      intent: input.intent,
-      actionType: proposal.actionType,
-    })
-  ) {
-    return input.result;
-  }
-
-  try {
-    const receipt = await applyProposal(session, proposal.proposalId, {
-      idempotencyKey: `kern-chat:${input.runId}:${proposal.proposalId}`,
-      reason: "用户已在 Kern 对话中明确授权该低风险内部动作",
-    });
-
-    const label =
-      proposal.actionType === "UPDATE_FIELD"
-        ? "已按你的指令更新产品方案，并保留版本与审计回执。"
-        : proposal.actionType === "CREATE_WORK_ITEM"
-          ? "已按你的指令创建内部工作项，并写入审计回执。"
-          : proposal.actionType === "CREATE_PRODUCT"
-            ? "已按你在本次对话中给出的信息创建产品、初始版本和项目，并继续绑定在这个会话里。"
-            : "已执行。";
-
-    return {
-      ...input.result,
-      text: label,
-      citations: [
-        ...input.result.citations.filter((citation) => citation.kind !== "proposal"),
-        {
-          kind: "action-receipt",
-          ref: receipt.proposalId,
-          title: `执行回执：${proposal.actionType}`,
-        },
-      ],
-      proposal: null,
-    };
-  } catch (error: unknown) {
-    const reason = error instanceof Error ? error.message : String(error);
-    return {
-      ...input.result,
-      text: `我理解你的执行指令，但这次没有完成：${reason}`,
-      proposal: null,
-    };
-  }
-}
 
 async function runTool(session: SessionContext, intent: Intent, ctx: ToolContext): Promise<ToolResult> {
   switch (intent) {
