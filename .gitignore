@@ -32,6 +32,7 @@ yarn-error.log*
 
 # 构建产物（.next-verify 为本地验收构建目录，可达 150M+，禁止入库）
 .next-verify/
+.next-kernel/
 tsconfig.tsbuildinfo
 
 # 本地运行期数据（上传目录 / 迁移前备份）
