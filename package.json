@@ -81,7 +81,8 @@
     "test:visual-intelligence": "tsx tests/regression-kern-visual-intelligence.ts",
     "test:kern-autonomy": "node --import tsx --test tests/kern-autonomy-policy.test.ts",
     "test:kern-project-map": "tsx tests/kern-project-map.ts",
-    "test:kern-runtime-architecture": "node --import tsx --test tests/kern-runtime-architecture.test.ts"
+    "test:kern-runtime-architecture": "node --import tsx --test tests/kern-runtime-architecture.test.ts",
+    "kern:map": "tsx scripts/kern-map.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
