@@ -294,6 +294,7 @@ test("守卫 6：共享标签表的键必须覆盖权威定义的全部取值", 
     ["AnalysisDimensionKey（prisma 枚举）", prismaEnum("AnalysisDimensionKey"), (STATUS_LABELS_MODULE as any).SCORE_DIMENSION_LABELS],
     ["ProductSpecField（revision.ts 联合类型）", tsUnion("modules/product-development/revision.ts", "ProductSpecField"), (STATUS_LABELS_MODULE as any).PRODUCT_SPEC_FIELD_LABELS],
     ["MilestoneKind（launch/service.ts 联合类型）", tsUnion("modules/launch/service.ts", "MilestoneKind"), (STATUS_LABELS_MODULE as any).LAUNCH_MILESTONE_KIND_LABELS],
+    ["WorkExecutorType（prisma 枚举）", prismaEnum("WorkExecutorType"), (STATUS_LABELS_MODULE as any).WORK_EXECUTOR_TYPE_LABELS],
   ];
 
   for (const [what, keys, map] of cases) {
@@ -518,4 +519,21 @@ test("变异验证：守卫确实能变红（不是恒绿的空断言）", () =>
     false,
     "守卫 8 的 R8.1 不应把 label*() 实参里的枚举当泄漏",
   );
+});
+
+
+test("项目详情表单不得在 option 文案里透出内部枚举", () => {
+  const file = path.join(SRC, "app/projects/[id]/project-detail-client.tsx");
+  const text = stripComments(fs.readFileSync(file, "utf8"));
+  const rawOption = /<option\b[^>]*>\s*[^<{]*\b(?:IN_PROGRESS|VERIFIED_BY_LEAD|HUMAN|TEST_AGENT|DIGITAL_WORKER|MANUAL|TEST_STUB|RESEARCH_REPORT|SAMPLE_ROUND|SUPPLIER_QUOTE|PROFESSIONAL_CONFIRMATION|PACKAGING_BRIEF|PRODUCTION_PLAN|PRODUCTION_RECORD|COST_SCENARIO|REAL|DEMO)\b[^<{]*<\/option>/g;
+  const offenses = [...text.matchAll(rawOption)].map((m) => m[0]);
+  assert.deepEqual(
+    offenses,
+    [],
+    `项目详情表单仍有内部枚举直接显示给用户：\n${offenses.join("\n")}`
+  );
+  assert.ok(text.includes('labelWorkExecutorType("DIGITAL_WORKER")'));
+  assert.ok(text.includes('labelArtifactType("RESEARCH_REPORT")'));
+  assert.ok(text.includes('labelRunMode("TEST_STUB")'));
+  assert.ok(text.includes('labelEvidenceNature("DEMO")'));
 });
