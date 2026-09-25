@@ -4,7 +4,6 @@ import { OrgRole } from "@prisma/client";
 import prisma from "../src/shared/db";
 import { assertTestDatabaseSafety } from "./test-safety";
 import { createConversation, sendMessage } from "../src/modules/advisor/service";
-import { applyProposal } from "../src/modules/advisor/proposals";
 
 async function main() {
   if (!process.env.TEST_DATABASE_URL) {
@@ -63,30 +62,26 @@ async function main() {
       ].join("\n")
     );
 
-    assert.equal(second.proposal?.actionType, "CREATE_PRODUCT");
-    assert.ok(second.proposal?.proposalId, "补齐字段后必须产生待确认新产品提议");
+    assert.equal(second.proposal, null, "明确的新产品指令不应要求用户二次确认");
 
-    const beforeConfirm = await prisma.conversation.findUniqueOrThrow({
-      where: { id: conversation.id },
-      select: { productId: true, kind: true },
+    console.log("▶ K2 explicit CREATE_PRODUCT is applied once and binds the original conversation");
+    const productProposal = await prisma.actionProposal.findFirstOrThrow({
+      where: {
+        conversationId: conversation.id,
+        actionType: "CREATE_PRODUCT",
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        status: true,
+        appliedObjectType: true,
+        appliedObjectId: true,
+      },
     });
-    assert.equal(beforeConfirm.productId, null, "确认前不能偷偷绑定或创建业务产品");
+    assert.equal(productProposal.status, "APPLIED");
+    assert.equal(productProposal.appliedObjectType, "Product");
+    assert.ok(productProposal.appliedObjectId);
 
-    console.log("▶ K2 confirming CREATE_PRODUCT atomically binds the original conversation");
-    const receipt = await applyProposal(
-      session,
-      second.proposal!.proposalId,
-      {
-        idempotencyKey: "kern-continuity-" + tag,
-        reason: "回归测试：确认新产品并继续原会话",
-      }
-    );
-
-    assert.equal(receipt.status, "APPLIED");
-    assert.equal(receipt.appliedObjectType, "Product");
-    assert.ok(receipt.appliedObjectId);
-
-    const productId = receipt.appliedObjectId!;
+    const productId = productProposal.appliedObjectId!;
     const bound = await prisma.conversation.findUniqueOrThrow({
       where: { id: conversation.id },
       select: { productId: true, kind: true },
@@ -106,32 +101,40 @@ async function main() {
       conversation.id,
       "把目标人群改成 25-45 岁轻体女性"
     );
-    assert.equal(third.proposal?.actionType, "UPDATE_FIELD");
-    assert.ok(third.proposal?.proposalId);
+    assert.equal(third.proposal, null, "明确字段修改不应要求第二次确认");
 
-    const fieldProposal = await prisma.actionProposal.findUniqueOrThrow({
-      where: { id: third.proposal!.proposalId },
+    const fieldProposal = await prisma.actionProposal.findFirstOrThrow({
+      where: {
+        conversationId: conversation.id,
+        actionType: "UPDATE_FIELD",
+      },
+      orderBy: { createdAt: "desc" },
       select: {
         productId: true,
         conversationId: true,
         status: true,
+        appliedObjectType: true,
+        appliedObjectId: true,
       },
     });
     assert.equal(fieldProposal.productId, productId);
     assert.equal(fieldProposal.conversationId, conversation.id);
-    assert.equal(fieldProposal.status, "PENDING_CONFIRMATION");
+    assert.equal(fieldProposal.status, "APPLIED");
+    assert.equal(fieldProposal.appliedObjectType, "ProductVersion");
+    assert.ok(fieldProposal.appliedObjectId);
 
-    const product = await prisma.product.findUniqueOrThrow({
-      where: { id: productId },
-      select: { targetAudience: true },
+    const latest = await prisma.productVersion.findFirstOrThrow({
+      where: { productId },
+      orderBy: { createdAt: "desc" },
+      select: { specs: true },
     });
     assert.equal(
-      product.targetAudience,
-      "25-45 岁女性，正餐前使用",
-      "字段修改在用户再次确认前不能直接写入业务产品"
+      (latest.specs as Record<string, unknown>).targetAudience,
+      "25-45 岁轻体女性",
+      "明确字段修改应通过版本化业务命令直接应用"
     );
 
-    console.log("✅ Kern 新产品 → 确认 → 原会话继续产品工作的主链连续");
+    console.log("✅ Kern 新产品 → 自动执行 → 原会话继续工作的主链连续");
   } finally {
     await prisma.auditEvent.deleteMany({ where: { actorId: user.id } }).catch(() => {});
     await prisma.idempotencyRecord.deleteMany({ where: { actorId: user.id } }).catch(() => {});
