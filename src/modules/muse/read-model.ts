@@ -117,7 +117,7 @@ function proposalDecision(row: Awaited<ReturnType<typeof listProposals>>[number]
   };
 }
 
-export async function buildMuseViewModel(
+export async function buildKernViewModel(
   session: SessionContext,
   input: {
     conversationId?: string | null;
