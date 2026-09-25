@@ -115,7 +115,7 @@ export function ExecutiveReportView({
         <div className="hermes-report-hero-copy">
           <span className="eyebrow">EXECUTIVE REPORT</span>
           <h2>{report.title || "产品研发管理报告"}</h2>
-          <p>{report.summary || "报告未提供摘要。"}</p>
+          <p><strong>当前结论：</strong>{report.summary || "报告未提供摘要。"}</p>
         </div>
         <div className="hermes-report-hero-meta">
           <Badge tone={tone}>{verificationLabel(report.verificationStatus)}</Badge>
@@ -215,7 +215,7 @@ export function ExecutiveReportView({
           <div className="hermes-report-block-head">
             <div>
               <span className="eyebrow">RISK</span>
-              <h3>关键风险</h3>
+              <h3>最大风险与关键风险</h3>
             </div>
             <Badge tone="danger">{risks.length}</Badge>
           </div>
@@ -227,7 +227,7 @@ export function ExecutiveReportView({
         <div className="hermes-report-block-head">
           <div>
             <span className="eyebrow">RECOMMENDATION</span>
-            <h3>建议动作</h3>
+            <h3>下一步</h3>
           </div>
           <Badge tone="neutral">{actions.length}</Badge>
         </div>
@@ -238,7 +238,7 @@ export function ExecutiveReportView({
         <div className="hermes-report-block-head">
           <div>
             <span className="eyebrow">EVIDENCE-BACKED CLAIMS</span>
-            <h3>结论与证据</h3>
+            <h3>关键依据</h3>
           </div>
           <Badge tone="neutral">{conclusions.length}</Badge>
         </div>

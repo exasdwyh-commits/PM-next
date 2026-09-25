@@ -250,3 +250,35 @@ test("visible product terminology is Kern / 产品 / 项目 / 工作项", () => 
   assert.equal(detail.includes("门槛"), false, "generic Gate label must use 门禁");
   assert.equal(launch.includes("门槛"), false, "launch Gate label must use 门禁");
 });
+
+
+test("Kern primary shell uses a restrained solid visual system", () => {
+  const css = read("src/app/muse/muse.css");
+  assert.ok(css.includes("--m-surface:     #FFFFFF;"));
+  assert.ok(css.includes("--m-surface: #16191F;"));
+  assert.equal(css.includes("radial-gradient(880px 520px"), false, "primary canvas must not depend on decorative radial glows");
+  const cardRule = css.match(/\.m-card \{[^}]+\}/)?.[0] || "";
+  const dockRule = css.match(/\.m-dock-inner \{[^}]+\}/)?.[0] || "";
+  assert.equal(cardRule.includes("backdrop-filter"), false, "cards must not use glass blur");
+  assert.equal(dockRule.includes("backdrop-filter"), false, "composer must not use glass blur");
+  assert.ok(css.includes("--m-grad:"), "one accent gradient may remain for primary emphasis");
+});
+
+test("Executive Report exposes the decision sequence and folds raw detail", () => {
+  const report = read("src/components/executive-report.tsx");
+  for (const label of ["当前结论：", "关键依据", "最大风险与关键风险", "还不能下结论", "需要你决定", "下一步"]) {
+    assert.ok(report.includes(label), "missing executive report label: " + label);
+  }
+  assert.ok(report.includes("<details") && report.includes("查看专业数字员工意见"));
+  assert.ok(report.includes("查看报告溯源"));
+});
+
+test("desktop execution reads as Kern using the Mac, with runtime details secondary", () => {
+  const presence = stripComments(read("src/modules/desktop-runtime/presence.ts"));
+  const desktop = stripComments(read("src/components/desktop-activity.tsx"));
+  assert.ok(desktop.includes("Kern 正在用你的电脑"));
+  assert.ok(desktop.includes("开发环境连接方式"));
+  assert.ok(desktop.includes("npm run desktop"));
+  assert.equal(presence.includes("npm run desktop"), false, "primary presence hint must not lead with implementation commands");
+  assert.equal(desktop.includes("Hermes Desktop"), false, "visible desktop UI must not expose the old runtime product name");
+});
