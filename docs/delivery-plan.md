@@ -66,13 +66,23 @@ UNKNOWN 是一等状态，如实显示，不要为了好看补齐。
 
 验收：复现的状态在 390 无溢出，1440 布局不变，`npx tsc --noEmit` + `npm run lint` 过。
 
-### B1b 实测确有的 390px 溢出：`/knowledge`（20px）
-全站 390 档唯一溢出，已定位到元素链（`/tmp/hermes-ui-walk/red-baseline.md` §R1）：
-`/knowledge` scrollWidth 410 / clientWidth 390；越界者自 `section.hermes-content` 下
-`div.hermes-stack:nth-of-type(2)` 起：`div.hermes-page-heading`、`div.hermes-banner.is-info`、
-`section.hermes-theme-section`、`div.hermes-tabs`、`div.hermes-glass.hermes-panel` 均 right@410、
-scrollW/clientW 334/334（即被横向推了 ~76px），内层 `div` / `p.eyebrow` / `h1` right@406。
-这是**唯一有实测数字**的移动端溢出项，优先级高于 B1。定位到根因再改，禁止用 `overflow-x:hidden` 掩盖。
+### B1b 实测确有的 390px 溢出：`/knowledge`（20px）— ✅ 已修（2026-09-25）
+**根因**：`KNOWLEDGE_SAMPLE_MODE_BANNER`（`src/shared/content-mode.ts:26`）文案里含一个不可断行的长 token
+`HERMES_KNOWLEDGE_SAMPLE_MODE=false`。`.hermes-banner` 默认 `overflow-wrap:normal`，该 token 的 min-content
+（实测 ≈306–336px）把内容列撑到 336 → `.hermes-content` 是 flex item（`min-width:auto`，见 `globals.css:15` / `:727`）
+压不下去 → `documentElement.scrollWidth 410 > clientWidth 390`。
+（我原先猜的「缺 `min-width:0`」方向对，但真正的撑点是这条横幅——`page-heading` / `hermes-tabs` / `hermes-panel`
+ 只是被撑大的列撑满到 336 的**受害者**，不是根因。）
+
+**修法**：`.hermes-banner` 加 `overflow-wrap:anywhere`（`src/app/globals.css:121` 附近，+3 行中文注释）。
+未用 `overflow-x:hidden` 掩盖。
+
+**实测**：修复前 410 / 390 / **溢出 20px** → 修复后 **390 / 390 / 溢出 0**。走查 51 屏 `scrollW == clientW` 全零、
+`G3/G5/G6 + H1` 全过、`npx tsc --noEmit` + `npm run lint` 过。
+
+**遗留（转 A 类 / B5）**：这句横幅本质是**对着用户讲环境变量**。`overflow-wrap:anywhere` 只解决断行，
+没解决「内部机制出现在面向用户的文案里」。根治要从 `content-mode.ts:26` 那句里拿掉 env 名（改成
+「如需关闭本声明请联系管理员」之类），那是文案问题不是布局问题。
 
 ### 跑法（B1 / B1b 共用）
 `bash scripts/ui-walk.sh`（自起服务于 3182，产出 `/tmp/hermes-ui-walk/report.md` + `red-baseline.md` + `screens/`）。
@@ -81,11 +91,16 @@ scrollW/clientW 334/334（即被横向推了 ~76px），内层 `div` / `p.eyebro
 登录：dev 库口令用 `NODE_OPTIONS= ./node_modules/.bin/tsx scripts/_set-dev-password.ts <口令>` 重置；
 走查默认账号 `li_vp@hermes.test`。**不登录时走查会静默跳过产品/项目详情页并报「溢出屏 0」= 假绿**，先确认登录成功。
 
-### B2 `.hermes-board` 与气泡轴标签
-- `.hermes-board` 7×140px 在窄屏挤但没坏 — 降级为可横滚或减列
-- `bubble-axis-*` 的 nowrap 标签在 `.bubble-scroll` 外 — 挪进滚动容器
+### B2 `.hermes-board` 与气泡轴标签 — 原稿两条前提**都不成立**（2026-09-25 核）
+- `.hermes-board`（`globals.css:225`）**已经有 `overflow-x:auto`**，「降级为可横滚」是**已经做过**的，
+  不是待办。实测 390 档 `/products` 看板列=7、无横向溢出。→ 这条建议直接删，除非你指的是别的症状。
+- `bubble-axis-x` / `bubble-axis-y`（`globals.css:540-541`）**本来就在 `.bubble-scroll` 里**
+  （`src/components/viz.tsx:284-288`，那两个 span 就是 `bubble-scroll` 的子节点），不存在「挪进容器」。
+  真正可疑的是 `.bubble-axis-y { left:-28px }`：绝对定位 + 负 left 放进 `overflow-x:auto` 的容器里，
+  **左侧会被裁掉**（走查的 `leftOver` 量的就是这个；快路径没覆盖气泡图，得自己点开量）。
 
-验收：390px 下标签不被裁切。
+结论：B2 目前**没有可复现的症状**。要派就先派「在 390 量 `.bubble-axis-y` 是否被裁」这一步；
+量到 `leftOver > 0` 再改，量不到就作废。别凭 CSS 观感直接改。
 
 ### B3 表单 `<option>` 里的裸枚举
 `src/app/projects/[id]/project-detail-client.tsx:1687-1688, 1705-1712, 1756-1757`
@@ -94,6 +109,14 @@ scrollW/clientW 334/334（即被横向推了 ~76px），内层 `div` / `p.eyebro
 
 规则：照该文件现有风格加 `XXX_LABELS` + `labelXxx`；成员必须对 `prisma/schema.prisma` 核实，不许猜。
 **只改可见文本，不动 `value=`、比较、key、载荷字段。**
+
+坐标 2026-09-25 核过（**准确**，是 B 类里除 B1b 外唯一坐标全对的一条）。两点补充：
+- 同文件另有 2 处同类漏网：`:1058-1059`（`进行中 (IN_PROGRESS)` / `负责人已确认 (VERIFIED_BY_LEAD)`）、
+  `:1634-1636`（`人工执行 (HUMAN)` / `测试 Agent (TEST_AGENT)` / `数字员工 (DIGITAL_WORKER)`）。派单时定要不要一起收。
+- 该文件**混着两种风格**：`:1634-1636` 用的是「中文 (ENUM)」内联括注，而 `shared/status-labels.ts` 是 label map。
+  派单前先定「该文件现有风格」指哪一种，否则产出会和既有代码打架。
+- **机器验收已有**：走查报告的 §4「英文枚举泄漏分布」会列出泄漏项（当前 `/settings` 有 `LOW` ×2）。
+  修完该节应变空或只剩已登记豁免项 —— 别靠肉眼翻页。
 
 ### B4 空状态与错误态巡查
 逐页检查：没有数据时是否说了「为什么没有」和「你现在该做什么」，而不是只画个空框。
