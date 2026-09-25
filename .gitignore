@@ -49,3 +49,6 @@ data/kernel/
 # Laya judgment-runtime local artifacts
 services/judgment-runtime/.venv/
 services/judgment-runtime/__pycache__/
+
+# 工作区内部笔记（Agent 记忆），禁止入库
+.workbuddy/
