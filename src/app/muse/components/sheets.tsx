@@ -1,7 +1,7 @@
 "use client";
 /** 抽屉层：审计轨迹、来源详情、信任与权限、命令面板。Kern 的可信度来自这四块。 */
 import { useEffect, useMemo, useState } from "react";
-import type { ActivityItem, EvidenceRef, Mission, RuntimeStatus } from "../types";
+import type { ActivityItem, ConversationSummary, EvidenceRef, RuntimeStatus } from "../types";
 import { Btn, CONF, I, Tag } from "./kit";
 
 function Sheet({ title, sub, onClose, children }: { title: string; sub?: string; onClose: () => void; children: React.ReactNode }) {
@@ -29,36 +29,26 @@ function Sheet({ title, sub, onClose, children }: { title: string; sub?: string;
   );
 }
 
-/** “Kern 做过什么、接下来打算做什么” —— 完整可读的轨迹，不是日志。 */
-export function TrailSheet({ activity, missions, onClose }: { activity: ActivityItem[]; missions: Mission[]; onClose: () => void }) {
-  const planned = missions.flatMap((m) =>
-    m.steps.filter((s) => s.state === "idle").map((s) => ({ id: `${m.id}-${s.id}`, title: s.title, mission: m.title })),
-  );
+/** 真实执行轨迹。计划属于 Work，不再从 Conversation 伪造“还没开始”的步骤。 */
+export function TrailSheet({
+  activity,
+  onClose,
+}: {
+  activity: ActivityItem[];
+  onClose: () => void;
+}) {
   return (
-    <Sheet title="轨迹" sub="Kern 做过的每一步，以及接下来打算做的事" onClose={onClose}>
-      <h3 className="m-sheet-sub">已经发生</h3>
-      <ol className="m-trail">
-        {activity.map((a) => (
-          <li key={a.id}>
-            <span className="m-trail-dot" data-s={a.state} aria-hidden><i /></span>
-            <div className="m-trail-text">
-              <b>{a.text}</b>
-              <small>{a.at}</small>
-            </div>
-          </li>
-        ))}
-      </ol>
-      <h3 className="m-sheet-sub">还没开始</h3>
-      {planned.length === 0 ? (
-        <p className="m-quiet">当前目标里没有待开始的步骤。</p>
+    <Sheet title="轨迹" sub="Kern 与后台 Work 已经真实发生的执行记录" onClose={onClose}>
+      {activity.length === 0 ? (
+        <p className="m-quiet">当前没有可展示的真实执行轨迹。</p>
       ) : (
         <ol className="m-trail">
-          {planned.map((p) => (
-            <li key={p.id}>
-              <span className="m-trail-dot" data-s="idle" aria-hidden><i /></span>
+          {activity.map((a) => (
+            <li key={a.id}>
+              <span className="m-trail-dot" data-s={a.state} aria-hidden><i /></span>
               <div className="m-trail-text">
-                <b>{p.title}</b>
-                <small>{p.mission}</small>
+                <b>{a.text}</b>
+                <small>{a.at}</small>
               </div>
             </li>
           ))}
@@ -114,11 +104,11 @@ export function TrustSheet({ runtime, onClose }: { runtime: RuntimeStatus; onClo
   );
 }
 
-export function Palette({ missions, onClose, onPick }: { missions: Mission[]; onClose: () => void; onPick: (id: string | null) => void }) {
+export function Palette({ conversations, onClose, onPick }: { conversations: ConversationSummary[]; onClose: () => void; onPick: (id: string | null) => void }) {
   const [q, setQ] = useState("");
   const hits = useMemo(
-    () => missions.filter((m) => (m.title + m.goal + m.productName).toLowerCase().includes(q.toLowerCase())),
-    [missions, q],
+    () => conversations.filter((conversation) => (conversation.title + conversation.preview + (conversation.productName || "")).toLowerCase().includes(q.toLowerCase())),
+    [conversations, q],
   );
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -131,22 +121,22 @@ export function Palette({ missions, onClose, onPick }: { missions: Mission[]; on
       <div className="m-cmd" role="dialog" aria-modal="true" aria-label="跳转">
         <div className="m-cmd-in">
           <I.search />
-          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="跳到某个目标，或输入要做的事" aria-label="搜索目标" />
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜索最近对话" aria-label="搜索对话" />
         </div>
         <ul className="m-cmd-list">
           <li>
             <button type="button" onClick={() => { onPick(null); onClose(); }}>
-              <I.spark /><b>今天</b><small>需要你决定的事</small>
+              <I.spark /><b>新对话</b><small>交代一件新工作</small>
             </button>
           </li>
-          {hits.map((m) => (
-            <li key={m.id}>
-              <button type="button" onClick={() => { onPick(m.id); onClose(); }}>
-                <I.plan /><b>{m.title}</b><small>{m.productName}</small>
+          {hits.map((conversation) => (
+            <li key={conversation.id}>
+              <button type="button" onClick={() => { onPick(conversation.id); onClose(); }}>
+                <I.plan /><b>{conversation.title}</b><small>{conversation.productName}</small>
               </button>
             </li>
           ))}
-          {hits.length === 0 ? <li><p className="m-quiet" style={{ padding: "10px 14px" }}>没有匹配的目标。直接回车让 Kern 把它当新目标。</p></li> : null}
+          {hits.length === 0 ? <li><p className="m-quiet" style={{ padding: "10px 14px" }}>没有匹配的对话。</p></li> : null}
         </ul>
         <footer className="m-cmd-foot">
           <Btn size="sm" onClick={onClose}>关闭</Btn>
