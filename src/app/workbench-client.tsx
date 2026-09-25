@@ -196,9 +196,9 @@ export default function WorkbenchClient({
       <section className="hermes-command-center" aria-labelledby="today-command-title">
         <div className="hermes-command-copy">
           <span className="eyebrow">AI 部门助理</span>
-          <h1 id="today-command-title">{displayName}，今天想让 Hermes 做什么？</h1>
+          <h1 id="today-command-title">{displayName}，今天想让 Kern 做什么？</h1>
           <p>
-            直接说业务目标。Hermes 会先理解上下文，再决定是回答、研究、拆任务，还是启动产品研发流程。
+            直接说业务目标。Kern 会先理解上下文，再决定是回答、研究、拆任务，还是启动产品研发流程。
           </p>
         </div>
 
@@ -211,7 +211,7 @@ export default function WorkbenchClient({
             aria-label="告诉 Hermes 你想完成什么"
           />
           <button type="submit" className="hermes-primary-btn" disabled={!command.trim()}>
-            交给 Hermes
+            交给 Kern
             <Icon name="arrow" size={15} />
           </button>
         </form>
@@ -346,7 +346,7 @@ export default function WorkbenchClient({
                     href={`/muse?query=${encodeURIComponent(`帮我分析这个待处理事项：${top.what}。请说明为什么现在要处理、主要风险和建议动作。`)}`}
                     className="hermes-outline-btn"
                   >
-                    和 Hermes 讨论
+                    和 Kern 讨论
                   </Link>
                 </div>
               </div>
@@ -413,7 +413,7 @@ export default function WorkbenchClient({
         <aside className="hermes-today-side">
           <Panel
             icon="nodes"
-            title={hasAutomationActivity ? "Hermes 正在工作" : "自动化活动"}
+            title={hasAutomationActivity ? "Kern 正在工作" : "自动化活动"}
             sub={
               hasAutomationActivity
                 ? `最近 ${workforceActivity.windowHours} 小时的真实自动化活动`
