@@ -6,7 +6,7 @@ import { NavProgress, NavProgressLink } from "./nav-progress";
 /**
  * PM-next 专业管理后台 shell。
  *
- * Muse 是默认主操作界面；这里服务产品经理、项目负责人和管理员，
+ * Kern 是默认主操作界面；这里服务产品经理、项目负责人和管理员，
  * 以完整性、可追踪、可深入为优先，不再承担日常对话入口。
  */
 
@@ -18,7 +18,7 @@ export interface NavItem {
   hint?: string;
 }
 
-/** Muse 与管理后台保持清晰分层：这里只提供返回主操作入口。 */
+/** Kern 与管理后台保持清晰分层：这里只提供返回主操作入口。 */
 export const KERN_ITEM: NavItem = {
   key: "kern",
   label: "返回 Kern",
