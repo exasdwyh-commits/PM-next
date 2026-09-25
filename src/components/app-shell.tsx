@@ -61,7 +61,7 @@ export const AUXILIARY_ITEMS: NavItem[] = [
   { key: "overview", label: "旧总览", href: "/manage", icon: "grid" },
   { key: "advisor", label: "旧 AI 助理", href: "/advisor", icon: "chat" },
   { key: "trace", label: "决策追溯", href: "/trace", icon: "search" },
-  { key: "war-room", label: "项目作战室", href: "/war-room", icon: "target" },
+  { key: "war-room", label: "项目决策", href: "/war-room", icon: "target" },
   { key: "consultation", label: "专家会诊", href: "/consultation", icon: "users" },
   { key: "dashboard", label: "数据明细", href: "/dashboard", icon: "chart" },
   { key: "organization", label: "组织与权限", href: "/organization", icon: "shield" },
@@ -137,8 +137,8 @@ export default function AppShell({
     <main className="hermes-shell">
       <aside className="hermes-sidebar">
         <div className="hermes-brand">
-          <div className="hermes-monogram">H</div>
-          <div className="hermes-wordmark">HERMES</div>
+          <div className="hermes-monogram">K</div>
+          <div className="hermes-wordmark">KERN</div>
           <div className="hermes-submark">DEPARTMENT OS</div>
         </div>
 
@@ -173,7 +173,7 @@ export default function AppShell({
           <div className="hermes-avatar">{initial}</div>
           <div>
             <strong>{name}</strong>
-            <span>{user?.meta || current?.label || "HERMES"}</span>
+            <span>{user?.meta || current?.label || "KERN"}</span>
           </div>
           <span className="profile-chevron">›</span>
         </div>
@@ -184,7 +184,7 @@ export default function AppShell({
         <div className="hermes-topbar">
           {topbarLeft ?? (
             <div className="hermes-topbar-title">
-              <span className="eyebrow">HERMES</span>
+              <span className="eyebrow">KERN</span>
               <strong>{current?.label || "工作台"}</strong>
             </div>
           )}
