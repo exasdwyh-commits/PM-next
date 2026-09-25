@@ -6,7 +6,7 @@ import { NavProgress, NavProgressLink } from "./nav-progress";
 /**
  * PM-next 专业管理后台 shell。
  *
- * Muse 是默认主操作界面；这里服务产品经理、项目负责人和管理员，
+ * 科恩是默认主操作界面；这里服务产品经理、项目负责人和管理员，
  * 以完整性、可追踪、可深入为优先，不再承担日常对话入口。
  */
 
@@ -18,13 +18,13 @@ export interface NavItem {
   hint?: string;
 }
 
-/** Muse 与管理后台保持清晰分层：这里只提供返回主操作入口。 */
+/** 科恩与管理后台保持清晰分层：这里只提供返回主操作入口。 */
 export const MUSE_ITEM: NavItem = {
   key: "muse",
-  label: "返回 Muse",
+  label: "返回科恩",
   href: "/muse",
   icon: "chat",
-  hint: "回到日常对话、委派、进度沟通与 Check-in",
+  hint: "回到与科恩的日常对话、委派、进度沟通与 Check-in",
 };
 
 /** 专业管理入口：产品、项目、评估与组织知识。 */
@@ -137,9 +137,9 @@ export default function AppShell({
     <main className="hermes-shell">
       <aside className="hermes-sidebar">
         <div className="hermes-brand">
-          <div className="hermes-monogram">H</div>
-          <div className="hermes-wordmark">HERMES</div>
-          <div className="hermes-submark">DEPARTMENT OS</div>
+          <div className="hermes-monogram">K</div>
+          <div className="hermes-wordmark">KERN</div>
+          <div className="hermes-submark">AI CHIEF OF STAFF</div>
         </div>
 
         <nav className="hermes-nav" aria-label="专业管理后台导航">
@@ -173,7 +173,7 @@ export default function AppShell({
           <div className="hermes-avatar">{initial}</div>
           <div>
             <strong>{name}</strong>
-            <span>{user?.meta || current?.label || "HERMES"}</span>
+            <span>{user?.meta || current?.label || "KERN"}</span>
           </div>
           <span className="profile-chevron">›</span>
         </div>
@@ -184,7 +184,7 @@ export default function AppShell({
         <div className="hermes-topbar">
           {topbarLeft ?? (
             <div className="hermes-topbar-title">
-              <span className="eyebrow">HERMES</span>
+              <span className="eyebrow">KERN</span>
               <strong>{current?.label || "工作台"}</strong>
             </div>
           )}
