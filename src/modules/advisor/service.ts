@@ -107,7 +107,7 @@ export async function getConversation(session: SessionContext, conversationId: s
 // 意图路由：受约束的白名单执行器（蓝图 §8：免费模型无原生工具调用时也用同一层）
 // ---------------------------------------------------------------------------
 
-type Intent =
+export type Intent =
   | "WORKSPACE_STATUS"
   | "PENDING_DECISIONS"
   | "PRODUCT_STATUS"
@@ -317,7 +317,7 @@ function routeIntent(text: string, productBound: boolean): Intent {
   return "UNSUPPORTED";
 }
 
-interface IntentRoutingDecision {
+export interface IntentRoutingDecision {
   intent: Intent;
   source: "DETERMINISTIC" | "KERN_PLANNER" | "DETERMINISTIC_FALLBACK";
   plannerModelRunId: string | null;
@@ -332,7 +332,7 @@ interface IntentRoutingDecision {
  * - Planner 的可选 intent 集合不包含 DESKTOP_EXECUTION / PROPOSE_*；
  * - 模型未配置、失败、输出非法时回落 UNSUPPORTED，不假装已经理解。
  */
-async function resolveIntentWithKernPlanner(
+export async function resolveIntentWithKernPlanner(
   session: SessionContext,
   input: {
     conversationId: string;
@@ -424,13 +424,13 @@ async function resolveIntentWithKernPlanner(
   }
 }
 
-interface ToolContext {
+export interface ToolContext {
   conversationId: string;
   productId: string | null;
   text: string;
 }
 
-interface ToolResult {
+export interface ToolResult {
   toolKey: string;
   text: string;
   citations: { kind: string; ref: string; title: string }[];
@@ -442,7 +442,7 @@ interface ToolResult {
 
 
 
-async function runTool(session: SessionContext, intent: Intent, ctx: ToolContext): Promise<ToolResult> {
+export async function runTool(session: SessionContext, intent: Intent, ctx: ToolContext): Promise<ToolResult> {
   switch (intent) {
     case "DESKTOP_EXECUTION": {
       const queued = await enqueueDesktopTask(session, {
@@ -1410,7 +1410,7 @@ async function runTool(session: SessionContext, intent: Intent, ctx: ToolContext
   }
 }
 
-function advisorModelRouteForIntent(intent: Intent): {
+export function advisorModelRouteForIntent(intent: Intent): {
   agentCode: string;
   taskClass: ModelTaskClass;
 } {
