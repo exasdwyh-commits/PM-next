@@ -15,6 +15,7 @@ const solo = buildKernCollaborationPlanShadow({
 });
 assert.equal(solo.mode, "SOLO");
 assert.equal(solo.synthesisTier, "FAST");
+assert.equal(solo.autoDispatchCandidate, true);
 assert.equal(solo.autoDispatchEligible, true);
 assert.equal(solo.authority, "ADVISORY_ONLY");
 
@@ -38,6 +39,7 @@ const council = buildKernCollaborationPlanShadow({
 assert.equal(council.mode, "COUNCIL");
 assert.equal(council.synthesisTier, "FRONTIER");
 assert.equal(council.qaRequired, true);
+assert.equal(council.autoDispatchCandidate, false);
 assert.equal(council.autoDispatchEligible, false);
 
 const full = buildKernCollaborationPlanShadow({
@@ -99,7 +101,12 @@ const technical = buildKernCollaborationPlanShadow({
 });
 assert.equal(technical.mode, "SPECIALIST");
 assert.deepEqual(technical.experts, ["tech_architect_agent"]);
-assert.equal(technical.autoDispatchEligible, true);
+assert.equal(technical.autoDispatchCandidate, true);
+assert.equal(
+  technical.autoDispatchEligible,
+  false,
+  "specialist runtime readiness must not be guessed by the pure planner"
+);
 
 const codeReflex: AssistantReflexShadowResult = {
   mode: "SHADOW",
