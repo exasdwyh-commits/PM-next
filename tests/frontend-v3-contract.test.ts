@@ -9,13 +9,19 @@ function read(rel: string): string {
   return fs.readFileSync(path.join(ROOT, rel), "utf8");
 }
 
+function stripComments(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|\s)\/\/[^\n]*/g, "$1");
+}
+
 test("Kern is the primary operating shell and management stays independent", () => {
   const root = read("src/app/page.tsx");
   const muse = read("src/app/muse/muse-client.tsx");
   const shell = read("src/components/app-shell.tsx");
   const manage = read("src/app/manage/page.tsx");
 
-  assert.ok(root.includes('redirect("/muse")'), "root must enter Muse by default");
+  assert.ok(root.includes('redirect("/muse")'), "root must enter the Kern operating route by default");
   assert.ok(muse.includes('fetch("/api/conversations"'), "Kern must create real conversations");
   assert.ok(
     muse.includes('/api/conversations/${conversationId}/messages'),
@@ -32,7 +38,7 @@ test("Kern is the primary operating shell and management stays independent", () 
   assert.ok(manage.includes("<WorkbenchClient"), "traditional management overview must remain available");
 });
 
-test("management conversations route back through Muse", () => {
+test("management conversations route back through Kern", () => {
   const home = read("src/app/workbench-client.tsx");
   assert.ok(home.includes("今天想让 Kern 做什么？"));
   assert.ok(home.includes("/muse?query="), "management commands must enter the Kern operating shell");
@@ -47,18 +53,18 @@ test("product remains the primary business object", () => {
   assert.ok(product.includes("启动研发"));
   assert.ok(product.includes("继续推进"));
   assert.ok(product.includes("和 Kern 讨论"));
-  assert.ok(product.includes("/muse?product="), "product discussion must open Muse with product context");
+  assert.ok(product.includes("/muse?product="), "product discussion must open the Kern route with product context");
   assert.ok(product.includes('label: "AI 判断"'));
   assert.ok(product.includes('label: "产品方案"'));
   assert.ok(product.includes('label: "证据与风险"'));
-  assert.ok(projects.includes("执行工作区"));
+  assert.ok(projects.includes("项目管理"));
   assert.ok(projects.includes("日常请从「产品」进入"));
 });
 
 test("project detail stays a focused product workspace", () => {
   const detail = read("src/app/projects/[id]/project-detail-client.tsx");
-  for (const tab of ["概览", "AI 研发", "任务", "证据", "决策", "记录"]) {
-    assert.ok(detail.includes(`["${tab === "概览" ? "overview" : tab === "AI 研发" ? "rnd" : tab === "任务" ? "tasks" : tab === "证据" ? "evidence" : tab === "决策" ? "decisions" : "records"}", "${tab}"]`));
+  for (const tab of ["概览", "AI 研发", "工作项", "证据", "决策", "记录"]) {
+    assert.ok(detail.includes(`["${tab === "概览" ? "overview" : tab === "AI 研发" ? "rnd" : tab === "工作项" ? "tasks" : tab === "证据" ? "evidence" : tab === "决策" ? "decisions" : "records"}", "${tab}"]`));
   }
   assert.ok(detail.includes('onOpenDecisions={() => setActiveWorkspaceTab("decisions")}'));
   assert.ok(detail.includes('onOpenEvidence={() => setActiveWorkspaceTab("evidence")}'));
@@ -189,7 +195,7 @@ test("management empty states explain why and what to do next", () => {
   for (const guidance of [
     "先选择项目并提交一条反馈",
     "先从「产品」启动研发或创建项目",
-    "进入具体项目的「任务」页安排第一项工作",
+    "进入具体项目的「工作项」页安排第一项工作",
     "由负责人在项目「决策」页起草并提交",
     "点击「录入依据证据」登记来源并完成核实",
     "可去「机会」页录入并核实来源",
@@ -197,4 +203,50 @@ test("management empty states explain why and what to do next", () => {
   ]) {
     assert.ok(combined.includes(guidance), "missing actionable empty-state guidance: " + guidance);
   }
+});
+
+
+test("visible product terminology is Kern / 产品 / 项目 / 工作项", () => {
+  const visibleFiles = [
+    "src/components/app-shell.tsx",
+    "src/app/layout.tsx",
+    "src/app/login/page.tsx",
+    "src/app/error.tsx",
+    "src/app/not-found.tsx",
+    "src/app/advisor/advisor-client.tsx",
+    "src/app/workforce/workforce-client.tsx",
+    "src/components/automation-trace.tsx",
+    "src/components/challenge-report-card.tsx",
+    "src/components/desktop-activity.tsx",
+    "src/components/product-rnd-panel.tsx",
+    "src/modules/workforce/service.ts",
+    "src/modules/workforce/activity-brief.ts",
+  ];
+  for (const file of visibleFiles) {
+    const source = stripComments(read(file));
+    assert.equal(
+      /\b(?:HERMES|Hermes)\b/.test(source),
+      false,
+      file + " still exposes the legacy Hermes brand"
+    );
+  }
+
+  const shell = read("src/components/app-shell.tsx");
+  const login = read("src/app/login/page.tsx");
+  const workforce = read("src/modules/workforce/service.ts");
+  const projects = read("src/app/projects/projects-client.tsx");
+  const detail = stripComments(read("src/app/projects/[id]/project-detail-client.tsx"));
+  const launch = stripComments(read("src/app/products/[id]/launch-tab.tsx"));
+
+  assert.ok(shell.includes(">KERN<") && login.includes(">KERN<"), "global visible brand must be Kern");
+  assert.ok(workforce.includes('code: "hermes_pm"'), "stable internal workforce code must remain compatible");
+  assert.ok(workforce.includes('name: "Kern PM"'), "default visible PM agent must be Kern PM");
+
+  assert.ok(projects.includes("<h1>项目管理</h1>"), "Project entity must be called 项目");
+  assert.equal(projects.includes("执行工作区"), false, "Project entity must not be renamed as 执行工作区");
+  assert.ok(detail.includes('["tasks", "工作项"]'), "WorkItem tab must use 工作项");
+  assert.ok(detail.includes("安排新工作项") && detail.includes("前置依赖工作项"), "WorkItem actions must use 工作项");
+  assert.equal(detail.includes("修订任务说明"), false, "feedback-created WorkItem must not be called 修订任务");
+  assert.equal(detail.includes("门槛"), false, "generic Gate label must use 门禁");
+  assert.equal(launch.includes("门槛"), false, "launch Gate label must use 门禁");
 });
