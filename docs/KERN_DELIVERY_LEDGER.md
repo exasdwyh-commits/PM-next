@@ -41,6 +41,17 @@
 - Desktop Runtime 的排队 / 领取 / 回执已经真实落库，本批只优化用户叙事，不改变执行语义。
 - 管理后台继续保持传统、完整、可深入；Kern 是默认日常操作层，不把后台再改成聊天壳。
 
+## V1.1 · Kern runtime / routing（2026-09-26）
+
+用户已明确进入 V1.1 连续优化，因此以下工作不再视为 V1/Beta 冻结基线的“顺手优化”，而是独立增量：
+
+- PR #21：Kern Collaboration Plan Shadow、routing receipt、独立 Tech Architect；
+- PR #22：Tech Architect advisory Worker executor、CODING policy、runtime dispatch readiness；
+- PR #23：受限 Phase 2A AUTO——仅低风险单 Tech Architect 在 EXECUTOR_READY 时自动排队，结果幂等回原 Kern 会话；
+- 当前迁移：Kern 自己拥有 Conversation create/list/read 生命周期；旧 Advisor 仅保留兼容别名，执行工具引擎后续再分阶段抽离。
+
+不变量继续保持：AUTO 只扩大“智力委派”，不扩大 Proposal / Approval / Gate / Desktop / 业务写权限。
+
 ## 后续工作原则
 
 V1/Beta 不再继续“顺手优化”。后续只从真实试用反馈进入新批次：
