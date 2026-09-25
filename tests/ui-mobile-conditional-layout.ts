@@ -123,7 +123,7 @@ async function bubbleState(page: any) {
   assert.ok(probe, "B2 未找到气泡轴实际 DOM");
   console.log("[B2 bubble 390]", JSON.stringify(probe));
   await page.screenshot({ path: path.join(OUT, "bubble-390.png"), fullPage: true });
-  assert.ok((probe?.clippedLeft ?? 0) <= 1, `B2 bubble Y 轴左侧被裁 ${probe?.clippedLeft}px`);
+  assert.ok((probe?.clippedLeft ?? 0) <= 0.1, `B2 bubble Y 轴左侧被裁 ${probe?.clippedLeft}px`);
 }
 
 async function main() {
