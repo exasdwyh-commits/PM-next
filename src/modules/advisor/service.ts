@@ -742,7 +742,7 @@ async function runTool(session: SessionContext, intent: Intent, ctx: ToolContext
           `专业任务：${status.tasks.length} 项${countSummary ? `（${countSummary}）` : ""}`,
           reportLine,
           preview
-            ? `报告当前 UNKNOWN：${preview.unknowns.length} 项；需要负责人决定：${preview.decisionsRequired.length} 项。`
+            ? `报告当前 UNKNOWN：${(preview.unknowns ?? []).length} 项；需要负责人决定：${(preview.decisionsRequired ?? []).length} 项。`
             : "当前还不能把“已启动/正在运行”说成“研发已完成”。",
           "",
           "专业任务状态：",
