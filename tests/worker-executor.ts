@@ -27,6 +27,7 @@ import prisma from "../src/shared/db";
 import { assertTestDatabaseSafety } from "./test-safety";
 import {
   bootstrapDefaultWorkforce,
+  createAgentTask,
   finishAgentTask,
   startAgentTask,
 } from "../src/modules/workforce/service";
@@ -95,6 +96,10 @@ async function main() {
         `${code} must have an executor strategy`
       );
     }
+    assert.ok(
+      executorStrategyCodes().includes("tech_architect_agent"),
+      "Tech Architect must have a real worker executor contract before AUTO is considered"
+    );
     // QA 刻意不在表里：独立性要求「执行者不得自证」，Worker 不得代跑 QA。
     assert.equal(
       executorStrategyCodes().includes("qa_verifier"),
@@ -104,6 +109,34 @@ async function main() {
     console.log(`✅ 策略表完整：${executorStrategyCodes().join(", ")}`);
 
     await bootstrapDefaultWorkforce(session);
+
+    console.log("▶ W1b Tech Architect safe-off：未配置 CODING 模型时必须 BLOCKED");
+    const techArchitect = await prisma.agent.findUniqueOrThrow({
+      where: {
+        organizationId_code: {
+          organizationId: org.id,
+          code: "tech_architect_agent",
+        },
+      },
+    });
+    const techTask = await createAgentTask(session, {
+      agentId: techArchitect.id,
+      goal: "审查当前 API 架构并给出测试策略；不要执行任何代码修改。",
+    });
+    const techOutcome = await executeAgentTask(session, techTask.id);
+    assert.equal(techOutcome.executed, true);
+    assert.equal(techOutcome.outcome, "BLOCKED");
+    const blockedTech = await prisma.agentTask.findUniqueOrThrow({
+      where: { id: techTask.id },
+      include: { runs: { orderBy: { createdAt: "desc" }, take: 1 } },
+    });
+    assert.equal(blockedTech.status, AgentTaskStatus.BLOCKED);
+    assert.match(
+      blockedTech.runs[0]?.outputSummary ?? "",
+      /Tech Architect 未执行/
+    );
+    console.log("✅ Tech Architect 无模型时诚实 BLOCKED，不伪造执行");
+
     const project = await prisma.project.create({
       data: {
         organizationId: org.id,
