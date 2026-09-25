@@ -45,7 +45,13 @@ export async function POST(
     return NextResponse.json(
       {
         runId: result.runId,
-        message: { id: result.message.id, role: result.message.role, content: result.message.content },
+        message: {
+          id: result.message.id,
+          role: result.message.role,
+          content: result.message.content,
+          createdAt: result.message.createdAt,
+          citations: result.message.citations,
+        },
         proposal: result.proposal ?? null,
       },
       { status: 201 }
