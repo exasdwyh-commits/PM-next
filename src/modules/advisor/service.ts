@@ -1,13 +1,9 @@
 /**
- * AI 顾问（蓝图 §5、§6、§8）
+ * Legacy Advisor capability provider.
  *
- * 本版定位（**必须如实标注，不得宣称已具备通用对话能力**）：
- * - 未配置模型端点时 runMode = TEST_STUB，回复由**确定性工具**产出，不是语言模型生成；
- * - 意图路由走受约束的白名单执行器，模型不直接写数据库；
- * - 写入链留痕：AgentRun + ToolCall 全程落库，可查回执；
- * - 费用未知即标 unknown，不编造 token 与金额。
- *
- * 接入真实模型后，只需替换 runAgent 中的 reply 生成部分，其余链路不变。
+ * Kern 的主对话生命周期已经由 assistant-runtime/conversation-engine.ts 所有。
+ * 本文件暂时保留历史领域解析与 capability 执行器，供迁移期复用。
+ * 新的对话编排、会话 CRUD、自主策略不得继续添加到这里。
  */
 
 import crypto from "crypto";
@@ -36,6 +32,11 @@ import {
   type AdvisorLLMMessage,
 } from "./llm";
 import { buildDepartmentAssistantSystemPrompt } from "@/modules/assistant-runtime/persona";
+import {
+  createKernConversation,
+  getKernConversation,
+  listKernConversations,
+} from "@/modules/assistant-runtime/conversations";
 import { applyExplicitChatProposal } from "@/modules/assistant-runtime/proposal-executor";
 import { buildKernPlannerMessages, parseKernPlannerIntent } from "@/modules/assistant-runtime/planner";
 import type { ScientificEvidenceInput } from "../research/scientific-evidence";
@@ -54,54 +55,12 @@ import {
 import { getProductRndProgramStatus, startProductRndProgram } from "@/modules/product-rnd";
 import { labelAgentTaskStatus, labelWorkItemStatus } from "@/shared/status-labels";
 
-export async function listConversations(
-  session: SessionContext,
-  options?: { productId?: string | null }
-) {
-  const where: any = { organizationId: session.organizationId, ownerId: session.userId, archivedAt: null };
-  if (options?.productId !== undefined) {
-    where.productId = options.productId;
-  }
-  return prisma.conversation.findMany({
-    where,
-    orderBy: { updatedAt: "desc" },
-    take: 50,
-    include: {
-      messages: { orderBy: { createdAt: "desc" }, take: 1, select: { content: true, createdAt: true, role: true } },
-      _count: { select: { messages: true } },
-    },
-  });
-}
-
-export async function createConversation(
-  session: SessionContext,
-  params: { title?: string; productId?: string | null }
-) {
-  const title = params.title?.trim() || "新对话";
-  return prisma.conversation.create({
-    data: {
-      organizationId: session.organizationId,
-      ownerId: session.userId,
-      kind: params.productId ? "PRODUCT" : "ADVISOR",
-      title,
-      productId: params.productId || null,
-    },
-  });
-}
-
-export async function getConversation(session: SessionContext, conversationId: string) {
-  const convo = await prisma.conversation.findUnique({
-    where: { id: conversationId },
-    include: {
-      messages: { orderBy: { createdAt: "asc" } },
-      runs: { orderBy: { createdAt: "desc" }, take: 5, include: { toolCalls: true } },
-    },
-  });
-  if (!convo || convo.organizationId !== session.organizationId || convo.ownerId !== session.userId) {
-    throw new NotFoundError("Conversation not found");
-  }
-  return convo;
-}
+/** @deprecated Use assistant-runtime/conversations. */
+export const listConversations = listKernConversations;
+/** @deprecated Use assistant-runtime/conversations. */
+export const createConversation = createKernConversation;
+/** @deprecated Use assistant-runtime/conversations. */
+export const getConversation = getKernConversation;
 
 // ---------------------------------------------------------------------------
 // 意图路由：受约束的白名单执行器（蓝图 §8：免费模型无原生工具调用时也用同一层）
