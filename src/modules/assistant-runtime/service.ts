@@ -48,6 +48,20 @@ export async function sendDepartmentAssistantMessage(
     productBound: Boolean(context.productId),
     reflex,
   });
+  const routingReceipt = {
+    version: "kern-routing-receipt/v1" as const,
+    runId: result.runId,
+    phase: "SHADOW" as const,
+    authority: collaborationPlanShadow.authority,
+    recommendedMode: collaborationPlanShadow.mode,
+    recommendedExperts: collaborationPlanShadow.experts,
+    synthesisTier: collaborationPlanShadow.synthesisTier,
+    researchRequired: collaborationPlanShadow.researchRequired,
+    qaRequired: collaborationPlanShadow.qaRequired,
+    redTeamRequired: collaborationPlanShadow.redTeamRequired,
+    autoDispatchEligible: collaborationPlanShadow.autoDispatchEligible,
+    dispatchedAgentCodes: [] as string[],
+  };
 
   const run = await prisma.agentRun.findUnique({
     where: { id: result.runId },
@@ -67,6 +81,7 @@ export async function sendDepartmentAssistantMessage(
           reflexDecisions: reflex.decisions,
           reflexError: reflex.error,
           collaborationPlanShadow,
+          routingReceipt,
         }),
       },
     });
@@ -77,5 +92,6 @@ export async function sendDepartmentAssistantMessage(
     assistantRuntime: context.runtimeVersion,
     reflexMode: reflex.mode,
     collaborationPlanShadow,
+    routingReceipt,
   };
 }
