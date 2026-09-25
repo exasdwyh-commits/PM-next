@@ -1,26 +1,75 @@
-# PM-next · Department Assistant / Product R&D OS
+# PM-next · Hermes Department OS
 
-PM-next 是一个面向产品负责人和小型团队的 **Department Assistant + 数字员工团队 + 治理内核**。
+PM-next 是一个面向产品负责人和小型团队的 **AI 部门助理 + 数字员工团队 + 治理内核 + 本机执行 Runtime**。
 
-当前融合版不再把“操作很多 Agent 页面”作为最终产品形态，而是让负责人通过项目与对话发起工作，系统在后台完成拆解、专业协作、研究、证据核验、QA、报告和治理衔接。
+产品目标不是让用户操作很多 Agent 页面，而是：
 
-> 当前交付候选分支：`fusion/pm-os-final`  
-> 合并目标：`main`（PR #1）  
-> 最终交付说明：`docs/FUSION_DELIVERY_2026-09-25.md`
+```text
+告诉 Hermes 想完成什么
+→ Hermes 理解公司/产品上下文
+→ 研究、拆解、委派数字员工
+→ 必要时调用用户自己的 Mac 执行真实工作
+→ 独立 QA / Evidence / Governance
+→ 生成管理报告
+→ 人只处理关键决策
+→ 系统继续推进
+```
 
-## 当前核心能力
+当前可信交付入口：`main`。
 
-### Department Assistant
+## 核心能力
 
-- 对话入口复用成熟 Advisor 执行路径；
-- 统一注入项目/公司上下文；
+### 1. Department Assistant
+
+AI 助理是主要入口：
+
+- 直接接收业务目标，不要求用户先选 Agent / Workflow；
+- 自动注入公司、产品和项目上下文；
+- 支持结构化查询、研究、任务拆解和受控提议；
 - 支持 Laya System-1 Shadow 判断；
-- 负责拆解、调度、监督、验证、汇报和记录；
-- 不允许模型绕过业务治理。
+- 可把明确的本机任务发送到 Hermes Desktop Runtime；
+- 业务事实修改仍经过 Proposal / Approval / Gate，不允许模型绕过治理。
 
-### Digital Workforce
+模型未配置时，结构化查询、受控提议、治理和 Desktop Runtime 仍可工作。
 
-默认 11 个数字角色：
+### 2. Hermes Desktop Runtime
+
+同一个 Hermes 可以在用户自己的 Mac 上执行真实工作。
+
+当前支持：
+
+- 文件：list / read / write / mkdir / move；
+- Terminal：受控 shell；
+- Git：status / diff；
+- Browser：打开 URL；
+- macOS App：启动 App；
+- Clipboard：读取 / 写入；
+- macOS Notification；
+- 可选 AppleScript；
+- Local Agent：默认调用 Codex CLI 执行开放式本机任务，可替换为其他本机 Agent。
+
+闭环：
+
+```text
+AI 助理
+→ desktop_operator AgentTask
+→ Mac Runtime claim
+→ 本机真实执行
+→ AgentRun / AgentTask 回执
+→ 结果自动写回原 AI 助理会话
+```
+
+Mac 一次安装：
+
+```bash
+npm run desktop:install
+```
+
+完整说明见 `docs/HERMES_DESKTOP_RUNTIME.md`。
+
+### 3. Digital Workforce
+
+默认 12 个数字角色：
 
 - Hermes PM / Department Assistant
 - Product Agent
@@ -33,6 +82,7 @@ PM-next 是一个面向产品负责人和小型团队的 **Department Assistant 
 - Marketing Agent
 - Supply & Ops Agent
 - Red Team
+- Desktop Operator
 
 Workforce 支持：
 
@@ -45,9 +95,7 @@ Workforce 支持：
 - WAITING_HUMAN
 - audit trail
 
-### AI 产品研发
-
-项目页已有“AI 产品研发”业务入口。
+### 4. AI 产品研发
 
 标准闭环：
 
@@ -60,14 +108,12 @@ Workforce 支持：
 → Independent QA
 → PRODUCT_RND_EXECUTIVE_REPORT
 → 人类审查
-→ G1 / G2 / G3 治理
+→ G1 / G2 / G3
 ```
 
-ResearchRun 未发布时不会提前进入 QA；QA 成功后系统自动生成管理报告并关闭父任务，但不会自动批准业务 Gate。
+ResearchRun 未发布不会提前进入 QA；QA 成功后管理报告自动生成，但不会自动替人批准业务 Gate。
 
-同一项目只允许一个活跃研发轮次，数据库负责防止双击/并发 START 生成重复 WorkItem。
-
-### Evidence / Truth / Governance
+### 5. Evidence / Truth / Governance
 
 - FACT / INFERENCE / ESTIMATE / OPINION / FORECAST 分离；
 - VERIFIED / STRONG / SUPPORTED / WEAK / UNKNOWN 分离；
@@ -77,64 +123,70 @@ ResearchRun 未发布时不会提前进入 QA；QA 成功后系统自动生成�
 - prompt injection / knowledge poisoning 可隔离；
 - UNKNOWN 保持 UNKNOWN；
 - 模型共识不等于证据；
-- ToolBroker 管理受保护执行；
-- ApprovalGrant 具备 scope 与 single-use 语义。
+- ApprovalGrant 有 scope 与 single-use 语义；
+- ProductVersion / ChannelSpecRoute / Validation / G1 / G2 / G3；
+- immutable decision / audit history。
 
-### Product / Business Governance
+## Frontend V3
 
-- ProductVersion
-- ChannelSpecRoute
-- Evidence / Validation
-- Product Potential
-- G1 研发/打样授权
-- G2 生产投入授权
-- G3 正式上市授权
-- Production preparation / start / delivery
-- immutable decision/audit history
+当前前端采用 Conversation-first Department OS：
+
+主导航：
+
+```text
+今日 / 产品 / AI 助理 / 市场机会 / 公司知识 / 自动化中心 / 设置
+```
+
+核心产品流：
+
+```text
+提需求 → AI 干活 → 看结果 → 做决定 → 继续推进
+```
+
+Product 是主要业务对象；Project 作为内部执行工作区，不再作为用户必须理解的一级产品概念。
+
+产品工作区：
+
+```text
+概览 / AI研发 / 任务 / 证据 / 决策 / 记录
+```
+
+Executive Report 优先展示：
+
+- 是否可以继续推进；
+- UNKNOWN / 缺口；
+- 显式风险；
+- 需负责人决策；
+- 有效结论。
 
 ## 模型策略
 
 系统采用 provider-neutral Model Control。
 
-当前内置的是 **禁用状态的模型槽位和策略**，不是写死供应商：
-
-- Muse Glimmer resident slot
-- routine low-cost slot
-- strategic frontier slot
-- red-team frontier slot
-- private local slot
-
-模型只有在 endpoint/provider/model 明确配置并显式启用后才参与运行。
-
-### Muse Glimmer
-
-推荐作为本地常驻 Department Assistant 模型位：
-
-- provider: `muse-local`
-- modelId: `muse-glimmer`
-- 默认 disabled
-- 通过 OpenAI-compatible `/v1/chat/completions` 接入
+模型只有在 endpoint/provider/model 明确配置并显式启用后才参与模型运行。
 
 ### Laya
 
-Laya 只作为 System-1 快速判断层：
+Laya 是 System-1 快速判断层：
 
-- typed bounded decisions
-- 默认 Shadow
-- 默认不配置 endpoint
-- 没有 workload benchmark/calibration 前不得驱动高风险 AUTO
+- typed bounded decisions；
+- 默认 Shadow；
+- 无 endpoint 时保持 SHADOW_UNCONFIGURED；
+- 未完成目标 workload 校准前不用于高风险自动决策。
 
-详见 `.env.example` 与交付文档。
+### Muse / Local Model
+
+可作为本地常驻 Department Assistant 模型位，通过 OpenAI-compatible API 接入。模型不是 PM-next 的治理真相源，也不直接拥有业务写权限。
 
 ## 本地运行
 
 ```bash
-git fetch --all --prune
-git switch fusion/pm-os-final
-git pull --ff-only origin fusion/pm-os-final
+git clone https://github.com/exasdwyh-commits/PM-next.git
+cd PM-next
 
 npm ci
 cp .env.example .env
+# 填写 DATABASE_URL / AUTH_SECRET 等环境变量
 
 npx prisma generate
 npx prisma migrate deploy
@@ -151,13 +203,30 @@ npm run db:seed
 
 ## 首次组织初始化
 
-管理员登录后：
+管理员登录后，Workforce 可通过：
 
-1. 调用 `POST /api/workforce/bootstrap` 初始化默认数字团队；
-2. 在 Model Control Center 安装推荐 presets；
-3. 根据部署环境配置并启用真正可用的模型 profile。
+```text
+POST /api/workforce/bootstrap
+```
 
-模型未配置时，治理、数据库、Workforce、Evidence 和大部分结构化流程仍应保持可运行；系统不得静默切换到未知外部模型。
+初始化默认数字团队。
+
+当管理员首次从 AI 助理发起本机任务且 `desktop_operator` 尚不存在时，系统也会尝试自动补齐默认 Workforce；普通成员不会获得隐式管理员能力。
+
+## 桌面助理示例
+
+安装 Mac Runtime 后，直接在 AI 助理里说：
+
+```text
+本机帮我执行 git status，并把结果告诉我
+读取剪贴板
+浏览器打开 https://github.com
+读取文件 ~/Desktop/brief.md
+终端执行 npm test
+本机帮我检查当前代码仓库，把能确定的 bug 修掉，跑完测试后告诉我结果
+```
+
+最后一类开放式任务默认交给本机 Codex CLI，执行结果仍返回 Hermes 对话。
 
 ## 验收
 
@@ -169,15 +238,17 @@ npm run lint
 npm run build
 ```
 
-融合主链：
+核心业务：
 
 ```bash
 npm run test:fusion-core
 npm run test:product-rnd-fusion
 npm run test:golden-org
+npm run test:frontend-v3
+npm run test:desktop-runtime
 ```
 
-GitHub PR #1 当前 head 需要同时通过：
+正式交付要求 GitHub 的主要矩阵同时为绿色：
 
 - Quality CI
 - Governance CI
@@ -188,30 +259,26 @@ GitHub PR #1 当前 head 需要同时通过：
 - Business Event CI
 - Golden Organization CI
 
-只有当前 head 的完整矩阵全绿，才算最终可合并候选。
+## 当前边界
 
-## 当前仍属于后续版本
+当前已具备 **Mac 本机执行 Runtime**，但以下能力不能误报成已完成：
 
-以下不能对外描述为已生产完成：
+- 完整视觉 Computer Use（屏幕理解、坐标点击、拖拽、视觉恢复）；
+- 任意第三方 App 的零配置 GUI 自动化；
+- Laya 正式 workload benchmark / calibration；
+- 全部外部科研、法规、供应链数据源适配。
 
-- Laya workload benchmark / calibration
-- Muse 在目标 Mac 上的正式部署与质量基准
-- Proactive Engine A1/A2 全量运行
-- Evolution Engine 自动改进闭环
-- 浏览器 / Computer Use 完整生产执行器
-- 语音客户端
-- 多 Agent discussion room 完整 UI
-- 全部外部科研/法规/供应链数据源适配
+AppleScript / Accessibility 通道已经预留；有稳定 API/CLI/AppleScript 的本机任务应优先使用确定性工具，不为了“像人点击”而退化成脆弱 GUI 自动化。
 
 ## 文档
 
 优先阅读：
 
-1. `docs/FUSION_DELIVERY_2026-09-25.md`
-2. `docs/FINAL_ARCHITECTURE_BLUEPRINT_V2.md`
-3. `docs/DOMAIN_CONTRACTS_V2.md`
-4. `docs/TOOL_BROKER_AND_APPROVALS.md`
-5. `docs/FORMAL_G2_PRODUCTION_GATE.md`
-6. `docs/FORMAL_G3_LAUNCH_GATE.md`
+1. `docs/HERMES_DESKTOP_RUNTIME.md`
+2. `docs/FRONTEND_V3_CONVERSATION_FIRST.md`
+3. `docs/FUSION_DELIVERY_2026-09-25.md`
+4. `docs/FINAL_ARCHITECTURE_BLUEPRINT_V2.md`
+5. `docs/DOMAIN_CONTRACTS_V2.md`
+6. `docs/TOOL_BROKER_AND_APPROVALS.md`
 
-旧 `release/v0.1.0-rc1` 文档保留为历史记录，不再代表当前融合版交付入口。
+历史 release / fusion 分支文档仅作为演进记录，不再代表当前部署入口。
