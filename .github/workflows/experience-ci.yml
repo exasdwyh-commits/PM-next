@@ -76,4 +76,4 @@ jobs:
       - run: npx prisma migrate deploy
       - run: npm run test:experience
       - name: Verify Kern product conversation continuity
-        run: tsx scripts/run-test.ts tests/regression-kern-product-conversation-continuity.ts
+        run: npx tsx scripts/run-test.ts tests/regression-kern-product-conversation-continuity.ts
