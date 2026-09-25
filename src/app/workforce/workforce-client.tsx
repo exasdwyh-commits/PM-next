@@ -213,7 +213,7 @@ export default function WorkforceClient({
       topbarLeft={
         <div className="hermes-topbar-title">
           <span className="eyebrow">HERMES · AUTONOMOUS WORKFORCE</span>
-          <strong>数字员工</strong>
+          <strong>自动化中心</strong>
         </div>
       }
       topbarRight={

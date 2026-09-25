@@ -2,26 +2,14 @@
 
 import React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import AppShell from "@/components/app-shell";
-import CollapsibleList from "@/components/collapsible-list";
-import { Empty, Panel } from "@/components/ui";
-import {
-  DecisionBoard,
-  FeedRow,
-  HeroBand,
-  Kpi,
-  KpiRow,
-  Pill,
-  ProgressRow,
-  type DecisionColumn,
-} from "@/components/cockpit";
+import { Badge, Empty, Panel } from "@/components/ui";
 import Icon from "@/components/icons";
-import { StepTrack, type StepItem } from "@/components/viz";
 import {
-  buildSituationBrief,
   rankDecisions,
-  type BriefSourceItem,
   type BriefDecisionItem,
+  type BriefSourceItem,
 } from "@/modules/workspace/briefing";
 import { fmtDate, fmtDateTime } from "@/shared/datetime";
 import { labelProductLifecycleStage } from "@/shared/status-labels";
@@ -29,22 +17,6 @@ import {
   AutomationTraceList,
   type AutomationTraceView,
 } from "@/components/automation-trace";
-
-/**
- * 首页 · 产品中心驾驶舱（2026-09-19 重写）
- *
- * 与旧版（三段式极简简报）的差异：
- * 旧版只保留「现在的情况 / 需要你决定 / 其他工作」三块，把驾驶舱减成了骨架。
- * 本版按 `hermes-frontend-v2` 的 composition 重排：
- *   品牌带 → KPI 行 → 阶段分布条 → 主区（现在的情况 / 决策板 / 产品推进 + 市场机会）
- *   ＋ 侧栏（今日重点 / 最近完成）。
- *
- * 仍然必须守住的既有契约（不因版式变化而放松）：
- * - 所有数字与文案都来自真实聚合；无数据一律渲染空态，**禁止**补占位数字或「整体正常」式结论。
- * - 「默认三件」只是展示预算：完整队列始终可展开，高风险事项不因预算被丢弃。
- * - 统计时间 / 筛选范围 / 权限范围始终可见（页脚口径行）。
- * - 任一聚合读取失败时以 degraded 呈现，不写「一切正常」。
- */
 
 interface OverviewItem extends BriefSourceItem {
   tier?: string | null;
@@ -95,40 +67,28 @@ interface WorkforceActivity {
   recentTraces: AutomationTraceView[];
 }
 
-/** 信号价值分级标签：与 /opportunities 页保持同一口径（不新造词汇）。 */
-const TIER_LABEL: Record<string, { label: string; tone: "ok" | "info" | "neutral" }> = {
-  high: { label: "高价值", tone: "ok" },
-  normal: { label: "一般", tone: "info" },
-  low: { label: "低", tone: "neutral" },
+const QUICK_ACTIONS = [
+  { label: "研究一个新产品", query: "我有一个新产品想法，请帮我先梳理目标用户、核心需求、市场机会和研发路径。" },
+  { label: "分析市场机会", query: "帮我分析最近值得关注的市场机会，并说明证据、风险和下一步验证方式。" },
+  { label: "开始产品研发", query: "我想启动一轮完整产品研发，请先帮我整理研发 Brief，再告诉我还缺哪些输入。" },
+  { label: "专家会诊", query: "我需要一次多专业专家会诊，请从市场、科研、配方、合规、成本和反方视角审查当前问题。" },
+];
+
+const TIER_LABEL: Record<string, string> = {
+  high: "高价值",
+  normal: "一般",
+  low: "低",
 };
 
-/** 产品生命周期阶段 → 药丸色调。仅映射已有枚举，未知值回落 neutral。 */
-const STAGE_TONE: Record<string, "neutral" | "warn" | "info" | "ok"> = {
-  IDEA: "neutral",
-  ANALYSIS: "warn",
-  SAMPLING: "info",
-  LAUNCH_PREP: "ok",
-};
-
-/** 首页队列条目的类别标签（真实来源类别，不表示优先级高低）。 */
-function kindLabel(d: BriefDecisionItem): string {
-  if (d.kind === "decision") return "等你裁决";
-  if (d.kind === "blocker") return "阻塞";
-  return d.status === "SUBMITTED" ? "待验收" : "进行中";
+function decisionLabel(item: BriefDecisionItem): string {
+  if (item.kind === "decision") return "等你决定";
+  if (item.kind === "blocker") return "阻塞";
+  return item.status === "SUBMITTED" ? "待验收" : "待处理";
 }
 
-/** 副题只放**不与药丸重复**的真实信息：风险类别 / 工作项状态 / 责任人。 */
-function kindSub(d: BriefDecisionItem): string | undefined {
-  const parts: string[] = [];
-  if (d.kind === "blocker" && d.riskLabel) parts.push(d.riskLabel);
-  if (d.kind === "todo") parts.push(d.status === "SUBMITTED" ? "成果已提交" : "按计划推进");
-  if (d.ownerName) parts.push(d.ownerName);
-  return parts.length > 0 ? parts.join(" · ") : undefined;
-}
-
-function kindTone(d: BriefDecisionItem): "warn" | "danger" | "info" {
-  if (d.kind === "decision") return "warn";
-  if (d.kind === "blocker") return "danger";
+function decisionTone(item: BriefDecisionItem): "warn" | "danger" | "info" {
+  if (item.kind === "blocker") return "danger";
+  if (item.kind === "decision") return "warn";
   return "info";
 }
 
@@ -147,10 +107,14 @@ export default function WorkbenchClient({
   runtime: { tone: "ok" | "warn" | "neutral"; label: string; detail: string };
   mockAuth?: boolean;
 }) {
-  const [activeUserId, setActiveUserId] = React.useState(currentSession?.userId || allUsers[0]?.id || "");
+  const router = useRouter();
+  const [activeUserId, setActiveUserId] = React.useState(
+    currentSession?.userId || allUsers[0]?.id || ""
+  );
+  const [command, setCommand] = React.useState("");
   const activeUser = allUsers.find((u) => u.id === activeUserId) || allUsers[0];
+  const displayName = activeUser?.name || currentSession?.userName || "你好";
 
-  // 归一排序：截止时间 → 依赖等待 → 责任归属。完整队列始终返回，展示预算由 UI 层决定。
   const ranked = React.useMemo(
     () =>
       rankDecisions(
@@ -159,64 +123,36 @@ export default function WorkbenchClient({
         { items: overview.todos.items },
         currentSession.userId
       ),
-    [overview.pendingDecisions.items, overview.blockers.items, overview.todos.items, currentSession.userId]
+    [
+      overview.pendingDecisions.items,
+      overview.blockers.items,
+      overview.todos.items,
+      currentSession.userId,
+    ]
   );
 
-  const situation = React.useMemo(
-    () =>
-      buildSituationBrief({
-        scopeLabel: overview.meta.scopeLabel,
-        generatedAt: overview.meta.generatedAt,
-        decisions: ranked.decisions,
-        decisionsTotal: ranked.total,
-        todoCount: overview.todos.count,
-        blockersTotal: overview.blockers.count,
-        earliestBlockerDueAt: overview.earliestBlockerDueAt ?? null,
-        productsInFlight: overview.productsInFlight.count,
-        recentChanges: overview.recentChanges ?? [],
-        degraded: overview.degraded ?? false,
-        degradedNote: overview.degradedNote ?? null,
-      }),
-    [overview, ranked.decisions, ranked.total]
-  );
-
-  // 决策板承接队列第一件；侧栏「今日重点」只展示其余，避免同一事项在两处重复出现。
   const top = ranked.decisions[0] ?? null;
-  const rest = ranked.decisions.slice(1);
-
-  const boardColumns: DecisionColumn[] = React.useMemo(() => {
-    if (!top) return [];
-    const cols: DecisionColumn[] = [{ label: "当前现状", text: top.whyNow }];
-    if (top.suggestion) cols.push({ label: "Hermes 建议", text: top.suggestion });
-    if (top.riskLabel) cols.push({ label: "关键风险", text: top.riskLabel });
-    cols.push({ label: "优先级依据", text: top.rankReason });
-    return cols;
-  }, [top]);
-
-  // 阶段分布步进条：标签已由服务端经 status-labels 中文化，这里只做状态归位。
-  const byStage = overview.productsInFlight.byStage;
-  const firstNonEmpty = byStage.findIndex((s) => s.count > 0);
-  const stageSteps: StepItem[] = byStage.map((s, i) => ({
-    key: s.stage,
-    label: s.label,
-    state: s.count > 0 ? (i === firstNonEmpty ? "current" : "done") : "pending",
-    note: `${s.count} 个`,
-  }));
-
-  const leadStage = byStage.find((s) => s.count > 0)?.label ?? null;
-  const productItems = overview.productsInFlight.items.slice(0, 4);
-  const signalItems = overview.opportunities.items.slice(0, 4);
+  const rest = ranked.decisions.slice(1, 6);
+  const productItems = overview.productsInFlight.items.slice(0, 5);
+  const signalItems = overview.opportunities.items.slice(0, 5);
   const completedItems = overview.recentlyCompleted.items.slice(0, 4);
+
+  const submitCommand = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = command.trim();
+    if (!q) return;
+    router.push(`/advisor?query=${encodeURIComponent(q)}`);
+  };
 
   return (
     <AppShell
       active="overview"
-      user={{ name: activeUser?.name || currentSession?.userName, meta: currentSession?.userEmail }}
+      user={{ name: displayName, meta: currentSession?.userEmail }}
       runtime={runtime}
       topbarLeft={
         <div className="hermes-topbar-title">
-          <span className="eyebrow">HERMES · 产品中心</span>
-          <strong>驾驶舱</strong>
+          <span className="eyebrow">HERMES · DEPARTMENT ASSISTANT</span>
+          <strong>今日</strong>
         </div>
       }
       topbarRight={
@@ -224,7 +160,11 @@ export default function WorkbenchClient({
           {mockAuth ? (
             <div className="hermes-identity">
               <span>当前身份（开发态）</span>
-              <select value={activeUserId} onChange={(e) => setActiveUserId(e.target.value)} aria-label="切换操作人">
+              <select
+                value={activeUserId}
+                onChange={(e) => setActiveUserId(e.target.value)}
+                aria-label="切换操作人"
+              >
                 {allUsers.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.name}
@@ -233,317 +173,319 @@ export default function WorkbenchClient({
               </select>
             </div>
           ) : null}
-          <Link href="/advisor" className="hermes-outline-btn">
-            <Icon name="chat" size={16} />
-            问顾问
+          <Link href="/workforce" className="hermes-outline-btn">
+            <Icon name="nodes" size={16} />
+            自动化中心
           </Link>
         </div>
       }
     >
-      <HeroBand
-        eyebrow={`统计时间 ${fmtDateTime(overview.meta.generatedAt)}`}
-        mark="HERMES"
-        tagline="让每一个产品决策都有证据。"
-        intro="从市场洞察到产品上市，AI 与专业知识共同驱动更好的决策。"
-        quote={
-          <>
-            Better Products
-            <br />
-            A Healthier World
-          </>
-        }
-      />
-
-      <KpiRow>
-        <Kpi
-          label="产品正在推进"
-          value={overview.productsInFlight.count}
-          emphasis="primary"
-          note={leadStage ? `最靠前阶段「${leadStage}」` : "暂无在推进产品"}
-        />
-        <Kpi
-          label="需要你今天决定"
-          value={ranked.total}
-          tone={ranked.total > 0 ? "alert" : undefined}
-          emphasis="decision"
-          note={
-            ranked.total === 0
-              ? "当前队列为空"
-              : overview.blockers.count > 0
-                ? `阻塞 ${overview.blockers.count} 项 · ${
-                    overview.earliestBlockerDueAt
-                      ? `最早截止 ${fmtDate(overview.earliestBlockerDueAt)}`
-                      : "均未设截止日"
-                  }`
-                : "当前无阻塞项"
-          }
-        />
-        <Kpi label="进行中的工作项" value={overview.todos.count} />
-        <Kpi label="高价值市场信号" value={overview.opportunities.count} note="valueTier = high" />
-        <Kpi label="待处理决策包" value={overview.pendingDecisions.count} />
-        <Kpi
-          label="我参与的项目"
-          value={overview.portfolio.projectCount}
-          note={`组织内产品 ${overview.portfolio.productCount} 个`}
-        />
-      </KpiRow>
-
-      <div className="hermes-stage-band">
-        <span className="hermes-stage-band-label">Hermes 最近 {workforceActivity.windowHours} 小时</span>
-        <span>感知 {workforceActivity.eventCount} 个业务事件</span>
-        <span>自动触发 {workforceActivity.triggeredCount} 个任务</span>
-        <span>抑制 {workforceActivity.suppressedCount} 次不必要动作</span>
-        <span>
-          等你处理 {workforceActivity.attentionCount} 项
-          {workforceActivity.failedCount > 0 ? ` · 自动化失败 ${workforceActivity.failedCount}` : ""}
-        </span>
-        <Link href="/workforce" className="hermes-link">
-          查看自动团队 <Icon name="arrow" size={13} />
-        </Link>
-      </div>
-
-      {/* 阶段分布：全宽细带，承担旧版「产品阶段推进」的能力，不占主栅格列宽 */}
-      <div className="hermes-stage-band">
-        <span className="hermes-stage-band-label">产品阶段分布</span>
-        <StepTrack steps={stageSteps} ariaLabel="产品阶段分布" />
-      </div>
-
-      <div className="hermes-cockpit">
-        <div className="hermes-cockpit-main">
-          {/* ── 现在的情况（真实聚合归纳，非模型生成） ────────────────── */}
-          <section className="hermes-brief-situation">
-            <Panel
-              icon="grid"
-              title="现在的情况"
-              sub={overview.degraded ? `部分信息暂未更新（${overview.degradedNote ?? "原因未知"}）` : undefined}
-            >
-              <div className="hermes-brief-paragraphs">
-                {situation.paragraphs.map((p, i) => (
-                  <p key={i} className={i === 0 && overview.degraded ? "hermes-brief-para is-degraded" : "hermes-brief-para"}>
-                    {p}
-                  </p>
-                ))}
-              </div>
-            </Panel>
-          </section>
-
-          <section>
-            <Panel
-              icon="nodes"
-              title="Hermes 自动工作"
-              sub={`最近 ${workforceActivity.windowHours} 小时 · 真实业务事件驱动，不把手工任务算成自动化`}
-              actions={
-                <Link href="/workforce" className="hermes-link">
-                  查看完整因果链 <Icon name="arrow" size={13} />
-                </Link>
-              }
-            >
-              <AutomationTraceList
-                traces={workforceActivity.recentTraces.slice(0, 5)}
-                emptyText="最近 24 小时还没有业务事件驱动数字员工。"
-              />
-            </Panel>
-          </section>
-
-          {/* ── 需要你决定（队列首件展开为三栏决策板） ───────────────── */}
-          <section className="hermes-brief-decisions">
-            {top ? (
-              <DecisionBoard
-                index={1}
-                title={top.what}
-                summary={top.dueAt ? `截止 ${fmtDate(top.dueAt)}` : undefined}
-                columns={boardColumns}
-                meta={`共 ${ranked.total} 件待你处理`}
-                actions={
-                  <>
-                    <Link href="/trace" className="hermes-outline-btn">
-                      <Icon name="target" size={16} />
-                      查看判断依据
-                    </Link>
-                    <Link href={top.href} className="hermes-primary-btn">
-                      去处理
-                      <Icon name="arrow" size={16} />
-                    </Link>
-                  </>
-                }
-              />
-            ) : (
-              <Panel title="需要你决定">
-                <Empty>
-                  没有待你决定的决策包，也没有阻塞项；工作项列表为空或已全部验收。这不代表没有业务风险，仅表示当前队列为空。
-                </Empty>
-              </Panel>
-            )}
-          </section>
-
-          {/* ── 其他工作：主题行（产品推进 / 市场机会） ───────────────── */}
-          <div className="hermes-cockpit-pair hermes-brief-themes">
-            <Panel
-              icon="flask"
-              title="产品推进"
-              actions={
-                <Link href="/products" className="hermes-link">
-                  查看全部 <Icon name="arrow" size={13} />
-                </Link>
-              }
-            >
-              {productItems.length > 0 ? (
-                productItems.map((p) => (
-                  <ProgressRow
-                    key={p.id}
-                    href={p.href || "/products"}
-                    name={p.title}
-                    sub={p.meta ?? undefined}
-                    pill={
-                      <Pill tone={STAGE_TONE[p.status ?? ""] ?? "neutral"}>
-                        {labelProductLifecycleStage(p.status)}
-                      </Pill>
-                    }
-                  />
-                ))
-              ) : (
-                <Empty>暂无在推进的产品；新建产品入库后会出现在这里。</Empty>
-              )}
-            </Panel>
-
-            <Panel
-              icon="signal"
-              title="市场机会"
-              actions={
-                <Link href="/opportunities" className="hermes-link">
-                  查看全部 <Icon name="arrow" size={13} />
-                </Link>
-              }
-            >
-              {signalItems.length > 0 ? (
-                signalItems.map((s) => (
-                  <ProgressRow
-                    key={s.id}
-                    href={s.href || "/opportunities"}
-                    name={s.title}
-                    sub={s.meta ?? undefined}
-                    pill={
-                      <Pill tone={s.tier ? TIER_LABEL[s.tier]?.tone ?? "neutral" : "neutral"}>
-                        {s.tier ? TIER_LABEL[s.tier]?.label ?? s.tier : "未评估"}
-                      </Pill>
-                    }
-                  />
-                ))
-              ) : (
-                <Empty>尚无高价值信号。信号在 /opportunities 采录并分级后会出现在这里。</Empty>
-              )}
-            </Panel>
-          </div>
+      <section className="hermes-command-center" aria-labelledby="today-command-title">
+        <div className="hermes-command-copy">
+          <span className="eyebrow">AI 部门助理</span>
+          <h1 id="today-command-title">{displayName}，今天想让 Hermes 做什么？</h1>
+          <p>
+            直接说业务目标。Hermes 会先理解上下文，再决定是回答、研究、拆任务，还是启动产品研发流程。
+          </p>
         </div>
 
-        <aside className="hermes-cockpit-side">
+        <form className="hermes-command-box" onSubmit={submitCommand}>
+          <Icon name="chat" size={20} />
+          <input
+            value={command}
+            onChange={(e) => setCommand(e.target.value)}
+            placeholder="例如：我要做一款针对 25–45 岁女性的肠道产品，售价 299，先帮我评估"
+            aria-label="告诉 Hermes 你想完成什么"
+          />
+          <button type="submit" className="hermes-primary-btn" disabled={!command.trim()}>
+            交给 Hermes
+            <Icon name="arrow" size={15} />
+          </button>
+        </form>
+
+        <div className="hermes-command-actions" aria-label="常用任务">
+          {QUICK_ACTIONS.map((action) => (
+            <Link
+              key={action.label}
+              href={`/advisor?query=${encodeURIComponent(action.query)}`}
+              className="hermes-command-chip"
+            >
+              {action.label}
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {overview.portfolio.productCount === 0 ? (
+        <section className="hermes-onboarding" aria-labelledby="hermes-onboarding-title">
+          <div className="hermes-onboarding-head">
+            <div>
+              <span className="eyebrow">GET STARTED</span>
+              <h2 id="hermes-onboarding-title">第一次使用，三步就够了</h2>
+              <p>不用先研究 Agent、项目或治理对象。把基础环境准备好，然后直接告诉 Hermes 你想做什么。</p>
+            </div>
+            <Badge tone="info">尚未创建产品</Badge>
+          </div>
+
+          <div className="hermes-onboarding-steps">
+            <Link href="/settings" className="hermes-onboarding-step">
+              <span>1</span>
+              <div>
+                <strong>确认 AI 与模型</strong>
+                <small>配置可用模型；未配置时结构化治理能力仍可运行。</small>
+              </div>
+              <Icon name="arrow" size={14} />
+            </Link>
+            <Link href="/knowledge" className="hermes-onboarding-step">
+              <span>2</span>
+              <div>
+                <strong>补充公司知识</strong>
+                <small>导入产品、渠道、规范与历史资料，让建议带上公司上下文。</small>
+              </div>
+              <Icon name="arrow" size={14} />
+            </Link>
+            <Link
+              href={`/advisor?query=${encodeURIComponent("我想创建第一个产品。请先问我最少必要信息，再帮我整理产品 Brief、关键假设和第一轮验证计划。")}`}
+              className="hermes-onboarding-step is-primary"
+            >
+              <span>3</span>
+              <div>
+                <strong>告诉 Hermes 你的产品想法</strong>
+                <small>从对话开始，不需要先手工建立复杂项目结构。</small>
+              </div>
+              <Icon name="arrow" size={14} />
+            </Link>
+          </div>
+        </section>
+      ) : null}
+
+      {overview.degraded ? (
+        <div className="hermes-home-alert" role="status">
+          <strong>部分信息暂未更新。</strong>
+          <span>{overview.degradedNote || "当前页面仍展示最后一次可用的真实数据。"}</span>
+        </div>
+      ) : null}
+
+      <section className="hermes-today-stats" aria-label="今日摘要">
+        <div>
+          <span>需要你处理</span>
+          <strong>{ranked.total}</strong>
+          <small>{overview.blockers.count > 0 ? `其中阻塞 ${overview.blockers.count} 项` : "当前无阻塞项"}</small>
+        </div>
+        <div>
+          <span>正在推进产品</span>
+          <strong>{overview.productsInFlight.count}</strong>
+          <small>组织内产品 {overview.portfolio.productCount} 个</small>
+        </div>
+        <div>
+          <span>高价值市场机会</span>
+          <strong>{overview.opportunities.count}</strong>
+          <small>仅统计已分级信号</small>
+        </div>
+        <div>
+          <span>Hermes 等你</span>
+          <strong>{workforceActivity.attentionCount}</strong>
+          <small>结果复核或人工判断</small>
+        </div>
+      </section>
+
+      <div className="hermes-today-grid">
+        <section className="hermes-today-main">
           <Panel
-            icon="bell"
-            title="Hermes 等你"
+            icon="target"
+            title="需要你处理"
             sub={
-              workforceActivity.attentionCount > 0
-                ? `结果复核 ${workforceActivity.returnReviewCount} · 人工判断 ${workforceActivity.waitingHumanCount + workforceActivity.waitingPolicyCount}`
-                : "当前没有数字员工等待你的判断"
+              ranked.total > 0
+                ? `按截止时间、依赖等待与责任归属排序 · 共 ${ranked.total} 件`
+                : "当前没有等待你处理的事项"
             }
           >
-            {workforceActivity.attentionItems.length > 0 ? (
-              <div className="hermes-list">
-                {workforceActivity.attentionItems.map((item) => (
-                  <div className="hermes-row is-flat" key={item.kind + ":" + item.id}>
-                    <div className="hermes-row-head">
-                      <strong className="hermes-row-title">{item.title}</strong>
-                      <Pill tone={item.kind === "RETURN_REVIEW" ? "info" : "warn"}>
-                        {item.kind === "RETURN_REVIEW"
-                          ? "结果待复核"
-                          : item.kind === "POLICY_WAITING"
-                            ? "策略门等待"
-                            : "等你拍板"}
-                      </Pill>
+            {top ? (
+              <div className="hermes-focus-task">
+                <div className="hermes-focus-task-head">
+                  <Badge tone={decisionTone(top)}>{decisionLabel(top)}</Badge>
+                  {top.dueAt ? <span>截止 {fmtDate(top.dueAt)}</span> : null}
+                </div>
+                <h2>{top.what}</h2>
+                <p>{top.whyNow}</p>
+                <div className="hermes-focus-task-facts">
+                  {top.suggestion ? (
+                    <div>
+                      <span>Hermes 建议</span>
+                      <strong>{top.suggestion}</strong>
                     </div>
-                    <div className="hermes-row-meta">
-                      <span>{item.agentName}</span>
-                      <span>{fmtDateTime(item.updatedAt)}</span>
+                  ) : null}
+                  {top.riskLabel ? (
+                    <div>
+                      <span>关键风险</span>
+                      <strong>{top.riskLabel}</strong>
                     </div>
-                    <div className="hermes-row-body">{item.detail}</div>
-                    <div style={{ marginTop: 8 }}>
-                      <Link href={item.href} className="hermes-link">
-                        去处理 <Icon name="arrow" size={13} />
-                      </Link>
+                  ) : null}
+                </div>
+                <div className="hermes-focus-task-actions">
+                  <Link href={top.href} className="hermes-primary-btn">
+                    去处理
+                    <Icon name="arrow" size={15} />
+                  </Link>
+                  <Link
+                    href={`/advisor?query=${encodeURIComponent(`帮我分析这个待处理事项：${top.what}。请说明为什么现在要处理、主要风险和建议动作。`)}`}
+                    className="hermes-outline-btn"
+                  >
+                    和 Hermes 讨论
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <Empty>
+                当前没有待审批、阻塞或待验收事项。你可以直接在上方告诉 Hermes 下一项工作。
+              </Empty>
+            )}
+
+            {rest.length > 0 ? (
+              <div className="hermes-simple-queue">
+                {rest.map((item) => (
+                  <Link key={item.id} href={item.href} className="hermes-simple-queue-row">
+                    <div>
+                      <strong>{item.what}</strong>
+                      <span>
+                        {item.ownerName ? `${item.ownerName} · ` : ""}
+                        {item.dueAt ? `截止 ${fmtDate(item.dueAt)}` : "未设置截止时间"}
+                      </span>
                     </div>
-                  </div>
+                    <Badge tone={decisionTone(item)}>{decisionLabel(item)}</Badge>
+                  </Link>
+                ))}
+                {ranked.total > 6 ? (
+                  <div className="hermes-queue-more">还有 {ranked.total - 6} 件，请从对应产品继续处理。</div>
+                ) : null}
+              </div>
+            ) : null}
+          </Panel>
+
+          <Panel
+            icon="flask"
+            title="产品推进"
+            sub="从产品出发查看研发、打样、生产准备与上市，而不是先理解项目对象"
+            actions={
+              <Link href="/products" className="hermes-link">
+                查看全部产品 <Icon name="arrow" size={13} />
+              </Link>
+            }
+          >
+            {productItems.length > 0 ? (
+              <div className="hermes-object-list">
+                {productItems.map((item) => (
+                  <Link key={item.id} href={item.href || "/products"} className="hermes-object-row">
+                    <span className="hermes-object-mark" aria-hidden="true">
+                      {item.title.trim().slice(0, 1)}
+                    </span>
+                    <div>
+                      <strong>{item.title}</strong>
+                      <span>{item.meta || "暂无补充说明"}</span>
+                    </div>
+                    <Badge tone="neutral">{labelProductLifecycleStage(item.status)}</Badge>
+                  </Link>
                 ))}
               </div>
             ) : (
-              <Empty>当前没有专业 Agent 返回结果或人工判断请求。</Empty>
+              <Empty>
+                还没有正在推进的产品。可以在上方直接描述一个产品想法，让 Hermes 帮你开始。
+              </Empty>
             )}
           </Panel>
+        </section>
 
-          {/* ── 今日重点：队列除首件外的其余事项，默认 4 件、可展开 ───── */}
+        <aside className="hermes-today-side">
           <Panel
-            icon="target"
-            title="今日重点"
-            sub={`按截止时间 → 依赖等待 → 责任归属排序 · 共 ${ranked.total} 件`}
+            icon="nodes"
+            title="Hermes 正在工作"
+            sub={`最近 ${workforceActivity.windowHours} 小时的真实自动化活动`}
+            actions={
+              <Link href="/workforce" className="hermes-link">
+                查看自动化中心 <Icon name="arrow" size={13} />
+              </Link>
+            }
           >
-            {rest.length > 0 ? (
-              <CollapsibleList
-                items={rest}
-                previewCount={4}
-                unit="件"
-                toggleMarginTop={8}
-                renderItem={(d: BriefDecisionItem) => (
-                  <FeedRow
-                    key={d.id}
-                    href={d.href}
-                    title={d.what}
-                    sub={kindSub(d)}
-                    pill={<Pill tone={kindTone(d)}>{kindLabel(d)}</Pill>}
-                  />
-                )}
-              />
-            ) : top ? (
-              <Empty>队列只有 1 件，已在上方「需要你决定」展开。</Empty>
+            <div className="hermes-automation-summary">
+              <div>
+                <strong>{workforceActivity.triggeredCount}</strong>
+                <span>自动触发</span>
+              </div>
+              <div>
+                <strong>{workforceActivity.returnReviewCount}</strong>
+                <span>结果待复核</span>
+              </div>
+              <div>
+                <strong>{workforceActivity.waitingHumanCount + workforceActivity.waitingPolicyCount}</strong>
+                <span>等待人工</span>
+              </div>
+              <div className={workforceActivity.failedCount > 0 ? "is-alert" : ""}>
+                <strong>{workforceActivity.failedCount}</strong>
+                <span>失败</span>
+              </div>
+            </div>
+            <AutomationTraceList
+              traces={workforceActivity.recentTraces.slice(0, 4)}
+              emptyText="最近还没有业务事件驱动的自动工作。"
+            />
+          </Panel>
+
+          <Panel
+            icon="signal"
+            title="值得看的市场机会"
+            actions={
+              <Link href="/opportunities" className="hermes-link">
+                查看全部 <Icon name="arrow" size={13} />
+              </Link>
+            }
+          >
+            {signalItems.length > 0 ? (
+              <div className="hermes-object-list is-compact">
+                {signalItems.map((item) => (
+                  <Link key={item.id} href={item.href || "/opportunities"} className="hermes-object-row">
+                    <div>
+                      <strong>{item.title}</strong>
+                      <span>{item.meta || item.summary || "等待进一步验证"}</span>
+                    </div>
+                    <Badge tone={item.tier === "high" ? "ok" : "neutral"}>
+                      {item.tier ? TIER_LABEL[item.tier] || item.tier : "未评估"}
+                    </Badge>
+                  </Link>
+                ))}
+              </div>
             ) : (
-              <Empty>当前没有等待你处理的事项。</Empty>
+              <Empty>目前没有高价值市场信号。</Empty>
             )}
           </Panel>
 
-          {/* ── 最近完成：已验收工作项，按最近更新时间倒序 ───────────── */}
-          <Panel
-            icon="check"
-            title="最近完成"
-            sub={overview.recentlyCompleted.count > 0 ? `已验收 ${overview.recentlyCompleted.count} 项` : undefined}
-          >
+          <Panel icon="check" title="最近完成">
             {completedItems.length > 0 ? (
-              <CollapsibleList
-                items={completedItems}
-                previewCount={4}
-                unit="项"
-                toggleMarginTop={8}
-                renderItem={(c: OverviewItem) => (
-                  <FeedRow
-                    key={c.id}
-                    href={c.href}
-                    done
-                    title={c.title}
-                    sub={`${c.meta ?? "未关联项目"}${c.at ? ` · ${fmtDate(c.at)}` : ""}`}
-                  />
-                )}
-              />
+              <div className="hermes-completed-list">
+                {completedItems.map((item) => (
+                  <Link key={item.id} href={item.href || "/products"}>
+                    <Icon name="check" size={14} />
+                    <span>
+                      <strong>{item.title}</strong>
+                      <small>{item.meta || "已完成"}</small>
+                    </span>
+                  </Link>
+                ))}
+              </div>
             ) : (
-              <Empty>还没有已验收的工作项。</Empty>
+              <Empty>暂无最近完成事项。</Empty>
             )}
           </Panel>
         </aside>
       </div>
 
-      {/* 统计口径：统计时间 / 筛选范围 / 权限范围必须始终可见 */}
-      <div className="hermes-overview-meta">
-        <span>
-          <Icon name="clock" size={13} /> 统计时间 {fmtDateTime(overview.meta.generatedAt)}
-        </span>
-        <span>筛选范围 {overview.meta.scopeLabel}</span>
-        <span>权限范围 {overview.meta.permissionLabel}</span>
-      </div>
+      <footer className="hermes-home-scope">
+        <span>更新时间 {fmtDateTime(overview.meta.generatedAt)}</span>
+        <span>{overview.meta.scopeLabel}</span>
+        <span>{overview.meta.permissionLabel}</span>
+        {overview.earliestBlockerDueAt ? (
+          <span>最早阻塞截止 {fmtDate(overview.earliestBlockerDueAt)}</span>
+        ) : null}
+      </footer>
     </AppShell>
   );
 }
