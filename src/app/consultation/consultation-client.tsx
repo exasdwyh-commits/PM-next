@@ -189,7 +189,7 @@ export default function ConsultationClient({
         sub={`${labelFeedbackStatus("OPEN")} ${openCount}`}
       >
         {feedbacks.length === 0 ? (
-          <Empty>暂无反馈。</Empty>
+          <Empty>还没有反馈记录。先选择项目并提交一条反馈；后续采纳、驳回或补充信息都会保留处置记录。</Empty>
         ) : (
           <div className="hermes-list">
             {feedbacks.map((fb) => (
