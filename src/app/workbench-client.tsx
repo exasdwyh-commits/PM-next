@@ -473,7 +473,7 @@ export default function WorkbenchClient({
                 ))}
               </div>
             ) : (
-              <Empty>目前没有高价值市场信号。</Empty>
+              <Empty>目前没有高价值市场信号。可去「机会」页录入并核实来源；符合条件的信号会回到这里。</Empty>
             )}
           </Panel>
 
@@ -493,7 +493,7 @@ export default function WorkbenchClient({
                 ))}
               </div>
             ) : (
-              <Empty>暂无最近完成事项。</Empty>
+              <Empty>最近还没有验收完成的工作项。进入项目完成提交与验收后，已确认的完成事项会出现在这里。</Empty>
             )}
           </Panel>
         </aside>
