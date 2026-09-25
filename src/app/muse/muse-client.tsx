@@ -53,7 +53,7 @@ function fromApiMessage(message: ApiMessage): Message {
 
   return {
     id: message.id,
-    author: message.role === "USER" ? "user" : "hermes",
+    author: message.role === "USER" ? "user" : "kern",
     byEmployeeId: message.role === "USER" ? null : "e-hermes",
     at: message.createdAt,
     state: "success",
@@ -209,7 +209,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
         ...current,
         {
           id: `error-${Date.now()}`,
-          author: "hermes",
+          author: "kern",
           byEmployeeId: "e-hermes",
           at: new Date().toISOString(),
           state: "error",
@@ -264,7 +264,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
           ...current,
           {
             id: `decision-${decision.id}-${Date.now()}`,
-            author: "hermes",
+            author: "kern",
             byEmployeeId: "e-hermes",
             at: new Date().toISOString(),
             state: "success",
@@ -287,7 +287,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
           ...current,
           {
             id: `decision-error-${Date.now()}`,
-            author: "hermes",
+            author: "kern",
             byEmployeeId: "e-hermes",
             at: new Date().toISOString(),
             state: "error",
