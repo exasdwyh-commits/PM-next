@@ -1,12 +1,12 @@
-# PM-next · Hermes Department OS
+# PM-next · 科恩 KERN · AI Chief of Staff
 
-PM-next 是一个面向产品负责人和小型团队的 **AI 部门助理 + 数字员工团队 + 治理内核 + 本机执行 Runtime**。
+PM-next 是工程仓库名；对外产品统一命名为 **科恩 KERN**。科恩是面向产品负责人和小型团队的 **AI 工作总管（AI Chief of Staff）+ 数字员工团队 + 治理内核 + 本机执行 Runtime**。
 
-产品目标不是让用户操作很多 Agent 页面，而是：
+产品目标不是让用户操作很多 Agent 页面，而是让科恩成为长期驻留、主动推进工作的 AI 工作总管：
 
 ```text
-告诉 Hermes 想完成什么
-→ Hermes 理解公司/产品上下文
+告诉科恩想完成什么
+→ 科恩理解公司/产品上下文
 → 研究、拆解、委派数字员工
 → 必要时调用用户自己的 Mac 执行真实工作
 → 独立 QA / Evidence / Governance
@@ -27,14 +27,14 @@ AI 助理是主要入口：
 - 自动注入公司、产品和项目上下文；
 - 支持结构化查询、研究、任务拆解和受控提议；
 - 支持 Laya System-1 Shadow 判断；
-- 可把明确的本机任务发送到 Hermes Desktop Runtime；
+- 可把明确的本机任务发送到 KERN Desktop Runtime；
 - 业务事实修改仍经过 Proposal / Approval / Gate，不允许模型绕过治理。
 
 模型未配置时，结构化查询、受控提议、治理和 Desktop Runtime 仍可工作。
 
-### 2. Hermes Desktop Runtime
+### 2. KERN Desktop Runtime
 
-同一个 Hermes 可以在用户自己的 Mac 上执行真实工作。
+同一个科恩 可以在用户自己的 Mac 上执行真实工作。
 
 当前支持：
 
@@ -65,13 +65,13 @@ Mac 一次安装：
 npm run desktop:install
 ```
 
-完整说明见 `docs/HERMES_DESKTOP_RUNTIME.md`。
+完整说明见 `docs/HERMES_DESKTOP_RUNTIME.md`。该文件名及 `HERMES_*` 环境变量属于兼容命名，用户可见品牌统一为 KERN。
 
 ### 3. Digital Workforce
 
 默认 12 个数字角色：
 
-- Hermes PM / Department Assistant
+- 科恩 KERN / AI Chief of Staff
 - Product Agent
 - Market Research Agent
 - Scientific Evidence Agent
@@ -174,9 +174,9 @@ Laya 是 System-1 快速判断层：
 - 无 endpoint 时保持 SHADOW_UNCONFIGURED；
 - 未完成目标 workload 校准前不用于高风险自动决策。
 
-### Muse / Local Model
+### Local Assistant Model
 
-可作为本地常驻 Department Assistant 模型位，通过 OpenAI-compatible API 接入。模型不是 PM-next 的治理真相源，也不直接拥有业务写权限。
+可作为科恩的本地常驻模型位，通过 OpenAI-compatible API 接入。模型不是 PM-next 的治理真相源，也不直接拥有业务写权限。
 
 ## 本地运行
 
@@ -279,7 +279,7 @@ POST /api/workforce/bootstrap
 本机帮我检查当前代码仓库，把能确定的 bug 修掉，跑完测试后告诉我结果
 ```
 
-最后一类开放式任务默认交给本机 Codex CLI，执行结果仍返回 Hermes 对话。
+最后一类开放式任务默认交给本机 Codex CLI，执行结果仍返回科恩对话。
 
 ## 验收
 
