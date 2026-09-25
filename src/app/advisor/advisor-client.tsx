@@ -30,18 +30,18 @@ interface Message {
 }
 
 const SUGGESTIONS = [
-  "本周哪些项目需要我决定",
-  "组织里产品推进到什么阶段了",
-  "我今天有哪些待办",
-  "查一下公司渠道与分销规则",
+  "帮我梳理一个新产品想法，并告诉我最先要验证什么",
+  "本周哪些事情需要我决定，按紧急程度说明原因",
+  "帮我分析一个市场机会是否值得继续研究",
+  "汇总正在推进的产品、阻塞和下一步",
   "创建任务 安排打样原料备料",
 ];
 
 /** 产品上下文已绑定时，才提示「对话改方案」与产品任务写入链入口 */
 const PRODUCT_SUGGESTIONS = [
-  "把目标人群改成 25-35 岁办公室人群",
-  "创建任务 制定包装打样合规审核方案",
-  "看一下待确认的提议",
+  "启动一轮完整产品研发，先整理研发 Brief 和缺失输入",
+  "总结这个产品当前结论、最大风险和下一步",
+  "接下来最应该补什么证据，为什么",
   "挑战我的判断：这个产品假设哪里最脆弱？",
 ];
 
@@ -257,7 +257,7 @@ export default function AdvisorClient({
       runtime={runtime}
       topbarLeft={
         <div className="hermes-topbar-title">
-          <span className="eyebrow">AI ADVISOR</span>
+          <span className="eyebrow">DEPARTMENT ASSISTANT</span>
           <strong>AI 助理</strong>
         </div>
       }
@@ -271,13 +271,13 @@ export default function AdvisorClient({
       <div className="hermes-page-heading">
         <div>
           <p className="eyebrow">
-            {boundProduct ? `当前产品 · ${boundProduct.identityCode}` : "全公司咨询"}
+            {boundProduct ? `当前产品 · ${boundProduct.identityCode}` : "公司上下文"}
           </p>
           <h1>{boundProduct ? `${boundProduct.name} AI 助理` : "AI 助理"}</h1>
           <p>
             {boundProduct
-              ? `围绕产品 ${boundProduct.name}（当前 ${boundProduct.versions[0]?.versionTag || "v1"}）讨论方案、优化、任务与上市`
-              : "理解公司全局背景、检索资料、给出建议与生成任务草案"}
+              ? `直接说这个产品要解决的问题。Hermes 会结合 ${boundProduct.name}（当前 ${boundProduct.versions[0]?.versionTag || "v1"}）的上下文回答、研究、拆任务或提出变更草案。`
+              : "直接说你想完成什么。Hermes 会结合公司上下文回答、研究、拆解任务，并在需要业务确认时停下来等你决定。"}
           </p>
         </div>
         {boundProduct && (
@@ -306,7 +306,7 @@ export default function AdvisorClient({
       <div className="hermes-advisor">
         <Panel eyebrow="SESSIONS" title="历史会话" titleSmall={`(${conversations.length})`}>
           {conversations.length === 0 ? (
-            <Empty>还没有会话。点右上角「新对话」开始，或直接用下方输入框提问。</Empty>
+            <Empty>还没有历史会话。直接在右侧告诉 Hermes 你想完成什么即可。</Empty>
           ) : (
             <div className="hermes-list">
               {conversations.map((c) => (
@@ -369,7 +369,7 @@ export default function AdvisorClient({
 
           {messages.length === 0 ? (
             <div className="hermes-advisor-empty">
-              <Empty>还没有消息。可以试试下面这些问题：</Empty>
+              <Empty>直接描述目标，不需要先选择 Agent 或工作流。也可以从下面的常用任务开始：</Empty>
               <div className="hermes-inline" style={{ flexWrap: "wrap", marginTop: 10 }}>
                 {chips.map((s) => (
                   <button key={s} className="hermes-chip" onClick={() => send(s)} disabled={busy}>
@@ -439,7 +439,7 @@ export default function AdvisorClient({
                   send(input);
                 }
               }}
-              placeholder="问一个与项目、产品或决策状态相关的问题…（Enter 发送，Shift+Enter 换行）"
+              placeholder="告诉 Hermes 你想完成什么…（Enter 发送，Shift+Enter 换行）"
             />
             <button className="hermes-primary-btn" onClick={() => send(input)} disabled={busy || !input.trim()}>
               <Icon name="arrow" size={15} />
