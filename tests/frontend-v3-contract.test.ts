@@ -18,11 +18,11 @@ test("Muse is the primary operating shell and management stays independent", () 
   assert.ok(root.includes('redirect("/muse")'), "root must enter Muse by default");
   assert.ok(muse.includes('fetch("/api/conversations"'), "Muse must create real conversations");
   assert.ok(
-    muse.includes('/api/conversations/\\${conversationId}/messages'),
+    muse.includes('/api/conversations/${conversationId}/messages'),
     "Muse must send work through the real assistant conversation API"
   );
   assert.ok(
-    muse.includes('/api/proposals/\\${decision.id}/confirm'),
+    muse.includes('/api/proposals/${decision.id}/confirm'),
     "Muse check-ins must use the real proposal approval API"
   );
   assert.ok(shell.includes('label: "返回 Muse"'), "management must have an explicit route back to Muse");
