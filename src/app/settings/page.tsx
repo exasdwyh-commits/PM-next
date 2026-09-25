@@ -147,7 +147,7 @@ export default async function SettingsPage() {
 
         <Panel icon="chart" className="is-span-all" eyebrow="USAGE" title="用量与审计" sub="留痕用于追溯，不用于考核">
           {agentRunCounts.length === 0 ? (
-            <Empty>还没有 Agent 运行记录。</Empty>
+            <Empty>还没有 Agent 运行记录。启动一次 Kern 自动化或数字员工任务后，这里会显示真实运行状态与结果。</Empty>
           ) : (
             <div className="hermes-list is-2col">
               {agentRunCounts.map((r) => (
