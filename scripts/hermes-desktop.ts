@@ -93,7 +93,7 @@ async function runFile(
   args: string[],
   options: { cwd?: string; timeout?: number } = {}
 ): Promise<{ stdout: string; stderr: string }> {
-  const cwd = options.cwd ? assertAllowedPath(options.cwd) : WORKSPACE;
+  const cwd = assertAllowedPath(options.cwd || WORKSPACE);
   const result = await execFileAsync(file, args, {
     cwd,
     timeout: options.timeout ?? 120_000,
