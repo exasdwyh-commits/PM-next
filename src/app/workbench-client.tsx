@@ -116,7 +116,7 @@ export default function WorkbenchClient({
     currentSession?.userId || allUsers[0]?.id || ""
   );
   const [command, setCommand] = React.useState("");
-  // 本机执行是「Hermes 正在替我做什么」的一部分；没有本机任务时整块不出现。
+  // 本机执行是「科恩正在替我做什么」的一部分；没有本机任务时整块不出现。
   const { overview: desktopOverview } = useDesktopOverview({ intervalMs: 8000, limit: 4 });
   const activeUser = allUsers.find((u) => u.id === activeUserId) || allUsers[0];
   const displayName = activeUser?.name || currentSession?.userName || "你好";
@@ -144,7 +144,7 @@ export default function WorkbenchClient({
   const completedItems = overview.recentlyCompleted.items.slice(0, 4);
 
   // 「正在工作」是现在进行时，只有窗口内真的有自动化活动才能这么说；
-  // 全零时这块是历史统计，标题就按统计说，不要让空面板宣告 Hermes 在干活。
+  // 全零时这块是历史统计，标题就按统计说，不要让空面板宣告科恩在干活。
   const hasAutomationActivity =
     workforceActivity.eventCount > 0 ||
     workforceActivity.attentionCount > 0 ||
@@ -164,7 +164,7 @@ export default function WorkbenchClient({
       runtime={runtime}
       topbarLeft={
         <div className="hermes-topbar-title">
-          <span className="eyebrow">HERMES · DEPARTMENT ASSISTANT</span>
+          <span className="eyebrow">KERN · AI CHIEF OF STAFF</span>
           <strong>今日</strong>
         </div>
       }
@@ -196,9 +196,9 @@ export default function WorkbenchClient({
       <section className="hermes-command-center" aria-labelledby="today-command-title">
         <div className="hermes-command-copy">
           <span className="eyebrow">AI 部门助理</span>
-          <h1 id="today-command-title">{displayName}，今天想让 Hermes 做什么？</h1>
+          <h1 id="today-command-title">{displayName}，今天想让科恩做什么？</h1>
           <p>
-            直接说业务目标。Hermes 会先理解上下文，再决定是回答、研究、拆任务，还是启动产品研发流程。
+            直接说业务目标。科恩会先理解上下文，再决定是回答、研究、拆任务，还是启动产品研发流程。
           </p>
         </div>
 
@@ -208,10 +208,10 @@ export default function WorkbenchClient({
             value={command}
             onChange={(e) => setCommand(e.target.value)}
             placeholder="例如：我要做一款针对 25–45 岁女性的肠道产品，售价 299，先帮我评估"
-            aria-label="告诉 Hermes 你想完成什么"
+            aria-label="告诉科恩你想完成什么"
           />
           <button type="submit" className="hermes-primary-btn" disabled={!command.trim()}>
-            交给 Hermes
+            交给科恩
             <Icon name="arrow" size={15} />
           </button>
         </form>
@@ -237,7 +237,7 @@ export default function WorkbenchClient({
             <div>
               <span className="eyebrow">GET STARTED</span>
               <h2 id="hermes-onboarding-title">第一次使用，三步就够了</h2>
-              <p>不用先研究 Agent、项目或治理对象。把基础环境准备好，然后直接告诉 Hermes 你想做什么。</p>
+              <p>不用先研究 Agent、项目或治理对象。把基础环境准备好，然后直接告诉科恩你想做什么。</p>
             </div>
             <Badge tone="info">尚未创建产品</Badge>
           </div>
@@ -265,7 +265,7 @@ export default function WorkbenchClient({
             >
               <span>3</span>
               <div>
-                <strong>告诉 Hermes 你的产品想法</strong>
+                <strong>告诉科恩你的产品想法</strong>
                 <small>从对话开始，不需要先手工建立复杂项目结构。</small>
               </div>
               <Icon name="arrow" size={14} />
@@ -298,7 +298,7 @@ export default function WorkbenchClient({
           <small>仅统计已分级信号</small>
         </div>
         <div>
-          <span>Hermes 等你</span>
+          <span>科恩等你</span>
           <strong>{workforceActivity.attentionCount}</strong>
           <small>结果复核或人工判断</small>
         </div>
@@ -326,7 +326,7 @@ export default function WorkbenchClient({
                 <div className="hermes-focus-task-facts">
                   {top.suggestion ? (
                     <div>
-                      <span>Hermes 建议</span>
+                      <span>科恩建议</span>
                       <strong>{top.suggestion}</strong>
                     </div>
                   ) : null}
@@ -346,13 +346,13 @@ export default function WorkbenchClient({
                     href={`/muse?query=${encodeURIComponent(`帮我分析这个待处理事项：${top.what}。请说明为什么现在要处理、主要风险和建议动作。`)}`}
                     className="hermes-outline-btn"
                   >
-                    和 Hermes 讨论
+                    和科恩讨论
                   </Link>
                 </div>
               </div>
             ) : (
               <Empty>
-                当前没有待审批、阻塞或待验收事项。你可以直接在上方告诉 Hermes 下一项工作。
+                当前没有待审批、阻塞或待验收事项。你可以直接在上方告诉科恩下一项工作。
               </Empty>
             )}
 
@@ -404,7 +404,7 @@ export default function WorkbenchClient({
               </div>
             ) : (
               <Empty>
-                还没有正在推进的产品。可以在上方直接描述一个产品想法，让 Hermes 帮你开始。
+                还没有正在推进的产品。可以在上方直接描述一个产品想法，让科恩帮你开始。
               </Empty>
             )}
           </Panel>
@@ -413,7 +413,7 @@ export default function WorkbenchClient({
         <aside className="hermes-today-side">
           <Panel
             icon="nodes"
-            title={hasAutomationActivity ? "Hermes 正在工作" : "自动化活动"}
+            title={hasAutomationActivity ? "科恩正在工作" : "自动化活动"}
             sub={
               hasAutomationActivity
                 ? `最近 ${workforceActivity.windowHours} 小时的真实自动化活动`
