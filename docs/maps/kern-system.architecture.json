@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Kern 当前系统逻辑图",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/exasdwyh-commits/PM-next",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "3e89e3c37afefe45f5f0b502ba1f4d4330dc66e6"
+    },
+    "views": [
+      {
+        "id": "chat_path",
+        "label": "对话主链",
+        "focus": ["user", "kern_chat", "conversation_api", "assistant_runtime", "router", "tools", "model_gateway"],
+        "note": "用户只面对 Kern 对话；路由、模型和工具在后台工作。"
+      },
+      {
+        "id": "work_path",
+        "label": "Work 执行链",
+        "focus": ["assistant_runtime", "router", "tools", "work_engine", "desktop_runtime", "governance", "database"],
+        "note": "复杂工作进入受治理的 Product R&D / Workforce / Desktop Runtime。"
+      },
+      {
+        "id": "manage_path",
+        "label": "管理工作台",
+        "focus": ["manage", "governance", "work_engine", "database"],
+        "note": "项目、产品、工作项、审计属于管理视图，不应成为 Kern 首页。"
+      }
+    ]
+  },
+  "components": [
+    {"id":"user","type":"external","label":"用户","sublabel":"只交代目标 / 看结果","pos":[30,300],"size":[128,64]},
+    {"id":"kern_chat","type":"frontend","label":"Kern Chat","sublabel":"/muse · 标准 Agent 对话","pos":[220,300],"size":[156,70],"sources":[{"path":"src/app/muse/muse-client.tsx","label":"聊天主界面"},{"path":"src/app/muse/components/shell.tsx","label":"对话外壳"}]},
+    {"id":"conversation_api","type":"backend","label":"Conversation API","sublabel":"消息唯一入口","pos":[440,300],"size":[154,70],"sources":[{"path":"src/app/api/conversations/[id]/messages/route.ts","label":"消息 API"}]},
+    {"id":"assistant_runtime","type":"backend","label":"Kern Assistant Runtime","sublabel":"上下文 + 助理运行时","pos":[660,300],"size":[176,72],"sources":[{"path":"src/modules/assistant-runtime/service.ts","label":"统一入口"},{"path":"src/modules/assistant-runtime/context-builder.ts","label":"上下文"}]},
+    {"id":"router","type":"backend","label":"Intent / Collaboration Router","sublabel":"规则优先 · Planner / Council 后台化","pos":[900,190],"size":[184,76],"sources":[{"path":"src/modules/assistant-runtime/planner.ts","label":"Planner"},{"path":"src/modules/assistant-runtime/collaboration-planner.ts","label":"Council"},{"path":"src/modules/advisor/service.ts","label":"确定性路由"}]},
+    {"id":"tools","type":"backend","label":"Kern Tools / Domain Actions","sublabel":"查状态 · 改字段 · 建任务 · 启研发","pos":[900,410],"size":[184,76],"sources":[{"path":"src/modules/advisor/service.ts","label":"Tool dispatcher"},{"path":"src/modules/assistant-runtime/autonomy.ts","label":"自动执行策略"}]},
+    {"id":"model_gateway","type":"cloud","label":"Model Gateway","sublabel":"Muse / 其它模型策略位","pos":[1150,115],"size":[166,68],"sources":[{"path":"src/modules/model-gateway/router.ts","label":"模型路由"},{"path":"src/modules/model-control/service.ts","label":"模型配置"}]},
+    {"id":"work_engine","type":"backend","label":"Work Engine","sublabel":"Product R&D + Workforce","pos":[1150,330],"size":[170,72],"sources":[{"path":"src/modules/product-rnd/orchestrator.ts","label":"R&D 编排"},{"path":"src/modules/workforce/service.ts","label":"数字员工"}]},
+    {"id":"desktop_runtime","type":"external","label":"Desktop Runtime","sublabel":"本机 Mac 执行","pos":[1150,505],"size":[170,68],"sources":[{"path":"src/modules/desktop-runtime/service.ts","label":"本机任务"}]},
+    {"id":"governance","type":"security","label":"Governance","sublabel":"权限 · Gate · CAS · 审计","pos":[1390,330],"size":[166,72],"sources":[{"path":"src/modules/advisor/proposals.ts","label":"Proposal / CAS"},{"path":"src/modules/governance/tool-broker.ts","label":"ToolBroker"},{"path":"src/modules/governance/approval-service.ts","label":"Approval"}]},
+    {"id":"database","type":"database","label":"PostgreSQL","sublabel":"Conversation · Runs · Work · Receipts","pos":[1630,330],"size":[174,72],"sources":[{"path":"prisma/schema.prisma","label":"数据事实"}]},
+    {"id":"manage","type":"frontend","label":"Management Workbench","sublabel":"/manage · 产品 / 项目 / 看板 / 审计","pos":[1390,535],"size":[190,74],"sources":[{"path":"src/app/manage/page.tsx","label":"管理入口"}]}
+  ],
+  "connections": [
+    {"from":"user","to":"kern_chat","label":"自然语言目标","variant":"emphasis"},
+    {"from":"kern_chat","to":"conversation_api","label":"POST messages","variant":"emphasis"},
+    {"from":"conversation_api","to":"assistant_runtime","label":"sendDepartmentAssistantMessage","variant":"emphasis"},
+    {"from":"assistant_runtime","to":"router","label":"理解 / 规划 / 协作建议"},
+    {"from":"router","to":"tools","label":"确定性工具意图","variant":"emphasis"},
+    {"from":"router","to":"model_gateway","label":"Dialogue / Planning / Synthesis"},
+    {"from":"tools","to":"work_engine","label":"启动复杂 Work"},
+    {"from":"tools","to":"desktop_runtime","label":"排队本机任务"},
+    {"from":"tools","to":"governance","label":"内部写入 / 受保护动作","variant":"security"},
+    {"from":"work_engine","to":"governance","label":"QA / Gate / 回执","variant":"security"},
+    {"from":"desktop_runtime","to":"conversation_api","label":"执行结果回到原对话","variant":"dashed"},
+    {"from":"governance","to":"database","label":"受治理写入 + audit","variant":"security"},
+    {"from":"manage","to":"governance","label":"人工管理 / 高影响决策"},
+    {"from":"manage","to":"work_engine","label":"查看和管理工作"}
+  ],
+  "cards": [
+    {"dot":"emerald","title":"符合目标的主逻辑","items":["对话已经是默认主入口，/manage 保持独立管理工作台","复杂执行进入 Work Engine 或 Desktop Runtime，结果回到原对话","高影响动作继续由 Governance 兜底，不要求用户管理 Agent"]},
+    {"dot":"amber","title":"当前仍需继续收口","items":["Assistant Runtime 仍通过 legacy Advisor Service 承载大量核心路由，职责偏重","Muse 内部仍沿用 goal / mission 等旧驾驶舱命名，产品语义尚未完全清理","低风险自主执行目前是 3 个硬编码动作，后续应升级为 capability × risk policy"]},
+    {"dot":"cyan","title":"下一步结构","items":["Kern Chat 只负责会话与结果表达","Work Mode 由统一 Task/Run orchestration 承接，不暴露内部 Agent 选择","Visual Intelligence 作为按需解释工具，而不是默认页面框架"]}
+  ]
+}
