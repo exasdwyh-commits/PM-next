@@ -23,4 +23,4 @@ export function getContentModeConfig(): ContentModeConfig {
 
 /** 知识库页顶部的性质声明横幅文案（knowledgeSampleMode=true 时展示） */
 export const KNOWLEDGE_SAMPLE_MODE_BANNER =
-  "⚠️ 知识库内容性质声明：当前原料证据卡与业务事实均为示例 / 模板数据，仅用于验证系统流程，未经领域专家审核，不得作为真实决策依据。内容经专家审核替换后，可设置 HERMES_KNOWLEDGE_SAMPLE_MODE=false 关闭本声明。";
+  "⚠️ 知识库内容性质声明：当前原料证据卡与业务事实均为示例 / 模板数据，仅用于验证系统流程，未经领域专家审核，不得作为真实决策依据。内容经专家审核替换后，可由管理员关闭本声明。";
