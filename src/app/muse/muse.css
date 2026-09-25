@@ -444,3 +444,209 @@
   border-radius: var(--m-r-sm);
   background: var(--m-warn-wash);
 }
+
+
+/* ══ Kern Visual Intelligence ═══════════════════════════════════════════════
+   Typed graph renderer: graph data is validated before it reaches this UI.
+   VERIFIED / INFERRED / UNKNOWN remain visibly distinct and are never merged.
+   ========================================================================== */
+.m-graph-card {
+  margin: 12px 0;
+  overflow: hidden;
+  border: 1px solid var(--m-hairline);
+  border-radius: var(--m-r-lg);
+  background: var(--m-surface);
+  box-shadow: var(--m-sh-1);
+}
+.m-graph-head {
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid var(--m-hairline);
+  background: linear-gradient(180deg, var(--m-surface-2), var(--m-surface));
+}
+.m-graph-head h3 {
+  margin: 6px 0 4px;
+  font-size: var(--m-t-title);
+  line-height: 1.3;
+  letter-spacing: -.02em;
+}
+.m-graph-head p {
+  margin: 0;
+  color: var(--m-ink-3);
+  font-size: var(--m-t-sm);
+  line-height: 1.55;
+}
+.m-graph-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--m-ink-4);
+  font-size: var(--m-t-xs);
+  font-weight: 620;
+  letter-spacing: .04em;
+}
+.m-graph-scroll {
+  overflow-x: auto;
+  padding: 18px;
+  outline: none;
+}
+.m-graph-scroll:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--m-accent-line);
+}
+.m-graph-flow {
+  display: flex;
+  align-items: stretch;
+  min-width: max-content;
+}
+.m-graph-stage-wrap {
+  display: flex;
+  align-items: center;
+}
+.m-graph-stage {
+  width: 190px;
+  display: grid;
+  align-content: center;
+  gap: 9px;
+}
+.m-graph-stage-arrow {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  flex: 0 0 46px;
+  color: var(--m-ink-4);
+  font-size: 22px;
+}
+.m-graph-node {
+  width: 100%;
+  display: grid;
+  gap: 5px;
+  padding: 11px 12px;
+  border: 1px solid var(--m-hairline);
+  border-radius: var(--m-r-md);
+  background: var(--m-surface-2);
+  color: var(--m-ink);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+.m-graph-node:hover {
+  transform: translateY(-1px);
+  border-color: var(--m-accent-line);
+}
+.m-graph-node:focus-visible,
+.m-graph-node[data-active="true"] {
+  outline: none;
+  border-color: var(--m-accent-line);
+  box-shadow: 0 0 0 3px var(--m-accent-wash);
+}
+.m-graph-node[data-truth="verified"] {
+  border-left: 3px solid var(--m-ok);
+}
+.m-graph-node[data-truth="inferred"] {
+  border-left: 3px solid var(--m-warn);
+}
+.m-graph-node[data-truth="unknown"] {
+  border-left: 3px solid var(--m-ink-4);
+}
+.m-graph-node-type {
+  color: var(--m-ink-4);
+  font-family: var(--m-mono);
+  font-size: 10px;
+  letter-spacing: .05em;
+}
+.m-graph-node b {
+  font-size: var(--m-t-sm);
+  font-weight: 620;
+  line-height: 1.35;
+}
+.m-graph-node small {
+  color: var(--m-ink-3);
+  font-size: var(--m-t-xs);
+  line-height: 1.45;
+}
+.m-graph-node-state {
+  margin-top: 2px;
+  justify-self: start;
+}
+.m-graph-passport {
+  display: grid;
+  gap: 10px;
+  margin: 0 18px 16px;
+  padding: 14px 15px;
+  border: 1px solid var(--m-hairline);
+  border-radius: var(--m-r-md);
+  background: var(--m-surface-sunk);
+}
+.m-graph-passport-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.m-graph-passport-head span:first-child {
+  color: var(--m-ink-4);
+  font-size: var(--m-t-xs);
+  font-weight: 620;
+  letter-spacing: .04em;
+}
+.m-graph-passport h4 {
+  margin: 3px 0 0;
+  font-size: var(--m-t-body);
+  font-weight: 640;
+}
+.m-graph-passport > p {
+  margin: 0;
+  color: var(--m-ink-3);
+  font-size: var(--m-t-sm);
+}
+.m-graph-passport dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 7px;
+  margin: 0;
+}
+.m-graph-passport dl > div {
+  min-width: 0;
+  padding: 8px 9px;
+  border-radius: var(--m-r-sm);
+  background: var(--m-surface);
+}
+.m-graph-passport dt {
+  color: var(--m-ink-4);
+  font-size: var(--m-t-xs);
+}
+.m-graph-passport dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  font-size: var(--m-t-sm);
+}
+.m-graph-relations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.m-graph-relations span {
+  padding: 5px 8px;
+  border: 1px solid var(--m-hairline);
+  border-radius: 999px;
+  background: var(--m-surface);
+  color: var(--m-ink-3);
+  font-size: var(--m-t-xs);
+}
+.m-graph-notices {
+  display: grid;
+  gap: 4px;
+  padding: 10px 18px 14px;
+  border-top: 1px solid var(--m-hairline);
+  color: var(--m-ink-4);
+  font-size: var(--m-t-xs);
+}
+.m-graph-notices p { margin: 0; }
+
+@media (max-width: 620px) {
+  .m-graph-head { padding: 14px 15px 12px; }
+  .m-graph-scroll { padding: 14px 15px; }
+  .m-graph-stage { width: 166px; }
+  .m-graph-stage-arrow { width: 34px; flex-basis: 34px; }
+  .m-graph-passport { margin: 0 15px 14px; }
+}
