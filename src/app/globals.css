@@ -118,7 +118,10 @@ button,a { -webkit-tap-highlight-color:transparent; }
 .hermes-inline-end { display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
 
 /* 提示条 */
-.hermes-banner { padding:11px 13px; border:1px solid transparent; border-radius:8px; font-size:14px; }
+/* 性质声明横幅可能含不可断行的长 token（如 HERMES_KNOWLEDGE_SAMPLE_MODE=false）：
+   默认 overflow-wrap:normal 会让该 token 撑出 min-content，进而把整列撑破 390 视口。
+   允许任意位置断行（与 .hermes-page-heading h1 同款写法），让横幅随列收缩而非溢出页面。 */
+.hermes-banner { padding:11px 13px; border:1px solid transparent; border-radius:8px; font-size:14px; overflow-wrap:anywhere; }
 .hermes-banner.is-ok { color:var(--ok-ink); background:var(--ok-bg); border-color:var(--ok-line); }
 .hermes-banner.is-danger { color:var(--block-ink); background:var(--block-bg); border-color:var(--block-line); }
 .hermes-banner.is-info { color:var(--accent-hover); background:var(--accent-bg); border-color:var(--accent-line); }
