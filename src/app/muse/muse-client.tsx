@@ -121,7 +121,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
     const refreshMessages = async () => {
       if (disposed || sending || document.visibilityState === "hidden") return;
       try {
-        const response = await fetch(`/api/conversations/${activeId}/messages`, {
+        const response = await fetch(`/api/conversations/${conversationId}/messages`, {
           cache: "no-store",
         });
         if (!response.ok) return;
