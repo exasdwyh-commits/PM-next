@@ -145,12 +145,12 @@ async function login() {
   });
   if (!res.ok) {
     throw new Error(
-      "Hermes login failed: HTTP " + res.status + " " + (await res.text())
+      "Kern login failed: HTTP " + res.status + " " + (await res.text())
     );
   }
   const setCookie = res.headers.get("set-cookie");
   const pair = setCookie?.split(";")[0];
-  if (!pair) throw new Error("Hermes login did not return a session cookie");
+  if (!pair) throw new Error("Kern login did not return a session cookie");
   cookie = pair;
 }
 
@@ -396,7 +396,7 @@ async function executeAction(
       if (process.platform !== "darwin") {
         throw new Error("notification.send currently requires macOS");
       }
-      const title = action.title || "Hermes";
+      const title = action.title || "Kern";
       const script =
         "display notification " +
         JSON.stringify(action.body) +
@@ -465,7 +465,7 @@ async function handleTask(task: DesktopTaskEnvelope) {
     await finish(task.taskId, task.claim.runId, "WAITING_HUMAN", {
       ok: false,
       summary:
-        "Desktop Runtime restarted while this task was RUNNING. It was not replayed automatically because the previous action may already have produced side effects.",
+        "Kern 本机执行服务在任务运行期间重启。为避免重复产生副作用，这项任务不会自动重放。",
     });
     return;
   }
@@ -551,7 +551,7 @@ async function main() {
   }
 
   await login();
-  console.log("[desktop] Hermes Desktop Runtime online device=" + DEVICE_ID);
+  console.log("[desktop] Kern 本机执行已连接 device=" + DEVICE_ID);
   console.log("[desktop] server=" + BASE_URL + " workspace=" + WORKSPACE);
   console.log("[desktop] roots=" + allowedRoots.join(", "));
 
