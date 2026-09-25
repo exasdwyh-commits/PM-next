@@ -240,6 +240,17 @@ export const MODEL_POLICY_PRESETS: ModelPolicyPreset[] = [
     maxContextRequirement: null,
   },
   {
+    key: "tech-architecture-coding",
+    name: "技术架构与代码审查",
+    description: "Kern Tech Architect 的架构、接口、数据模型、代码审查与测试策略任务。只产出建议与审查结论，不直接执行代码或扩大业务权限。",
+    version: "2026-09-26-v1",
+    taskClass: "CODING",
+    candidates: [{ profileKey: "strategic-frontier-slot", priority: 10 }],
+    requiredCapabilities: ["TEXT", "REASONING"],
+    cloudAllowed: true,
+    maxContextRequirement: null,
+  },
+  {
     key: "red-team-review",
     name: "红队挑战",
     description: "关键假设证伪与失败路径分析。",
@@ -299,5 +310,6 @@ export const AGENT_MODEL_BINDING_PRESETS: AgentModelBindingPreset[] = [
   { agentCode: "qa_verifier", taskClass: "RED_TEAM", policyKey: "red-team-review" },
   { agentCode: "marketing_agent", taskClass: "SUMMARIZATION", policyKey: "routine-summarization" },
   { agentCode: "ops_agent", taskClass: "QUICK_CLASSIFY", policyKey: "routine-quick-classify" },
+  { agentCode: "tech_architect_agent", taskClass: "CODING", policyKey: "tech-architecture-coding" },
   { agentCode: "red_team", taskClass: "RED_TEAM", policyKey: "red-team-review" },
 ];
