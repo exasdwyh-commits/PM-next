@@ -149,6 +149,10 @@ export interface StudioModel {
   activeMissionId: string | null;
   /** 与 Muse 独立的专业管理后台入口 */
   managementHref: string;
+  /** 从产品后台跳入 Muse 时，新会话应绑定的产品上下文 */
+  newConversationProduct: { id: string; name: string } | null;
+  /** 外部入口预填的问题，不会自动发送 */
+  initialDraft: string;
   user: { name: string; role: string; org: string };
   brief: Brief;
   employees: Employee[];
