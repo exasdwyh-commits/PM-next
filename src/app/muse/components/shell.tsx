@@ -1,5 +1,5 @@
 "use client";
-/** 外壳：目标轨道、输入坞、空态。目标 = 一件你交给 Muse 去推进的事。 */
+/** 外壳：目标轨道、输入坞、空态。目标 = 一件你交给科恩去推进的事。 */
 import { useRef } from "react";
 import type { Mission, RuntimeStatus, StudioModel } from "../types";
 import { Btn, I, StateTag } from "./kit";
@@ -20,15 +20,15 @@ export function Rail({
   return (
     <nav className="m-rail" aria-label="目标">
       <div className="m-brand">
-        <span className="m-brand-mark" aria-hidden>M</span>
-        <b>Muse</b>
+        <span className="m-brand-mark" aria-hidden>K</span>
+        <b>科恩</b>
         <button type="button" className="m-btn m-rail-x" data-v="ghost" data-size="sm" onClick={onClose} aria-label="收起侧栏">
           <I.close />
         </button>
       </div>
       <button type="button" className="m-new" onClick={onNew}>
         <I.plus />
-        交给 Muse 一件新的事
+        交给科恩一件新的事
       </button>
       <div className="m-rail-scroll">
         <p className="m-rail-label">现在</p>
@@ -91,7 +91,7 @@ export function Dock({
             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); }
           }}
           placeholder="说一件要做成的事，卡住我再找你"
-          aria-label="对 Muse 说"
+          aria-label="对科恩说"
         />
         <div className="m-dock-bar">
           <button type="button" className="m-pill" onClick={onTrust}>
@@ -113,7 +113,7 @@ export function Blank({ seeds, onSeed }: { seeds: { id: string; title: string; w
     <div className="m-blank">
       <span className="m-blank-orb" aria-hidden />
       <h2>今天想推进什么？</h2>
-      <p>说结果就行，过程交给 Muse。</p>
+      <p>说结果就行，过程交给科恩。</p>
       <div className="m-seeds">
         {seeds.map((s) => (
           <button key={s.id} type="button" className="m-seed" onClick={() => onSeed(s.prompt)}>
