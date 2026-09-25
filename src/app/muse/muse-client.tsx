@@ -91,8 +91,11 @@ export default function KernClient({ model }: { model: StudioModel }) {
     [brief.missions, goalId]
   );
   const pending = brief.decisions.filter((decision) => !resolved[decision.id]);
-  const goalDecisions = pending.filter((decision) =>
-    goal ? decision.missionId === goal.id : false
+  const goalDecisions = pending.filter(
+    (decision) =>
+      goal &&
+      decision.missionId === goal.id &&
+      decision.gate !== "Proposal / Approval"
   );
 
   useEffect(() => {
