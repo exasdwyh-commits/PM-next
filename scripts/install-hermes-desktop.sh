@@ -48,6 +48,16 @@ if [[ -z "$NPM_BIN" ]]; then
   exit 1
 fi
 
+if [[ ! -x "$REPO_DIR/node_modules/.bin/tsx" ]]; then
+  echo "Installing PM-next dependencies..."
+  (cd "$REPO_DIR" && "$NPM_BIN" ci)
+fi
+
+if ! curl -fsS --max-time 3 "$BASE_URL/api/health" >/dev/null 2>&1; then
+  echo "Warning: PM-next is not reachable at $BASE_URL yet."
+  echo "The desktop LaunchAgent will stay installed and reconnect automatically when PM-next becomes available."
+fi
+
 cat > "$PLIST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
