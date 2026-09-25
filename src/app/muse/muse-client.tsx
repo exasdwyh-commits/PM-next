@@ -33,7 +33,7 @@ function fromApiMessage(message: ApiMessage): Message {
         const kind = typeof item.kind === "string" ? item.kind : "internal";
         return [
           {
-            id: ref || \`citation-\${message.id}-\${index}\`,
+            id: ref || `citation-${message.id}-${index}`,
             title: title || ref || "未命名来源",
             kind: kind.includes("desktop") ? ("runtime" as const) : ("internal" as const),
             source: kind,
@@ -105,7 +105,7 @@ export default function MuseClient({ model }: { model: StudioModel }) {
     const refreshMessages = async () => {
       if (disposed || sending || document.visibilityState === "hidden") return;
       try {
-        const response = await fetch(\`/api/conversations/\${goalId}/messages\`, {
+        const response = await fetch(`/api/conversations/${goalId}/messages`, {
           cache: "no-store",
         });
         if (!response.ok) return;
@@ -144,7 +144,7 @@ export default function MuseClient({ model }: { model: StudioModel }) {
     setSending(true);
     setDraft("");
     const mine: Message = {
-      id: \`local-\${Date.now()}\`,
+      id: `local-${Date.now()}`,
       author: "user",
       at: new Date().toISOString(),
       state: "success",
@@ -167,11 +167,11 @@ export default function MuseClient({ model }: { model: StudioModel }) {
         if (!create.ok) throw new Error(created.message || "创建会话失败");
         conversationId = created.id;
         setGoalId(conversationId);
-        window.history.replaceState(null, "", \`/muse?c=\${conversationId}\`);
+        window.history.replaceState(null, "", `/muse?c=${conversationId}`);
       }
 
       const response = await fetch(
-        \`/api/conversations/\${conversationId}/messages\`,
+        `/api/conversations/${conversationId}/messages`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -192,7 +192,7 @@ export default function MuseClient({ model }: { model: StudioModel }) {
       setMessages((current) => [
         ...current,
         {
-          id: \`error-\${Date.now()}\`,
+          id: `error-${Date.now()}`,
           author: "hermes",
           byEmployeeId: "e-hermes",
           at: new Date().toISOString(),
@@ -224,13 +224,13 @@ export default function MuseClient({ model }: { model: StudioModel }) {
       try {
         const endpoint =
           choice.kind === "approve"
-            ? \`/api/proposals/\${decision.id}/confirm\`
-            : \`/api/proposals/\${decision.id}/reject\`;
+            ? `/api/proposals/${decision.id}/confirm`
+            : `/api/proposals/${decision.id}/reject`;
         const headers: Record<string, string> = {
           "Content-Type": "application/json",
         };
         if (choice.kind === "approve") {
-          headers["Idempotency-Key"] = \`muse:proposal:\${decision.id}:approve\`;
+          headers["Idempotency-Key"] = `muse:proposal:${decision.id}:approve`;
         }
 
         const response = await fetch(endpoint, {
@@ -247,7 +247,7 @@ export default function MuseClient({ model }: { model: StudioModel }) {
         setMessages((current) => [
           ...current,
           {
-            id: \`decision-\${decision.id}-\${Date.now()}\`,
+            id: `decision-${decision.id}-${Date.now()}`,
             author: "hermes",
             byEmployeeId: "e-hermes",
             at: new Date().toISOString(),
@@ -270,7 +270,7 @@ export default function MuseClient({ model }: { model: StudioModel }) {
         setMessages((current) => [
           ...current,
           {
-            id: \`decision-error-\${Date.now()}\`,
+            id: `decision-error-${Date.now()}`,
             author: "hermes",
             byEmployeeId: "e-hermes",
             at: new Date().toISOString(),
@@ -295,7 +295,7 @@ export default function MuseClient({ model }: { model: StudioModel }) {
         return;
       }
       setGoalId(id);
-      router.push(\`/muse?c=\${id}\`);
+      router.push(`/muse?c=${id}`);
     },
     [router]
   );
@@ -349,7 +349,7 @@ export default function MuseClient({ model }: { model: StudioModel }) {
                 <p className="m-prose">
                   {brief.greeting}，{model.user.name}。
                   {pending.length > 0
-                    ? \`有 \${pending.length} 件事需要你点头，其余工作会继续推进。\`
+                    ? `有 ${pending.length} 件事需要你点头，其余工作会继续推进。`
                     : "目前没有待确认提议。你可以直接交代下一件事。"}
                 </p>
                 {pending.map((decision) => (
@@ -399,7 +399,7 @@ export default function MuseClient({ model }: { model: StudioModel }) {
                 {goal.productId ? (
                   <p className="m-hint">
                     这段对话已绑定产品「{goal.productName || goal.productId}」。
-                    <a href={\`/products/\${goal.productId}\`}> 打开产品后台</a>
+                    <a href={`/products/${goal.productId}`}> 打开产品后台</a>
                   </p>
                 ) : null}
                 {goal.steps.length > 0 ? (
@@ -412,7 +412,7 @@ export default function MuseClient({ model }: { model: StudioModel }) {
                       <span className="m-hint" style={{ margin: 0 }}>
                         {goal.progress === null
                           ? "进度 UNKNOWN"
-                          : \`已完成 \${goal.progress}%\`}
+                          : `已完成 ${goal.progress}%`}
                       </span>
                     </header>
                     <div className="m-card-body">
