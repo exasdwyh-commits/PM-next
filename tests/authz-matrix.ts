@@ -173,6 +173,15 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
   // 归属由 `organizationId + createdByUserId` 双限定表达。因此「跨组织」这类身份
   // 在 claim/finish 上拿到的是 404（查不到属于他的任务），而读接口只是读到自己的空集合。
   {
+    path: "/api/desktop-runtime/overview",
+    method: "GET",
+    authz:
+      "本机执行总览（只读）：组织 + 当前用户双限定，任何登录用户只可能读到自己入队的任务；不排队、不领取、不改任何任务状态",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    crossTenant: true,
+  },
+  {
     path: "/api/desktop-runtime/tasks",
     method: "GET",
     authz:

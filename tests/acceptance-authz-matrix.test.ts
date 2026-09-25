@@ -57,9 +57,11 @@ const MARK = CROSS_TENANT_MARKER;
  * 2026-09-25（合并远端 main 后）：+3 路由（/api/desktop-runtime/tasks、
  *   .../tasks/{id}/claim、.../tasks/{id}/finish），+5 方法（desktop GET/POST + claim/finish POST，
  *   以及 /api/conversations/{id}/messages 新增的 GET）。
+ * 2026-09-25（并行分支 efd3f3d7 feat(desktop) 之后）：+1 路由（/api/desktop-runtime/overview），
+ *   +1 方法（GET）。同为「用户自作用域只读」。
  */
-const BASELINE_ROUTES = 66;
-const BASELINE_METHODS = 89;
+const BASELINE_ROUTES = 67;
+const BASELINE_METHODS = 90;
 
 let passed = 0;
 const failures: string[] = [];
