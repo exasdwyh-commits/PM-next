@@ -238,7 +238,7 @@ export function DesktopConversationStrip({
   // 全部结束、或排队但 Mac 没连上时说成现在进行时，就是这个组件自己要防的误读。
   const title =
     overview.runningCount > 0
-      ? "Hermes 正在用你的电脑"
+      ? "Kern 正在用你的电脑"
       : overview.waitingRuntimeCount > 0
         ? stuck
           ? "本机任务在排队，尚未开始"
@@ -262,7 +262,7 @@ export function DesktopConversationStrip({
           <strong>
             有 {overview.waitingRuntimeCount} 项本机任务在排队，但现在不会执行。
           </strong>
-          <span>{overview.presence.hint ?? "需要先让 Mac 端连上 Hermes。"}</span>
+          <span>{overview.presence.hint ?? "需要先让 Mac 端连上 Kern。"}</span>
           <code>npm run desktop</code>
         </div>
       ) : null}
@@ -326,7 +326,7 @@ export function DesktopActivityBody({
 
       {overview.tasks.length === 0 ? (
         <Empty>
-          还没有本机任务。在 AI 助理里直接说「本机帮我…」，Hermes 会把工作发到这台电脑执行。
+          还没有本机任务。在 Kern 里直接说「本机帮我…」，Kern 会把工作发到这台电脑执行。
         </Empty>
       ) : (
         <div className="hermes-desktop-task-list">
