@@ -83,7 +83,7 @@ export default async function OrganizationPage() {
 
         <Panel eyebrow="PROJECT ACCESS" title="项目访问边界">
           {projects.length === 0 ? (
-            <Empty>暂无项目</Empty>
+            <Empty>当前组织还没有项目。先从产品管理启动研发或创建项目，组织成员与执行数据会在这里汇总。</Empty>
           ) : (
             <div className="hermes-list">
               {projects.map((p) => (
