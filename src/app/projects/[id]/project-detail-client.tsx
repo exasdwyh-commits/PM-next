@@ -19,6 +19,8 @@ import {
   labelValidationStatus,
   labelDecisionPacketStatus,
   labelWorkItemStatus,
+  labelWorkExecutorType,
+  labelArtifactType,
   labelAgentRunStatus,
   labelEvidenceNature,
   labelEvidenceVerifyStatus,
@@ -1055,8 +1057,8 @@ export default function ProjectDetailClient({
                   value={validationStatus}
                   onChange={(e) => setValidationStatus(e.target.value)}
                 >
-                  <option value="IN_PROGRESS">进行中 (IN_PROGRESS)</option>
-                  <option value="VERIFIED_BY_LEAD">负责人已确认 (VERIFIED_BY_LEAD)</option>
+                  <option value="IN_PROGRESS">{labelValidationStatus("IN_PROGRESS")}</option>
+                  <option value="VERIFIED_BY_LEAD">{labelValidationStatus("VERIFIED_BY_LEAD")}</option>
                 </select>
               </label>
               <div className="hermes-modal-actions">
@@ -1631,9 +1633,9 @@ export default function ProjectDetailClient({
               <label className="hermes-label">
                 <span>执行方式 (F05)</span>
                 <select className="hermes-select" value={workExecutorType} onChange={(e) => setWorkExecutorType(e.target.value)}>
-                  <option value="HUMAN">人工执行 (HUMAN)</option>
-                  <option value="TEST_AGENT">测试 Agent (TEST_AGENT)</option>
-                  <option value="DIGITAL_WORKER">数字员工 (DIGITAL_WORKER)</option>
+                  <option value="HUMAN">{labelWorkExecutorType("HUMAN")}</option>
+                  <option value="TEST_AGENT">{labelWorkExecutorType("TEST_AGENT")}</option>
+                  <option value="DIGITAL_WORKER">{labelWorkExecutorType("DIGITAL_WORKER")}</option>
                 </select>
               </label>
               <label className="hermes-label">
@@ -1684,8 +1686,8 @@ export default function ProjectDetailClient({
               <label className="hermes-label">
                 <span>运行方式标记 (真实性约束)</span>
                 <select className="hermes-select" value={subRunMode} onChange={(e) => setSubRunMode(e.target.value)}>
-                  <option value="MANUAL">MANUAL (人工录入)</option>
-                  <option value="TEST_STUB">TEST_STUB (测试替身)</option>
+                  <option value="MANUAL">{labelRunMode("MANUAL")}</option>
+                  <option value="TEST_STUB">{labelRunMode("TEST_STUB")}</option>
                 </select>
               </label>
               <label className="hermes-label">
@@ -1702,14 +1704,14 @@ export default function ProjectDetailClient({
                     }
                   }}
                 >
-                  <option value="RESEARCH_REPORT">RESEARCH_REPORT（自由文本）</option>
-                  <option value="SAMPLE_ROUND">SAMPLE_ROUND（样品轮次）</option>
-                  <option value="SUPPLIER_QUOTE">SUPPLIER_QUOTE（供应商报价）</option>
-                  <option value="PROFESSIONAL_CONFIRMATION">PROFESSIONAL_CONFIRMATION（专业确认）</option>
-                  <option value="PACKAGING_BRIEF">PACKAGING_BRIEF（包装确认）</option>
-                  <option value="PRODUCTION_PLAN">PRODUCTION_PLAN（生产计划）</option>
-                  <option value="PRODUCTION_RECORD">PRODUCTION_RECORD（生产记录）</option>
-                  <option value="COST_SCENARIO">COST_SCENARIO（成本情景）</option>
+                  <option value="RESEARCH_REPORT">{labelArtifactType("RESEARCH_REPORT")}</option>
+                  <option value="SAMPLE_ROUND">{labelArtifactType("SAMPLE_ROUND")}</option>
+                  <option value="SUPPLIER_QUOTE">{labelArtifactType("SUPPLIER_QUOTE")}</option>
+                  <option value="PROFESSIONAL_CONFIRMATION">{labelArtifactType("PROFESSIONAL_CONFIRMATION")}</option>
+                  <option value="PACKAGING_BRIEF">{labelArtifactType("PACKAGING_BRIEF")}</option>
+                  <option value="PRODUCTION_PLAN">{labelArtifactType("PRODUCTION_PLAN")}</option>
+                  <option value="PRODUCTION_RECORD">{labelArtifactType("PRODUCTION_RECORD")}</option>
+                  <option value="COST_SCENARIO">{labelArtifactType("COST_SCENARIO")}</option>
                 </select>
               </label>
               <label className="hermes-label">
@@ -1753,8 +1755,8 @@ export default function ProjectDetailClient({
               <label className="hermes-label">
                 <span>证据性质 (REAL vs DEMO 强隔离)</span>
                 <select className="hermes-select" value={evidenceNature} onChange={(e) => setEvidenceNature(e.target.value)}>
-                  <option value="REAL">REAL (真实核实事实，可作决策依据)</option>
-                  <option value="DEMO">DEMO (演示资料，严禁作为 REAL 决策依据)</option>
+                  <option value="REAL">{labelEvidenceNature("REAL")}</option>
+                  <option value="DEMO">{labelEvidenceNature("DEMO")}</option>
                 </select>
               </label>
               <label className="hermes-label">
