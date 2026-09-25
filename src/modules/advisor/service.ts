@@ -36,6 +36,7 @@ import {
   type AdvisorLLMMessage,
 } from "./llm";
 import { buildDepartmentAssistantSystemPrompt } from "@/modules/assistant-runtime/persona";
+import { buildKernPlannerMessages, parseKernPlannerIntent } from "@/modules/assistant-runtime/planner";
 import type { ScientificEvidenceInput } from "../research/scientific-evidence";
 import { tryResolveGatewayPolicyForAgentCode } from "@/modules/model-control/service";
 import {
@@ -289,6 +290,113 @@ function routeIntent(text: string, productBound: boolean): Intent {
   if (/产品|入库|评分|上市|版本/.test(t)) return "PRODUCT_STATUS";
   if (/待办|今天|本周|进度|任务|项目/.test(t)) return "WORKSPACE_STATUS";
   return "UNSUPPORTED";
+}
+
+interface IntentRoutingDecision {
+  intent: Intent;
+  source: "DETERMINISTIC" | "KERN_PLANNER" | "DETERMINISTIC_FALLBACK";
+  plannerModelRunId: string | null;
+  plannerError: string | null;
+}
+
+/**
+ * Kern Planner 只在旧确定性路由无法识别时介入。
+ *
+ * 安全边界：
+ * - 明确的 Desktop / Proposal 写入语义继续由 routeIntent 的确定性规则优先处理；
+ * - Planner 的可选 intent 集合不包含 DESKTOP_EXECUTION / PROPOSE_*；
+ * - 模型未配置、失败、输出非法时回落 UNSUPPORTED，不假装已经理解。
+ */
+async function resolveIntentWithKernPlanner(
+  session: SessionContext,
+  input: {
+    conversationId: string;
+    text: string;
+    productBound: boolean;
+    history: { role: string; content: string }[];
+  }
+): Promise<IntentRoutingDecision> {
+  const deterministic = routeIntent(input.text, input.productBound);
+  if (deterministic !== "UNSUPPORTED") {
+    return {
+      intent: deterministic,
+      source: "DETERMINISTIC",
+      plannerModelRunId: null,
+      plannerError: null,
+    };
+  }
+
+  try {
+    const plannerPlan = await tryResolveGatewayPolicyForAgentCode({
+      organizationId: session.organizationId,
+      agentCode: "hermes_pm",
+      taskClass: "ASSISTANT_PLANNING",
+    });
+    if (
+      !plannerPlan ||
+      !hasEnabledPolicyCandidate({
+        policy: plannerPlan.policy,
+        profiles: plannerPlan.profiles,
+      })
+    ) {
+      return {
+        intent: "UNSUPPORTED",
+        source: "DETERMINISTIC_FALLBACK",
+        plannerModelRunId: null,
+        plannerError: plannerPlan
+          ? "ASSISTANT_PLANNING policy has no enabled candidate"
+          : "ASSISTANT_PLANNING policy is not configured",
+      };
+    }
+
+    const planned = await executePersistedModelGateway({
+      organizationId: session.organizationId,
+      policy: plannerPlan.policy,
+      profiles: plannerPlan.profiles,
+      request: {
+        taskClass: "ASSISTANT_PLANNING",
+        messages: buildKernPlannerMessages({
+          text: input.text,
+          productBound: input.productBound,
+          history: input.history,
+        }),
+        metadata: {
+          source: "kern.intent-planner",
+          conversationId: input.conversationId,
+          productBound: input.productBound,
+        },
+      },
+      requestMeta: {
+        source: "kern.intent-planner",
+        conversationId: input.conversationId,
+      },
+    });
+
+    const intent = parseKernPlannerIntent(planned.result.text);
+    if (!intent) {
+      return {
+        intent: "UNSUPPORTED",
+        source: "DETERMINISTIC_FALLBACK",
+        plannerModelRunId: planned.modelRunId,
+        plannerError: "Planner returned an invalid or out-of-whitelist intent",
+      };
+    }
+
+    return {
+      intent: intent as Intent,
+      source: "KERN_PLANNER",
+      plannerModelRunId: planned.modelRunId,
+      plannerError: null,
+    };
+  } catch (error: unknown) {
+    return {
+      intent: "UNSUPPORTED",
+      source: "DETERMINISTIC_FALLBACK",
+      plannerModelRunId: null,
+      plannerError:
+        error instanceof Error ? error.message.slice(0, 800) : String(error).slice(0, 800),
+    };
+  }
 }
 
 interface ToolContext {
@@ -803,7 +911,19 @@ export async function sendMessage(
     throw new NotFoundError("Conversation not found");
   }
 
-  const intent = routeIntent(text, !!convo.productId);
+  const plannerHistoryRows = await prisma.message.findMany({
+    where: { conversationId, role: { in: ["USER", "ASSISTANT"] } },
+    orderBy: { createdAt: "desc" },
+    take: 6,
+    select: { role: true, content: true },
+  });
+  const intentRouting = await resolveIntentWithKernPlanner(session, {
+    conversationId,
+    text,
+    productBound: Boolean(convo.productId),
+    history: plannerHistoryRows.reverse(),
+  });
+  const intent = intentRouting.intent;
   const modelRoute = advisorModelRouteForIntent(intent);
   const startedAt = new Date();
 
@@ -880,6 +1000,12 @@ export async function sendMessage(
           modelAgentCode: modelRoute.agentCode,
           modelPolicyKey: gatewayPlan?.policy.id || null,
           gatewayResolutionError,
+          intentRouting: {
+            source: intentRouting.source,
+            intent: intentRouting.intent,
+            plannerModelRunId: intentRouting.plannerModelRunId,
+            plannerError: intentRouting.plannerError,
+          },
         },
       },
     });
@@ -913,6 +1039,12 @@ export async function sendMessage(
           modelAgentCode: modelRoute.agentCode,
           modelPolicyKey: gatewayPlan?.policy.id || null,
           gatewayResolutionError,
+          intentRouting: {
+            source: intentRouting.source,
+            intent: intentRouting.intent,
+            plannerModelRunId: intentRouting.plannerModelRunId,
+            plannerError: intentRouting.plannerError,
+          },
         },
         startedAt,
         costStatus: "unknown",
