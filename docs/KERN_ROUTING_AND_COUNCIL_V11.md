@@ -165,6 +165,15 @@ Tech Architect 不直接伪装本机执行。
 - 显式记录 `autoDispatchEligible`，但不等于已经自动执行
 - SOLO / 低风险 SPECIALIST 才可能进入下一阶段自动调度候选
 
+### Phase 1.6 — 当前执行契约
+- `tech_architect_agent` 已具备真实 Worker executor strategy
+- 新增 `CODING` policy `tech-architecture-coding`，默认 Profile 仍禁用
+- Tech Architect 只产出架构/代码审查/测试策略等 advisory 结果，不拥有文件、终端、GitHub 或业务写权限
+- 未安装 policy、未启用 Profile、provider runtime 未配置时均 fail closed / BLOCKED
+- routing receipt 新增运行时 dispatch readiness：区分 INLINE_READY、EXECUTOR_READY、MODEL_POLICY_MISSING、MODEL_PROFILE_DISABLED、PROVIDER_RUNTIME_MISSING、NO_CHAT_EXECUTOR、REVIEW_REQUIRED
+- “可以路由给某专家”与“这个专家现在真的能无人值守执行”不再混为一谈
+- 本阶段仍**不自动创建 AgentTask**；先完成执行契约与回执校准，再打开 AUTO
+
 ### Phase 2
 - 仅对校准通过的 SOLO / 低风险 SPECIALIST 开放 AUTO
 - PAIR / COUNCIL 保持建议态
@@ -200,3 +209,17 @@ Tech Architect 不直接伪装本机执行。
 - dispatchedAgentCodes（Shadow 阶段固定为空）
 
 这使下一阶段可以用真实历史回执校准路由，而不是直接把启发式规则升级成自动执行。
+
+
+## 10. Tech Architect execution boundary
+
+Tech Architect 的 Worker 路径使用 Model Gateway 的 `CODING` task class。模型调用成功时会生成持久化 ModelRun，并绑定到当前 AgentRun；输出只作为技术建议/审查结果。
+
+它明确不能：
+
+- 宣称已经修改代码、文件或 GitHub；
+- 调用 Desktop Operator 的本机权限；
+- 绕过 Proposal / Approval / Gate；
+- 把没有仓库/文件证据的判断说成“已检查代码”。
+
+因此 Phase 2 的 AUTO 开关必须同时满足：路由候选成立 + 单专家低风险 + executor contract 存在 + policy 已绑定 + Profile 显式启用 + provider runtime 可执行。
