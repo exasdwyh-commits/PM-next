@@ -35,6 +35,7 @@ const SUGGESTIONS = [
   "帮我分析一个市场机会是否值得继续研究",
   "汇总正在推进的产品、阻塞和下一步",
   "创建任务 安排打样原料备料",
+  "本机帮我执行 git status，并把结果告诉我",
 ];
 
 /** 产品上下文已绑定时，才提示「对话改方案」与产品任务写入链入口 */
@@ -140,6 +141,42 @@ export default function AdvisorClient({
     setProposals(initialProposals ?? []);
   }, [activeConversation?.id, activeConversation?.messages, initialProposals]);
 
+  // Desktop Runtime 完成任务后会把真实结果写回原会话。
+  // 轻量轮询让用户停留在对话页时也能直接看到结果，不需要手动刷新。
+  React.useEffect(() => {
+    if (!convoId) return;
+    let disposed = false;
+
+    const refreshMessages = async () => {
+      if (disposed || busy || document.visibilityState === "hidden") return;
+      try {
+        const res = await fetch(`/api/conversations/${convoId}/messages`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!Array.isArray(data.messages)) return;
+        setMessages((current) => {
+          const next = data.messages as Message[];
+          const currentLast = current[current.length - 1]?.id;
+          const nextLast = next[next.length - 1]?.id;
+          return current.length === next.length && currentLast === nextLast
+            ? current
+            : next;
+        });
+      } catch {
+        // 桌面回执轮询失败不阻断当前对话。
+      }
+    };
+
+    void refreshMessages();
+    const timer = window.setInterval(() => void refreshMessages(), 2500);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [convoId, busy]);
+
   /** 提议列表单独拉一次：会话切换与提议确认后都走这里，避免依赖整页刷新 */
   const reloadProposals = React.useCallback(async (forId?: string | null) => {
     const id = forId ?? convoId;
@@ -212,7 +249,8 @@ export default function AdvisorClient({
           id: data.message.id,
           role: "ASSISTANT",
           content: data.message.content,
-          createdAt: new Date().toISOString(),
+          createdAt: data.message.createdAt || new Date().toISOString(),
+          citations: data.message.citations ?? null,
         },
       ]);
       // 本轮若产出了待确认提议，立刻反映到列表里（提议 ≠ 执行，仍需人工确认）
@@ -231,7 +269,6 @@ export default function AdvisorClient({
     await send("挑战我的判断：这个产品假设哪里最脆弱？");
   };
 
-  const disabled = !runtime.modelConfigured;
   const pendingProposals = proposals.filter((p) => p.status === "PENDING_CONFIRMATION");
   // 决策记录与挑战报告同一约定：默认 3 条，其余由 CollapsibleList「查看全部 / 收起」展开，不静默丢弃。
   const allDecidedProposals = proposals.filter((p) => p.status !== "PENDING_CONFIRMATION");
@@ -293,6 +330,15 @@ export default function AdvisorClient({
           </div>
         )}
       </div>
+
+      {!runtime.modelConfigured && (
+        <div className="hermes-banner is-info" style={{ marginBottom: 14 }}>
+          <strong>模型未配置也可以工作。</strong>
+          <div style={{ marginTop: 3 }}>
+            公司状态查询、受控提议和 Hermes Desktop 本机执行继续可用；需要开放式分析时再启用模型即可。
+          </div>
+        </div>
+      )}
 
       {boundProduct && (
         <div className="hermes-banner is-info" style={{ marginBottom: 14 }}>

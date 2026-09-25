@@ -42,6 +42,10 @@ import {
   hasEnabledPolicyCandidate,
   type ModelTaskClass,
 } from "@/modules/model-gateway";
+import {
+  enqueueDesktopTask,
+  isDesktopInstruction,
+} from "@/modules/desktop-runtime";
 
 export async function listConversations(
   session: SessionContext,
@@ -105,6 +109,7 @@ type Intent =
   | "PROPOSE_CREATE_WORK_ITEM"
   | "KNOWLEDGE_SEARCH"
   | "CHALLENGE_THESIS"
+  | "DESKTOP_EXECUTION"
   | "UNSUPPORTED";
 
 const TASK_VERB = /(?:创建任务|建立任务|安排任务|记个待办|生成任务|推进任务|新建任务|创建工作项|生成工作项)/;
@@ -173,6 +178,7 @@ function routeIntent(text: string, productBound: boolean): Intent {
   if (/决策|拍板|决定|审批/.test(t)) return "PENDING_DECISIONS";
   if (TASK_VERB.test(text) && parseWorkItemTask(text)) return "PROPOSE_CREATE_WORK_ITEM";
   if (productBound && CHANGE_VERB.test(text) && matchField(text)) return "PROPOSE_FIELD_CHANGE";
+  if (isDesktopInstruction(text)) return "DESKTOP_EXECUTION";
   if (/知识|公司|制度|政策|规则|定位|红线|禁用|规范|obsidian|背景|资料|查一下|找一下/.test(t)) return "KNOWLEDGE_SEARCH";
   if (/产品|入库|评分|上市|版本/.test(t)) return "PRODUCT_STATUS";
   if (/待办|今天|本周|进度|任务|项目/.test(t)) return "WORKSPACE_STATUS";
@@ -197,6 +203,32 @@ interface ToolResult {
 
 async function runTool(session: SessionContext, intent: Intent, ctx: ToolContext): Promise<ToolResult> {
   switch (intent) {
+    case "DESKTOP_EXECUTION": {
+      const queued = await enqueueDesktopTask(session, {
+        instruction: ctx.text,
+        conversationId: ctx.conversationId,
+      });
+      const actionLabel = queued.action.tool === "agent.delegate"
+        ? "交给本机 Agent"
+        : queued.action.tool;
+      return {
+        toolKey: "desktop.runtime",
+        text: [
+          "已把这项工作发送到你的 Mac 执行队列。",
+          `动作：${actionLabel}`,
+          `任务：${ctx.text}`,
+          "",
+          "Hermes Desktop Runtime 在线时会自动领取；完成结果会写回同一条 AgentTask / AgentRun。"
+        ].join("\n"),
+        citations: [
+          {
+            kind: "desktop-task",
+            ref: queued.task.id,
+            title: `本机任务：${ctx.text.slice(0, 60)}`,
+          },
+        ],
+      };
+    }
     case "PENDING_DECISIONS": {
       const ov = await getWorkspaceOverview(session);
       const items = ov.pendingDecisions.items;
@@ -613,6 +645,7 @@ export async function sendMessage(
     "advisor.proposeWorkItem",
     "advisor.challenge",
     "knowledge.search",
+    "desktop.runtime",
   ];
 
   let run;
