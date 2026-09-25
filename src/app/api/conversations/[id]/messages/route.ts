@@ -53,6 +53,7 @@ export async function POST(
           citations: result.message.citations,
         },
         proposal: result.proposal ?? null,
+        visualGraph: result.visualGraphShadow ?? null,
       },
       { status: 201 }
     );
