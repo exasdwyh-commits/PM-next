@@ -389,7 +389,7 @@ export default function RevisionPanel({
         </summary>
         <div style={{ marginTop: 12 }}>
           {history.length === 0 ? (
-            <Empty>还没有分析轮次。</Empty>
+            <Empty>还没有分析轮次。先运行一次产品分析，形成有依据的分析记录后，再从这里生成修改草案。</Empty>
           ) : (
             <table className="hermes-table">
               <thead>

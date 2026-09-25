@@ -178,7 +178,7 @@ export default function WarRoomClient({ initialProjects, allUsers, currentSessio
         </StatGrid>
 
         {rows.length === 0 ? (
-          <Empty>{activeUser?.name || "该身份"}名下暂无项目或待办。</Empty>
+          <Empty>{activeUser?.name || "该身份"}名下暂无项目或待办。可切换身份，或先从产品 / 项目页创建并加入一个项目。</Empty>
         ) : (
           <div className="space-y-4">
             {rows.map(({ project: p, evidenceList, packets, works, feedbacks, hasVerifiedPrice, isDecisionMaker, owner }: any) => (
