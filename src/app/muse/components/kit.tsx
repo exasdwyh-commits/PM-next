@@ -1,4 +1,4 @@
-/** Muse 原语层：状态语义、按钮、标签、卡片、图标。语义只在这里定义一次。 */
+/** 科恩交互原语层：状态语义、按钮、标签、卡片、图标。语义只在这里定义一次。 */
 import type { AiState, Confidence, Tone } from "../types";
 
 type T = "accent" | "ok" | "warn" | "bad" | "neutral";
