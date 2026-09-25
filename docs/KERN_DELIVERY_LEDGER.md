@@ -21,17 +21,18 @@
 - B1/B2 · 390px 条件态真实验证 + 气泡轴 1px 修复：`193f8512`
 - B4 · 可行动空状态：`0fb583b8`
 - B5 · Kern / 产品 / 项目 / 工作项 / 门禁 / 决策包术语收口：`3211a85c`
+- A2/A4/A5 · 最终视觉系统 / Executive Report / 本机助理叙事：`9ace96db`
 
 ## 当前批次
 
-分支：`feat/kern-delivery-batch-a2-a5`
+分支：`release/kern-v1-beta-final-acceptance`
 
 目标：
 
-1. **A2 最终视觉系统**：保留 Kern 对话主轴与单一强调渐变；移除主界面玻璃拟态与装饰性光晕，保持 light/dark/390px。
-2. **A4 Executive Report**：明确呈现「当前结论 → 关键依据 → 最大风险 → UNKNOWN → 需要你决定 → 下一步」，专业 Agent 原始细节继续折叠。
-3. **A5 Desktop 助理叙事**：主文案只表达 Kern 是否连上 Mac、是否真的执行、结果是什么；开发命令降级到二级详情。
-4. CI：至少 Quality / Desktop / Product R&D；按改动路径触发的其他门禁必须全部绿。
+1. 不再增加功能，只做最终验收与文档收口。
+2. 扩展移动走查到 Kern 主操作界面 1440 / 390。
+3. 通过 `package.json` 交付契约入口触发 10 条核心工作流；移动测试文件同时触发 Mobile Conditional Layout CI。
+4. **同一 PR head 11/11 CI 全绿**后，才把该 head 认定为 V1/Beta 交付候选。
 
 ## 当前事实判断
 
@@ -42,8 +43,8 @@
 
 ## 下一批
 
-当前批次全绿合并后：
+当前批次全绿后不再扩功能：
 
-- 跑完整产品主线与本机执行验收路径。
-- 更新交付/验收文档与最终基线 commit。
-- 只处理验收中真实复现的问题，不再扩功能。
+- 合并最终验收 PR；
+- 记录 validated PR head 与 main merge commit；
+- 只处理真实复现的 P0/P1，不做“顺手优化”。

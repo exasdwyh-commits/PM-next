@@ -1,40 +1,43 @@
-# PM-next · Hermes Department OS
+# PM-next · Kern AI Product OS
 
-PM-next 是一个面向产品负责人和小型团队的 **AI 部门助理 + 数字员工团队 + 治理内核 + 本机执行 Runtime**。
+PM-next 是一个面向产品负责人和小型团队的 **Kern 日常助理 + 数字员工团队 + 产品/项目管理后台 + 治理内核 + 本机执行能力**。
 
-产品目标不是让用户操作很多 Agent 页面，而是：
+产品分为两层：
+
+- **Kern 主操作层**：领导层和普通员工日常只需要对话。说目标，Kern 负责理解上下文、规划、研究、委派数字员工、跟进进度，并在必须由人拍板时发起 Check-in。
+- **专业管理后台**：产品经理、项目负责人和管理员可进入传统管理系统，管理产品、项目、工作项、证据、评估、决策、自动化与审计。后台完整，但不要求普通用户理解内部 Agent/Runtime。
 
 ```text
-告诉 Hermes 想完成什么
-→ Hermes 理解公司/产品上下文
+告诉 Kern 想完成什么
+→ Kern 理解公司 / 产品 / 项目上下文
 → 研究、拆解、委派数字员工
-→ 必要时调用用户自己的 Mac 执行真实工作
+→ 必要时在用户自己的 Mac 上执行真实工作
 → 独立 QA / Evidence / Governance
-→ 生成管理报告
+→ Executive Report
 → 人只处理关键决策
-→ 系统继续推进
+→ Kern 继续推进
 ```
 
-当前可信交付入口：`main`。
+当前可信交付入口：`main`。默认用户入口仍为兼容路由 `/muse`，产品品牌统一为 **Kern**。
 
 ## 核心能力
 
-### 1. Department Assistant
+### 1. Kern 主操作层
 
-AI 助理是主要入口：
+Kern 是主要入口：
 
 - 直接接收业务目标，不要求用户先选 Agent / Workflow；
 - 自动注入公司、产品和项目上下文；
 - 支持结构化查询、研究、任务拆解和受控提议；
 - 支持 Laya System-1 Shadow 判断；
-- 可把明确的本机任务发送到 Hermes Desktop Runtime；
+- 可把明确的本机任务发送到用户自己的 Mac；
 - 业务事实修改仍经过 Proposal / Approval / Gate，不允许模型绕过治理。
 
-模型未配置时，结构化查询、受控提议、治理和 Desktop Runtime 仍可工作。
+模型未配置时，结构化查询、受控提议、治理和确定性本机执行仍可工作。
 
-### 2. Hermes Desktop Runtime
+### 2. Kern 本机执行
 
-同一个 Hermes 可以在用户自己的 Mac 上执行真实工作。
+同一个 Kern 可以在用户自己的 Mac 上执行真实工作；用户看到的是“本机已连接 / Kern 正在用你的电脑 / 结果回到原会话”，Runtime 只是内部实现。
 
 当前支持：
 
@@ -51,12 +54,12 @@ AI 助理是主要入口：
 闭环：
 
 ```text
-AI 助理
+Kern
 → desktop_operator AgentTask
-→ Mac Runtime claim
+→ Mac 领取真实任务
 → 本机真实执行
 → AgentRun / AgentTask 回执
-→ 结果自动写回原 AI 助理会话
+→ 结果自动写回原 Kern 会话
 ```
 
 Mac 一次安装：
@@ -71,7 +74,7 @@ npm run desktop:install
 
 默认 12 个数字角色：
 
-- Hermes PM / Department Assistant
+- Kern PM / Kern Assistant
 - Product Agent
 - Market Research Agent
 - Scientific Evidence Agent
@@ -127,37 +130,41 @@ ResearchRun 未发布不会提前进入 QA；QA 成功后管理报告自动生�
 - ProductVersion / ChannelSpecRoute / Validation / G1 / G2 / G3；
 - immutable decision / audit history。
 
-## Frontend V3
+## 前端与信息架构
 
-当前前端采用 Conversation-first Department OS：
+### Kern 主操作层
 
-主导航：
+默认入口是单一、安静的对话画布，不是密集仪表盘。首屏只回答三件事：
 
-```text
-今日 / 产品 / AI 助理 / 市场机会 / 公司知识 / 自动化中心 / 设置
-```
+1. 今天什么最重要；
+2. Kern 正在真实执行什么；
+3. 现在需要我处理什么。
 
-核心产品流：
+用户不需要先理解 Agent、AgentTask、AgentRun、Gate、Runtime 等内部对象。Kern 只在真实 RUNNING 时显示“正在执行”，排队、失败、未连接和 UNKNOWN 都按真实状态显示。
 
-```text
-提需求 → AI 干活 → 看结果 → 做决定 → 继续推进
-```
+### 专业管理后台
 
-Product 是主要业务对象；Project 作为内部执行工作区，不再作为用户必须理解的一级产品概念。
-
-产品工作区：
+产品经理 / 项目负责人可以进入 `/manage` 及专业页面：
 
 ```text
-概览 / AI研发 / 任务 / 证据 / 决策 / 记录
+管理总览 / 产品管理 / 项目管理 / 市场机会 / 公司知识 / 自动化中心 / 设置
 ```
 
-Executive Report 优先展示：
+**产品**是业务主对象，**项目**是可独立进入的执行管理对象，Prisma `WorkItem` 在用户界面统一称为**工作项**。
 
-- 是否可以继续推进；
-- UNKNOWN / 缺口；
-- 显式风险；
-- 需负责人决策；
-- 有效结论。
+项目工作区：
+
+```text
+概览 / AI 研发 / 工作项 / 证据 / 决策 / 记录
+```
+
+Executive Report 默认按以下顺序阅读：
+
+```text
+当前结论 → 关键依据 → 最大风险 → UNKNOWN → 需要你决定 → 下一步
+```
+
+专业数字员工意见和完整溯源默认折叠，需要时再下钻。
 
 ## 模型策略
 
@@ -174,9 +181,9 @@ Laya 是 System-1 快速判断层：
 - 无 endpoint 时保持 SHADOW_UNCONFIGURED；
 - 未完成目标 workload 校准前不用于高风险自动决策。
 
-### Muse / Local Model
+### 常驻快速模型 / Local Model
 
-可作为本地常驻 Department Assistant 模型位，通过 OpenAI-compatible API 接入。模型不是 PM-next 的治理真相源，也不直接拥有业务写权限。
+Kern 可通过 Model Gateway 使用本地常驻模型或外部模型；具体 provider 只是可替换执行资源。模型不是治理真相源，也不直接拥有业务写权限。
 
 ## 本地运行
 
@@ -222,7 +229,7 @@ npm run db:seed
 - `DATABASE_URL`：应用连接串（开发库，本机默认 `.../hermes_next_dev`）；
 - `TEST_DATABASE_URL`：测试专用库，**必须与开发库不同**——测试启动时会做隔离校验，
   测试账号若能连上开发库会直接拒绝运行；
-- 模型相关（Muse / Laya 等）默认不配置；未配置时治理、数据库、Workforce、
+- 模型相关（Kern Assistant / Laya 等）默认不配置；未配置时治理、数据库、Workforce、
   Evidence 与结构化流程仍应保持可运行，系统不得静默切换到未知外部模型。
 
 ### 后台 Worker（独立进程）
@@ -268,7 +275,7 @@ POST /api/workforce/bootstrap
 
 ## 桌面助理示例
 
-安装 Mac Runtime 后，直接在 AI 助理里说：
+安装 Kern 本机执行后，直接在 Kern 里说：
 
 ```text
 本机帮我执行 git status，并把结果告诉我
@@ -279,7 +286,7 @@ POST /api/workforce/bootstrap
 本机帮我检查当前代码仓库，把能确定的 bug 修掉，跑完测试后告诉我结果
 ```
 
-最后一类开放式任务默认交给本机 Codex CLI，执行结果仍返回 Hermes 对话。
+最后一类开放式任务默认交给本机 Codex CLI，执行结果仍返回原 Kern 对话。
 
 ## 验收
 
@@ -328,20 +335,9 @@ npm run test:sweep
 
 需要数据库的测试要求本机有 PostgreSQL，且 `TEST_DATABASE_URL` 指向独立测试库。
 
-> ⚠️ **CI 覆盖缺口（已知，待收敛）**：当前 10 个 GitHub workflow 覆盖 56 个
-> `test:*` 条目中的 31 个。除去 `test:sweep`（扫描器自身）与 `test:critical`
-> （组合别名）这两个**按设计不该进 CI** 的条目，仍有 23 个真实套件从未进 CI，
-> 其中 10 个（`test:http`、`test:http-errors`、`test:authz`、`test:ui`、
-> `test:ui-feedback`、`test:product-center`、`test:blueprint`、`test:acceptance`、
-> `test:science`、`test:llm-e2e`）
-> 需要生产构建或浏览器，单是 `next build` + Playwright 就会显著拉长 CI 时延，
-> 故本轮只把 `test:product-rnd-e2e` 纳入交付 CI。
-> 这些用例长期没被跑，已经积累了若干与产品行为无关的红项（路由未登记进授权矩阵、
-> UI 测试硬编码浏览器绝对路径、夹具清理顺序违反外键、验收断言绑定实时模型措辞）。
-> 上述问题已在 2026-09-25 修复，`npm run test:sweep` 可作为本机全量门禁；
-> 把剩余套件纳入 CI 是后续工作。
+> GitHub Actions 当前有 **11 条工作流**：10 条核心业务 / 质量工作流，加 1 条 Mobile Conditional Layout CI。最终交付 PR 会在**同一个 head**上跑齐 11 条。更广的历史 `test:*` 套件仍可用 `npm run test:sweep` 做本地全量扫描；没有进入 CI 的历史测试不自动等于生产能力已验收。
 
-正式交付要求 GitHub 的主要矩阵同时为绿色：
+正式交付要求 GitHub 的同一候选 head 上以下矩阵同时为绿色：
 
 - Quality CI
 - Governance CI
@@ -353,6 +349,7 @@ npm run test:sweep
 - Golden Organization CI
 - Product R&D Delivery CI
 - Desktop CI
+- Mobile Conditional Layout CI
 
 ## 当前边界
 
@@ -369,11 +366,10 @@ AppleScript / Accessibility 通道已经预留；有稳定 API/CLI/AppleScript �
 
 优先阅读：
 
-1. `docs/HERMES_DESKTOP_RUNTIME.md`
-2. `docs/FRONTEND_V3_CONVERSATION_FIRST.md`
-3. `docs/FUSION_DELIVERY_2026-09-25.md`
-4. `docs/FINAL_ARCHITECTURE_BLUEPRINT_V2.md`
-5. `docs/DOMAIN_CONTRACTS_V2.md`
-6. `docs/TOOL_BROKER_AND_APPROVALS.md`
+1. `docs/FINAL_DELIVERY_2026-09-25.md`
+2. `docs/KERN_DELIVERY_LEDGER.md`
+3. `docs/FRONTEND_V3_CONVERSATION_FIRST.md`
+4. `docs/HERMES_DESKTOP_RUNTIME.md`（历史文件名保留兼容，内容对应 Kern 本机执行）
+5. `docs/FUSION_DELIVERY_2026-09-25.md`
 
 历史 release / fusion 分支文档仅作为演进记录，不再代表当前部署入口。

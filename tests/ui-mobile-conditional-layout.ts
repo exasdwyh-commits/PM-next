@@ -62,6 +62,19 @@ async function login(page: any, email: string) {
   assert.equal(page.url().includes("/login"), false, `登录失败：${page.url()}`);
 }
 
+
+async function kernShellState(page: any, tier: string) {
+  await page.goto(`${BASE}/muse`, { waitUntil: "domcontentloaded" });
+  await page.locator(".muse").waitFor({ state: "visible", timeout: 15000 });
+  await page.locator("textarea").first().waitFor({ state: "visible", timeout: 10000 });
+  await page.waitForTimeout(300);
+  const probe = await probeOverflow(page);
+  console.log(`[Kern shell ${tier}] scroll=${probe.scrollWidth} client=${probe.clientWidth} overflow=${probe.overflow}`);
+  if (probe.offenders.length) console.log("[Kern shell offenders]", JSON.stringify(probe.offenders));
+  await page.screenshot({ path: path.join(OUT, `kern-${tier}.png`), fullPage: true });
+  assert.ok(probe.overflow <= 1, `Kern shell ${tier} 横向溢出 ${probe.overflow}px`);
+}
+
 async function launchState(page: any, productId: string, tier: string) {
   await page.goto(`${BASE}/products/${productId}?tab=launch`, { waitUntil: "domcontentloaded" });
   const button = page.getByRole("button", { name: "建立上市计划" });
@@ -192,6 +205,7 @@ async function main() {
       const context = await browser.newContext({ viewport: { width, height }, locale: "zh-CN" });
       const page = await context.newPage();
       await login(page, owner.email);
+      await kernShellState(page, tier);
       await launchState(page, product.id, tier);
       await costState(page, product.id, tier);
       if (tier === "390") await bubbleState(page);
@@ -203,7 +217,7 @@ async function main() {
     await prisma.$disconnect();
   }
 
-  console.log("✅ B1/B2 条件态布局验证通过");
+  console.log("✅ Kern + B1/B2 条件态布局验证通过");
 }
 
 main().catch(async (error) => {
