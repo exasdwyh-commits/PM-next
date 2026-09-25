@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "HERMES Next - 研发打样门系统",
+  title: "Kern - AI Product OS",
   description: "食品新品研发打样门与可信决策系统",
 };
 
