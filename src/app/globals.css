@@ -1536,3 +1536,46 @@ button,a { -webkit-tap-highlight-color:transparent; }
     grid-template-columns:minmax(0,1fr);
   }
 }
+
+
+/* —— 产品页：把 Product 与内部 Project 执行对象连接成一条用户可理解的路径 —— */
+.hermes-product-execution-strip {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:14px 16px;
+  border:1px solid var(--accent-line);
+  border-radius:11px;
+  background:var(--accent-bg);
+}
+.hermes-product-execution-strip > div {
+  min-width:0;
+}
+.hermes-product-execution-strip > div > span {
+  display:block;
+  margin-bottom:4px;
+  color:var(--accent-hover);
+  font-size:11px;
+  font-weight:750;
+  letter-spacing:.08em;
+}
+.hermes-product-execution-strip strong {
+  display:block;
+  color:var(--ink);
+  font-size:15px;
+  line-height:1.45;
+}
+.hermes-product-execution-strip small {
+  display:block;
+  margin-top:4px;
+  color:var(--ink-muted);
+  font-size:12px;
+  line-height:1.5;
+}
+@media (max-width:620px) {
+  .hermes-product-execution-strip {
+    align-items:flex-start;
+    flex-direction:column;
+  }
+}
