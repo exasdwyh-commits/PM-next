@@ -265,7 +265,7 @@ export default function ProductOverviewClient({
         >
           <div>
             <span>下一步</span>
-            <strong>让 Hermes 启动产品研发</strong>
+            <strong>让 Kern 启动产品研发</strong>
             <small>先整理研发 Brief，再进入专业研究、独立 QA 与管理报告流程</small>
           </div>
           <span className="hermes-primary-btn hermes-btn-sm">
@@ -334,7 +334,7 @@ export default function ProductOverviewClient({
 
       <details className="hermes-details">
         <summary style={{ fontWeight: 600, padding: "4px 0" }}>
-          查看 Hermes 自动化记录（{automationTraces.length}）
+          查看 Kern 自动化记录（{automationTraces.length}）
         </summary>
         <div style={{ marginTop: 10 }}>
           <AutomationTraceList
