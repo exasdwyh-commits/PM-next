@@ -5,6 +5,7 @@ import { sendMessage as sendLegacyAdvisorMessage } from "@/modules/advisor/servi
 import { buildDepartmentAssistantContext } from "./context-builder";
 import { runDepartmentAssistantReflexShadow } from "./reflex";
 import { buildKernCollaborationPlanShadow } from "./collaboration-planner";
+import { resolveKernDispatchReadiness } from "./dispatch-readiness";
 
 function asJsonObject(value: Prisma.JsonValue | null): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -43,11 +44,19 @@ export async function sendDepartmentAssistantMessage(
     options
   );
   const reflex = await reflexPromise;
-  const collaborationPlanShadow = buildKernCollaborationPlanShadow({
+  const plannedCollaboration = buildKernCollaborationPlanShadow({
     text: content,
     productBound: Boolean(context.productId),
     reflex,
   });
+  const dispatchReadiness = await resolveKernDispatchReadiness({
+    organizationId: session.organizationId,
+    plan: plannedCollaboration,
+  });
+  const collaborationPlanShadow = {
+    ...plannedCollaboration,
+    autoDispatchEligible: dispatchReadiness.eligible,
+  };
   const routingReceipt = {
     version: "kern-routing-receipt/v1" as const,
     runId: result.runId,
@@ -59,7 +68,9 @@ export async function sendDepartmentAssistantMessage(
     researchRequired: collaborationPlanShadow.researchRequired,
     qaRequired: collaborationPlanShadow.qaRequired,
     redTeamRequired: collaborationPlanShadow.redTeamRequired,
+    autoDispatchCandidate: collaborationPlanShadow.autoDispatchCandidate,
     autoDispatchEligible: collaborationPlanShadow.autoDispatchEligible,
+    dispatchReadiness,
     dispatchedAgentCodes: [] as string[],
   };
 
