@@ -44,3 +44,6 @@ prisma/_backups/
 # PM OS Kernel local SQLite
 data/kernel/
 
+
+# 本地 kernel 验收构建目录（可达 170M+，禁止入库）
+.next-kernel/

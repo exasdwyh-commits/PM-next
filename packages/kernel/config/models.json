@@ -1,0 +1,13 @@
+{
+  "models": [
+    {"id":"fast-general","provider":"mock-local","privacyClass":"LOCAL","allowedDataClasses":["PUBLIC","INTERNAL","CONFIDENTIAL","RESTRICTED"],"availability":"AVAILABLE","tier":"simple","work":["general","writing"],"cost":1,"latency":1,"reasoning":1,"coding":1,"vision":false,"maxContext":32000},
+    {"id":"fast-code","provider":"mock-local","privacyClass":"LOCAL","allowedDataClasses":["PUBLIC","INTERNAL","CONFIDENTIAL","RESTRICTED"],"availability":"AVAILABLE","tier":"simple","work":["coding"],"cost":1,"latency":1,"reasoning":1,"coding":3,"vision":false,"maxContext":32000},
+    {"id":"balanced","provider":"mock-local","privacyClass":"LOCAL","allowedDataClasses":["PUBLIC","INTERNAL","CONFIDENTIAL"],"availability":"AVAILABLE","tier":"medium","work":["general","coding","research","writing"],"cost":2,"latency":2,"reasoning":3,"coding":3,"vision":true,"maxContext":128000},
+    {"id":"frontier","provider":"mock-external","privacyClass":"EXTERNAL","allowedDataClasses":["PUBLIC","INTERNAL"],"availability":"AVAILABLE","tier":"hard","work":["general","coding","research","writing","vision"],"cost":5,"latency":3,"reasoning":5,"coding":5,"vision":true,"maxContext":256000}
+  ],
+  "pools": {
+    "simple": {"general":["fast-general","balanced"],"coding":["fast-code","balanced"],"research":["balanced"],"writing":["fast-general","balanced"]},
+    "medium": {"general":["balanced","frontier"],"coding":["balanced","frontier"],"research":["balanced","frontier"],"writing":["balanced","frontier"],"vision":["balanced","frontier"]},
+    "hard": {"general":["frontier","balanced"],"coding":["frontier","balanced"],"research":["frontier","balanced"],"writing":["frontier","balanced"],"vision":["frontier","balanced"]}
+  }
+}

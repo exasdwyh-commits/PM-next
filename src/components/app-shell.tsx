@@ -49,6 +49,7 @@ export const SETTINGS_ITEM: NavItem = {
  * 图标尽量与页面语义对应；改动本组后务必同步 ALL_NAV_ITEMS（高亮判定依赖它）。
  */
 export const MORE_ITEMS: NavItem[] = [
+  { key: "product-rnd", label: "产品研发评估", href: "/product-rnd", icon: "flask", hint: "PM OS Kernel Product R&D vertical slice" },
   { key: "trace", label: "决策追溯", href: "/trace", icon: "search", hint: "决策与留痕的回溯查询" },
   { key: "war-room", label: "项目作战室", href: "/war-room", icon: "target", hint: "项目推进与阻塞协调" },
   { key: "consultation", label: "顾问议事厅", href: "/consultation", icon: "users", hint: "多方评审与意见汇总" },

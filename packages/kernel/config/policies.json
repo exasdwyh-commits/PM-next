@@ -1,0 +1,130 @@
+{
+  "roles": {
+    "PM": [
+      "memory.read",
+      "decision.route",
+      "council.run",
+      "task.delegate",
+      "artifact.read"
+    ],
+    "ENGINEER": [
+      "artifact.read",
+      "artifact.write",
+      "shell.test",
+      "git.diff",
+      "git.merge"
+    ],
+    "QA": [
+      "artifact.read",
+      "shell.test",
+      "report.write"
+    ],
+    "RESEARCH": [
+      "research.run",
+      "web.search",
+      "artifact.read",
+      "report.write"
+    ],
+    "EVOLUTION": [
+      "prompt.propose",
+      "knowledge.index.propose",
+      "test.propose",
+      "improvement.write"
+    ],
+    "SYSTEM": [
+      "memory.read",
+      "decision.route",
+      "artifact.read",
+      "report.write"
+    ],
+    "VERIFIER": [
+      "source.fetch",
+      "artifact.read"
+    ]
+  },
+  "approvalRequired": [
+    "git.merge",
+    "deploy.production",
+    "database.migrate",
+    "artifact.delete",
+    "secret.use",
+    "external.send"
+  ],
+  "denyUnattended": [
+    "git.merge",
+    "deploy.production",
+    "database.migrate",
+    "secret.use",
+    "external.send"
+  ],
+  "resourceRules": {
+    "memory.read": [
+      "memory:*"
+    ],
+    "decision.route": [
+      "router:*"
+    ],
+    "council.run": [
+      "council:*"
+    ],
+    "task.delegate": [
+      "task:*"
+    ],
+    "artifact.read": [
+      "workspace/*",
+      "reports/*",
+      "evidence/*"
+    ],
+    "artifact.write": [
+      "workspace/*"
+    ],
+    "shell.test": [
+      "workspace/*"
+    ],
+    "git.diff": [
+      "refs/*"
+    ],
+    "git.merge": [
+      "refs/heads/feature/*"
+    ],
+    "report.write": [
+      "reports/*"
+    ],
+    "research.run": [
+      "provider:*"
+    ],
+    "web.search": [
+      "public-web"
+    ],
+    "prompt.propose": [
+      "prompts/*"
+    ],
+    "knowledge.index.propose": [
+      "knowledge/*"
+    ],
+    "test.propose": [
+      "tests/*"
+    ],
+    "improvement.write": [
+      "improvements/*"
+    ],
+    "deploy.production": [
+      "production"
+    ],
+    "database.migrate": [
+      "database:production"
+    ],
+    "artifact.delete": [
+      "workspace/*"
+    ],
+    "secret.use": [
+      "secret:*"
+    ],
+    "external.send": [
+      "external:*"
+    ],
+    "source.fetch": [
+      "source:*"
+    ]
+  }
+}

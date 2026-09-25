@@ -57,7 +57,8 @@
     "test:channel-routes": "node --import tsx --test tests/channel-route-persistence.test.ts",
     "test:g2": "tsx scripts/run-test.ts tests/regression-formal-g2.ts",
     "test:structured": "node --import tsx --test tests/regression-structured-artifacts.test.ts",
-    "test:gate-boundaries": "node --import tsx --test tests/regression-gate-boundaries.test.ts"
+    "test:gate-boundaries": "node --import tsx --test tests/regression-gate-boundaries.test.ts",
+    "test:kernel": "node --import tsx --test tests/regression-kernel-product-rnd.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
