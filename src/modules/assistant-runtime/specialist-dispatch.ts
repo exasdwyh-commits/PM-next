@@ -1,4 +1,4 @@
-import { AgentTriggerType, Prisma } from "@prisma/client";
+import { AgentTaskStatus, AgentTriggerType, Prisma } from "@prisma/client";
 import prisma from "@/shared/db";
 import type { SessionContext } from "@/modules/identity/session";
 import { createAgentTask } from "@/modules/workforce/service";
@@ -8,7 +8,7 @@ export interface KernSpecialistDispatchResult {
   created: boolean;
   taskId: string;
   agentCode: string;
-  status: "QUEUED";
+  status: AgentTaskStatus;
   triggerRef: string;
 }
 
@@ -74,7 +74,7 @@ export async function enqueueKernSpecialistDispatch(input: {
       created: false,
       taskId: existing.id,
       agentCode: agent.code,
-      status: "QUEUED",
+      status: existing.status,
       triggerRef,
     };
   }
@@ -104,7 +104,7 @@ export async function enqueueKernSpecialistDispatch(input: {
     created: true,
     taskId: task.id,
     agentCode: agent.code,
-    status: "QUEUED",
+    status: task.status,
     triggerRef,
   };
 }
