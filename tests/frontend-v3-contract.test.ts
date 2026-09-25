@@ -294,5 +294,8 @@ test("Kern primary shell behaves like a real conversation surface", () => {
   assert.ok(client.includes("scrollIntoView"), "new conversation turns should stay visible");
   assert.ok(shell.includes('m-brand-mark" aria-hidden>K<'), "visible Kern brand mark must be K");
   assert.ok(turn.includes('by?.mark ?? "K"'), "assistant fallback avatar must be Kern, not Muse");
+  const readModel = read("src/modules/muse/read-model.ts");
+  assert.ok(readModel.includes('agent.code === "hermes_pm" ? "e-hermes" : agent.id'));
+  assert.ok(readModel.includes('mark: "K"'), "Kern fallback employee mark must be K");
   assert.equal(client.includes("Kern 正在执行这条消息"), false, "request-in-flight UI must not fake backend execution");
 });
