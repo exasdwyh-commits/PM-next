@@ -62,7 +62,8 @@ export default function ProjectDetailClient({
   const router = useRouter();
   const [project, setProject] = useState(initialProject);
   const [activeUserId, setActiveUserId] = useState(currentSession?.userId || initialProject.ownerId);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);\n  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"overview" | "rnd" | "tasks" | "evidence" | "decisions" | "records">("overview");
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"overview" | "rnd" | "tasks" | "evidence" | "decisions" | "records">("overview");
   // 理由输入对话框（替代原生 prompt）
   const [askReason, reasonDialog] = useReasonDialog();
 
