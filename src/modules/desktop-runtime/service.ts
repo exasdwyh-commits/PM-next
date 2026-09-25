@@ -292,19 +292,79 @@ export async function finishDesktopRuntimeTask(
     resultSummary: input.result.summary.slice(0, 4000),
   });
 
+  const finishedAt = new Date().toISOString();
+  const context = asRecord(task.contextSnapshot);
   await prisma.agentTask.update({
     where: { id: task.id },
     data: {
       contextSnapshot: {
-        ...asRecord(task.contextSnapshot),
+        ...context,
         desktopResult: {
           ...input.result,
           deviceId: input.deviceId,
-          finishedAt: new Date().toISOString(),
+          finishedAt,
         },
       } as Prisma.InputJsonValue,
     },
   });
+
+  const conversationId =
+    typeof context.desktopConversationId === "string"
+      ? context.desktopConversationId
+      : null;
+  if (conversationId) {
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        organizationId: session.organizationId,
+        ownerId: session.userId,
+      },
+      select: { id: true },
+    });
+    if (conversation) {
+      const statusLabel =
+        input.outcome === "SUCCEEDED"
+          ? "本机任务已完成"
+          : input.outcome === "WAITING_HUMAN"
+            ? "本机任务需要你处理"
+            : input.outcome === "BLOCKED"
+              ? "本机任务被阻断"
+              : "本机任务执行失败";
+      const output = input.result.output?.trim();
+      const body = [
+        statusLabel + "：",
+        input.result.summary,
+        output ? "" : null,
+        output ? output.slice(0, 6000) : null,
+        output && output.length > 6000
+          ? "\n（完整输出已保存在桌面任务回执中）"
+          : null,
+      ]
+        .filter((line): line is string => typeof line === "string")
+        .join("\n");
+
+      await prisma.$transaction([
+        prisma.message.create({
+          data: {
+            conversationId,
+            role: "ASSISTANT",
+            content: body,
+            citations: [
+              {
+                kind: "desktop-task",
+                ref: task.id,
+                title: statusLabel,
+              },
+            ] as Prisma.InputJsonValue,
+          },
+        }),
+        prisma.conversation.update({
+          where: { id: conversationId },
+          data: { updatedAt: new Date() },
+        }),
+      ]);
+    }
+  }
 
   return { taskId: task.id, outcome: input.outcome };
 }
