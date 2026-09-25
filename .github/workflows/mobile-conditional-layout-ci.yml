@@ -1,0 +1,73 @@
+name: Mobile Conditional Layout CI
+
+on:
+  pull_request:
+    paths:
+      - "src/app/products/[id]/launch-tab.tsx"
+      - "src/app/products/[id]/cost-calculator.tsx"
+      - "src/components/viz.tsx"
+      - "src/app/globals.css"
+      - "tests/ui-mobile-conditional-layout.ts"
+      - ".github/workflows/mobile-conditional-layout-ci.yml"
+      - "scripts/acc-server.sh"
+  workflow_dispatch:
+
+jobs:
+  mobile-conditional-layout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: hermes_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d hermes_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://hermes_test:hermes_test@localhost:5432/hermes_test
+      TEST_DATABASE_URL: postgresql://hermes_test:hermes_test@localhost:5432/hermes_test
+      TEST_DB_ROLE: hermes_test
+      DEV_DATABASE_GUARD_URL: postgresql://postgres:postgres@localhost:5432/hermes_dev_guard
+      NODE_ENV: test
+      PG_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      PG_APP_USER: hermes_test
+      PG_APP_PASSWORD: hermes_test
+      PG_HOST: localhost
+      PG_PORT: "5432"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Provision isolated test role
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE hermes_test LOGIN PASSWORD 'hermes_test'"
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "ALTER DATABASE hermes_test OWNER TO hermes_test"
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE hermes_dev_guard"
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "REVOKE CONNECT ON DATABASE hermes_dev_guard FROM PUBLIC"
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - name: Run real 1440/390 conditional layout checks
+        run: |
+          printf 'TEST_DATABASE_URL=%s\n' "$TEST_DATABASE_URL" > .env
+          OUTPUT_DIR=/tmp/kern-mobile-layout bash scripts/acc-server.sh --port 3220 3221 tests/ui-mobile-conditional-layout.ts
+      - name: Upload layout evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-conditional-layout-evidence
+          path: /tmp/kern-mobile-layout
+          if-no-files-found: ignore

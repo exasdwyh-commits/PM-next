@@ -2179,3 +2179,9 @@ button,a { -webkit-tap-highlight-color:transparent; }
   /* 阶段标签是正文级长文案，不是 chip，不能 nowrap。 */
   .hermes-stage-band-label { white-space:normal; }
 }
+
+
+/* B2 · 390px 实测：Y 轴在 bubble-scroll 左缘被裁 1px。只在手机档向右收 1px，不改桌面布局。 */
+@media (max-width:520px) {
+  .bubble-axis-y { left:-27px; }
+}
