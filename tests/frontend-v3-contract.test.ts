@@ -151,3 +151,50 @@ test("knowledge sample banner does not expose internal environment variables", (
     "user-facing banner must not tell ordinary users to edit an environment variable"
   );
 });
+
+test("management empty states explain why and what to do next", () => {
+  const files = [
+    "src/app/consultation/consultation-client.tsx",
+    "src/app/dashboard/dashboard-client.tsx",
+    "src/app/organization/page.tsx",
+    "src/app/products/[id]/product-overview-client.tsx",
+    "src/app/products/[id]/revision-panel.tsx",
+    "src/app/projects/[id]/project-detail-client.tsx",
+    "src/app/settings/recent-audit-list.tsx",
+    "src/app/settings/page.tsx",
+    "src/app/trace/trace-client.tsx",
+    "src/app/war-room/war-room-client.tsx",
+    "src/app/workbench-client.tsx",
+    "src/app/workforce/workforce-client.tsx",
+  ];
+  const combined = files.map(read).join("\n");
+
+  for (const terse of [
+    "<Empty>暂无反馈。</Empty>",
+    "<Empty>暂无项目</Empty>",
+    "<Empty>暂无工作项</Empty>",
+    "<Empty>暂无决策包</Empty>",
+    "<Empty>暂无参与项目</Empty>",
+    "<Empty>暂无审计记录。</Empty>",
+    "<Empty>暂无工作任务。</Empty>",
+    "<Empty>暂无证据资料</Empty>",
+    "<Empty>暂无审计事件。</Empty>",
+    "<Empty>暂无反馈处置记录。</Empty>",
+    "<Empty>目前没有高价值市场信号。</Empty>",
+    "<Empty>暂无最近完成事项。</Empty>",
+  ]) {
+    assert.equal(combined.includes(terse), false, "terse empty state returned: " + terse);
+  }
+
+  for (const guidance of [
+    "先选择项目并提交一条反馈",
+    "先从「产品」启动研发或创建项目",
+    "进入具体项目的「任务」页安排第一项工作",
+    "由负责人在项目「决策」页起草并提交",
+    "点击「录入依据证据」登记来源并完成核实",
+    "可去「机会」页录入并核实来源",
+    "需要你决策或补充信息时会在这里出现",
+  ]) {
+    assert.ok(combined.includes(guidance), "missing actionable empty-state guidance: " + guidance);
+  }
+});
