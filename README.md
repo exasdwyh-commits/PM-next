@@ -30,6 +30,8 @@ Kern 是主要入口：
 - 自动注入公司、产品和项目上下文；
 - 支持结构化查询、研究、任务拆解和受控提议；
 - 支持 Laya System-1 Shadow 判断；
+- 低风险单一技术请求在 Tech Architect executor、模型策略和 provider runtime 都真实可用时，可自动排队给 Tech Architect；完成、阻断或最终失败回执会自动回到原 Kern 会话；
+- 其它 Specialist、PAIR / COUNCIL 仍保持受控 Shadow/既有工作流，不因“可路由”就假装“可无人值守执行”；
 - 可把明确的本机任务发送到用户自己的 Mac；
 - 业务事实修改仍经过 Proposal / Approval / Gate，不允许模型绕过治理。
 

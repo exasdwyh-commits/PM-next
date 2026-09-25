@@ -6,6 +6,10 @@ import { buildDepartmentAssistantContext } from "./context-builder";
 import { runDepartmentAssistantReflexShadow } from "./reflex";
 import { buildKernCollaborationPlanShadow } from "./collaboration-planner";
 import { resolveKernDispatchReadiness } from "./dispatch-readiness";
+import {
+  enqueueKernSpecialistDispatch,
+  type KernSpecialistDispatchResult,
+} from "./specialist-dispatch";
 
 function asJsonObject(value: Prisma.JsonValue | null): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -57,10 +61,63 @@ export async function sendDepartmentAssistantMessage(
     ...plannedCollaboration,
     autoDispatchEligible: dispatchReadiness.eligible,
   };
+
+  let specialistDispatch: KernSpecialistDispatchResult | null = null;
+  let specialistDispatchError: string | null = null;
+  let responseMessage = result.message;
+
+  if (
+    collaborationPlanShadow.mode === "SPECIALIST" &&
+    dispatchReadiness.eligible &&
+    dispatchReadiness.state === "EXECUTOR_READY"
+  ) {
+    try {
+      specialistDispatch = await enqueueKernSpecialistDispatch({
+        session,
+        conversationId,
+        sourceRunId: result.runId,
+        goal: content,
+        readiness: dispatchReadiness,
+      });
+
+      if (specialistDispatch) {
+        const dispatchNote = [
+          "Kern 协作路由：已将这条低风险技术请求交给 Tech Architect。",
+          `当前任务状态：${specialistDispatch.status}。专家完成后，回执会自动追加到本会话。`,
+        ].join("\n");
+        const originalContent = result.message.content;
+        const nextContent = originalContent.includes("Kern 协作路由：")
+          ? originalContent
+          : `${originalContent}\n\n——\n${dispatchNote}`;
+        const existingCitations = Array.isArray(result.message.citations)
+          ? result.message.citations
+          : [];
+
+        responseMessage = await prisma.message.update({
+          where: { id: result.message.id },
+          data: {
+            content: nextContent,
+            citations: [
+              ...existingCitations,
+              {
+                kind: "agent-task",
+                ref: specialistDispatch.taskId,
+                title: "Tech Architect · " + specialistDispatch.status,
+              },
+            ] as Prisma.InputJsonValue,
+          },
+        });
+      }
+    } catch (error: unknown) {
+      specialistDispatchError =
+        error instanceof Error ? error.message : String(error);
+    }
+  }
+
   const routingReceipt = {
     version: "kern-routing-receipt/v1" as const,
     runId: result.runId,
-    phase: "SHADOW" as const,
+    phase: specialistDispatch ? ("AUTO" as const) : ("SHADOW" as const),
     authority: collaborationPlanShadow.authority,
     recommendedMode: collaborationPlanShadow.mode,
     recommendedExperts: collaborationPlanShadow.experts,
@@ -71,7 +128,12 @@ export async function sendDepartmentAssistantMessage(
     autoDispatchCandidate: collaborationPlanShadow.autoDispatchCandidate,
     autoDispatchEligible: collaborationPlanShadow.autoDispatchEligible,
     dispatchReadiness,
-    dispatchedAgentCodes: [] as string[],
+    dispatchedAgentCodes: specialistDispatch
+      ? [specialistDispatch.agentCode]
+      : ([] as string[]),
+    dispatchTaskId: specialistDispatch?.taskId ?? null,
+    dispatchTaskStatus: specialistDispatch?.status ?? null,
+    dispatchError: specialistDispatchError,
   };
 
   const run = await prisma.agentRun.findUnique({
@@ -100,6 +162,9 @@ export async function sendDepartmentAssistantMessage(
 
   return {
     ...result,
+    message: responseMessage,
+    specialistDispatch,
+    specialistDispatchError,
     assistantRuntime: context.runtimeVersion,
     reflexMode: reflex.mode,
     collaborationPlanShadow,
