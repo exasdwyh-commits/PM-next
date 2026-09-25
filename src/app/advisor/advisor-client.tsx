@@ -157,8 +157,8 @@ export default function AdvisorClient({
     setProposals(initialProposals ?? []);
   }, [activeConversation?.id, activeConversation?.messages, initialProposals]);
 
-  // Desktop Runtime 完成任务后会把真实结果写回原会话。
-  // 轻量轮询让用户停留在对话页时也能直接看到结果，不需要手动刷新。
+  // Desktop Runtime 与 Kern 顾问团异步任务都会把真实结果写回原会话。
+  // 轻量轮询让用户停留在对话页时直接看到回执，不需要手动刷新。
   React.useEffect(() => {
     if (!convoId) return;
     let disposed = false;
