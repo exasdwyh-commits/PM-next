@@ -108,7 +108,7 @@ export async function getWorkforceActivityBrief(
           trace.decision?.policyReasons.join("、") ||
           trace.receipt?.suppressionReason ||
           "策略门要求人工判断。",
-        agentName: "Hermes Policy Gate",
+        agentName: "Kern Policy Gate",
         updatedAt: trace.createdAt,
         href: "/workforce",
       })),
