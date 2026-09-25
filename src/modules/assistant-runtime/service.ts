@@ -4,10 +4,15 @@ import type { SessionContext } from "@/modules/identity/session";
 import { sendMessage as sendLegacyAdvisorMessage } from "@/modules/advisor/service";
 import { buildDepartmentAssistantContext } from "./context-builder";
 import { runDepartmentAssistantReflexShadow } from "./reflex";
+import { buildKernCollaborationPlanShadow } from "./collaboration-planner";
 
 function asJsonObject(value: Prisma.JsonValue | null): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return value as Record<string, unknown>;
+}
+
+function asInputJson(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
 /**
@@ -38,6 +43,11 @@ export async function sendDepartmentAssistantMessage(
     options
   );
   const reflex = await reflexPromise;
+  const collaborationPlanShadow = buildKernCollaborationPlanShadow({
+    text: content,
+    productBound: Boolean(context.productId),
+    reflex,
+  });
 
   const run = await prisma.agentRun.findUnique({
     where: { id: result.runId },
@@ -47,7 +57,7 @@ export async function sendDepartmentAssistantMessage(
     await prisma.agentRun.update({
       where: { id: result.runId },
       data: {
-        contextSnapshot: {
+        contextSnapshot: asInputJson({
           ...asJsonObject(run.contextSnapshot),
           assistantRuntime: context.runtimeVersion,
           collaborationMode: context.collaborationMode,
@@ -56,7 +66,8 @@ export async function sendDepartmentAssistantMessage(
           reflexMode: reflex.mode,
           reflexDecisions: reflex.decisions,
           reflexError: reflex.error,
-        } as Prisma.InputJsonValue,
+          collaborationPlanShadow,
+        }),
       },
     });
   }
@@ -65,5 +76,6 @@ export async function sendDepartmentAssistantMessage(
     ...result,
     assistantRuntime: context.runtimeVersion,
     reflexMode: reflex.mode,
+    collaborationPlanShadow,
   };
 }

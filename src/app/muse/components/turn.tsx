@@ -167,7 +167,7 @@ export function Turn({ m, employees, onOpenSource }: { m: Message; employees: Em
   return (
     <article className="m-turn">
       <div className="m-who">
-        <span className="m-who-av" aria-hidden>{by?.mark ?? "M"}</span>
+        <span className="m-who-av" aria-hidden>{by?.mark ?? "K"}</span>
         <b>{by?.name ?? "Kern"}</b>
         <span>{by?.role ?? "你的助理"}</span>
         <span aria-hidden>·</span>

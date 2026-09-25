@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Decision, EvidenceRef, Message, StudioModel, TodayItem } from "./types";
 import { Btn, I, StateTag } from "./components/kit";
-import { CheckIn, Plan, Sources, Turn } from "./components/turn";
+import { CheckIn, Plan, Sources, Turn, Working } from "./components/turn";
 import { Palette, SourceSheet, TrailSheet, TrustSheet } from "./components/sheets";
 import { Blank, Dock, Rail } from "./components/shell";
 
@@ -115,6 +115,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
   const [palette, setPalette] = useState(false);
   const [railOpen, setRailOpen] = useState(false);
   const [resolved, setResolved] = useState<Record<string, string>>({});
+  const tailRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setGoalId(model.activeMissionId);
@@ -129,6 +130,11 @@ export default function KernClient({ model }: { model: StudioModel }) {
   const goalDecisions = pending.filter((decision) =>
     goal ? decision.missionId === goal.id : false
   );
+
+  useEffect(() => {
+    if (!goalId) return;
+    tailRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [goalId, messages.length, sending]);
 
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
@@ -490,6 +496,8 @@ export default function KernClient({ model }: { model: StudioModel }) {
                     onOpenSource={openSource}
                   />
                 ))}
+                {sending ? <Working text="Kern 正在处理这条消息…" /> : null}
+                <div ref={tailRef} aria-hidden />
               </>
             )}
           </div>

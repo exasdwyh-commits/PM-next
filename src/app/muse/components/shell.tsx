@@ -20,7 +20,7 @@ export function Rail({
   return (
     <nav className="m-rail" aria-label="目标">
       <div className="m-brand">
-        <span className="m-brand-mark" aria-hidden>M</span>
+        <span className="m-brand-mark" aria-hidden>K</span>
         <b>Kern</b>
         <button type="button" className="m-btn m-rail-x" data-v="ghost" data-size="sm" onClick={onClose} aria-label="收起侧栏">
           <I.close />

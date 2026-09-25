@@ -252,7 +252,7 @@ export async function buildKernViewModel(
         ? "working"
         : "idle";
     return {
-      id: agent.code === "HERMES_PM" ? "e-hermes" : agent.id,
+      id: agent.code === "hermes_pm" ? "e-hermes" : agent.id,
       name: agent.name,
       role: agent.roleKey,
       mark: agent.name.trim().slice(0, 1).toUpperCase() || "A",
@@ -268,7 +268,7 @@ export async function buildKernViewModel(
       id: "e-hermes",
       name: "Kern",
       role: "Department Assistant",
-      mark: "H",
+      mark: "K",
       state: "idle",
       currentFocus: null,
       load: 0,
