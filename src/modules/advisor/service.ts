@@ -50,6 +50,7 @@ import {
   isDesktopInstruction,
   readDesktopPresence,
 } from "@/modules/desktop-runtime";
+import { startProductRndProgram } from "@/modules/product-rnd";
 
 export async function listConversations(
   session: SessionContext,
@@ -112,12 +113,21 @@ type Intent =
   | "PROPOSE_FIELD_CHANGE"
   | "PROPOSE_CREATE_WORK_ITEM"
   | "NEW_PRODUCT_INTAKE"
+  | "START_PRODUCT_RND"
   | "KNOWLEDGE_SEARCH"
   | "CHALLENGE_THESIS"
   | "DESKTOP_EXECUTION"
   | "UNSUPPORTED";
 
 const TASK_VERB = /(?:创建任务|建立任务|安排任务|记个待办|生成任务|推进任务|新建任务|创建工作项|生成工作项)/;
+
+/**
+ * Product R&D 是会产生 WorkItem / AgentTask / ResearchRun 的真实执行动作，
+ * 只允许由明确动词触发。它不属于 Kern Planner 的可选 intent，
+ * 避免模型把“聊聊研发”误判成“现在启动一套研发程序”。
+ */
+const PRODUCT_RND_START =
+  /(?:(?:开始|启动|发起|跑一轮|继续|推进).{0,10}(?:AI\s*)?(?:产品研发|研发评估)|(?:AI\s*)?(?:产品研发|研发评估).{0,10}(?:开始|启动|发起|跑一轮|继续|推进))/i;
 
 function parseWorkItemTask(text: string): { title: string } | null {
   const match = TASK_VERB.exec(text);
@@ -276,6 +286,7 @@ function routeIntent(text: string, productBound: boolean): Intent {
   if (TASK_VERB.test(text) && parseWorkItemTask(text)) return "PROPOSE_CREATE_WORK_ITEM";
   if (productBound && CHANGE_VERB.test(text) && matchField(text)) return "PROPOSE_FIELD_CHANGE";
   if (isDesktopInstruction(text)) return "DESKTOP_EXECUTION";
+  if (PRODUCT_RND_START.test(text)) return "START_PRODUCT_RND";
   // 新建产品只在未绑定产品的会话里接：产品会话已经锁定在某个产品上，
   // 在那里再建一个别的产品，用户无法判断自己到底在改哪一个。
   // 补齐字段的后续消息（只有「标签：值」、没有动词）也要落到这里，否则会被
@@ -450,6 +461,125 @@ async function runTool(session: SessionContext, intent: Intent, ctx: ToolContext
             kind: "desktop-task",
             ref: queued.task.id,
             title: `本机任务：${ctx.text.slice(0, 60)}`,
+          },
+        ],
+      };
+    }
+    case "START_PRODUCT_RND": {
+      if (!ctx.productId) {
+        return {
+          toolKey: "product-rnd.start",
+          text:
+            "当前 Kern 会话没有绑定产品，因此没有启动研发。请先在这个会话里建立并确认产品，或从产品页进入 Kern 后再明确说“启动产品研发”。",
+          citations: [],
+        };
+      }
+
+      const product = await prisma.product.findFirst({
+        where: {
+          id: ctx.productId,
+          organizationId: session.organizationId,
+        },
+        select: {
+          id: true,
+          name: true,
+          coreIdea: true,
+          targetAudience: true,
+          coreSellingPoints: true,
+          targetChannels: true,
+          marketPath: true,
+          projects: {
+            orderBy: { updatedAt: "desc" },
+            select: {
+              id: true,
+              title: true,
+              stage: true,
+              updatedAt: true,
+            },
+          },
+        },
+      });
+
+      if (!product) {
+        return {
+          toolKey: "product-rnd.start",
+          text: "当前会话绑定的产品已不存在，因此没有启动研发。",
+          citations: [],
+        };
+      }
+
+      if (product.projects.length === 0) {
+        return {
+          toolKey: "product-rnd.start",
+          text: `产品「${product.name}」还没有关联项目，因此没有启动研发。请先在产品后台建立或关联项目。`,
+          citations: [{ kind: "product", ref: product.id, title: product.name }],
+        };
+      }
+
+      let project = product.projects[0];
+      if (product.projects.length > 1) {
+        const mentioned = product.projects.filter((item) => ctx.text.includes(item.title));
+        if (mentioned.length !== 1) {
+          return {
+            toolKey: "product-rnd.start",
+            text: [
+              `产品「${product.name}」关联了 ${product.projects.length} 个项目，我没有猜要在哪一个项目启动研发，因此没有执行。`,
+              "请在指令里明确写出项目名称，例如“在「项目名称」启动产品研发”。",
+              "",
+              ...product.projects.map(
+                (item, index) => `${index + 1}. ${item.title}（${item.stage}）`
+              ),
+            ].join("\n"),
+            citations: product.projects.map((item) => ({
+              kind: "project",
+              ref: item.id,
+              title: item.title,
+            })),
+          };
+        }
+        project = mentioned[0];
+      }
+
+      const brief = [
+        `产品：${product.name}`,
+        `一句话想法：${product.coreIdea || "UNKNOWN"}`,
+        `目标人群：${product.targetAudience || "UNKNOWN"}`,
+        `核心卖点：${product.coreSellingPoints || "UNKNOWN"}`,
+        `预期渠道：${product.targetChannels || product.marketPath || "UNKNOWN"}`,
+        `用户本轮指令：${ctx.text}`,
+      ].join("\n");
+
+      const started = await startProductRndProgram(session, {
+        projectId: project.id,
+        brief,
+      });
+
+      return {
+        toolKey: "product-rnd.start",
+        text: [
+          started.reused
+            ? "这个项目已经有一套正在推进的产品研发程序，我没有重复创建。"
+            : "已启动真实 Product R&D 程序。",
+          `项目：${project.title}`,
+          `工作项：${started.workItem.title}`,
+          `父运行状态：${started.parentRun.status}`,
+          `专业分工：${started.specialistTasks.length} 个数字员工任务`,
+          `ResearchRun：${started.researchRun.id}`,
+          "",
+          "现在只表示研发程序已真实启动/复用，不代表研发已经完成。最终结论必须等专业任务、Evidence 与独立 QA 完成后再生成 Executive Report。",
+        ].join("\n"),
+        citations: [
+          { kind: "product", ref: product.id, title: product.name },
+          { kind: "project", ref: project.id, title: project.title },
+          {
+            kind: "work-item",
+            ref: started.workItem.id,
+            title: started.workItem.title,
+          },
+          {
+            kind: "agent-run",
+            ref: started.parentRun.id,
+            title: "Product R&D parent run",
           },
         ],
       };
@@ -963,6 +1093,7 @@ export async function sendMessage(
     "advisor.challenge",
     "knowledge.search",
     "desktop.runtime",
+    "product-rnd.start",
   ];
 
   let run;
