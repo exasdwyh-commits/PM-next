@@ -811,6 +811,8 @@ export default function ProjectDetailClient({
             onNotice={(text, type) =>
               showMsg(text, type === "error" ? "error" : "success")
             }
+            onOpenDecisions={() => setActiveWorkspaceTab("decisions")}
+            onOpenEvidence={() => setActiveWorkspaceTab("evidence")}
           />
         ) : (
           <Panel title="AI 研发">
