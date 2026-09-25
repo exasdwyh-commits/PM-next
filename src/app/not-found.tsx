@@ -9,7 +9,7 @@ export default function NotFound() {
     <main className="hermes-shell">
       <div className="hermes-center-page">
         <div className="hermes-glass hermes-center-card">
-          <span className="hermes-section-label">HERMES · 404</span>
+          <span className="hermes-section-label">KERN · 404</span>
           <h2>这个地址不存在或已被移动</h2>
           <p className="hermes-note" style={{ marginTop: 4 }}>
             请检查链接是否完整；也可以从下面重新进入常用的工作区。
