@@ -1,8 +1,8 @@
-# Hermes Desktop Runtime
+# KERN Desktop Runtime
 
-Hermes Desktop Runtime 把 PM-next 的 Department Assistant 与用户自己的 Mac 连接起来。
+KERN Desktop Runtime 把 PM-next 的 Department Assistant 与用户自己的 Mac 连接起来。
 
-目标不是再做一个“桌面聊天壳”，而是让同一个 Hermes：
+目标不是再做一个“桌面聊天壳”，而是让同一个科恩：
 
 ```text
 对话提出目标
@@ -10,10 +10,12 @@ Hermes Desktop Runtime 把 PM-next 的 Department Assistant 与用户自己的 M
 → desktop_operator 把任务交给指定 Mac
 → Mac 执行真实文件 / Shell / Git / Browser / App / Clipboard / Codex 工作
 → 结果写回原 AgentTask / AgentRun
-→ 原 Hermes 对话自动出现结果
+→ 原科恩对话自动出现结果
 ```
 
 这意味着 PM-next 仍是唯一任务与审计真相源，本机 Runtime 只是执行层。
+
+> 品牌说明：对外统一使用 **科恩 KERN**。当前 `HERMES_DESKTOP_*` 环境变量、`hermes-desktop` 脚本名、LaunchAgent 标识与本文件名属于兼容接口，本轮不做破坏性重命名。新增用户可见文案不得继续使用 Hermes。
 
 ## 已交付能力
 
