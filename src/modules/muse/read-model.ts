@@ -288,7 +288,7 @@ export async function buildKernViewModel(
     const latestRun = latestRunByConversation.get(conversation.id);
     const state: AiState = pendingByConversation.has(conversation.id)
       ? "needs-review"
-      : latestRun === AgentRunStatus.QUEUED || latestRun === AgentRunStatus.RUNNING
+      : latestRun === AgentRunStatus.RUNNING
         ? "working"
         : latestRun === AgentRunStatus.WAITING_CONFIRMATION
           ? "needs-review"
