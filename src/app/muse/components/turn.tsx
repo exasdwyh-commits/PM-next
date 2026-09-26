@@ -89,7 +89,7 @@ function Block({ b, employees, onOpenSource }: { b: MessageBlock; employees: Emp
     case "graph":
       return <KernGraphCard graph={b.graph} />;
     case "mission":
-      return <MissionCard missionId={b.missionId} />;
+      return <MissionCard missionId={b.ref} />;
     case "plan":
       return (
         <Card>

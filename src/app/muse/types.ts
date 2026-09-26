@@ -67,7 +67,7 @@ export type MessageBlock =
   | { kind: "text"; text: string }
   | { kind: "graph"; graph: KernGraphV1 }
   | { kind: "plan"; title: string; steps: PlanStep[] }
-  | { kind: "mission"; missionId: string }
+  | { kind: "mission"; ref: string }
   | { kind: "evidence"; title: string; refs: EvidenceRef[] }
   | { kind: "runtime"; title: string; command: string; output: string; state: AiState }
   | { kind: "proposal"; title: string; summary: string; diff: { field: string; from: string; to: string }[] }
