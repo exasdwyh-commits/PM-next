@@ -30,71 +30,80 @@ export async function appendAgentTaskConversationReturn(input: {
   outcome: ReturnOutcome;
   summary: string;
 }) {
-  const task = await prisma.agentTask.findFirst({
-    where: {
-      id: input.taskId,
-      organizationId: input.organizationId,
-    },
-    include: {
-      agent: { select: { code: true, name: true } },
-    },
-  });
-  if (!task) return null;
-
-  const context = asRecord(task.contextSnapshot);
-  const target = asRecord(context.kernConversationReturn);
-  if (
-    target.version !== "kern-conversation-return/v1" ||
-    typeof target.conversationId !== "string" ||
-    typeof target.requestedByUserId !== "string" ||
-    typeof target.agentCode !== "string" ||
-    target.agentCode !== task.agent.code ||
-    target.requestedByUserId !== task.createdByUserId
-  ) {
-    return null;
-  }
-
-  const existingReceipt = asRecord(context.kernConversationReturnReceipt);
-  if (typeof existingReceipt.messageId === "string") {
-    return {
-      messageId: existingReceipt.messageId,
-      created: false,
-    };
-  }
-
-  const conversation = await prisma.conversation.findFirst({
-    where: {
-      id: target.conversationId,
-      organizationId: input.organizationId,
-      ownerId: task.createdByUserId,
-    },
-    select: { id: true },
-  });
-  if (!conversation) return null;
-
-  const executorResult = asRecord(context.executorResult);
-  const fullOutput =
-    typeof executorResult.output === "string"
-      ? executorResult.output.trim()
-      : "";
-  const summary = input.summary.trim().slice(0, 4000);
-  const output = fullOutput || summary;
-  const maxOutput = 12_000;
-  const visibleOutput = output.slice(0, maxOutput);
-  const label = statusLabel(task.agent.name, input.outcome);
-  const content = [
-    `Kern 顾问团回执 · ${label}`,
-    "",
-    visibleOutput || "该任务没有返回可展示文本。",
-    output.length > maxOutput
-      ? "\n（输出较长，完整结果已保存在 AgentTask 执行回执中。）"
-      : null,
-  ]
-    .filter((line): line is string => typeof line === "string")
-    .join("\n");
-
-  const createdAt = new Date();
   return prisma.$transaction(async (tx) => {
+    // The receipt marker lives on AgentTask.contextSnapshot. Lock that row first
+    // so concurrent worker retries cannot both observe "no receipt" and append
+    // duplicate assistant messages.
+    await tx.$queryRawUnsafe(
+      'SELECT "id" FROM "AgentTask" WHERE "id" = $1 AND "organizationId" = $2 FOR UPDATE',
+      input.taskId,
+      input.organizationId
+    );
+
+    const task = await tx.agentTask.findFirst({
+      where: {
+        id: input.taskId,
+        organizationId: input.organizationId,
+      },
+      include: {
+        agent: { select: { code: true, name: true } },
+      },
+    });
+    if (!task) return null;
+
+    const context = asRecord(task.contextSnapshot);
+    const target = asRecord(context.kernConversationReturn);
+    if (
+      target.version !== "kern-conversation-return/v1" ||
+      typeof target.conversationId !== "string" ||
+      typeof target.requestedByUserId !== "string" ||
+      typeof target.agentCode !== "string" ||
+      target.agentCode !== task.agent.code ||
+      target.requestedByUserId !== task.createdByUserId
+    ) {
+      return null;
+    }
+
+    const existingReceipt = asRecord(context.kernConversationReturnReceipt);
+    if (typeof existingReceipt.messageId === "string") {
+      return {
+        messageId: existingReceipt.messageId,
+        created: false,
+      };
+    }
+
+    const conversation = await tx.conversation.findFirst({
+      where: {
+        id: target.conversationId,
+        organizationId: input.organizationId,
+        ownerId: task.createdByUserId,
+      },
+      select: { id: true },
+    });
+    if (!conversation) return null;
+
+    const executorResult = asRecord(context.executorResult);
+    const fullOutput =
+      typeof executorResult.output === "string"
+        ? executorResult.output.trim()
+        : "";
+    const summary = input.summary.trim().slice(0, 4000);
+    const output = fullOutput || summary;
+    const maxOutput = 12_000;
+    const visibleOutput = output.slice(0, maxOutput);
+    const label = statusLabel(task.agent.name, input.outcome);
+    const content = [
+      `Kern 顾问团回执 · ${label}`,
+      "",
+      visibleOutput || "该任务没有返回可展示文本。",
+      output.length > maxOutput
+        ? "\n（输出较长，完整结果已保存在 AgentTask 执行回执中。）"
+        : null,
+    ]
+      .filter((line): line is string => typeof line === "string")
+      .join("\n");
+
+    const createdAt = new Date();
     const message = await tx.message.create({
       data: {
         conversationId: conversation.id,
