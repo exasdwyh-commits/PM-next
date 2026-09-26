@@ -915,3 +915,43 @@ Kern：
 
 > **内部系统越强，用户看到的系统越简单。**
 
+
+
+---
+
+## 17. 2026-09-26 implementation checkpoint
+
+Architecture V2 已开始落代码，不再只是目标文档。
+
+### 已完成
+
+- Kern Chat：Model / Advisor / Skill / Capability 默认折叠为 `Auto · Kern` 高级覆盖项。
+- Workbench：移除大 Hero / prompt 快捷模板，收紧字号、Panel、KPI、导航与行密度。
+- GoalPlan：新增 `kern-goal-plan-shadow/v1`，把 Collaboration recommendation 固定为可审计 Task DAG 语义。
+- Proactive Restraint：child return review 不再默认进入用户 attention queue；只有真实 `WAITING_HUMAN` / policy gate 默认占用用户注意力。
+- Tech Architect：新增独立 Agent + Skill + CODING Model Policy。
+- Dispatch Readiness：路由建议与“现在是否真的可执行”分离。
+- Phase 2A：只对低风险、单一 Tech Architect、`EXECUTOR_READY` 的对话任务开放 readiness-gated AUTO。
+- Specialist Return：Worker 的完成 / BLOCKED / 最终 FAILED 可回到原 Kern Conversation。
+- 幂等：AgentTask 使用唯一 `idempotencyKey` 防并发双建；Conversation return 使用 AgentTask row lock + receipt 防并发双回执。
+- Provenance：自动 specialist dispatch 必须绑定当前组织、当前用户、当前 Conversation 的真实 source AgentRun。
+
+### 仍保持 Shadow
+
+- PAIR
+- COUNCIL
+- RED_TEAM 的通用聊天执行
+- FULL_RND 的通用 GoalPlan DAG 自动展开
+- Marketing / Ops / Research 等 generic chat executor
+- GoalPlan 整张 DAG 的自动创建与调度
+
+现有 Product R&D 自己的正式编排链继续运行，不因为上述通用 Supervisor 仍是 Shadow 而降级。
+
+### 下一步
+
+1. 用 CI / DB regression 验证 Phase 2A 迁移与并发幂等。
+2. 收敛 `main` / `release/v0.1.0-rc1` 为唯一可信基线。
+3. 抽象 Generic Agent Executor contract，不按 Agent 继续堆巨大 switch。
+4. 建立 Attention Engine 的 `AUTO_HANDLE / WATCH / SURFACE / INTERRUPT / HUMAN_GATE` 正式协议。
+5. 再推进 Episodic Memory 与 Assistant Benchmark。
+
