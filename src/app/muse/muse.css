@@ -460,3 +460,68 @@
   .muse .m-control { flex: none; }
   .muse .m-runtime-pill { margin-left: 0; }
 }
+
+
+/* ==========================================================================
+   Kern V2 · Assistant-first dock controls
+   默认只显示 Auto · Kern；模型 / 顾问 / Skill / Capability 属于高级覆盖项。
+   ========================================================================== */
+.m-advanced-controls {
+  position: relative;
+  flex: 0 0 auto;
+}
+.m-advanced-controls > summary {
+  list-style: none;
+}
+.m-advanced-controls > summary::-webkit-details-marker {
+  display: none;
+}
+.m-auto-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--m-ink-3);
+  font-size: var(--m-t-xs);
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+.m-auto-mode:hover,
+.m-advanced-controls[open] > .m-auto-mode {
+  border-color: var(--m-hairline);
+  background: var(--m-surface-2);
+  color: var(--m-ink);
+}
+.m-auto-mode small {
+  color: var(--m-ink-4);
+  font-size: 10.5px;
+  font-weight: 560;
+}
+.m-auto-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--m-ok);
+}
+.m-advanced-controls > .m-control-strip {
+  position: absolute;
+  z-index: 45;
+  left: 0;
+  bottom: calc(100% + 9px);
+  width: min(540px, calc(100vw - 40px));
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--m-hairline);
+  border-radius: var(--m-r-md);
+  background: var(--m-canvas-2);
+  box-shadow: var(--m-sh-2);
+}
+.m-advanced-controls:not([open]) > .m-control-strip {
+  display: none;
+}
