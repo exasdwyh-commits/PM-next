@@ -39,7 +39,7 @@ export const handleProductWriteCapability: KernCapabilityHandler = async (
       if (items.length === 0) {
         return {
           toolKey: "advisor.pendingProposals",
-          text: "当前会话没有待确认的提议。",
+          text: "当前会话没有需要人工确认的受保护变更。",
           citations: [],
         };
       }
@@ -47,7 +47,7 @@ export const handleProductWriteCapability: KernCapabilityHandler = async (
         toolKey: "advisor.pendingProposals",
         text: `待你确认的提议共 ${items.length} 条：\n${items
           .map((p, n) => `${n + 1}. ${p.actionLabel}`)
-          .join("\n")}\n确认后才会写入业务数据；未确认前数据库里只有提议本身。`,
+          .join("\n")}\n这些都是命中人工 Gate 的受保护变更；批准后才会写入业务数据。`,
         citations: items.map((p) => ({ kind: "proposal", ref: p.id, title: p.actionLabel })),
       };
     }
@@ -70,7 +70,7 @@ export const handleProductWriteCapability: KernCapabilityHandler = async (
           toolKey: "advisor.proposeFieldChange",
           text:
             "当前会话没有绑定产品，无法生成方案字段修改提议。\n" +
-            "请从产品页的「AI 顾问」入口进入后再提出修改，这样提议才能绑定到具体产品与版本。",
+            "请从产品页进入 Kern 后再提出修改，这样操作才能绑定到具体产品与版本。",
           citations: [],
         };
       }
@@ -86,10 +86,10 @@ export const handleProductWriteCapability: KernCapabilityHandler = async (
       return {
         toolKey: "advisor.proposeFieldChange",
         text: [
-          `已生成 1 条待确认提议：把「${ADVISOR_FIELD_LABELS[parsed.field]}」改为「${parsed.value}」。`,
+          `已生成受治理变更：把「${ADVISOR_FIELD_LABELS[parsed.field]}」改为「${parsed.value}」。`,
           created.created ? "" : "（命中幂等：这条提议此前已生成，未重复创建）",
           "",
-          "未确认前不会写入数据库。请在下方提议卡片点「确认并应用」；",
+          "Kern 会按风险策略决定直接应用还是进入人工 Gate；",
           "确认时服务端会重新做权限与版本检查，若产品已产生更新版本，该提议会被作废并提示重新生成。",
         ]
           .filter((x) => x !== "")
@@ -125,7 +125,7 @@ export const handleProductWriteCapability: KernCapabilityHandler = async (
             "",
             missing.map((f) => `${f.label}：`).join("\n"),
             "",
-            "补齐后我会生成一条待确认的新建产品提议，确认之前不会写入任何数据。",
+            "补齐后我会生成受治理的新建产品动作；低风险内部动作直接执行，命中受保护 Gate 才会再问你。",
           ].join("\n"),
           citations: [],
         };
@@ -154,12 +154,12 @@ export const handleProductWriteCapability: KernCapabilityHandler = async (
       return {
         toolKey: "advisor.proposeProduct",
         text: [
-          `已整理出一条**待确认**的新建产品提议：「${draft.name}」。`,
+          `已整理出一条受治理的新建产品动作：「${draft.name}」。`,
           "",
           INTAKE_FIELDS.map((f) => `- ${f.label}：${draft[f.key]}`).join("\n"),
           "",
           created.created ? "" : "（命中幂等：同样内容的提议此前已生成，未重复创建）",
-          "确认之后会一次建好产品、初始版本 v1 和对应项目；在此之前不写入任何业务数据。",
+          "通过风险策略后会一次建好产品、初始版本 v1 和对应项目；只有受保护动作才停在人工 Gate。",
           "价格、目标成本、剂型规格、禁用项这些没提到的，会如实记为未知，不会替你编一个数。",
         ]
           .filter((x) => x !== "")
@@ -245,10 +245,10 @@ export const handleProductWriteCapability: KernCapabilityHandler = async (
       return {
         toolKey: "advisor.proposeWorkItem",
         text: [
-          `已生成 1 条**待确认**任务提议：「${parsedTask.title}」。`,
+          `已生成受治理工作项动作：「${parsedTask.title}」。`,
           created.created ? "" : "（命中幂等：该任务提议此前已生成，未重复创建）",
           "",
-          "未确认前不会写入数据库任务系统。请在下方提议卡片点击「确认并应用」以真正创建工作项。",
+          "Kern 会按风险策略直接创建低风险内部工作项；只有命中受保护 Gate 才会要求确认。",
         ]
           .filter((x) => x !== "")
           .join("\n"),
