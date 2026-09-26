@@ -23,7 +23,7 @@ export const handleChallengeCapability: KernCapabilityHandler = async (
       if (!ctx.productId) {
         return {
           toolKey: "advisor.challenge",
-          text: "当前会话未绑定产品，无法生成挑战报告。请从产品页的「AI 顾问」入口进入，或先绑定一个产品。",
+          text: "当前会话未绑定产品，无法生成挑战报告。请从产品页进入 Kern，或先在当前会话建立并绑定一个产品。",
           citations: [],
         };
       }
