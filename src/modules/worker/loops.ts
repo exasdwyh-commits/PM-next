@@ -8,6 +8,7 @@ import { dispatchPendingBusinessEvents } from "@/modules/business-events";
 import { advanceProductRndProgram } from "@/modules/product-rnd";
 import { resumeResearchRun } from "@/modules/research/research-run";
 import { executeAgentTask, executorStrategyCodes } from "./executor";
+import { advanceKernMission, listActiveMissionIds } from "@/modules/supervisor/service";
 import { ensureWorkerProjectAccess, resolveWorkerSession } from "./identity";
 
 /**
@@ -59,7 +60,10 @@ export async function executorLoopOnce(
     where: {
       status: AgentTaskStatus.QUEUED,
       availableAt: { lte: new Date() },
-      agent: { code: { in: codes } },
+      OR: [
+        { agent: { code: { in: codes } } },
+        { contextSnapshot: { path: ["schemaVersion"], equals: "kern-mission-node/v1" } },
+      ],
       ...(options.organizationId
         ? { organizationId: options.organizationId }
         : {}),
@@ -264,6 +268,23 @@ export async function reconcileLoopOnce(
           `reconcile:${parent.id.slice(0, 8)} ERROR ${message}`
         );
       }
+    }
+  }
+
+  // Kern missions: recovery sweep (child completion normally advances them).
+  const missions = await listActiveMissionIds(options.organizationId, limit);
+  for (const mission of missions) {
+    try {
+      const session = await resolveWorkerSession(mission.organizationId);
+      const status = await advanceKernMission(session, mission.id);
+      result.scanned += 1;
+      result.acted += 1;
+      (result.notes ??= []).push(
+        `mission:${mission.id.slice(0, 8)}=${status.progress.done}/${status.progress.total}`
+      );
+    } catch (error) {
+      result.errors += 1;
+      (result.notes ??= []).push(`mission:${mission.id.slice(0, 8)} ERROR ${errorMessage(error)}`);
     }
   }
 

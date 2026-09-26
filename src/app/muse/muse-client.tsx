@@ -30,8 +30,15 @@ function fromApiMessage(message: ApiMessage): Message {
     .map((raw) => readKernGraphCitation(raw))
     .filter((graph): graph is KernGraphV1 => graph !== null);
 
+  const missionIds = citations.flatMap((raw) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+    const item = raw as Record<string, unknown>;
+    return item.kind === "kern-mission" && typeof item.ref === "string" ? [item.ref] : [];
+  });
+
   const refs: EvidenceRef[] = citations.flatMap((raw, index) => {
     if (readKernGraphCitation(raw)) return [];
+    if (raw && typeof raw === "object" && (raw as Record<string, unknown>).kind === "kern-mission") return [];
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
     const item = raw as Record<string, unknown>;
     const ref = typeof item.ref === "string" ? item.ref : null;
@@ -60,6 +67,7 @@ function fromApiMessage(message: ApiMessage): Message {
     blocks: [
       { kind: "text", text: message.content },
       ...graphs.map((graph) => ({ kind: "graph" as const, graph })),
+      ...[...new Set(missionIds)].map((missionId) => ({ kind: "mission" as const, missionId })),
       ...(refs.length > 0
         ? ([{ kind: "evidence", title: "来源与回执", refs }] as Message["blocks"])
         : []),

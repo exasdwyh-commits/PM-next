@@ -943,7 +943,16 @@ export async function startAgentTask(session: SessionContext, taskId: string) {
         status: AgentTaskStatus.RUNNING,
       },
     });
-    if (running >= task.agent.maxConcurrentTasks) {
+    // Supervising mission roots (Kern owns them while children work) are not
+    // execution slots; counting them would starve Kern's own synthesis nodes.
+    const supervising = await tx.agentTask.count({
+      where: {
+        agentId: task.agentId,
+        status: AgentTaskStatus.RUNNING,
+        contextSnapshot: { path: ["schemaVersion"], equals: "kern-mission/v1" },
+      },
+    });
+    if (running - supervising >= task.agent.maxConcurrentTasks) {
       throw new ConflictError("Agent has reached its concurrency limit");
     }
 
@@ -1125,6 +1134,10 @@ export async function finishAgentTask(
       task.parentTask && parentContext.schemaVersion === "product-rnd-program/v1"
         ? task.parentTask.id
         : null;
+    const kernMissionParentTaskId =
+      task.parentTask && parentContext.schemaVersion === "kern-mission/v1"
+        ? task.parentTask.id
+        : null;
 
     if (task.parentTaskId) {
       await tx.agentDelegation.updateMany({
@@ -1145,6 +1158,7 @@ export async function finishAgentTask(
       if (
         task.parentTask &&
         !productRndParentTaskId &&
+        !kernMissionParentTaskId &&
         (input.outcome === "SUCCEEDED" || input.outcome === "FAILED")
       ) {
         const event = await enqueueBusinessEventInTx(tx, {
@@ -1179,6 +1193,7 @@ export async function finishAgentTask(
       run: updatedRun,
       returnEventId,
       productRndParentTaskId,
+      kernMissionParentTaskId,
     };
   });
 
@@ -1218,6 +1233,18 @@ export async function finishAgentTask(
         });
       }
     );
+  }
+
+  if (result.kernMissionParentTaskId) {
+    const missionTaskId = result.kernMissionParentTaskId;
+    const { advanceKernMission } = await import("@/modules/supervisor/service");
+    // Non-fatal: the worker's mission sweep re-advances RUNNING missions.
+    await advanceKernMission(session, missionTaskId).catch((error: unknown) => {
+      console.error(
+        `[kern-supervisor] advance after child failed mission=${missionTaskId}:`,
+        error instanceof Error ? error.message : error
+      );
+    });
   }
 
   return { task: result.task, run: result.run };

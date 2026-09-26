@@ -505,6 +505,7 @@ export async function executeKernConversationTurn(
 
   return {
     runId: run.id,
+    intent,
     message: assistantMsg,
     proposal: result.proposal ?? null,
     modelRunId,

@@ -17,6 +17,7 @@ import {
   releaseAgentTaskClaim,
 } from "./claim";
 import { ensureWorkerProjectAccess } from "./identity";
+import { readMissionNodeContext, runMissionNodeAgent } from "@/modules/supervisor/generic-executor";
 
 /**
  * Digital Employee Executor
@@ -687,7 +688,11 @@ export async function executeAgentTask(
     return { executed: false, skippedReason: `status-${task.status}` };
   }
 
-  const strategy = EXECUTOR_STRATEGIES[task.agent.code];
+  // Kern mission nodes always use the generic executor: domain strategies are
+  // bound to Product R&D context (ResearchRun / project) that missions lack.
+  const strategy = readMissionNodeContext(task.contextSnapshot)
+    ? runMissionNodeAgent
+    : EXECUTOR_STRATEGIES[task.agent.code];
   if (!strategy) {
     return { executed: false, skippedReason: "no-strategy" };
   }

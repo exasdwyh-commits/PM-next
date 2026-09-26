@@ -12,6 +12,12 @@ import {
   type KernSpecialistDispatchResult,
 } from "./specialist-dispatch";
 import {
+  buildMissionPlanFromGoalPlan,
+  buildNewProductMissionPlan,
+  decideMissionLaunch,
+  launchKernMission,
+} from "@/modules/supervisor";
+import {
   buildKernCouncilGraph,
   shouldAttachKernCouncilGraph,
   toKernGraphCitation,
@@ -76,7 +82,48 @@ export async function sendDepartmentAssistantMessage(
   let specialistDispatchError: string | null = null;
   let responseMessage = result.message;
 
+  // Supervisor: goal-shaped / multi-agent work becomes a real mission.
+  const missionDecision = decideMissionLaunch({
+    text: content,
+    intent: result.intent,
+    collaboration: collaborationPlanShadow,
+  });
+  let mission: { missionTaskId: string; created: boolean; nodeCount: number } | null = null;
+  let missionError: string | null = null;
+  if (missionDecision.launch) {
+    try {
+      const plan =
+        missionDecision.playbook === "NEW_PRODUCT"
+          ? buildNewProductMissionPlan(content)
+          : buildMissionPlanFromGoalPlan(goalPlanShadow);
+      const launched = await launchKernMission(session, {
+        plan,
+        conversationId,
+        sourceRunId: result.runId,
+      });
+      mission = { ...launched, nodeCount: plan.nodes.length };
+      const team = [...new Set(plan.nodes.filter((n) => n.kind !== "SYNTHESIS").map((n) => n.agentCode))];
+      const note = [
+        `我已接手这项工作：拆成 ${plan.nodes.length} 步，由 ${team.length} 位专业成员并行推进，经过${plan.nodes.some((n) => n.kind === "RED_TEAM") ? "红队挑战和" : ""}独立 QA 复核后，我会把结论直接发在这里。`,
+        "过程中能自己解决的问题我会自己处理；只有涉及预算、对外发布、不可逆动作或战略取舍时才会找你。",
+      ].join("\n");
+      responseMessage = await prisma.message.update({
+        where: { id: result.message.id },
+        data: {
+          content: `${result.message.content}\n\n——\n${note}`,
+          citations: [
+            ...(Array.isArray(result.message.citations) ? result.message.citations : []),
+            { kind: "kern-mission", ref: launched.missionTaskId, title: "Kern 工作进展" },
+          ] as Prisma.InputJsonValue,
+        },
+      });
+    } catch (error: unknown) {
+      missionError = error instanceof Error ? error.message : String(error);
+    }
+  }
+
   if (
+    !mission &&
     collaborationPlanShadow.mode === "SPECIALIST" &&
     dispatchReadiness.eligible &&
     dispatchReadiness.state === "EXECUTOR_READY"
@@ -127,7 +174,14 @@ export async function sendDepartmentAssistantMessage(
   const routingReceipt = {
     version: "kern-routing-receipt/v2" as const,
     runId: result.runId,
-    phase: specialistDispatch ? ("AUTO" as const) : ("SHADOW" as const),
+    phase: mission
+      ? ("MISSION" as const)
+      : specialistDispatch
+        ? ("AUTO" as const)
+        : ("SHADOW" as const),
+    missionDecision,
+    missionTaskId: mission?.missionTaskId ?? null,
+    missionError,
     authority: collaborationPlanShadow.authority,
     recommendedMode: collaborationPlanShadow.mode,
     recommendedExperts: collaborationPlanShadow.experts,
@@ -181,6 +235,8 @@ export async function sendDepartmentAssistantMessage(
           routingReceipt,
           dispatchReadiness,
           specialistDispatch,
+          mission,
+          missionError,
           visualGraphShadow,
           conversationRuntimeConfig: result.runtimeSelection.config,
           selectedAdvisors: result.runtimeSelection.advisors,
@@ -222,6 +278,8 @@ export async function sendDepartmentAssistantMessage(
     dispatchReadiness,
     specialistDispatch,
     specialistDispatchError,
+    mission,
+    missionError,
     visualGraphShadow,
   };
 }
