@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
     const convo = await createKernConversation(session, {
       title: body?.title,
       productId: body?.productId ?? null,
+      runtimeConfig: body?.runtimeConfig,
     });
     return NextResponse.json(convo, { status: 201 });
   } catch (error) {
