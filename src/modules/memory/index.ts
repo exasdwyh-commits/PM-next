@@ -1,6 +1,7 @@
 import { KernMemoryKind, Prisma } from "@prisma/client";
 import prisma from "@/shared/db";
 import type { SessionContext } from "@/modules/identity/session";
+import { assertMemoryQuotaTx } from "@/modules/billing";
 
 /**
  * Kern Memory
@@ -98,14 +99,33 @@ export async function rememberForUser(
     source: input.source ?? null,
     pinned: input.pinned ?? false,
   };
-  if (input.source) {
-    return prisma.kernMemory.upsert({
-      where: { userId_source: { userId: session.userId, source: input.source } },
-      create: data,
-      update: { content, kind: input.kind, forgottenAt: null },
-    });
-  }
-  return prisma.kernMemory.create({ data });
+  // Quota is enforced only when a *new* active row would be created; updating
+  // an existing source-keyed memory (e.g. a re-synthesized mission outcome)
+  // does not consume quota. The advisory lock serializes concurrent inserts
+  // per organization so the limit cannot be overshot.
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"kern-memory:" + session.organizationId}))`;
+    if (input.source) {
+      const existing = await tx.kernMemory.findUnique({
+        where: { userId_source: { userId: session.userId, source: input.source } },
+        select: { id: true, forgottenAt: true },
+      });
+      if (existing && !existing.forgottenAt) {
+        return tx.kernMemory.update({
+          where: { id: existing.id },
+          data: { content, kind: input.kind },
+        });
+      }
+      await assertMemoryQuotaTx(tx, session.organizationId);
+      return tx.kernMemory.upsert({
+        where: { userId_source: { userId: session.userId, source: input.source } },
+        create: data,
+        update: { content, kind: input.kind, forgottenAt: null },
+      });
+    }
+    await assertMemoryQuotaTx(tx, session.organizationId);
+    return tx.kernMemory.create({ data });
+  });
 }
 
 export async function listMemories(session: Pick<SessionContext, "organizationId" | "userId">, take = 200) {

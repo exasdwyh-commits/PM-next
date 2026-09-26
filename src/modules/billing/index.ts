@@ -1,4 +1,4 @@
-import { KernPlanTier } from "@prisma/client";
+import { KernPlanTier, type Prisma } from "@prisma/client";
 import prisma from "@/shared/db";
 import { AppError } from "@/shared/errors";
 
@@ -35,7 +35,7 @@ export function limitsFor(tier: KernPlanTier): PlanLimits {
 export class QuotaExceededError extends AppError {
   constructor(
     message: string,
-    public readonly quota: { metric: "missions" | "modelCalls"; used: number; limit: number; tier: KernPlanTier }
+    public readonly quota: { metric: "missions" | "modelCalls" | "memoryItems"; used: number; limit: number; tier: KernPlanTier }
   ) {
     super(message, "QUOTA_EXCEEDED", 402);
   }
@@ -95,6 +95,28 @@ export async function assertMissionQuota(organizationId: string) {
     });
   }
   return u;
+}
+
+/**
+ * Memory quota: active (not forgotten) KernMemory rows per organization.
+ * Must be called inside the same transaction as the insert, after taking the
+ * per-organization advisory lock, so concurrent "记住" requests cannot overshoot.
+ */
+export async function assertMemoryQuotaTx(
+  tx: Prisma.TransactionClient,
+  organizationId: string
+) {
+  const sub = await tx.organizationSubscription.findUnique({ where: { organizationId } });
+  const tier = sub?.tier ?? KernPlanTier.FREE;
+  const limits = limitsFor(tier);
+  if (limits.memoryItems === null) return;
+  const used = await tx.kernMemory.count({ where: { organizationId, forgottenAt: null } });
+  if (used >= limits.memoryItems) {
+    throw new QuotaExceededError(
+      `本期 ${limits.label} 的 ${limits.memoryItems} 条记忆额度已用完，可以先在「设置 → Kern 的记忆」里删除不再需要的记忆`,
+      { metric: "memoryItems", used, limit: limits.memoryItems, tier }
+    );
+  }
 }
 
 export async function setOrganizationTier(organizationId: string, tier: KernPlanTier, externalRef?: string | null) {

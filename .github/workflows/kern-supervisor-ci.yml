@@ -10,6 +10,9 @@ on:
       - "src/modules/assistant-runtime/**"
       - "src/app/api/missions/**"
       - "tests/regression-kern-supervisor.ts"
+      - "tests/regression-kern-memory-quota.ts"
+      - "src/modules/memory/**"
+      - "src/modules/billing/**"
       - "tests/kern-supervisor-plan.test.ts"
       - "package.json"
       - ".github/workflows/kern-supervisor-ci.yml"
@@ -23,6 +26,9 @@ on:
       - "src/modules/assistant-runtime/**"
       - "src/app/api/missions/**"
       - "tests/regression-kern-supervisor.ts"
+      - "tests/regression-kern-memory-quota.ts"
+      - "src/modules/memory/**"
+      - "src/modules/billing/**"
       - "tests/kern-supervisor-plan.test.ts"
       - "package.json"
       - ".github/workflows/kern-supervisor-ci.yml"
@@ -78,5 +84,6 @@ jobs:
       - run: npx prisma migrate deploy
       - run: npm run test:kern-supervisor-plan
       - run: npm run test:kern-supervisor
+      - run: npm run test:kern-memory-quota
       - run: npm run test:workforce
       - run: npm run test:golden-org

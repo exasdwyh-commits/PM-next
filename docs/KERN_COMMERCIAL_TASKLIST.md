@@ -14,15 +14,17 @@
 | 3 | 任务受阻后说“继续”无效，只能重开 | 同对话中“继续/重试”→ 重跑受阻节点（resumeKernMission） | ✅ |
 | 4 | 没配模型时，用户要到任务失败才知道 | 首页与输入框上方显示“先连接模型”一次性引导，链接设置 | ✅ |
 | 5 | 没有记忆：Kern 不认识你、不记得结论 | KernMemory：任务结论/用户偏好自动写入，注入后续任务；设置页可查看/删除 | ✅ |
-| 6 | 不主动：只有你问它才动 | “今天”简报：每天/打开时生成 需要你·进展·建议，持久化，不重复打扰 | ✅ |
-| 7 | 没有额度与套餐，无法商业化 | 用量计量（任务数/模型调用）+ Free/Pro 套餐限额，超额时诚实告知 | ✅ |
+| 6 | 不主动：只有你问它才动 | “今天”首页：**打开 Kern 时**动态生成 需要你·进展·建议（Attention 分级）。⚠️ 尚无 Daily Brief Job / 持久化 Brief / 定时触达，见 #6b | 🚧 |
+| 7 | 没有额度与套餐，无法商业化 | 套餐 + 任务准入额度 + 记忆条数额度（2026-09-26 补 enforcement）。⚠️ 模型调用只在**任务启动时**检查一次，不是逐次扣减，见 #7b | 🚧 |
+| 6b | 简报不会主动来 | Daily Brief Job → 持久化 Brief（去重）→ 渠道触达 | ⏳ |
+| 7b | 模型调用可在单个任务内冲破月度上限 | 统一 UsageLedger（mission_started / model_call / research_call / desktop_action）+ Billing Policy 原子检查，在 Model Gateway 调用前扣减 | ⏳（商业化前必做，内部 Beta 不阻塞） |
 | 8 | 11 个既有测试失败（http/ui/authz/blueprint…） | 逐个定位：环境依赖 vs 真缺陷；真缺陷修掉，环境依赖进 CI 条件 | ✅ |
 
 ## P1 · 好用
 | # | 问题 | 方案 | 状态 |
 |---|---|---|---|
-| 9 | 研究节点只靠模型常识，没有来源 | 研究节点接 ResearchRun / web 抓取，结论附来源 | ⏳ |
-| 10 | 产品研发(product-rnd)能力藏在工作台 | 合并进 NEW_PRODUCT playbook，结果可一键“建成产品” | ⏳ |
+| 9 | 研究节点只靠模型常识，没有来源 | 研究节点接 ResearchRun / web 抓取，结论附来源 | ⏳ **→ 升为 P0，见 docs/KERN_NEXT_PHASE_PLAN.md** |
+| 10 | 产品研发(product-rnd)能力藏在工作台 | 合并进 NEW_PRODUCT playbook，结果可一键“建成产品” | ⏳ **→ 升为 P0** |
 | 11 | 工作台页面重叠（/advisor /consultation /war-room /dashboard /manage） | 信息架构收敛：Kern / 产品 / 项目 / 设置 | ⏳ |
 | 12 | 学习闭环：用户纠正不影响下次 | 反馈（👍/纠正）→ 记忆 + harness 评估样本 | ⏳ |
 
