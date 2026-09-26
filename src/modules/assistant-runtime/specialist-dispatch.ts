@@ -77,42 +77,36 @@ export async function enqueueKernSpecialistDispatch(input: {
     agent.code,
   ].join(":");
 
-  // Serialize the same source-run/agent dispatch key at the database level.
-  // This closes the find-then-create race without adding a migration solely for
-  // the Phase 2 pilot. Collisions only serialize unrelated work; they do not
-  // change correctness.
-  return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`
-      SELECT pg_advisory_xact_lock(hashtextextended(${triggerRef}, 0))
-    `;
+  const idempotencyKey = [
+    "kern-specialist",
+    input.session.organizationId,
+    input.conversationId,
+    input.sourceRunId,
+    agent.code,
+  ].join(":");
 
-    const existing = await tx.agentTask.findFirst({
-      where: {
-        organizationId: input.session.organizationId,
-        agentId: agent.id,
-        triggerRef,
-      },
-      select: { id: true, status: true },
-    });
-    if (existing) {
-      return {
-        created: false,
-        taskId: existing.id,
-        agentCode: agent.code,
-        status: existing.status,
-        triggerRef,
-      };
-    }
+  const existing = await prisma.agentTask.findUnique({
+    where: { idempotencyKey },
+    select: { id: true, status: true },
+  });
+  if (existing) {
+    return {
+      created: false,
+      taskId: existing.id,
+      agentCode: agent.code,
+      status: existing.status,
+      triggerRef,
+    };
+  }
 
-    // createAgentTask keeps the existing access, audit and governance checks.
-    // The advisory lock remains held until this outer transaction finishes, so
-    // a concurrent replay cannot pass the existence check.
+  try {
     const task = await createAgentTask(input.session, {
       agentId: agent.id,
       goal: input.goal,
       priority: 60,
       triggerType: AgentTriggerType.MANUAL,
       triggerRef,
+      idempotencyKey,
       contextSnapshot: {
         schemaVersion: "kern-specialist-dispatch/v1",
         kernConversationReturn: {
@@ -135,5 +129,27 @@ export async function enqueueKernSpecialistDispatch(input: {
       status: task.status,
       triggerRef,
     };
-  });
+  } catch (error: unknown) {
+    // A concurrent replay may win the unique idempotencyKey race. In that case
+    // return the already-created task instead of surfacing a false failure.
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      const replay = await prisma.agentTask.findUnique({
+        where: { idempotencyKey },
+        select: { id: true, status: true },
+      });
+      if (replay) {
+        return {
+          created: false,
+          taskId: replay.id,
+          agentCode: agent.code,
+          status: replay.status,
+          triggerRef,
+        };
+      }
+    }
+    throw error;
+  }
 }
