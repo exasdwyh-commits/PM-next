@@ -2185,3 +2185,132 @@ button,a { -webkit-tap-highlight-color:transparent; }
 @media (max-width:520px) {
   .bubble-axis-y { left:-27px; }
 }
+
+
+/* ==========================================================================
+   Kern V2 · Professional workbench density
+   管理面遵循成熟 SaaS/OA 信息密度；报告/正式文档可继续使用衬线标题，
+   操作型工作台默认使用无衬线，减少 hero、巨型 KPI 与重复强调。
+   ========================================================================== */
+.hermes-content {
+  padding: 14px 24px 36px;
+}
+.hermes-topbar {
+  height: 56px;
+  padding: 6px 12px 6px 16px;
+}
+.hermes-nav-item {
+  min-height: 40px;
+  gap: 10px;
+  padding: 0 12px;
+  font-size: 13.5px;
+}
+.hermes-page-heading {
+  padding: 18px 2px 13px;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.hermes-page-heading h1 {
+  margin: 3px 0;
+  font: 650 22px/1.25 var(--font-body);
+  letter-spacing: -.015em;
+}
+.hermes-page-heading p:last-child {
+  font-size: 13.5px;
+}
+.hermes-panel {
+  padding: 14px 16px;
+}
+.hermes-panel-heading {
+  gap: 10px;
+}
+.hermes-panel-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+.hermes-panel-head {
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.hermes-panel-title {
+  font: 650 15px/1.35 var(--font-body);
+}
+.hermes-panel-title small,
+.hermes-panel-sub {
+  font-size: 12.5px;
+}
+.hermes-stat {
+  padding: 11px 13px;
+}
+.hermes-stat > span,
+.hermes-stat > small {
+  font-size: 12px;
+}
+.hermes-stat > strong {
+  margin-top: 3px;
+  font: 650 18px/1.2 var(--font-body);
+}
+.hermes-command-center {
+  margin: 14px 0;
+  padding: 16px;
+  border-radius: 12px;
+}
+.hermes-command-copy h1 {
+  margin: 2px 0 4px;
+  font-family: var(--font-body);
+  font-size: 21px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -.015em;
+}
+.hermes-command-copy p {
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.hermes-command-box {
+  margin-top: 13px;
+}
+.hermes-today-stats > div {
+  padding: 11px 13px;
+}
+.hermes-today-stats strong {
+  font-family: var(--font-body);
+  font-size: 19px;
+  font-weight: 650;
+}
+.hermes-today-grid,
+.hermes-today-main,
+.hermes-today-side {
+  gap: 12px;
+}
+.hermes-today-grid {
+  margin-top: 12px;
+}
+.hermes-focus-task h2 {
+  margin: 9px 0 5px;
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+.hermes-focus-task > p {
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.hermes-focus-task-facts {
+  gap: 8px;
+  margin-top: 10px;
+}
+.hermes-focus-task-facts > div {
+  padding: 8px 10px;
+}
+.hermes-simple-queue {
+  margin-top: 10px;
+}
+.hermes-simple-queue-row,
+.hermes-object-row {
+  min-height: 38px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
