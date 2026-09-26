@@ -225,31 +225,38 @@ export function Dock({
           aria-label="对 Kern 说"
         />
         <div className="m-dock-bar">
-          <div className="m-control-strip" aria-label="Conversation 运行配置">
-            <ModelControl
-              options={controls.models}
-              value={config.modelProfileKey}
-              onChange={(modelProfileKey) => patch({ modelProfileKey })}
-            />
-            <MultiControl
-              label="顾问"
-              options={controls.advisors}
-              value={config.advisorCodes}
-              onChange={(advisorCodes) => patch({ advisorCodes })}
-            />
-            <MultiControl
-              label="技能"
-              options={controls.skills}
-              value={config.skillKeys}
-              onChange={(skillKeys) => patch({ skillKeys })}
-            />
-            <MultiControl
-              label="功能"
-              options={controls.capabilities}
-              value={config.capabilityKeys}
-              onChange={(capabilityKeys) => patch({ capabilityKeys })}
-            />
-          </div>
+          <details className="m-advanced-controls">
+            <summary className="m-auto-mode" aria-label="高级运行配置">
+              <span className="m-auto-dot" aria-hidden />
+              <span>Auto · Kern</span>
+              <small>高级</small>
+            </summary>
+            <div className="m-control-strip" aria-label="Conversation 高级运行配置">
+              <ModelControl
+                options={controls.models}
+                value={config.modelProfileKey}
+                onChange={(modelProfileKey) => patch({ modelProfileKey })}
+              />
+              <MultiControl
+                label="顾问"
+                options={controls.advisors}
+                value={config.advisorCodes}
+                onChange={(advisorCodes) => patch({ advisorCodes })}
+              />
+              <MultiControl
+                label="技能"
+                options={controls.skills}
+                value={config.skillKeys}
+                onChange={(skillKeys) => patch({ skillKeys })}
+              />
+              <MultiControl
+                label="功能"
+                options={controls.capabilities}
+                value={config.capabilityKeys}
+                onChange={(capabilityKeys) => patch({ capabilityKeys })}
+              />
+            </div>
+          </details>
           <button type="button" className="m-pill m-runtime-pill" onClick={onTrust}>
             <I.mac />
             {capabilities.length} 项本机能力
