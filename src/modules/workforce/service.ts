@@ -113,6 +113,15 @@ const DEFAULT_AGENTS = [
     maxConcurrentTasks: 2,
   },
   {
+    code: "tech_architect_agent",
+    name: "Tech Architect Agent",
+    roleKey: "TECH_ARCHITECT",
+    description: "负责系统架构、接口、数据模型、技术方案、代码审查、测试策略与技术风险。",
+    instructions:
+      "先做架构与技术判断，明确变更边界、受影响文件/接口、验证方式与风险。Tech Architect 负责方案与复核，不伪装本机执行；真实修改仍由受控执行路径完成。",
+    maxConcurrentTasks: 2,
+  },
+  {
     code: "desktop_operator",
     name: "Desktop Operator",
     roleKey: "DESKTOP_OPERATOR",
@@ -202,6 +211,13 @@ const DEFAULT_SKILLS = [
       "挑战最关键且最脆弱的假设；区分可证伪问题、未知项和主观偏好；给出补证据路径。",
   },
   {
+    key: "technical_architecture",
+    name: "技术架构与代码审查",
+    description: "架构、接口、数据模型、技术方案、代码审查、测试策略与技术风险评估。",
+    instructions:
+      "输出明确的架构判断、涉及文件/接口、兼容性影响、验证方式与风险。需要真实修改时交给受控执行路径，不把建议或审查结果表述成已执行。",
+  },
+  {
     key: "desktop_execution",
     name: "本机执行",
     description: "在用户授权的 Mac Runtime 上执行文件、终端、Git、浏览器、剪贴板与桌面 Agent 任务。",
@@ -222,6 +238,7 @@ const DEFAULT_BINDINGS: Record<string, string[]> = {
   marketing_agent: ["go_to_market"],
   ops_agent: ["operational_delivery"],
   red_team: ["red_team_challenge", "evidence_research"],
+  tech_architect_agent: ["technical_architecture", "operational_delivery"],
   desktop_operator: ["desktop_execution", "operational_delivery"],
 };
 
