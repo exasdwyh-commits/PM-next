@@ -1,3 +1,4 @@
+import prisma from "@/shared/db";
 import type { ModelTaskClass } from "@/modules/model-gateway";
 import { hasEnabledPolicyCandidate } from "@/modules/model-gateway";
 import { isProviderRuntimeConfigured } from "@/modules/model-gateway/provider-runtime";
@@ -9,6 +10,7 @@ export type KernDispatchReadinessState =
   | "EXECUTOR_READY"
   | "REVIEW_REQUIRED"
   | "NO_CHAT_EXECUTOR"
+  | "AGENT_UNAVAILABLE"
   | "MODEL_POLICY_MISSING"
   | "MODEL_PROFILE_DISABLED"
   | "PROVIDER_RUNTIME_MISSING";
@@ -91,6 +93,27 @@ export async function resolveKernDispatchReadiness(input: {
       agentCode,
       taskClass: null,
       reason: "The routed specialist has no generic Kern-chat executor contract.",
+    };
+  }
+
+  const activeAgent = await prisma.agent.findFirst({
+    where: {
+      organizationId: input.organizationId,
+      code: agentCode,
+      status: "ACTIVE",
+    },
+    select: { id: true },
+  });
+  if (!activeAgent) {
+    return {
+      version: "kern-dispatch-readiness/v1",
+      eligible: false,
+      state: "AGENT_UNAVAILABLE",
+      executor: contract.executor,
+      agentCode,
+      taskClass: contract.taskClass,
+      reason:
+        "The specialist contract exists, but the organization has no active matching Agent.",
     };
   }
 
