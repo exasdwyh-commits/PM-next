@@ -53,7 +53,7 @@ export default function LoginPage() {
       <form onSubmit={onSubmit} className="hermes-login-card hermes-glass">
         <div className="hermes-login-brand">
           <div className="hermes-monogram">K</div>
-          <div className="hermes-wordmark">KERN</div>
+          <div className="hermes-wordmark">Kern</div>
           <div className="hermes-submark">AI PRODUCT OS</div>
         </div>
 

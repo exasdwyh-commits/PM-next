@@ -123,7 +123,9 @@ test("Kern primary route stays conversation-first while management remains avail
   const client = read("src/app/muse/muse-client.tsx");
   const shell = read("src/app/muse/components/shell.tsx");
 
-  assert.ok(client.includes("<Blank seeds={brief.suggestions} onSeed={setDraft} />"));
+  // Home = attention brief (needs-you only when real items exist) + conversation starters.
+  // Still conversation-first: no Today dashboard ids, starters always present.
+  assert.ok(client.includes("<Blank seeds={brief.suggestions} attention={brief.attention}"));
   assert.equal(client.includes("kern-today-important"), false, "chat home must not become a Today dashboard");
   assert.equal(client.includes("kern-today-needs-you"), false, "chat home must not lead with an approval queue");
   assert.ok(shell.includes("最近对话"));
@@ -224,7 +226,7 @@ test("visible product terminology is Kern / 产品 / 项目 / 工作项", () => 
   const detail = stripComments(read("src/app/projects/[id]/project-detail-client.tsx"));
   const launch = stripComments(read("src/app/products/[id]/launch-tab.tsx"));
 
-  assert.ok(shell.includes(">KERN<") && login.includes(">KERN<"), "global visible brand must be Kern");
+  assert.ok(shell.includes(">Kern<") && login.includes(">Kern<"), "global visible brand must be Kern");
   assert.ok(workforce.includes('code: "hermes_pm"'), "stable internal workforce code must remain compatible");
   assert.ok(workforce.includes('name: "Kern PM"'), "default visible PM agent must be Kern PM");
 
