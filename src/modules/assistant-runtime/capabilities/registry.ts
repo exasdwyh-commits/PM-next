@@ -1,5 +1,4 @@
 import type { SessionContext } from "@/modules/identity/session";
-import { runLegacyAdvisorCapability } from "@/modules/advisor/service";
 import type {
   KernCapabilityContext,
   KernCapabilityHandler,
@@ -9,11 +8,17 @@ import type {
 import { handleDesktopCapability } from "./desktop";
 import { handleProductRndCapability } from "./product-rnd";
 import { handleWorkspaceReadCapability } from "./workspace-read";
+import { handleProductWriteCapability } from "./product-write";
+import { handleChallengeCapability } from "./challenge";
+import { handleKnowledgeCapability } from "./knowledge";
 
 const HANDLERS: KernCapabilityHandler[] = [
   handleDesktopCapability,
   handleProductRndCapability,
   handleWorkspaceReadCapability,
+  handleProductWriteCapability,
+  handleChallengeCapability,
+  handleKnowledgeCapability,
 ];
 
 export async function executeKernCapability(
@@ -26,8 +31,7 @@ export async function executeKernCapability(
     if (result) return result;
   }
 
-  // Migration seam: only capabilities not yet extracted remain here.
-  return runLegacyAdvisorCapability(session, intent, context);
+  throw new Error(`No Kern capability handler registered for intent: ${intent}`);
 }
 
 export const KERN_NATIVE_CAPABILITY_INTENTS = new Set<KernCapabilityIntent>([
@@ -38,4 +42,11 @@ export const KERN_NATIVE_CAPABILITY_INTENTS = new Set<KernCapabilityIntent>([
   "PENDING_DECISIONS",
   "PRODUCT_STATUS",
   "WORKSPACE_STATUS",
+  "PENDING_PROPOSALS",
+  "PROPOSE_FIELD_CHANGE",
+  "PROPOSE_CREATE_WORK_ITEM",
+  "NEW_PRODUCT_INTAKE",
+  "CHALLENGE_THESIS",
+  "KNOWLEDGE_SEARCH",
+  "UNSUPPORTED",
 ]);
