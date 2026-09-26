@@ -1,146 +1,444 @@
 # Kern 系统地图审查 · 2026-09-26
 
-基线：`3e89e3c`  
-地图源：`docs/maps/kern-system.architecture.json`  
-方法：按 Archify 的 source-backed architecture 结构，把当前真实代码入口、路由、工具、Work Engine、Desktop Runtime、Governance 与管理工作台放到一张图上，再检查产品逻辑是否与“对话优先 Agent 客户端”一致。
+状态：**Architecture V2 migration audit**  
+主架构：`docs/KERN_ARCHITECTURE_V2.md`  
+地图源：`docs/maps/kern-system.architecture.json`
 
 ## 结论
 
-**主产品逻辑已经对齐，但底层仍是“新 Kern 外壳 + 旧 Advisor 核心”过渡态。**
+当前 PM-next 已经完成了大部分可靠底座，但产品仍处在：
 
-正确主链应保持：
+> **“Kern 对话入口 + 多套成熟底层能力” → “真正的 Personal Chief of Staff”**
 
-```text
-用户
-→ Kern Chat
-→ Conversation API
-→ Kern Assistant Runtime
-→ Router
-→ Tools / Model
-→ Work Engine / Desktop Runtime
-→ Governance
-→ Result / Receipt 回到原对话
-```
+的迁移阶段。
 
-`/manage` 是旁路管理面，不应重新成为日常主入口。
+今天的代码已经不再是“新 Kern 外壳 + 旧 Advisor 核心”。主聊天链、Capability Registry、Conversation lifecycle 已归属 `assistant-runtime`，Advisor 已退到兼容/专业支持层。
 
-## 已对齐
-
-1. **对话主入口成立**  
-   `/muse` 是默认使用面；工作台独立保留。
-
-2. **Work 在后台而不是用户管理 Agent**  
-   Product R&D / Workforce / Desktop Runtime 都可以由对话触发，执行结果可回到原会话。
-
-3. **低风险工作开始自主执行**  
-   明确的内部、可逆动作不再重复要求用户点击确认；权限、CAS、幂等和审计仍在服务端。
-
-4. **高影响动作仍有治理边界**  
-   Governance / Approval / ToolBroker 继续负责真正的人类 Gate。
-
-5. **Visual Intelligence 已降级为按需工具**  
-   普通聊天不自动展示顾问团和结构图；用户明确要求“画 / 拆解 / 可视化”才出现。
-
-## 本轮整体改造状态
-
-这份地图审查已经进入实施阶段：
-
-- **P0 已完成**：主聊天链、Intent Router、Capability Registry、Conversation CRUD 全部归到 `assistant-runtime`。Kern 主链不再依赖 `advisor/service.ts`；该文件已从 1804 行收缩为约 68 行兼容 facade。
-- **Conversation 语义已清理**：Kern Chat ViewModel 使用 `ConversationSummary / activeConversationId / conversationId`，不再把会话称为 Mission，也不再预加载 Today 管理驾驶舱。
-- **Autonomy 已升级**：从动作白名单改为 capability risk assessment，显式考虑 reversibility / external side effect / financial / permission / production release / formal gate / destructive / ambiguity。
-- **Project Map Builder 已落地**：可从真实 source file + static import 生成 VERIFIED KernGraph，并转换为 Archify architecture spec；`npm run kern:map` 可重复生成项目地图。
-
-领域 capability 已全部从 `advisor/service.ts` 抽离：Desktop、Product R&D、Workspace Read、Product Write、Challenge、Knowledge 都由 Kern Capability Registry 直接调度。Advisor 目录只保留 Proposal / Challenge 算法 / LLM / Runs 等兼容或专业支持库。
-
-## 地图暴露出的结构债
-
-### P0 · Advisor 核心化问题已关闭
-
-`conversation-engine.ts` 已直接调用 Kern Router 与 Capability Registry；`advisor/service.ts` 只做历史 import 兼容转发，不持有 intent、tool case、Prisma 业务逻辑或模型编排。
-
-结果是：
-
-当前结构已经改为：
+当前真实主链：
 
 ```text
-Conversation Engine
-→ Kern Router
-→ Capability Registry
-   ├─ Desktop
-   ├─ Product R&D
-   ├─ Workspace Read
-   ├─ Product Write
-   ├─ Challenge
-   └─ Knowledge
-→ Response / Receipt
+User
+→ Kern Conversation
+→ Conversation Engine
+→ Intent / Capability Routing
+→ Domain Capability / Model Gateway
+→ Workforce / Desktop / Product R&D
+→ Evidence / Governance
+→ Message / Receipt
 ```
 
-CI 会锁住 Advisor facade 不得重新出现 capability case 或 Prisma 业务逻辑。
-
-### P1 · UI 内部仍残留 goal / mission 语义
-
-Kern 已经是聊天客户端，但 ViewModel 与局部变量仍大量使用 `Mission / goalId / goal`。
-
-这不会立刻造成 bug，但会让未来开发者再次把 Conversation 当项目任务看板。
-
-**目标：** UI 层改成 `ConversationSummary / conversationId / conversation`；Mission 只保留在真正的任务/项目域。
-
-### P1 · Autonomy 还是动作白名单，不是风险策略
-
-当前自动执行覆盖：
-
-- `UPDATE_FIELD`
-- `CREATE_WORK_ITEM`
-- `CREATE_PRODUCT`
-
-这已经比“每次审批”正确，但长期应该变成：
+目标 V2 主链：
 
 ```text
-capability
-× reversibility
-× external side effect
-× financial impact
-× permission sensitivity
-× ambiguity
-→ AUTO / ASK / DENY
+User
+→ Kern Chief of Staff
+→ Context + Memory
+→ Goal Plan
+→ Supervisor / AgentTask DAG
+→ Agents + Skills + Tools + Desktop
+→ Evidence / QA / Governance
+→ Synthesis
+→ Outcome
+→ Harness Learning
+→ Return to same Conversation
 ```
 
-这样新工具加入时不需要继续手工写“这个动作要不要再问一次”。
+差距已经不在“有没有 Agent / Worker / Governance”，而在 **Kern 是否真正接管规划、委派、复核、注意力与持续学习**。
 
-### P1 · Visual Intelligence 还没有真正的 Project Map Builder
+---
 
-现在有 Typed Graph IR 和 Council Graph，但还没有：
+## 已经对齐的基础
+
+### 1. Kern 已成为 runtime owner
+
+`conversation-engine.ts` 直接调用：
+
+- Kern Router
+- Capability Registry
+- Model Gateway
+- Conversation Runtime Config
+
+`advisor/service.ts` 只保留兼容 facade，不再拥有主业务运行时。
+
+### 2. Conversation-first 已成立
+
+`/muse` 是默认入口，Conversation 是 Chat 的一级对象。
+
+项目、WorkItem、AgentTask、Run、Evidence、Gate 留在管理层和运行层，不再强迫用户先理解内部对象。
+
+### 3. Capability Registry 已成立
+
+当前主要能力：
+
+- Workspace
+- Knowledge
+- Product Write
+- Product R&D
+- Challenge
+- Desktop
+- Visualize
+
+能力范围可以在 Conversation 级受控配置。
+
+### 4. Risk-based Autonomy 已有基础
+
+`autonomy.ts` 已明确考虑：
+
+- reversibility
+- external side effect
+- financial impact
+- permission sensitivity
+- production release
+- formal business gate
+- destructive action
+- target ambiguity
+
+因此“低风险内部可逆动作默认推进，高风险动作找人”已经有确定性基础。
+
+### 5. Workforce 底座成熟
+
+已存在：
+
+- Agent / Skill / Squad
+- AgentTask / AgentRun
+- parent-child delegation
+- return event
+- concurrency control
+- retry / lease
+- Business Event
+- Autopilot
+- audit
+
+下一阶段不应重写任务内核。
+
+### 6. Product R&D 是第一个成熟 Playbook
+
+当前已有多 specialist、ResearchRun、Evidence、QA、Executive Report 的正式闭环。
+
+Architecture V2 把它重新定义为：
+
+> **Kern Generic Orchestrator 上的第一个成熟业务 Playbook**
+
+而不是孤立的特殊系统。
+
+### 7. Evidence / Governance / Harness 是现有优势
+
+已有：
+
+- SourceCapture / Verification
+- UNKNOWN preservation
+- Approval / Gate
+- EvaluationSuite / Case / Run
+- FrozenPrediction
+- ProductOutcome
+- ExperienceLesson
+
+这些全部保留。
+
+### 8. Visual Intelligence 已有 Project Map Builder
+
+当前已能从 source-backed 文件与依赖信息建立 KernGraph / Archify-style artifact。
+
+Visual Intelligence 仍是按需解释工具，不变成默认首页。
+
+---
+
+## 当前最大结构债
+
+### P0 · 分支事实不统一
+
+当前 `main` 与 `release/v0.1.0-rc1` 已 diverged。
+
+架构和产品演进目前发生在 release 分支，但 README 仍把 `main` 描述为可信交付入口。
+
+在继续扩大代码改造前必须收敛唯一可信分支，否则：
+
+- 文档读取不同代码；
+- 本机部署读取不同功能；
+- Codex / Kern / CI 可能工作在不同基线。
+
+这是架构治理 P0，不是普通 Git 清理。
+
+---
+
+### P1 · Supervisor 仍然是半成品
+
+`collaboration-planner.ts` 已能计算：
+
+- SOLO
+- SPECIALIST
+- PAIR
+- COUNCIL
+- RED_TEAM
+- FULL_RND
+
+但当前仍然是 Shadow Recommendation。
+
+它能判断“应该叫哪些专家”，但不会通用地：
 
 ```text
-repository
-→ source evidence
-→ module / dependency extraction
-→ KernGraph / Archify artifact
-→ architecture audit
+Goal
+→ Task DAG
+→ Create / Delegate AgentTask
+→ Monitor
+→ Re-delegate
+→ QA
+→ Synthesize
 ```
 
-本次地图仍是人工 source-backed mapping。下一阶段应让 Kern 能真正对任意 repo 运行同一流程。
+Architecture V2 的第一核心任务就是让它成为真实 Supervisor。
 
-## 推荐继续顺序
+---
 
-1. **保持 Muse 原始视觉系统不再重做 CSS。**
-2. **Conversation 语义清理：已完成。**
-3. **Capability Registry：已完成，Advisor service 已降为兼容 facade。**
-4. **Risk-based Autonomy：已完成基础策略层。**
-5. **Project Map Builder：已完成第一版 source-backed KernGraph + Archify adapter。**
-6. **下一步：让通用 Work Mode 与 capability registry 使用统一 Task/Run contract，并继续减少历史 advisor 命名。**
+### P1 · Planner 仍偏 Intent Router
+
+当前 Planner 更擅长：
+
+> 这句话属于 WORKSPACE / KNOWLEDGE / PRODUCT / CHALLENGE 哪一类？
+
+目标需要升级为：
+
+> 完成这个业务目标，需要哪些步骤、依赖、Agent、工具、Evidence、QA 和 Human Gate？
+
+因此新增统一 `KernGoalPlan`，但继续复用现有 AgentTask / AgentRun。
+
+---
+
+### P1 · Worker 仍以 specialist hard-code 为主
+
+当前 `worker/executor.ts` 的自动 strategy 主要服务 Product R&D specialist。
+
+这保证了确定性与诚实缺省，但无法自然扩展：
+
+- Product Agent
+- Marketing Agent
+- Ops Agent
+- Red Team
+- future specialist
+
+目标是增加 **Generic Agent Executor**：
+
+```text
+Agent identity
++ skills
++ context
++ capability scope
++ model policy
++ tool registry
+→ structured execution
+```
+
+确定性领域服务继续保留，不让 LLM 取代业务真值逻辑。
+
+---
+
+### P1 · Memory 主要是 Semantic，不像长期助理
+
+当前较成熟：
+
+- CompanyFact
+- KnowledgeDocument
+- Product / Project
+- Evidence
+
+但缺少系统化：
+
+- Episodic Memory：过去一起做过什么；
+- User Model：用户工作方式和稳定偏好；
+- Procedural Memory：经过 Eval 验证的方法与 Playbook。
+
+Architecture V2 统一 Memory Owner 为 Kern。
+
+---
+
+### P1 · Proactivity 还没有 Attention Engine
+
+已有 BusinessEvent / Autopilot，可以“被事件唤醒”。
+
+但还缺一层：
+
+> 事件发生后，值得不值得打扰用户？
+
+目标输出：
+
+- AUTO_HANDLE
+- WATCH
+- SURFACE
+- INTERRUPT
+- HUMAN_GATE
+
+“主动克制”必须进入 Assistant Benchmark，避免 Kern 变成高频提醒机器人。
+
+---
+
+### P2 · Product OS 缺 Validation 与 Marketing 闭环
+
+当前产品研发能力强，但：
+
+- Market Validation 仍偏研究/分析；
+- Marketing 主要是 Agent + Skill 身份，没有完整执行对象和反馈闭环。
+
+目标生命周期：
+
+```text
+Signal
+→ Opportunity
+→ Hypothesis
+→ Validation
+→ Product
+→ R&D / Build
+→ Launch
+→ Marketing
+→ Outcome
+→ Learning
+```
+
+Product R&D 不重写；新增 Validation Program 与 Marketing Playbook。
+
+---
+
+### P2 · Harness 有学习数据，但没有正式 Promotion Loop
+
+当前：
+
+```text
+Prediction
+→ Outcome
+→ Backtest
+→ ExperienceLesson Candidate
+→ Human Review
+```
+
+目标：
+
+```text
+Lesson
+→ Improvement Proposal
+→ Challenger
+→ Regression
+→ Champion comparison
+→ Promotion Gate
+→ New version
+→ Observe Outcome
+```
+
+禁止系统无评测地自改规则。
+
+---
+
+## 前端审查
+
+### Kern Chat
+
+方向正确，但模型 / 顾问 / Skill / Capability 当前直接暴露在输入区域。
+
+V2 规则：
+
+- 默认：`Auto · Kern`
+- Advanced Controls：按需展开
+- 用户可覆盖自动路由
+- 默认不要求用户管理 Agent
+
+### Workbench
+
+当前仍有明显“展示型 Dashboard”遗留：
+
+- 大 Hero；
+- 大字号；
+- 大 padding；
+- 同一信息多次强调；
+- Panel 解释文字过多。
+
+下一轮按标准专业 SaaS 密度收敛：
+
+- Page title 20–22px
+- Section 14–16px
+- Body 13–14px
+- Meta 11–12px
+- Row 36–40px
+- Panel padding 12–16px
+
+首页只回答：
+
+1. 需要我处理什么？
+2. Kern 正在做什么？
+3. 核心工作推进到哪里？
+4. 哪里异常？
+
+---
+
+## 下一阶段唯一推荐顺序
+
+### P0 Product convergence
+
+- 收敛唯一可信分支；
+- Architecture V2 成为主架构；
+- Workbench 降噪；
+- Advanced Controls 默认折叠；
+- 清理历史用户可见命名。
+
+### P1 Supervisor runtime
+
+- KernGoalPlan；
+- executable collaboration planner；
+- AgentTask DAG；
+- Generic Agent Executor；
+- QA / re-delegation / synthesis；
+- Decision Budget；
+- Attention Engine。
+
+### P2 Product OS completion
+
+- Validation Program；
+- Marketing Playbook；
+- Product lifecycle 统一；
+- Outcome 回收。
+
+### P3 Harness learning
+
+- Episodic Memory；
+- Assistant Benchmark；
+- Improvement Proposal；
+- Challenger / Regression；
+- Promotion / Rollback。
+
+---
 
 ## 产品边界
 
-最终产品应始终维持：
+最终必须始终维持：
 
 ```text
-Kern = 对话 + 理解 + 调度 + 执行 + 汇报
-Work = Kern 在后台持续完成复杂工作的运行形态
-Workbench = 项目/产品/任务/审计的管理视图
-Council = Kern 内部调用的智力资源
-Visual Intelligence = 需要解释复杂结构时调用的工具
-Governance = 只在真正高影响动作上要求人介入
+Kern
+= Personal Chief of Staff
+= 理解 + 规划 + 调度 + 执行 + 复核 + 汇报 + 学习
+
+Conversation
+= Kern 的第一交互界面
+
+Workbench
+= 真实业务对象的管理视图
+
+Agents
+= Kern 管理的专业员工
+
+Models
+= 可替换脑力资源
+
+Skills
+= 方法
+
+Playbooks
+= 可执行 SOP
+
+Gateway
+= 统一控制平面
+
+Governance
+= 受保护动作的硬边界
+
+Harness
+= 可评测、可升级、可回滚的学习系统
 ```
 
-只要后续改动违反这条边界，就应在架构审查里视为产品回退。
+**内部能力越强，用户看到的系统应该越简单。**
