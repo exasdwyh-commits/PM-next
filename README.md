@@ -1,10 +1,10 @@
 # PM-next · Kern AI Product OS
 
-PM-next 是一个面向产品负责人和小型团队的 **Kern 日常助理 + 数字员工团队 + 产品/项目管理后台 + 治理内核 + 本机执行能力**。
+PM-next 是一个面向产品负责人和小型团队的 **Kern Personal Chief of Staff + Product OS**：Kern 负责理解目标、统筹数字员工、调用模型/技能/工具、推进产品工作，并通过 Evidence / QA / Governance 保持结果可信。
 
-产品分为两层：
+产品采用“一个 Kern、两类界面”的结构：
 
-- **Kern 主操作层**：领导层和普通员工日常只需要对话。说目标，Kern 负责理解上下文、规划、研究、委派数字员工、跟进进度，并在必须由人拍板时发起 Check-in。
+- **Kern 主操作层**：Kern 是 Personal Chief of Staff，Conversation 是第一交互界面。用户只说目标，Kern 负责理解上下文、规划、研究、委派数字员工、跟进进度，并在真正需要人拍板时发起 Check-in。
 - **专业管理后台**：产品经理、项目负责人和管理员可进入传统管理系统，管理产品、项目、工作项、证据、评估、决策、自动化与审计。后台完整，但不要求普通用户理解内部 Agent/Runtime。
 
 ```text
@@ -366,10 +366,13 @@ AppleScript / Accessibility 通道已经预留；有稳定 API/CLI/AppleScript �
 
 优先阅读：
 
-1. `docs/FINAL_DELIVERY_2026-09-25.md`
-2. `docs/KERN_DELIVERY_LEDGER.md`
-3. `docs/FRONTEND_V3_CONVERSATION_FIRST.md`
-4. `docs/HERMES_DESKTOP_RUNTIME.md`（历史文件名保留兼容，内容对应 Kern 本机执行）
-5. `docs/FUSION_DELIVERY_2026-09-25.md`
+1. `docs/KERN_ARCHITECTURE_V2.md` — 当前产品与系统主架构
+2. `docs/KERN_SYSTEM_MAP_AUDIT_2026-09-26.md` — 当前代码与 V2 的差距审查
+3. `docs/KERN_CONVERSATION_FIRST.md` — Kern 对话交互边界
+4. `docs/FINAL_DELIVERY_2026-09-25.md`
+5. `docs/KERN_DELIVERY_LEDGER.md`
+6. `docs/FRONTEND_V3_CONVERSATION_FIRST.md`
+7. `docs/HERMES_DESKTOP_RUNTIME.md`（历史文件名保留兼容，内容对应 Kern 本机执行）
+8. `docs/FUSION_DELIVERY_2026-09-25.md`
 
 历史 release / fusion 分支文档仅作为演进记录，不再代表当前部署入口。
