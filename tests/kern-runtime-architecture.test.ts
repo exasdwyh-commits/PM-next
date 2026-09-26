@@ -102,6 +102,26 @@ test("Kern Chat view model is conversation-first, not mission/today dashboard-fi
   );
 });
 
+
+test("Kern Chat exposes real conversation-level model advisor skill and function controls", () => {
+  const schema = read("prisma/schema.prisma");
+  const client = read("src/app/muse/muse-client.tsx");
+  const shell = read("src/app/muse/components/shell.tsx");
+  const engine = read("src/modules/assistant-runtime/conversation-engine.ts");
+  const registry = read("src/modules/assistant-runtime/capabilities/registry.ts");
+
+  assert.ok(schema.includes("runtimeConfig  Json?"));
+  for (const label of ["模型", "顾问", "技能", "功能"]) {
+    assert.ok(shell.includes(label), `missing dock control: ${label}`);
+  }
+  assert.ok(client.includes("/runtime-config"));
+  assert.ok(client.includes("runtimeConfig"));
+  assert.ok(engine.includes("resolveExplicitConversationModel"));
+  assert.ok(engine.includes("buildKernConversationSelectionPrompt"));
+  assert.ok(engine.includes("effectiveToolWhitelist"));
+  assert.ok(registry.includes("kern.capability.disabled"));
+});
+
 test("autonomy is risk-based and Project Map is a first-class visual capability", () => {
   const autonomy = read("src/modules/assistant-runtime/autonomy.ts");
   const projectMap = read("src/modules/visual-intelligence/project-map-builder.ts");
