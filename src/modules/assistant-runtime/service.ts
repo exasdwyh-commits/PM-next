@@ -6,6 +6,11 @@ import { buildDepartmentAssistantContext } from "./context-builder";
 import { runDepartmentAssistantReflexShadow } from "./reflex";
 import { buildKernCollaborationPlanShadow } from "./collaboration-planner";
 import { buildKernGoalPlanShadow } from "./goal-plan";
+import { resolveKernDispatchReadiness } from "./dispatch-readiness";
+import {
+  enqueueKernSpecialistDispatch,
+  type KernSpecialistDispatchResult,
+} from "./specialist-dispatch";
 import {
   buildKernCouncilGraph,
   shouldAttachKernCouncilGraph,
@@ -48,16 +53,99 @@ export async function sendDepartmentAssistantMessage(
     options
   );
   const reflex = await reflexPromise;
-  const collaborationPlanShadow = buildKernCollaborationPlanShadow({
+  const plannedCollaboration = buildKernCollaborationPlanShadow({
     text: content,
     productBound: Boolean(context.productId),
     reflex,
     selectedAdvisorCodes: result.runtimeSelection.config.advisorCodes,
   });
+  const dispatchReadiness = await resolveKernDispatchReadiness({
+    organizationId: session.organizationId,
+    plan: plannedCollaboration,
+  });
+  const collaborationPlanShadow = {
+    ...plannedCollaboration,
+    autoDispatchEligible: dispatchReadiness.eligible,
+  };
   const goalPlanShadow = buildKernGoalPlanShadow({
     goal: content,
     collaboration: collaborationPlanShadow,
   });
+
+  let specialistDispatch: KernSpecialistDispatchResult | null = null;
+  let specialistDispatchError: string | null = null;
+  let responseMessage = result.message;
+
+  if (
+    collaborationPlanShadow.mode === "SPECIALIST" &&
+    dispatchReadiness.eligible &&
+    dispatchReadiness.state === "EXECUTOR_READY"
+  ) {
+    try {
+      specialistDispatch = await enqueueKernSpecialistDispatch({
+        session,
+        conversationId,
+        sourceRunId: result.runId,
+        goal: content,
+        readiness: dispatchReadiness,
+      });
+
+      if (specialistDispatch) {
+        const dispatchNote = [
+          "Kern 协作路由：已将这条低风险技术请求交给 Tech Architect。",
+          `当前任务状态：${specialistDispatch.status}。专家完成后，回执会自动追加到本会话。`,
+        ].join("\n");
+        const originalContent = result.message.content;
+        const nextContent = originalContent.includes("Kern 协作路由：")
+          ? originalContent
+          : `${originalContent}\n\n——\n${dispatchNote}`;
+        const existingCitations = Array.isArray(result.message.citations)
+          ? result.message.citations
+          : [];
+
+        responseMessage = await prisma.message.update({
+          where: { id: result.message.id },
+          data: {
+            content: nextContent,
+            citations: [
+              ...existingCitations,
+              {
+                kind: "agent-task",
+                ref: specialistDispatch.taskId,
+                title: "Tech Architect · " + specialistDispatch.status,
+              },
+            ] as Prisma.InputJsonValue,
+          },
+        });
+      }
+    } catch (error: unknown) {
+      specialistDispatchError =
+        error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  const routingReceipt = {
+    version: "kern-routing-receipt/v2" as const,
+    runId: result.runId,
+    phase: specialistDispatch ? ("AUTO" as const) : ("SHADOW" as const),
+    authority: collaborationPlanShadow.authority,
+    recommendedMode: collaborationPlanShadow.mode,
+    recommendedExperts: collaborationPlanShadow.experts,
+    synthesisTier: collaborationPlanShadow.synthesisTier,
+    researchRequired: collaborationPlanShadow.researchRequired,
+    qaRequired: collaborationPlanShadow.qaRequired,
+    redTeamRequired: collaborationPlanShadow.redTeamRequired,
+    autoDispatchCandidate: collaborationPlanShadow.autoDispatchCandidate,
+    autoDispatchEligible: collaborationPlanShadow.autoDispatchEligible,
+    dispatchReadiness,
+    dispatchedAgentCodes: specialistDispatch
+      ? [specialistDispatch.agentCode]
+      : ([] as string[]),
+    dispatchTaskId: specialistDispatch?.taskId ?? null,
+    dispatchTaskStatus: specialistDispatch?.status ?? null,
+    dispatchError: specialistDispatchError,
+    goalPlanVersion: goalPlanShadow.version,
+  };
   const visualAllowed =
     result.runtimeSelection.config.capabilityKeys === null ||
     result.runtimeSelection.config.capabilityKeys.includes("visualize");
@@ -90,6 +178,9 @@ export async function sendDepartmentAssistantMessage(
           reflexError: reflex.error,
           collaborationPlanShadow,
           goalPlanShadow,
+          routingReceipt,
+          dispatchReadiness,
+          specialistDispatch,
           visualGraphShadow,
           conversationRuntimeConfig: result.runtimeSelection.config,
           selectedAdvisors: result.runtimeSelection.advisors,
@@ -99,10 +190,10 @@ export async function sendDepartmentAssistantMessage(
     });
   }
 
-  let message = result.message;
+  let message = responseMessage;
   if (visualGraphShadow) {
-    const existingCitations = Array.isArray(result.message.citations)
-      ? result.message.citations.filter((citation) => {
+    const existingCitations = Array.isArray(responseMessage.citations)
+      ? responseMessage.citations.filter((citation) => {
           if (!citation || typeof citation !== "object" || Array.isArray(citation)) {
             return true;
           }
@@ -127,6 +218,10 @@ export async function sendDepartmentAssistantMessage(
     reflexMode: reflex.mode,
     collaborationPlanShadow,
     goalPlanShadow,
+    routingReceipt,
+    dispatchReadiness,
+    specialistDispatch,
+    specialistDispatchError,
     visualGraphShadow,
   };
 }
