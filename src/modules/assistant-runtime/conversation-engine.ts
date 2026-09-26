@@ -323,13 +323,13 @@ export async function executeKernConversationTurn(
     const assistantPersona = [basePersona, selectionPrompt]
       .filter((value): value is string => Boolean(value))
       .join("\n\n");
+    const llmMessages: AdvisorLLMMessage[] = assistantPersona
+      ? [{ role: "system", content: assistantPersona }, ...baseMessages.slice(1)]
+      : baseMessages;
 
     if (gatewayReady && gatewayPolicy) {
       llmAttempted = true;
       executionBackend = "MODEL_GATEWAY";
-      const llmMessages: AdvisorLLMMessage[] = assistantPersona
-        ? [{ role: "system", content: assistantPersona }, ...baseMessages.slice(1)]
-        : baseMessages;
       try {
         const gatewayExecution = await executePersistedModelGateway({
           organizationId: session.organizationId,
@@ -382,7 +382,7 @@ export async function executeKernConversationTurn(
         actualProvider =
           process.env.ADVISOR_MODEL_PROVIDER?.trim() || "openai-compatible";
         try {
-          const llmResult = await llmClient.chat(baseMessages);
+          const llmResult = await llmClient.chat(llmMessages);
           result = { ...result, text: llmResult.text };
           modelOutputUsed = true;
           llmUsage = llmResult.usage;
