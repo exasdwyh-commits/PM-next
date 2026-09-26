@@ -212,6 +212,8 @@ test("PAIR and COUNCIL are not silently promoted to AUTO", () => {
   assert.ok(planner.includes('(mode === "SOLO" || mode === "SPECIALIST")'));
   assert.ok(readiness.includes('plan.mode !== "SPECIALIST" || plan.experts.length !== 1'));
   assert.ok(readiness.includes('"REVIEW_REQUIRED"'));
+  assert.ok(readiness.includes('"AGENT_UNAVAILABLE"'));
+  assert.ok(readiness.includes('status: "ACTIVE"'));
   assert.ok(readiness.includes("CHAT_SPECIALIST_EXECUTION"));
   assert.ok(readiness.includes('tech_architect_agent: { taskClass: "CODING"'));
 });
