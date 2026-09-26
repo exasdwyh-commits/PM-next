@@ -4,7 +4,8 @@
  * conversation. Default is the summary; 「完整」 shows everything we record:
  * method, model, latency, sources, retries, the user's interventions.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { extractDecision } from "@/modules/supervisor/report-format";
 import type { AiState } from "../types";
 import {
   AGENT_LABEL,
@@ -467,6 +468,7 @@ function InterventionPanel({
 function OutputTab({ status, lanes, usage }: { status: MissionStatusView; lanes: Lane[]; usage: { calls: number; latencyMs: number } }) {
   const synth = lanes.find((l) => l.kind === "SYNTHESIS");
   const conclusion = synth?.attempts.at(-1)?.output ?? status.nodes.find((n) => n.kind === "SYNTHESIS")?.summary ?? null;
+  const decision = status.outcome?.status === "COMPLETED" ? extractDecision(conclusion) : null;
   const members: Lane[] = [];
   for (const l of lanes) if (l.kind !== "SYNTHESIS" && !members.some((m) => m.agentCode === l.agentCode)) members.push(l);
   return (
@@ -478,6 +480,14 @@ function OutputTab({ status, lanes, usage }: { status: MissionStatusView; lanes:
         </div>
       ) : null}
       {status.outcome?.status === "CANCELLED" ? <div className="m-ws-banner"><b>已取消</b><span>以下是取消前已经完成的部分。</span></div> : null}
+      {decision ? (
+        <section className="m-decision" aria-label="需要你决定">
+          <div className="m-decision-head"><I.shield /><b>需要你决定</b></div>
+          <Prose text={decision} />
+          <p className="m-hint">团队已经把能做的做完了，这一步涉及取舍或资金，只能由你拍板。</p>
+        </section>
+      ) : null}
+      {status.outcome ? <Takeaway missionId={status.missionTaskId} demo={!!status.demo} /> : null}
       <section className="m-ws-sec">
         <h3>结论</h3>
         {conclusion ? (
@@ -535,5 +545,66 @@ function OutputTab({ status, lanes, usage }: { status: MissionStatusView; lanes:
         </div>
       </section>
     </>
+  );
+}
+
+type TakeawayInfo = { blocked: string | null; product: boolean; workItem: boolean; project: { id: string; title: string } | null };
+type TakeawayReceipt = { proposalId: string; created: boolean; status: string; target: string; projectTitle: string | null };
+
+/** 带走：一键生成提案（经确认才写入业务）+ 导出 MD / PDF。 */
+function Takeaway({ missionId, demo }: { missionId: string; demo: boolean }) {
+  const [info, setInfo] = useState<TakeawayInfo | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<TakeawayReceipt | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/missions/${missionId}/takeaway`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (live) setInfo(d); })
+      .catch(() => undefined);
+    return () => { live = false; };
+  }, [missionId]);
+  const propose = async (target: "product" | "work-item") => {
+    setBusy(target);
+    setError(null);
+    try {
+      const r = await fetch(`/api/missions/${missionId}/takeaway`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d?.error?.message ?? d?.message ?? d?.error ?? "没能生成提案");
+      setReceipt(d as TakeawayReceipt);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "没能生成提案");
+    } finally {
+      setBusy(null);
+    }
+  };
+  const blocked = info?.blocked ?? (demo ? "演示运行的数据不会写入业务，不能带走。" : null);
+  return (
+    <section className="m-takeaway" aria-label="带走">
+      <div className="m-takeaway-row">
+        <b>带走</b>
+        {receipt ? null : info?.product ? (
+          <Btn size="sm" v="primary" disabled={!!busy} onClick={() => propose("product")}>{busy === "product" ? "生成中…" : "转为新产品并立项"}</Btn>
+        ) : info?.workItem ? (
+          <Btn size="sm" v="primary" disabled={!!busy} onClick={() => propose("work-item")}>{busy === "work-item" ? "生成中…" : `加到「${info.project?.title}」作为工作项`}</Btn>
+        ) : null}
+        <span className="m-ws-spacer" />
+        <a className="m-btn" data-size="sm" href={`/api/missions/${missionId}/export?format=md`} download>导出 MD</a>
+        <a className="m-btn" data-size="sm" href={`/api/missions/${missionId}/export?format=pdf`} target="_blank" rel="noreferrer">导出 PDF</a>
+      </div>
+      {blocked ? <p className="m-hint">{blocked}{demo ? "导出的报告会标明「演示」。" : ""}</p> : null}
+      {receipt ? (
+        <p className="m-receipt" role="status">
+          <I.check /> {receipt.created ? "已生成提案" : "提案已存在"}：{receipt.target === "product" ? "新建产品并立项" : `在「${receipt.projectTitle}」下新建工作项`}。
+          确认前不会写入任何业务数据——在对话里或首页「需要你」确认即可，确认后会给你回执。
+        </p>
+      ) : null}
+      {error ? <p className="m-ws-notice" data-t="warn" role="alert">{error}</p> : null}
+    </section>
   );
 }

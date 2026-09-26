@@ -593,6 +593,7 @@
 .m-seg button[aria-pressed="true"] { background: var(--m-canvas-2); color: var(--m-ink); box-shadow: var(--m-sh-1); }
 .m-ws-notice { margin: 0; padding: 8px 12px; border-radius: var(--m-r-sm); font-size: var(--m-t-sm); background: var(--m-ok-wash); color: var(--m-ok); }
 .m-ws-notice[data-t="bad"] { background: var(--m-bad-wash); color: var(--m-bad); }
+.m-ws-notice[data-t="warn"] { background: var(--m-warn-wash); color: var(--m-warn); }
 .m-ws-banner { display: grid; gap: 3px; padding: 11px 14px; border-radius: var(--m-r-md); background: var(--m-surface-sunk); font-size: var(--m-t-sm); color: var(--m-ink-2); }
 .m-ws-banner[data-t="warn"] { background: var(--m-warn-wash); }
 .m-ws-banner b { color: var(--m-ink); }
@@ -712,3 +713,23 @@
 .m-estimate b { color: var(--m-ink); font-variant-numeric: tabular-nums; }
 .m-brief-done { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--m-t-sm); color: var(--m-ink-3); }
 @media (hover: none) { .m-planlist-x { opacity: 1; } }
+
+/* ───────── Output: tables, decision card, take-away ───────── */
+.m-table-wrap { overflow-x: auto; margin: 8px 0; border: 1px solid var(--m-hairline); border-radius: var(--m-r-sm); }
+.m-table { border-collapse: collapse; width: 100%; font-size: var(--m-t-sm); }
+.m-table th, .m-table td { padding: 7px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--m-hairline); }
+.m-table th { background: var(--m-surface-sunk); font-weight: 600; white-space: nowrap; }
+.m-table tr:last-child td { border-bottom: 0; }
+.m-table tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--m-surface-sunk) 45%, transparent); }
+.m-decision { border: 1px solid var(--m-accent-line); background: var(--m-accent-wash); border-radius: var(--m-r-md, 14px); padding: 14px 16px; display: grid; gap: 6px; margin-bottom: 14px; }
+.m-decision-head { display: flex; align-items: center; gap: 8px; color: var(--m-accent-ink); font-size: var(--m-t-body); }
+.m-decision-head svg { width: 18px; height: 18px; }
+.m-decision .m-prose p { margin: 0; font-weight: 500; }
+.m-decision .m-hint { margin: 0; }
+.m-takeaway { border: 1px solid var(--m-hairline); border-radius: var(--m-r-md, 14px); padding: 10px 14px; display: grid; gap: 6px; margin-bottom: 14px; background: var(--m-surface); }
+.m-takeaway-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.m-takeaway-row > b { font-size: var(--m-t-sm); margin-right: 4px; }
+.m-takeaway a.m-btn { text-decoration: none; }
+.m-takeaway .m-hint { margin: 0; }
+.m-receipt { margin: 0; display: flex; gap: 6px; align-items: flex-start; font-size: var(--m-t-sm); color: var(--m-good, #1a7f4b); }
+.m-receipt svg { width: 16px; height: 16px; flex: none; margin-top: 3px; }

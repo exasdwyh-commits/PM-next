@@ -38,3 +38,5 @@ export {
   type BriefQuestion,
   type MissionBrief,
 } from "./brief";
+export { loadMissionReport, proposeMissionTakeaway, takeawayOptions, type TakeawayTarget } from "./takeaway";
+export * from "./report-format";

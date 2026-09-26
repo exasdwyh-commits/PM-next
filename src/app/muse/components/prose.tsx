@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from "react";
+import { isTableDivider, tableCells } from "@/modules/supervisor/report-format";
 
 /** Minimal, safe Markdown subset for Kern replies (no HTML injection). */
 function inline(text: string, key: string): ReactNode[] {
@@ -25,13 +26,24 @@ type Block =
   | { t: "p"; lines: string[] }
   | { t: "h"; level: number; text: string }
   | { t: "ul" | "ol"; items: string[] }
-  | { t: "hr" };
+  | { t: "hr" }
+  | { t: "table"; head: string[]; rows: string[][] };
 
 export function parseProse(src: string): Block[] {
   const blocks: Block[] = [];
-  for (const raw of src.replace(/\r/g, "").split("\n")) {
-    const line = raw.trimEnd();
+  const lines = src.replace(/\r/g, "").split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trimEnd();
     const prev = blocks[blocks.length - 1];
+    const head = tableCells(line);
+    if (head && i + 1 < lines.length && isTableDivider(lines[i + 1])) {
+      const rows: string[][] = [];
+      i += 2;
+      while (i < lines.length && tableCells(lines[i])) rows.push(tableCells(lines[i++])!);
+      i--;
+      blocks.push({ t: "table", head, rows });
+      continue;
+    }
     if (!line.trim()) { blocks.push({ t: "p", lines: [] }); continue; }
     if (/^\s*(——+|---+)\s*$/.test(line)) { blocks.push({ t: "hr" }); continue; }
     const h = /^(#{1,4})\s+(.*)$/.exec(line);
@@ -54,6 +66,15 @@ export function Prose({ text }: { text: string }) {
         const k = `b${i}`;
         switch (b.t) {
           case "hr": return <hr key={k} />;
+          case "table":
+            return (
+              <div key={k} className="m-table-wrap">
+                <table className="m-table">
+                  <thead><tr>{b.head.map((c, j) => <th key={j}>{inline(c, `${k}-h${j}`)}</th>)}</tr></thead>
+                  <tbody>{b.rows.map((r, ri) => <tr key={ri}>{b.head.map((_, j) => <td key={j}>{inline(r[j] ?? "", `${k}-${ri}-${j}`)}</td>)}</tr>)}</tbody>
+                </table>
+              </div>
+            );
           case "h": return <h4 key={k}>{inline(b.text, k)}</h4>;
           case "ul": return <ul key={k}>{b.items.map((it, j) => <li key={j}>{inline(it, `${k}-${j}`)}</li>)}</ul>;
           case "ol": return <ol key={k}>{b.items.map((it, j) => <li key={j}>{inline(it, `${k}-${j}`)}</li>)}</ol>;

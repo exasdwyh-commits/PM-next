@@ -106,3 +106,11 @@
 - 显示修复：工作区标题只取目标首行；侧栏预览去掉 Markdown 符号；产出步骤行对齐。
 - 验证：tsc、eslint、kern-brief(B1–B6)、kern-supervisor(S5 走简报)、mission-controls、memory-quota、unit 全过；next build 通过；截图 shots/p3-*。
 - 下一步：产出（表格/决策卡）、带走（Proposal，演示禁止）、MD/PDF 导出；再 P0-D 每次调用额度检查。
+
+## Display Layer PR ④ 产出与带走（feat/kern-display-artifacts，基于 feat/kern-display-output / #42）
+- `supervisor/report-format.ts`（纯函数，前后端共用）：目标首行、约束解析、「需要你决定」抽取、推荐方向、Markdown 表格、安全 MD→HTML、报告 MD。
+- `supervisor/takeaway.ts`：读取节点完整产出（executorResult.output，而非 4000 字摘要）；一键生成提案——对话未绑定产品时「新建产品并立项」(CREATE_PRODUCT)，已绑定时「加到项目作为工作项」(CREATE_WORK_ITEM)；幂等；确认前不写业务；演示任务与未完成任务拒绝；仅本人。
+- API：GET /api/missions/[id]/export?format=md|pdf（pdf = 可打印页，自动弹打印对话框），GET/POST /api/missions/[id]/takeaway。
+- UI：产出页顶部「需要你决定」卡 + 「带走」栏（提案回执、导出 MD/PDF、演示说明）；Prose 支持表格。
+- 验证：tsc、eslint、kern-report 单测、test:kern-takeaway（T1–T7）及既有 kern 套件全过；next build；截图 shots/p4-*。
+- 下一步：P0-D 每次模型调用前查额度，跳过/取消后不再调用模型。
