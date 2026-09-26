@@ -78,7 +78,9 @@
     - `node.cite` 类型已预留，研究节点接入（P0-B）后才会真正产生；
     - 跳过进行中的步骤：排队中的子任务会被取消，已在跑的会跑完但结果被忽略（可能多花一次模型调用）；
     - `snapshot.log` 仍保留写入，UI 在 PR ② 切到事件流后再考虑移除。
-  - 下一步：PR ② 工作区 UI（过程 / 产出 tab）+ 对话卡片；PR ③ 演示回放、产出物、一键带走、导出。
+  - PR ① = #40。PR ②（分支 `feat/kern-display-ui`，叠在 #40 上）：对话进度卡（实时一句话、进度条、暂停/继续、查看过程/产出）+ 工作区抽屉（「过程」按成员分道、摘要/完整切换、重跑/跳过/移出、插一句、加步骤、QA 与红队、全部事件；「产出」结论、各步骤产出、为什么是这些成员/为什么需要你决定/消耗）。纯函数 `src/app/muse/mission-timeline.ts` 有单测。
+  - 已知：Prose 不渲染 markdown 表格（显示原文），PR ③ 产出物里处理。
+  - 下一步：PR ③ 演示回放、报告/对比表/图表/决策卡、一键带走（Proposal）、MD/PDF 导出。
 - Display Layer 实现时要预留给后续阶段的接口：
   - `node.cite` 事件带 `sourceCaptureId` / URL / fetchedAt，引用能从研究节点一直传到结论卡与导出（为 citation lineage 预留）；
   - 快照里已加 `demo` 标记，事件表也有 `demo` 列；演示 mission **不能**用 `kern-mission/v1` schema（billing 按它计任务数），或在计费查询里显式排除 `demo=true`；

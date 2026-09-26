@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ActivityItem, ConversationSummary, EvidenceRef, RuntimeStatus } from "../types";
 import { Btn, CONF, I, Tag } from "./kit";
 
-function Sheet({ title, sub, onClose, children }: { title: string; sub?: string; onClose: () => void; children: React.ReactNode }) {
+export function Sheet({ title, sub, onClose, wide, aside, children }: { title: string; sub?: string; onClose: () => void; wide?: boolean; aside?: React.ReactNode; children: React.ReactNode }) {
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", k);
@@ -13,12 +13,13 @@ function Sheet({ title, sub, onClose, children }: { title: string; sub?: string;
   return (
     <>
       <div className="m-scrim" onClick={onClose} />
-      <aside className="m-sheet" role="dialog" aria-modal="true" aria-label={title}>
+      <aside className="m-sheet" data-wide={wide ? "true" : undefined} role="dialog" aria-modal="true" aria-label={title}>
         <header className="m-sheet-head">
           <div>
             <h2>{title}</h2>
             {sub ? <p>{sub}</p> : null}
           </div>
+          {aside}
           <button type="button" className="m-btn" data-v="ghost" data-size="sm" onClick={onClose} aria-label="关闭">
             <I.close />
           </button>
