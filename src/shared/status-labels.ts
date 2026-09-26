@@ -408,6 +408,7 @@ export const CITATION_KIND_LABELS: Record<string, string> = {
   "challenge-report": "挑战报告",
   knowledge: "知识库",
   "desktop-task": "本机任务",
+  "agent-task": "专家任务",
 };
 
 /** 统一的查询入口：映射不到时回退原始值（不显示空白） */
