@@ -88,7 +88,7 @@ export function buildKernCollaborationPlanShadow(input: {
     [/(成本|BOM|毛利|佣金|MOQ|报价|单位经济)/i, "cost_bom_agent", "COST_SIGNAL"],
     [/(供应商|打样|生产|交期|供应链|产能)/, "ops_agent", "SUPPLY_SIGNAL"],
     [/(产品定义|价值主张|定位|产品策略|规格路线)/, "product_agent", "PRODUCT_SIGNAL"],
-    [/(架构|接口设计|数据模型|技术方案|代码审查|测试策略|技术风险|重构|TypeScript|Prisma|API|CI\\b|GitHub)/i, "tech_architect_agent", "TECH_ARCHITECT_SIGNAL"],
+    [/(架构|接口设计|数据模型|技术方案|代码审查|测试策略|技术风险|重构|TypeScript|Prisma|API|CI\b|GitHub)/i, "tech_architect_agent", "TECH_ARCHITECT_SIGNAL"],
     [/(证伪|反方|红队|失败路径|挑战.*判断|哪里会失败)/, "red_team", "RED_TEAM_SIGNAL"],
   ];
   for (const [pattern, code, reason] of keywordRules) {
