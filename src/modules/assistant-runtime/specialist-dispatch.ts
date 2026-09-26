@@ -47,15 +47,26 @@ export async function enqueueKernSpecialistDispatch(input: {
     return null;
   }
 
-  const agent = await prisma.agent.findFirst({
-    where: {
-      organizationId: input.session.organizationId,
-      code: readiness.agentCode,
-      status: AgentLifecycleStatus.ACTIVE,
-    },
-    select: { id: true, code: true },
-  });
-  if (!agent) return null;
+  const [agent, sourceRun] = await Promise.all([
+    prisma.agent.findFirst({
+      where: {
+        organizationId: input.session.organizationId,
+        code: readiness.agentCode,
+        status: AgentLifecycleStatus.ACTIVE,
+      },
+      select: { id: true, code: true },
+    }),
+    prisma.agentRun.findFirst({
+      where: {
+        id: input.sourceRunId,
+        organizationId: input.session.organizationId,
+        userId: input.session.userId,
+        conversationId: input.conversationId,
+      },
+      select: { id: true },
+    }),
+  ]);
+  if (!agent || !sourceRun) return null;
 
   const triggerRef = [
     "kern-conversation",
@@ -66,50 +77,63 @@ export async function enqueueKernSpecialistDispatch(input: {
     agent.code,
   ].join(":");
 
-  const existing = await prisma.agentTask.findFirst({
-    where: {
-      organizationId: input.session.organizationId,
+  // Serialize the same source-run/agent dispatch key at the database level.
+  // This closes the find-then-create race without adding a migration solely for
+  // the Phase 2 pilot. Collisions only serialize unrelated work; they do not
+  // change correctness.
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT pg_advisory_xact_lock(hashtextextended(${triggerRef}, 0))
+    `;
+
+    const existing = await tx.agentTask.findFirst({
+      where: {
+        organizationId: input.session.organizationId,
+        agentId: agent.id,
+        triggerRef,
+      },
+      select: { id: true, status: true },
+    });
+    if (existing) {
+      return {
+        created: false,
+        taskId: existing.id,
+        agentCode: agent.code,
+        status: existing.status,
+        triggerRef,
+      };
+    }
+
+    // createAgentTask keeps the existing access, audit and governance checks.
+    // The advisory lock remains held until this outer transaction finishes, so
+    // a concurrent replay cannot pass the existence check.
+    const task = await createAgentTask(input.session, {
       agentId: agent.id,
+      goal: input.goal,
+      priority: 60,
+      triggerType: AgentTriggerType.MANUAL,
       triggerRef,
-    },
-    select: { id: true, status: true },
-  });
-  if (existing) {
+      contextSnapshot: {
+        schemaVersion: "kern-specialist-dispatch/v1",
+        kernConversationReturn: {
+          version: "kern-conversation-return/v1",
+          conversationId: input.conversationId,
+          sourceRunId: input.sourceRunId,
+          requestedByUserId: input.session.userId,
+          agentCode: agent.code,
+          taskClass: readiness.taskClass,
+        },
+        dispatchReadiness: readiness as unknown as Prisma.InputJsonValue,
+        requestedAt: new Date().toISOString(),
+      } as Prisma.InputJsonValue,
+    });
+
     return {
-      created: false,
-      taskId: existing.id,
+      created: true,
+      taskId: task.id,
       agentCode: agent.code,
-      status: existing.status,
+      status: task.status,
       triggerRef,
     };
-  }
-
-  const task = await createAgentTask(input.session, {
-    agentId: agent.id,
-    goal: input.goal,
-    priority: 60,
-    triggerType: AgentTriggerType.MANUAL,
-    triggerRef,
-    contextSnapshot: {
-      schemaVersion: "kern-specialist-dispatch/v1",
-      kernConversationReturn: {
-        version: "kern-conversation-return/v1",
-        conversationId: input.conversationId,
-        sourceRunId: input.sourceRunId,
-        requestedByUserId: input.session.userId,
-        agentCode: agent.code,
-        taskClass: readiness.taskClass,
-      },
-      dispatchReadiness: readiness as unknown as Prisma.InputJsonValue,
-      requestedAt: new Date().toISOString(),
-    } as Prisma.InputJsonValue,
   });
-
-  return {
-    created: true,
-    taskId: task.id,
-    agentCode: agent.code,
-    status: task.status,
-    triggerRef,
-  };
 }
