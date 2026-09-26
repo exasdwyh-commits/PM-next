@@ -1445,6 +1445,8 @@ model Conversation {
   title          String
   /// 产品页内顾问会话绑定产品；全局顾问为 null
   productId      String?
+  /// Conversation-level model/advisor/skill/capability preferences for Kern.
+  runtimeConfig  Json?
   archivedAt     DateTime?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
