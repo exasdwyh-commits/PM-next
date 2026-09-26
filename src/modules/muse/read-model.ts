@@ -193,6 +193,31 @@ async function loadAttention(
       conversationId: row.conversationId ?? null,
     });
   }
+  const soon = new Date(Date.now() + 3 * 86_400_000);
+  const milestones = await prisma.launchMilestone
+    .findMany({
+      where: {
+        ownerId: session.userId,
+        status: { in: ["PENDING", "IN_PROGRESS", "BLOCKED"] },
+        OR: [{ status: "BLOCKED" }, { dueDate: { lte: soon } }],
+      },
+      orderBy: { dueDate: "asc" },
+      take: 8,
+      select: { id: true, title: true, dueDate: true, status: true },
+    })
+    .catch(() => []);
+  const nowIso = new Date().toISOString();
+  for (const m of milestones) {
+    signals.push({
+      kind: "DEADLINE",
+      id: m.id,
+      title: m.title,
+      dueAt: m.dueDate ? m.dueDate.toISOString() : null,
+      blocked: m.status === "BLOCKED",
+      href: "/projects",
+      now: nowIso,
+    });
+  }
   return buildAttentionBrief(signals);
 }
 
@@ -407,6 +432,7 @@ export async function buildKernViewModel(
     needsYou: [],
     inProgress: [],
     handledQuietly: 0,
+    completedRecently: 0,
   }));
 
   const modelReady = await isKernModelReady(session.organizationId).catch(() => false);

@@ -139,6 +139,7 @@ export interface ChatBrief {
     needsYou: AttentionItemView[];
     inProgress: AttentionItemView[];
     handledQuietly: number;
+    completedRecently: number;
   };
   suggestions: { id: string; title: string; why: string; prompt: string }[];
 }

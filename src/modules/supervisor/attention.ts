@@ -34,6 +34,15 @@ export type AttentionSignal =
       conversationId: string | null;
     }
   | {
+      kind: "DEADLINE";
+      id: string;
+      title: string;
+      dueAt: string | null;
+      blocked: boolean;
+      href: string | null;
+      now: string;
+    }
+  | {
       kind: "TASK_WAITING_HUMAN";
       id: string;
       goal: string;
@@ -108,6 +117,28 @@ export function classifyAttention(signal: AttentionSignal): AttentionItem {
         conversationId: signal.conversationId,
         sortKey: PROTECTED_ACTIONS.test(signal.actionType) ? 90 : 70,
       };
+    case "DEADLINE": {
+      const due = signal.dueAt ? new Date(signal.dueAt).getTime() : null;
+      const now = new Date(signal.now).getTime();
+      const days = due === null ? null : Math.floor((due - now) / 86_400_000);
+      const overdue = days !== null && days < 0;
+      const why = signal.blocked
+        ? "里程碑受阻"
+        : overdue
+          ? `已逾期 ${-days!} 天`
+          : days === 0
+            ? "今天到期"
+            : `${days} 天后到期`;
+      return {
+        id: `deadline:${signal.id}`,
+        level: signal.blocked || overdue ? "INTERRUPT" : days !== null && days <= 2 ? "SURFACE" : "WATCH",
+        title: signal.title,
+        why,
+        href: signal.href,
+        conversationId: null,
+        sortKey: signal.blocked || overdue ? 95 : 75,
+      };
+    }
     case "TASK_WAITING_HUMAN":
       return {
         id: `task:${signal.id}`,
@@ -129,5 +160,8 @@ export function buildAttentionBrief(signals: AttentionSignal[], limit = 6) {
     .slice(0, limit);
   const inProgress = items.filter((i) => i.level === "AUTO_HANDLE").slice(0, limit);
   const handledQuietly = items.filter((i) => i.level === "WATCH").length;
-  return { needsYou, inProgress, handledQuietly };
+  const completedRecently = signals.filter(
+    (s) => s.kind === "MISSION" && s.status === "COMPLETED" && s.finishedAt && Date.now() - new Date(s.finishedAt).getTime() < 86_400_000
+  ).length;
+  return { needsYou, inProgress, handledQuietly, completedRecently };
 }

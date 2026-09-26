@@ -433,7 +433,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
         <div className="m-scroll">
           <div className="m-lane">
             {conversation === null ? (
-              <Blank seeds={brief.suggestions} attention={brief.attention} onSeed={setDraft} onOpen={pickConversation} />
+              <Blank seeds={brief.suggestions} attention={brief.attention} userName={model.user.name} onSeed={setDraft} onOpen={pickConversation} />
             ) : (
               <>
                 {conversation.productId ? (

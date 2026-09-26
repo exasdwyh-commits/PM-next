@@ -271,9 +271,15 @@ export function Dock({
   );
 }
 
+function greeting(): string {
+  const h = new Date().getHours();
+  return h < 5 ? "夜深了" : h < 11 ? "早上好" : h < 14 ? "中午好" : h < 18 ? "下午好" : "晚上好";
+}
+
 export function Blank({
   seeds,
   attention,
+  userName,
   onSeed,
   onOpen,
 }: {
@@ -282,7 +288,9 @@ export function Blank({
     needsYou: { id: string; level: string; title: string; why: string; href: string | null; conversationId: string | null }[];
     inProgress: { id: string; title: string; why: string; conversationId: string | null }[];
     handledQuietly: number;
+    completedRecently?: number;
   };
+  userName?: string;
   onSeed: (p: string) => void;
   onOpen?: (conversationId: string) => void;
 }) {
@@ -297,8 +305,10 @@ export function Blank({
       <header className="m-home-head">
         <span className="m-blank-orb" aria-hidden />
         <div>
-          <h2>{needs.length ? `有 ${needs.length} 件事需要你` : "目前不需要你操心"}</h2>
+          <h2 suppressHydrationWarning>{greeting()}{userName ? `，${userName.replace(/\s*[（(].*$/, "")}` : ""}</h2>
           <p>
+            {needs.length ? `有 ${needs.length} 件事需要你。` : "目前没有需要你操心的事。"}
+            {attention?.completedRecently ? `过去一天完成了 ${attention.completedRecently} 项工作。` : ""}
             {doing.length
               ? `Kern 正在推进 ${doing.length} 项工作。`
               : "直接说目标，能做的我会自己推进。"}

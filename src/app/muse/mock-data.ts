@@ -96,7 +96,7 @@ export const studioModel: StudioModel = {
         startedAt: "今天 09:02",
       },
     ],
-    attention: { needsYou: [], inProgress: [], handledQuietly: 0 },
+    attention: { needsYou: [], inProgress: [], handledQuietly: 0, completedRecently: 0 },
     suggestions: [
       {
         id: "s-1",
