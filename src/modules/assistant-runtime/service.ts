@@ -23,8 +23,8 @@ function asInputJson(value: unknown): Prisma.InputJsonValue {
 /**
  * Stable conversational entry point for the final product.
  *
- * Kern owns the conversation lifecycle. Legacy Advisor remains only as a
- * temporary domain-capability provider behind conversation-engine.ts.
+ * Kern owns the conversation lifecycle, routing and capability execution.
+ * Advisor modules are compatibility/support libraries only.
  */
 export async function sendDepartmentAssistantMessage(
   session: SessionContext,
