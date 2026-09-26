@@ -10,9 +10,9 @@ import {
   type AdvisorLLMMessage,
 } from "@/modules/advisor/llm";
 import {
-  advisorModelRouteForIntent,
-  resolveIntentWithKernPlanner,
-} from "@/modules/advisor/service";
+  modelRouteForIntent,
+  resolveKernIntent,
+} from "./router";
 import {
   executeKernCapability,
   type KernCapabilityContext,
@@ -69,14 +69,14 @@ export async function executeKernConversationTurn(
     select: { role: true, content: true },
   });
 
-  const intentRouting = await resolveIntentWithKernPlanner(session, {
+  const intentRouting = await resolveKernIntent(session, {
     conversationId,
     text,
     productBound: Boolean(conversation.productId),
     history: plannerHistoryRows.reverse(),
   });
   const intent = intentRouting.intent;
-  const modelRoute = advisorModelRouteForIntent(intent);
+  const modelRoute = modelRouteForIntent(intent);
   const startedAt = new Date();
 
   let gatewayPlan: Awaited<
