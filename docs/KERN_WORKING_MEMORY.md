@@ -68,19 +68,45 @@
 - 注意：上面是**原开发沙箱**的备忘。其他会话的沙箱可能没有 `kern-env.sh` / bundle（例如 Postgres 需自行 `apt-get install postgresql`，按 CI 的环境变量建 `hermes_test` + `hermes_dev_guard`；build 需 `--max-old-space-size=3072`）。
 
 ## 5. 待办
-- 当前阶段：**对话内全面展示（Display Layer）**。
-  - 规格见 `docs/KERN_DISPLAY_SPEC.md`，grill 3 轮已完成，需求 v1 已定。
-  - PR ①（事件 + 控制 + SSE，分支 `feat/kern-display-layer`）已开 PR，待用户 review：
-    - `KernMissionEvent` 表（每个 mission 的 seq 严格递增，advisory lock + 唯一约束）；`src/modules/supervisor/events.ts`；
-    - `controls.ts`：暂停 / 继续 / 取消 / 跳过 / 重跑 / 改计划 / 补充信息（owner-only）；新增结局 `CANCELLED`；
-    - 路由：`POST /api/missions/[id]/control`、`GET …/events?after=`、`GET …/stream`（SSE，DB 轮询 1s，支持 Last-Event-ID）；
-    - 模型网关还**不是流式**：`node.delta` 目前一次性发完整文本（`streamed:false`），打字效果由演示回放器做；
-    - `node.cite` 类型已预留，研究节点接入（P0-B）后才会真正产生；
-    - 跳过进行中的步骤：排队中的子任务会被取消，已在跑的会跑完但结果被忽略（可能多花一次模型调用）；
-    - `snapshot.log` 仍保留写入，UI 在 PR ② 切到事件流后再考虑移除。
-  - PR ① = #40。PR ②（分支 `feat/kern-display-ui`，叠在 #40 上）：对话进度卡（实时一句话、进度条、暂停/继续、查看过程/产出）+ 工作区抽屉（「过程」按成员分道、摘要/完整切换、重跑/跳过/移出、插一句、加步骤、QA 与红队、全部事件；「产出」结论、各步骤产出、为什么是这些成员/为什么需要你决定/消耗）。纯函数 `src/app/muse/mission-timeline.ts` 有单测。
-  - 已知：Prose 不渲染 markdown 表格（显示原文），PR ③ 产出物里处理。
-  - 下一步：PR ③ 演示回放、报告/对比表/图表/决策卡、一键带走（Proposal）、MD/PDF 导出。
+
+### 已完成：Display Layer（PR #40–#43，全部 CI 绿，待 review 合并）
+规格见 `docs/KERN_DISPLAY_SPEC.md`（grill 3 轮，需求 v1 已定）。四个堆叠 PR：
+
+| PR | 分支 | 内容 |
+|---|---|---|
+| #40 | `feat/kern-display-layer` → main | `KernMissionEvent` 表（seq 严格递增，advisory lock + 唯一约束）、`events.ts`、`controls.ts`（暂停/继续/取消/跳过/重跑/改计划/补充信息，owner-only，新增结局 `CANCELLED`）、`POST /control`、`GET /events?after=`、`GET /stream`（SSE，DB 轮询 1s，支持 Last-Event-ID） |
+| #41 | `feat/kern-display-ui` → #40 | 对话实时进度卡 + 工作区抽屉（「过程」按成员分道、摘要/完整、重跑/跳过、插一句、加步骤；「产出」结论与消耗）。纯函数 `mission-timeline.ts` 有单测 |
+| #42 | `feat/kern-display-output` → #41 | 澄清卡 + 计划卡（`brief.ts`）+ 演示模式（`demo.ts`） |
+| #43 | `feat/kern-display-artifacts` → #42 | 决策卡、一键带走 Proposal（`takeaway.ts`）、MD/PDF 导出 |
+
+已知限制（诚实记录）：
+- 模型网关**不是流式**：`node.delta` 一次性发完整文本（`streamed:false`），打字效果由演示回放器做；
+- `node.cite` 类型已预留，研究节点接入（P0-B）后才会真正产生；
+- 跳过进行中的步骤：排队中子任务被取消，已在跑的会跑完但结果被忽略（可能多花一次模型调用）；
+- `snapshot.log` 仍保留写入，未来切干净再移除；
+- 工作区只有「过程 / 产出」两个页签，元信息并入产出底部，未做成第三个页签；
+- 图表没有专门组件（已由 Response Layer 的 `chart` 块补上）。
+
+### 当前阶段：Response Layer（回复呈现框架）
+分支 `feat/kern-response-format`，叠在 #43 上。规格 `docs/KERN_RESPONSE_SPEC.md`。
+
+解决的问题：Display Layer 让人**看得见过程**，但"Kern 说出来的内容长什么样"没有规范，模型直接吐 Markdown，排版和质量都不可控。
+
+- **契约** `src/modules/response-format/types.ts`：`ResponseEnvelope` + 14 种 Block（含 `progress` 流式块、`clarify` 澄清块）。模型不再产出 HTML/Markdown 长文，排版由前端唯一决定 → 对话卡 / 工作区 / 导出 PDF 长得一致。
+- **harness** `validate.ts`：14 条规则，同构（Node 测试与浏览器渲染器共用一份，避免两套真相）。error 级不渲染直接回退重跑，warn 级渲染标黄。重点规则：R3 事实必须带来源角标且角标不能悬空、R4 决策卡三段齐全、R9 AI 套话黑名单、R10 UNKNOWN 必须写清缺什么源、R13 信封类型与必备块对应。
+- **渲染器** `src/app/muse/response/response-view.tsx` + `response.css`：14 种块的 TSX 实现，`parseInline` 不走 `dangerouslySetInnerHTML`；harness 失败时显示诚实失败态而不是渲染不合规内容。
+- **适配器** `from-mission.ts`：`MissionReport → ResponseEnvelope`。**宁可降级不许编造**——三段拿不全就不生成决策卡、信封降级为 ANSWER；没有真实来源就不生成 evidence 块也不输出 fact 要点，挂诚实 callout。这样 harness 是真守门而不是被适配器绕过。
+- **CI**：`npm run test:response-format`（24 用例全绿），已挂进 `test:delivery-contracts` 与 `kern-supervisor-ci.yml`。
+- 预览页 `kern-response-framework/`（不在仓库，由 `build-conversation.py` 从仓库 `response.css` 直接构建，保证预览与产品同源）。
+
+未接线：`ResponseView` 还没有替换 `muse` 现有的 prose 渲染路径，需要 supervisor 在写结论消息时同时产出 envelope。这是下一步。
+
+### 环境踩坑（新沙箱复现用）
+- 全新沙箱没有 `kern-env.sh` / bundle：需 `apt-get install postgresql`，自建 `kern_dev` + `hermes_test`。
+- `node_modules` 与 apt 包都不进快照，每次恢复都要 `npm ci` + `npx playwright install --with-deps chromium`。
+- 2GB 内存下 `next build` 会 OOM，改用 `next dev`；dev server + worker + Chromium 三者同时跑仍可能被杀，截图时先停 worker。
+- **演示模式在全新库上会 422**：`Kern PM agent is not active; run workforce bootstrap first`。`prisma/seed.ts` 不 bootstrap workforce，必须先 `POST /api/workforce/bootstrap`。这与"没有模型也能把整条链路演示完整"的承诺有缺口，建议补进 seed 或让演示模式自动 bootstrap。
+
 - Display Layer 实现时要预留给后续阶段的接口：
   - `node.cite` 事件带 `sourceCaptureId` / URL / fetchedAt，引用能从研究节点一直传到结论卡与导出（为 citation lineage 预留）；
   - 快照里已加 `demo` 标记，事件表也有 `demo` 列；演示 mission **不能**用 `kern-mission/v1` schema（billing 按它计任务数），或在计费查询里显式排除 `demo=true`；
