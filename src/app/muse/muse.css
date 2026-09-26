@@ -409,3 +409,54 @@
 .muse .m-top-title { margin: 0; font-size: var(--m-t-lead); font-weight: 620; letter-spacing: -.015em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 输入坞已有 focus-within 环，textarea 自身不再画第二层 */
 .muse .m-dock textarea:focus-visible { outline: none; }
+
+/* Conversation controls: keep Muse's single chat dock, expose power only on demand. */
+.muse .m-control-strip { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.muse .m-control { position: relative; }
+.muse .m-control > summary { list-style: none; user-select: none; }
+.muse .m-control > summary::-webkit-details-marker { display: none; }
+.muse .m-control[open] > summary { background: var(--m-accent-wash); border-color: var(--m-accent-line); color: var(--m-accent-ink); }
+.muse .m-control-menu {
+  position: absolute;
+  z-index: 75;
+  left: 0;
+  bottom: calc(100% + 9px);
+  width: min(330px, calc(100vw - 28px));
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 7px;
+  border: 1px solid var(--m-hairline);
+  border-radius: var(--m-r-lg);
+  background: var(--m-canvas-2);
+  box-shadow: var(--m-sh-3);
+}
+.muse .m-control-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 18px;
+  gap: 12px;
+  align-items: center;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: var(--m-r-sm);
+  background: transparent;
+  color: var(--m-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.muse .m-control-row:hover,
+.muse .m-control-row:focus-visible { background: var(--m-accent-wash); outline: none; }
+.muse .m-control-row[aria-pressed="true"] { background: var(--m-surface-sunk); }
+.muse .m-control-row b { display: block; font-size: var(--m-t-sm); font-weight: 590; }
+.muse .m-control-row small { display: block; margin-top: 2px; color: var(--m-ink-4); font-size: var(--m-t-xs); line-height: 1.35; }
+.muse .m-control-row > i { color: var(--m-accent); font-style: normal; font-weight: 700; text-align: center; }
+.muse .m-control-empty { margin: 6px 8px; color: var(--m-ink-4); font-size: var(--m-t-xs); }
+.muse .m-runtime-pill { margin-left: auto; }
+
+@media (max-width: 760px) {
+  .muse .m-control-strip { width: 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .muse .m-control-strip::-webkit-scrollbar { display: none; }
+  .muse .m-control { flex: none; }
+  .muse .m-runtime-pill { margin-left: 0; }
+}
