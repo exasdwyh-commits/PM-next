@@ -57,7 +57,7 @@ test("agent binding presets match the policy task class", () => {
 
 test("strategic and red-team presets keep reasoning as a hard capability", () => {
   const guarded = MODEL_POLICY_PRESETS.filter((policy) =>
-    ["PRODUCT_ANALYSIS", "STRATEGIC_CONSULTING", "RED_TEAM", "DECISION_REVIEW"].includes(
+    ["PRODUCT_ANALYSIS", "STRATEGIC_CONSULTING", "RED_TEAM", "DECISION_REVIEW", "CODING"].includes(
       policy.taskClass
     )
   );
@@ -65,4 +65,21 @@ test("strategic and red-team presets keep reasoning as a hard capability", () =>
   for (const policy of guarded) {
     assert.ok(policy.requiredCapabilities.includes("REASONING"), policy.key + " must require REASONING");
   }
+});
+
+test("Tech Architect has an explicit CODING policy binding", () => {
+  const codingPolicy = MODEL_POLICY_PRESETS.find(
+    (policy) => policy.key === "tech-architecture-coding"
+  );
+  assert.ok(codingPolicy);
+  assert.equal(codingPolicy.taskClass, "CODING");
+  assert.ok(codingPolicy.requiredCapabilities.includes("REASONING"));
+
+  const binding = AGENT_MODEL_BINDING_PRESETS.find(
+    (item) =>
+      item.agentCode === "tech_architect_agent" &&
+      item.taskClass === "CODING"
+  );
+  assert.ok(binding);
+  assert.equal(binding.policyKey, "tech-architecture-coding");
 });
