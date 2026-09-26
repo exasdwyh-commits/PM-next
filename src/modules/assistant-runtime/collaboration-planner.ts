@@ -19,6 +19,9 @@ export interface KernCollaborationPlanShadow {
   independentFirstPass: boolean;
   qaRequired: boolean;
   redTeamRequired: boolean;
+  autoDispatchCandidate: boolean;
+  autoDispatchEligible: boolean;
+  authority: "ADVISORY_ONLY";
   source: "REFLEX" | "DETERMINISTIC" | "HYBRID";
   reasons: string[];
 }
@@ -71,7 +74,7 @@ export function buildKernCollaborationPlanShadow(input: {
     COST: "cost_bom_agent",
     SUPPLY: "ops_agent",
     QA: "qa_verifier",
-    CODE: "hermes_pm",
+    CODE: "tech_architect_agent",
   };
   if (reflexExpert && reflexExpert !== "NONE" && expertMap[reflexExpert]) {
     add(expertMap[reflexExpert], `REFLEX_EXPERT_${reflexExpert}`);
@@ -85,6 +88,7 @@ export function buildKernCollaborationPlanShadow(input: {
     [/(成本|BOM|毛利|佣金|MOQ|报价|单位经济)/i, "cost_bom_agent", "COST_SIGNAL"],
     [/(供应商|打样|生产|交期|供应链|产能)/, "ops_agent", "SUPPLY_SIGNAL"],
     [/(产品定义|价值主张|定位|产品策略|规格路线)/, "product_agent", "PRODUCT_SIGNAL"],
+    [/(架构|接口设计|数据模型|技术方案|代码审查|测试策略|技术风险|重构|TypeScript|Prisma|API|CI\\b|GitHub)/i, "tech_architect_agent", "TECH_ARCHITECT_SIGNAL"],
     [/(证伪|反方|红队|失败路径|挑战.*判断|哪里会失败)/, "red_team", "RED_TEAM_SIGNAL"],
   ];
   for (const [pattern, code, reason] of keywordRules) {
@@ -147,6 +151,16 @@ export function buildKernCollaborationPlanShadow(input: {
         ? "BALANCED"
         : "FAST";
 
+  const autoDispatchCandidate =
+    (mode === "SOLO" || mode === "SPECIALIST") &&
+    !highRisk &&
+    !explicitFullRnd &&
+    !explicitRedTeam &&
+    input.reflex.error === null;
+  // Routing shape alone is not execution readiness. SOLO stays inline;
+  // SPECIALIST readiness is resolved against the organization's real runtime.
+  const autoDispatchEligible = autoDispatchCandidate && mode === "SOLO";
+
   const source =
     input.reflex.mode === "SHADOW" && reasons.some((reason) => reason.startsWith("REFLEX_"))
       ? reasons.length > 1
@@ -167,6 +181,9 @@ export function buildKernCollaborationPlanShadow(input: {
     independentFirstPass: experts.size > 1,
     qaRequired: mode === "FULL_RND" || mode === "COUNCIL" || highRisk,
     redTeamRequired: mode === "RED_TEAM" || (mode === "FULL_RND" && highRisk),
+    autoDispatchCandidate,
+    autoDispatchEligible,
+    authority: "ADVISORY_ONLY",
     source,
     reasons: [...new Set(reasons)],
   };
