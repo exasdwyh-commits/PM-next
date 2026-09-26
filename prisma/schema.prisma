@@ -1924,6 +1924,8 @@ model AgentTask {
   priority        Int             @default(50)
   triggerType     AgentTriggerType @default(MANUAL)
   triggerRef      String?
+  /// Supervisor/automation task creation idempotency key. Null for legacy/manual tasks.
+  idempotencyKey  String?          @unique
   blockedReason   String?
   attempt         Int             @default(1)
   maxAttempts     Int             @default(3)
