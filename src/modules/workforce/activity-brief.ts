@@ -70,19 +70,11 @@ export async function getWorkforceActivityBrief(
     (row) => row.autopilotReceipt?.status === AutopilotEventStatus.FAILED
   ).length;
 
+  // Personal-assistant attention budget:
+  // returned child results are Kern's internal supervision work, not automatically
+  // a human interruption. Keep returnReviewCount separately for Automation Center,
+  // but only true WAITING_HUMAN / policy gates enter the user's attention queue.
   const attentionItems = [
-    ...overview.returnReviews.map((review) => ({
-      id: review.id,
-      kind: "RETURN_REVIEW" as const,
-      title: review.returned.parentTaskGoal || review.goal,
-      detail:
-        review.returned.resultSummary ||
-        review.returned.reason ||
-        "专业 Agent 已返回，但没有可读摘要。",
-      agentName: review.agent.name,
-      updatedAt: review.updatedAt,
-      href: "/workforce",
-    })),
     ...overview.waitingTasks.map((task) => ({
       id: task.id,
       kind: "WAITING_HUMAN" as const,
@@ -130,7 +122,7 @@ export async function getWorkforceActivityBrief(
     failedCount,
     waitingHumanCount,
     returnReviewCount,
-    attentionCount: waitingHumanCount + returnReviewCount + waitingPolicyCount,
+    attentionCount: waitingHumanCount + waitingPolicyCount,
     attentionItems,
     recentTraces: recentTraces
       .filter((trace) => trace.createdAt >= since)
