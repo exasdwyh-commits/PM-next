@@ -15,6 +15,7 @@ import {
 } from "./router";
 import {
   executeKernCapability,
+  toolWhitelistForCapabilityKeys,
   type KernCapabilityContext,
   type KernCapabilityResult,
 } from "./capabilities";
@@ -156,6 +157,9 @@ export async function executeKernConversationTurn(
     !gatewayResolutionError &&
     isAdvisorLLMEnabled();
   const modelPlanned = gatewayReady || legacyEnabled;
+  const effectiveToolWhitelist = toolWhitelistForCapabilityKeys(
+    runtimeSelection.config.capabilityKeys
+  );
 
   let run;
   if (options?.runId) {
@@ -175,7 +179,7 @@ export async function executeKernConversationTurn(
         promptTemplateVersion: modelPlanned
           ? ADVISOR_LLM_SYSTEM_PROMPT_VERSION
           : "kern-capabilities/v1",
-        toolWhitelist: KERN_TOOL_WHITELIST,
+        toolWhitelist: effectiveToolWhitelist,
         contextSnapshot: {
           capturedAt: startedAt.toISOString(),
           organizationId: session.organizationId,
@@ -220,7 +224,7 @@ export async function executeKernConversationTurn(
         promptTemplateVersion: modelPlanned
           ? ADVISOR_LLM_SYSTEM_PROMPT_VERSION
           : "kern-capabilities/v1",
-        toolWhitelist: KERN_TOOL_WHITELIST,
+        toolWhitelist: effectiveToolWhitelist,
         contextSnapshot: {
           capturedAt: startedAt.toISOString(),
           organizationId: session.organizationId,
