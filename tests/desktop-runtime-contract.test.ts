@@ -74,7 +74,9 @@ test("desktop runtime delivery wiring stays present", () => {
   assert.ok(router.includes('"DESKTOP_EXECUTION"'));
   assert.ok(desktopCapability.includes('"desktop.runtime"'));
   assert.ok(registry.includes("handleDesktopCapability"));
-  assert.ok(client.includes("Desktop Runtime 完成任务后会把真实结果写回原会话"));
+  assert.ok(
+    client.includes("Desktop Runtime 与 Kern 顾问团异步任务都通过 Message 协议回写原会话")
+  );
   assert.ok(runtime.includes('"codex"'));
   assert.ok(runtime.includes('"workspace-write"'));
   assert.ok(runtime.includes("HERMES_DESKTOP_ALLOWED_ROOTS"));
