@@ -186,7 +186,7 @@ Goal
 → Synthesize
 ```
 
-Architecture V2 的第一核心任务就是让它成为真实 Supervisor。
+当前已完成第一条受限真实执行链：低风险单一 Tech Architect 在 executor / model policy / provider runtime readiness 全部成立时可自动创建幂等 AgentTask，并把终态回执写回原会话。PAIR / COUNCIL / RED_TEAM / FULL_RND 的通用 GoalPlan 仍保持 Shadow，因此 Architecture V2 的第一核心任务仍是把这条安全模式扩展成真正的通用 Supervisor。
 
 ---
 
