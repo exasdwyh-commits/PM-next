@@ -1,4 +1,5 @@
 import prisma from "@/shared/db";
+import { recallForPrompt } from "@/modules/memory";
 import { tryResolveGatewayPolicyForAgentCode } from "@/modules/model-control/service";
 import {
   executePersistedModelGateway,
@@ -171,7 +172,14 @@ export async function buildMissionNodeMessages(input: {
   skills: { name: string; instructions: string }[];
   node: MissionNodeContext;
   allNodeKeys: string[];
+  requestedByUserId?: string | null;
 }): Promise<ModelGatewayMessage[]> {
+  const memory = input.requestedByUserId
+    ? await recallForPrompt(
+        { organizationId: input.organizationId, userId: input.requestedByUserId },
+        `${input.node.missionGoal} ${input.node.objective}`
+      ).catch(() => "")
+    : "";
   const facts = await prisma.companyFact.findMany({
     where: { organizationId: input.organizationId, status: "CONFIRMED" },
     orderBy: { updatedAt: "desc" },
@@ -204,6 +212,7 @@ export async function buildMissionNodeMessages(input: {
 
   const user = [
     `## 用户总目标\n${input.node.missionGoal}`,
+    memory,
     facts.length ? `## 已确认的组织事实\n${facts.map((f) => `- ${f.label}：${f.value}`).join("\n")}` : "",
     `## 你的任务（${input.node.nodeKey}）\n${input.node.objective}`,
     `## 上游产出\n${upstream}`,
@@ -257,6 +266,8 @@ export const runMissionNodeAgent: ExecutorStrategy = async (context): Promise<Ex
       .filter((s) => s.status === "ACTIVE"),
     node,
     allNodeKeys,
+    requestedByUserId:
+      ((task.parentTask?.contextSnapshot as Record<string, unknown> | null)?.requestedByUserId as string | undefined) ?? null,
   });
 
   const invoker = invokerOverride ?? defaultInvoker;

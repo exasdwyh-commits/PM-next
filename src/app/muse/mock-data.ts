@@ -78,6 +78,7 @@ const messages: Message[] = [
 
 export const studioModel: StudioModel = {
   activeConversationId: "c-1",
+  modelReady: true,
   managementHref: "/manage",
   newConversationProduct: null,
   initialDraft: "",

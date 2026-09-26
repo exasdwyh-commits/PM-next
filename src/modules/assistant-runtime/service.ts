@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import prisma from "@/shared/db";
+import { extractExplicitMemory, rememberForUser } from "@/modules/memory";
 import type { SessionContext } from "@/modules/identity/session";
 import { executeKernConversationTurn } from "./conversation-engine";
 import { buildDepartmentAssistantContext } from "./context-builder";
@@ -99,16 +100,30 @@ export async function sendDepartmentAssistantMessage(
   let mission: { missionTaskId: string; created: boolean; nodeCount: number } | null = null;
   let missionError: string | null = null;
 
+  // “记住…” is stored as a user-visible preference, immediately.
+  let memorySaved: { id: string } | null = null;
+  const explicitMemory = extractExplicitMemory(content);
+  if (explicitMemory) {
+    const saved = await rememberForUser(session, { ...explicitMemory, source: null }).catch(() => null);
+    if (saved) {
+      responseMessage = await prisma.message.update({
+        where: { id: result.message.id },
+        data: { content: `记住了：${saved.content}\n\n之后的工作我都会按这个来。随时可以在「设置 → Kern 的记忆」里查看或删除。` },
+      });
+      memorySaved = { id: saved.id };
+    }
+  }
+
   // “继续 / 重试” picks up the stopped mission in this conversation instead of starting over.
   let resumed = false;
-  if (isResumeIntent(content)) {
+  if (!memorySaved && isResumeIntent(content)) {
     const stoppedId = await findResumableMission(session, conversationId).catch(() => null);
     if (stoppedId) {
       resumed = true;
       const ready = await isKernModelReady(session.organizationId);
       let note: string;
       if (!ready) {
-        note = "还是没有可用的模型，我先不重跑，免得白白消耗额度。到「设置 → 模型」连接一个模型后，再跟我说“继续”。";
+        note = "模型服务还没恢复，我先不重跑，免得白白消耗额度。恢复后再跟我说“继续”就行。";
       } else {
         const r = await resumeKernMission(session, stoppedId).catch((e: unknown) => ({ resumed: false, reason: e instanceof Error ? e.message : String(e) }));
         note = r.resumed
@@ -128,7 +143,7 @@ export async function sendDepartmentAssistantMessage(
     }
   }
 
-  if (!resumed && missionDecision.launch) {
+  if (!memorySaved && !resumed && missionDecision.launch) {
     try {
       const plan =
         missionDecision.playbook === "NEW_PRODUCT"
@@ -163,7 +178,7 @@ export async function sendDepartmentAssistantMessage(
   }
 
   if (
-    !mission && !resumed &&
+    !mission && !resumed && !memorySaved &&
     collaborationPlanShadow.mode === "SPECIALIST" &&
     dispatchReadiness.eligible &&
     dispatchReadiness.state === "EXECUTOR_READY"
@@ -320,6 +335,7 @@ export async function sendDepartmentAssistantMessage(
     specialistDispatchError,
     mission,
     missionError,
+    memorySaved,
     visualGraphShadow,
   };
 }

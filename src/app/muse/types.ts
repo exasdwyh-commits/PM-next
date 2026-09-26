@@ -145,6 +145,8 @@ export interface ChatBrief {
 
 export interface StudioModel {
   activeConversationId: string | null;
+  /** Can Kern run any model right now? Drives the one honest banner. */
+  modelReady: boolean;
   managementHref: string;
   newConversationProduct: { id: string; name: string } | null;
   initialDraft: string;

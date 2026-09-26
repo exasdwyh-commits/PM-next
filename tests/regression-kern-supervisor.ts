@@ -120,7 +120,7 @@ async function main() {
     assert.equal(bs.status, AgentTaskStatus.WAITING_HUMAN);
     assert.equal(bs.outcome?.status, "NEEDS_USER");
     const last = await prisma.message.findFirst({ where: { conversationId: conversation.id }, orderBy: { createdAt: "desc" } });
-    assert.match(last!.content, /没有可用的模型/);
+    assert.match(last!.content, /模型服务暂时不可用/);
     assert.ok(bs.outcome?.reasons.includes("MODEL_UNAVAILABLE"));
     assert.doesNotMatch(last!.content, /tried|policy/, "no raw internals shown to the user");
     assert.doesNotMatch(last!.content, /推荐方向/);
@@ -159,6 +159,23 @@ async function main() {
     const noop = await sendDepartmentAssistantMessage(session, conversation.id, "继续");
     assert.equal(noop.mission, null, "completed missions are not resumed");
     console.log("  ✔ resumed in place and completed");
+
+    console.log("▶ S7 memory: outcomes are learned, '记住' is stored and injected into later work");
+    const outcome = await prisma.kernMemory.findFirst({ where: { userId: admin.id, kind: "OUTCOME", source: `mission:${blocked.missionTaskId}` } });
+    assert.ok(outcome && /推荐方向 B/.test(outcome.content), "completed mission became recall memory");
+    const rem = await sendDepartmentAssistantMessage(session, chat.id, "记住：我们只做跨境电商");
+    assert.ok(rem.memorySaved, "explicit memory saved");
+    assert.equal(rem.mission, null);
+    assert.match(rem.message.content, /记住了/);
+    const prompts: string[] = [];
+    setMissionModelInvokerForTest(async ({ messages }) => {
+      prompts.push(messages.map((m) => m.content).join("\n"));
+      return { text: JSON.stringify({ verdict: "PASS", summary: "ok", issues: [] }), provenance: { stub: true } };
+    });
+    await launchKernMission(session, { plan: buildNewProductMissionPlan("第三个产品"), conversationId: chat.id, sourceRunId: "run3-" + tag });
+    await drain(org.id);
+    assert.ok(prompts.length > 0 && prompts.every((p) => p.includes("只做跨境电商")), "preference injected into every node");
+    console.log("  ✔ memory written, stored and injected");
 
     console.log("\n✅ Kern supervisor regression passed");
   } finally {

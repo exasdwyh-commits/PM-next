@@ -146,3 +146,67 @@ export function Palette({ conversations, onClose, onPick }: { conversations: Con
     </>
   );
 }
+
+type MemoryItem = { id: string; kind: string; content: string; pinned: boolean; createdAt: string };
+const MEMORY_KIND: Record<string, string> = { PREFERENCE: "偏好", FACT: "事实", DECISION: "决定", OUTCOME: "过往结论" };
+
+/** Kern 记得的关于你：全部可见、可置顶、可忘记。 */
+export function MemorySheet({ onClose }: { onClose: () => void }) {
+  const [items, setItems] = useState<MemoryItem[] | null>(null);
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const load = async () => {
+    try {
+      const r = await fetch("/api/memory", { cache: "no-store" });
+      if (!r.ok) throw new Error(String(r.status));
+      setItems(((await r.json()) as { items: MemoryItem[] }).items);
+    } catch {
+      setError("读取记忆失败");
+      setItems([]);
+    }
+  };
+  useEffect(() => { void load(); }, []);
+  const forget = async (id: string) => {
+    setItems((xs) => xs?.filter((x) => x.id !== id) ?? null);
+    await fetch(`/api/memory/${id}`, { method: "DELETE" }).catch(() => undefined);
+  };
+  const pin = async (id: string, pinned: boolean) => {
+    setItems((xs) => xs?.map((x) => (x.id === id ? { ...x, pinned } : x)) ?? null);
+    await fetch(`/api/memory/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ pinned }) }).catch(() => undefined);
+  };
+  const add = async () => {
+    const content = draft.trim();
+    if (!content) return;
+    setDraft("");
+    const r = await fetch("/api/memory", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ content }) }).catch(() => null);
+    if (r?.ok) void load();
+    else setError("保存失败");
+  };
+  return (
+    <Sheet title="Kern 的记忆" sub="Kern 会在之后的工作中参考这些。你可以置顶、删除，或直接告诉它“记住…”。" onClose={onClose}>
+      <form className="m-mem-add" onSubmit={(e) => { e.preventDefault(); void add(); }}>
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="例如：我们只做跨境电商，预算上限 5 万" maxLength={400} />
+        <Btn size="sm" type="submit" disabled={!draft.trim()}>记住</Btn>
+      </form>
+      {error ? <p className="m-quiet">{error}</p> : null}
+      {items === null ? (
+        <p className="m-quiet">读取中…</p>
+      ) : items.length === 0 ? (
+        <p className="m-quiet">还没有记忆。完成的工作结论和你让它记住的偏好会出现在这里。</p>
+      ) : (
+        <ul className="m-mem">
+          {items.map((m) => (
+            <li key={m.id} data-pinned={m.pinned || undefined}>
+              <Tag tone={m.kind === "PREFERENCE" ? "accent" : "neutral"}>{MEMORY_KIND[m.kind] ?? m.kind}</Tag>
+              <p>{m.content}</p>
+              <div className="m-mem-acts">
+                <button type="button" onClick={() => void pin(m.id, !m.pinned)}>{m.pinned ? "取消置顶" : "置顶"}</button>
+                <button type="button" onClick={() => void forget(m.id)}>忘掉</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Sheet>
+  );
+}

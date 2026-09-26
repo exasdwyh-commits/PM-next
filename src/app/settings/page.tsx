@@ -142,7 +142,8 @@ export default async function SettingsPage() {
               {runtime.detail}。Model Control V1 先建立配置平面，不会在未验证 Provider 插件前替换现有 Advisor 执行链。
             </div>
           </div>
-          <ModelControlClient initial={JSON.parse(JSON.stringify(modelControl))} />
+          <div id="models" />
+      <ModelControlClient initial={JSON.parse(JSON.stringify(modelControl))} />
         </Panel>
 
         <Panel icon="chart" className="is-span-all" eyebrow="USAGE" title="用量与审计" sub="留痕用于追溯，不用于考核">

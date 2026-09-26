@@ -55,7 +55,7 @@ export interface AttentionItem {
 const PROTECTED_ACTIONS = /(DELETE|PUBLISH|SEND|PAY|BUDGET|RELEASE|GATE|CONTRACT|PERMISSION)/i;
 
 function reasonText(reasons: string[]): string {
-  if (reasons.includes("MODEL_UNAVAILABLE")) return "还没有可用的模型，配置后 Kern 才能开工";
+  if (reasons.includes("MODEL_UNAVAILABLE")) return "模型服务不可用，恢复后说“继续”即可";
   if (reasons.some((r) => r.startsWith("SYNTHESIS_"))) return "Kern 没能形成可信结论";
   const critical = reasons.filter((r) => r.startsWith("CRITICAL_"));
   if (critical.length) return `关键环节未完成（${critical.length} 项），需要你补充条件或调整目标`;

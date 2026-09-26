@@ -1,4 +1,5 @@
-import { AgentTaskStatus, AgentTriggerType, Prisma } from "@prisma/client";
+import { AgentTaskStatus, AgentTriggerType, KernMemoryKind, Prisma } from "@prisma/client";
+import { rememberForUser } from "@/modules/memory";
 import prisma from "@/shared/db";
 import { createAuditEventInTx } from "@/shared/audit";
 import { NotFoundError, UnprocessableEntityError } from "@/shared/errors";
@@ -341,9 +342,9 @@ async function reportMissionToConversation(session: SessionContext, missionTaskI
       : synthState.summary;
   } else if (modelMissing) {
     content = [
-      "这项工作我已经拆好了计划，但现在**没有可用的模型**，团队无法开工，所以我不会给你一个编出来的结论。",
+      "这项工作我已经拆好了计划，但 Kern 的**模型服务暂时不可用**，团队无法开工，所以我不会给你一个编出来的结论。",
       "",
-      "你只需要做一件事：到「设置 → 模型」为 Kern 启用一个模型（配置好服务端 API Key）。配置完成后回到这里说“继续”，我会从头推进。",
+      "模型服务恢复后（管理员可在「设置 → 模型」查看状态），跟我说“继续”，已拆好的计划会接着推进。",
     ].join("\n");
   } else {
     const lines = unfinished
@@ -378,6 +379,18 @@ async function reportMissionToConversation(session: SessionContext, missionTaskI
     });
     return m;
   });
+
+  // Learn: a completed mission becomes recall memory for its requester.
+  if (message && snap.outcome.status === "COMPLETED" && synthState.summary) {
+    await rememberForUser(
+      { organizationId: session.organizationId, userId: snap.requestedByUserId },
+      {
+        kind: KernMemoryKind.OUTCOME,
+        content: `「${snap.plan.goal.slice(0, 60)}」的结论：${synthState.summary.replace(/\s+/g, " ").slice(0, 300)}`,
+        source: `mission:${missionTaskId}`,
+      }
+    ).catch(() => undefined);
+  }
   return message;
 }
 

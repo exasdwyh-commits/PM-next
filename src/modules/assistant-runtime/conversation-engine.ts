@@ -1,4 +1,5 @@
 import { RunMode } from "@prisma/client";
+import { recallForPrompt } from "@/modules/memory";
 import prisma from "@/shared/db";
 import { NotFoundError, UnprocessableEntityError } from "@/shared/errors";
 import type { SessionContext } from "@/modules/identity/session";
@@ -308,7 +309,8 @@ export async function executeKernConversationTurn(
       modelRoute.taskClass
     );
     const selectionPrompt = buildKernConversationSelectionPrompt(runtimeSelection);
-    const assistantPersona = [basePersona, selectionPrompt]
+    const memoryPrompt = await recallForPrompt(session, text).catch(() => "");
+    const assistantPersona = [basePersona, memoryPrompt, selectionPrompt]
       .filter((value): value is string => Boolean(value))
       .join("\n\n");
     const llmMessages: AdvisorLLMMessage[] = assistantPersona

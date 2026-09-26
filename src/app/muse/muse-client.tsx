@@ -7,12 +7,13 @@ import { readKernGraphCitation } from "@/modules/visual-intelligence/contracts";
 import type { KernGraphV1 } from "@/modules/visual-intelligence/contracts";
 import { Btn, I } from "./components/kit";
 import { CheckIn, Turn, Working } from "./components/turn";
-import { Palette, SourceSheet, TrailSheet, TrustSheet } from "./components/sheets";
+import { MemorySheet, Palette, SourceSheet, TrailSheet, TrustSheet } from "./components/sheets";
 import { Blank, Dock, Rail } from "./components/shell";
 
 type SheetState =
   | { kind: "trail" }
   | { kind: "trust" }
+  | { kind: "memory" }
   | { kind: "source"; ref: EvidenceRef }
   | null;
 
@@ -410,6 +411,10 @@ export default function KernClient({ model }: { model: StudioModel }) {
                 <I.search />
                 搜索
               </Btn>
+              <Btn size="sm" onClick={() => setSheet({ kind: "memory" })}>
+                <I.spark />
+                记忆
+              </Btn>
               <Btn size="sm" onClick={() => setSheet({ kind: "trail" })}>
                 <I.trail />
                 轨迹
@@ -418,6 +423,13 @@ export default function KernClient({ model }: { model: StudioModel }) {
           </div>
         </header>
 
+        {!model.modelReady ? (
+          <div className="m-notice" role="status">
+            <i aria-hidden />
+            <span>Kern 的模型服务暂时不可用：可以照常交代工作，计划会先拆好，恢复后说“继续”即可推进。</span>
+            <a href="/settings#models">查看状态</a>
+          </div>
+        ) : null}
         <div className="m-scroll">
           <div className="m-lane">
             {conversation === null ? (
@@ -472,6 +484,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
           onClose={() => setSheet(null)}
         />
       ) : null}
+      {sheet?.kind === "memory" ? <MemorySheet onClose={() => setSheet(null)} /> : null}
       {sheet?.kind === "trust" ? (
         <TrustSheet runtime={runtime} onClose={() => setSheet(null)} />
       ) : null}

@@ -10,6 +10,7 @@ import { getDesktopOverview } from "@/modules/desktop-runtime";
 import prisma from "@/shared/db";
 import { buildAttentionBrief, type AttentionSignal } from "@/modules/supervisor/attention";
 import { readMissionSnapshot } from "@/modules/supervisor/service";
+import { isKernModelReady } from "@/modules/supervisor/generic-executor";
 import { readKernGraphCitation } from "@/modules/visual-intelligence/contracts";
 import type { KernGraphV1 } from "@/modules/visual-intelligence/contracts";
 import type {
@@ -408,6 +409,8 @@ export async function buildKernViewModel(
     handledQuietly: 0,
   }));
 
+  const modelReady = await isKernModelReady(session.organizationId).catch(() => false);
+
   const requestedProductId = input.productId?.trim() || null;
   const requestedProductName = requestedProductId
     ? productName.get(requestedProductId) ?? null
@@ -415,6 +418,7 @@ export async function buildKernViewModel(
 
   return {
     activeConversationId,
+    modelReady,
     managementHref: "/manage",
     newConversationProduct:
       requestedProductId && requestedProductName

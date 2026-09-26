@@ -557,3 +557,18 @@
 .m-prose strong { font-weight: 650; }
 .m-prose code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .88em; padding: 1px 5px; border-radius: 5px; background: var(--m-surface-2); }
 .m-prose hr { border: 0; border-top: 1px solid var(--m-hairline); margin: 4px 0; width: 100%; }
+
+.m-notice { display: flex; align-items: center; gap: 10px; margin: 0 auto; width: min(704px, calc(100% - 32px)); padding: 9px 14px; border-radius: var(--m-r-md); background: var(--m-warn-wash); color: var(--m-ink-2); font-size: var(--m-t-sm); }
+.m-notice i { width: 7px; height: 7px; border-radius: 50%; background: var(--m-warn); flex: none; }
+.m-notice span { flex: 1; }
+.m-notice a { color: var(--m-accent); font-weight: 560; text-decoration: none; white-space: nowrap; }
+
+.m-mem-add { display: flex; gap: 8px; margin-bottom: 14px; }
+.m-mem-add input { flex: 1; min-width: 0; padding: 8px 11px; border: 1px solid var(--m-hairline); border-radius: var(--m-r-md); background: var(--m-surface); font: inherit; font-size: var(--m-t-sm); color: var(--m-ink); }
+.m-mem { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.m-mem li { display: grid; gap: 6px; padding: 11px 13px; border: 1px solid var(--m-hairline); border-radius: var(--m-r-md); background: var(--m-surface); justify-items: start; }
+.m-mem li[data-pinned] { border-color: var(--m-accent-line); }
+.m-mem p { margin: 0; font-size: var(--m-t-sm); line-height: 1.55; color: var(--m-ink); }
+.m-mem-acts { display: flex; gap: 12px; }
+.m-mem-acts button { border: 0; background: none; padding: 0; font: inherit; font-size: var(--m-t-xs); color: var(--m-ink-4); cursor: pointer; }
+.m-mem-acts button:hover { color: var(--m-accent); }
