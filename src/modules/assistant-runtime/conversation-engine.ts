@@ -36,22 +36,6 @@ import {
 } from "./conversation-config";
 import { resolveExplicitConversationModel } from "./conversation-model";
 
-const KERN_TOOL_WHITELIST = [
-  "workspace.overview",
-  "workspace.pendingDecisions",
-  "products.board",
-  "advisor.pendingProposals",
-  "advisor.proposeFieldChange",
-  "advisor.proposeWorkItem",
-  "advisor.proposeProduct",
-  "advisor.challenge",
-  "knowledge.search",
-  "desktop.runtime",
-  "product-rnd.start",
-  "product-rnd.status",
-  "product-rnd.report",
-];
-
 /**
  * Kern owns the conversational run lifecycle.
  *
