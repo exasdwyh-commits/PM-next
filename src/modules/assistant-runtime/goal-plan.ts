@@ -33,6 +33,7 @@ export interface KernGoalPlanShadow {
   humanGates: string[];
   executionPolicy: {
     autoCreateAgentTasks: false;
+    specialistAutoDispatch: "READINESS_GATED";
     reason: string;
   };
 }
@@ -94,6 +95,11 @@ const AGENT_BLUEPRINTS: Record<
     objective: "独立检查结果完整性、证据覆盖、冲突、UNKNOWN 与治理边界",
     skills: ["independent_qa"],
     capabilities: ["knowledge"],
+  },
+  tech_architect_agent: {
+    objective: "审查系统架构、接口、数据模型、代码结构、测试策略与技术风险",
+    skills: ["technical_architecture", "operational_delivery"],
+    capabilities: [],
   },
 };
 
@@ -236,8 +242,9 @@ export function buildKernGoalPlanShadow(input: {
     ],
     executionPolicy: {
       autoCreateAgentTasks: false,
+      specialistAutoDispatch: "READINESS_GATED",
       reason:
-        "Goal Plan V1 先固定 Supervisor 语义与可审计 DAG；启用自动建任务前需单独完成幂等、预算、取消和重复触发保护。",
+        "整张 GoalPlan DAG 仍保持 Shadow，不自动批量建任务；仅允许经过幂等、单专家、低风险、真实 executor/model/provider readiness 校验的 specialist 试点独立 AUTO。",
     },
   };
 }
