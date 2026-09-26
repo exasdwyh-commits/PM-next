@@ -20,6 +20,9 @@ const plan: KernCollaborationPlanShadow = {
   independentFirstPass: true,
   qaRequired: true,
   redTeamRequired: false,
+  autoDispatchCandidate: false,
+  autoDispatchEligible: false,
+  authority: "ADVISORY_ONLY",
   source: "DETERMINISTIC",
   reasons: ["MARKET_SIGNAL", "SCIENCE_SIGNAL", "FORMULATION_SIGNAL"],
 };
