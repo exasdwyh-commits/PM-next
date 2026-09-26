@@ -11,6 +11,9 @@ const base = {
   independentFirstPass: true,
   qaRequired: true,
   redTeamRequired: false,
+  autoDispatchCandidate: false,
+  autoDispatchEligible: false,
+  authority: "ADVISORY_ONLY" as const,
   source: "DETERMINISTIC" as const,
   reasons: ["MARKET_SIGNAL", "HIGH_RISK_DOMAIN"],
 };
@@ -24,6 +27,7 @@ test("goal plan turns collaboration into a stable task DAG without executing it"
   assert.equal(plan.version, "kern-goal-plan-shadow/v1");
   assert.equal(plan.status, "SHADOW");
   assert.equal(plan.executionPolicy.autoCreateAgentTasks, false);
+  assert.equal(plan.executionPolicy.specialistAutoDispatch, "READINESS_GATED");
   assert.equal(plan.collaborationMode, "COUNCIL");
 
   const specialists = plan.tasks.filter((task) => task.kind === "SPECIALIST");
@@ -81,4 +85,26 @@ test("required red team is materialized once", () => {
     plan.tasks.filter((task) => task.preferredAgentCode === "red_team").length,
     1
   );
+});
+
+
+test("tech architect has an explicit supervisor blueprint", () => {
+  const plan = buildKernGoalPlanShadow({
+    goal: "审查 TypeScript API 架构和测试策略",
+    collaboration: {
+      ...base,
+      mode: "SPECIALIST",
+      experts: ["tech_architect_agent"],
+      qaRequired: false,
+      researchRequired: false,
+      autoDispatchCandidate: true,
+      autoDispatchEligible: true,
+      reasons: ["TECH_ARCHITECT_SIGNAL"],
+    },
+  });
+
+  const task = plan.tasks.find((item) => item.preferredAgentCode === "tech_architect_agent");
+  assert.ok(task);
+  assert.ok(task!.requiredSkills.includes("technical_architecture"));
+  assert.match(task!.objective, /架构|接口|测试/);
 });
