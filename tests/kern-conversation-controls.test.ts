@@ -55,6 +55,22 @@ test("disabled conversation function is rejected before its handler can execute"
   assert.match(result.text, /没有启用/);
 });
 
+test("unsupported dialogue cannot bypass a disabled knowledge capability", async () => {
+  const result = await executeKernCapability(
+    { organizationId: "org-test", userId: "user-test", userName: "Test" } as any,
+    "UNSUPPORTED",
+    {
+      conversationId: "conversation-test",
+      productId: null,
+      text: "你好",
+      capabilityKeys: [],
+    }
+  );
+
+  assert.equal(result.toolKey, "none");
+  assert.match(result.text, /不会调用/);
+});
+
 test("selected advisors and skills become explicit model instructions without expanding permission", () => {
   const prompt = buildKernConversationSelectionPrompt({
     config: {
