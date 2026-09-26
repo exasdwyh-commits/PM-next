@@ -144,7 +144,7 @@ test("autonomy is risk-based and Project Map is a first-class visual capability"
 });
 
 
-test("Kern V2 keeps advanced runtime controls quiet and persists a non-executing goal plan", () => {
+test("Kern V2 keeps advanced controls quiet and gates execution below the GoalPlan", () => {
   const shell = read("src/app/muse/components/shell.tsx");
   const workbench = read("src/app/workbench-client.tsx");
   const goalPlan = read("src/modules/assistant-runtime/goal-plan.ts");
@@ -166,9 +166,12 @@ test("Kern V2 keeps advanced runtime controls quiet and persists a non-executing
 
   assert.ok(goalPlan.includes('"kern-goal-plan-shadow/v1"'));
   assert.ok(goalPlan.includes("autoCreateAgentTasks: false"));
+  assert.ok(goalPlan.includes('specialistAutoDispatch: "READINESS_GATED"'));
   assert.ok(goalPlan.includes("STRATEGIC_VALUE_TRADEOFF"));
   assert.ok(service.includes("buildKernGoalPlanShadow"));
   assert.ok(service.includes("goalPlanShadow"));
+  assert.ok(service.includes("resolveKernDispatchReadiness"));
+  assert.ok(service.includes("enqueueKernSpecialistDispatch"));
 });
 
 
@@ -182,4 +185,33 @@ test("Kern human attention excludes internal return-review work", () => {
     activityBrief.includes("returned child results are Kern's internal supervision work"),
     "return reviews must be documented as Kern supervision, not default user interruption"
   );
+});
+
+
+test("Kern specialist AUTO is database-idempotent and provenance-bound", () => {
+  const schema = read("prisma/schema.prisma");
+  const dispatch = read("src/modules/assistant-runtime/specialist-dispatch.ts");
+  const returnPath = read("src/modules/workforce/conversation-return.ts");
+  const executor = read("src/modules/worker/executor.ts");
+
+  assert.ok(schema.includes("idempotencyKey  String?          @unique"));
+  assert.ok(dispatch.includes("sourceRun"));
+  assert.ok(dispatch.includes("conversationId: input.conversationId"));
+  assert.ok(dispatch.includes("idempotencyKey"));
+  assert.ok(dispatch.includes('error.code === "P2002"'));
+  assert.ok(returnPath.includes("FOR UPDATE"));
+  assert.ok(returnPath.includes("kern-conversation-return-receipt/v1"));
+  assert.ok(executor.includes("runTechArchitectAgent"));
+  assert.ok(executor.includes("appendAgentTaskConversationReturn"));
+});
+
+test("PAIR and COUNCIL are not silently promoted to AUTO", () => {
+  const planner = read("src/modules/assistant-runtime/collaboration-planner.ts");
+  const readiness = read("src/modules/assistant-runtime/dispatch-readiness.ts");
+
+  assert.ok(planner.includes('(mode === "SOLO" || mode === "SPECIALIST")'));
+  assert.ok(readiness.includes('plan.mode !== "SPECIALIST" || plan.experts.length !== 1'));
+  assert.ok(readiness.includes('"REVIEW_REQUIRED"'));
+  assert.ok(readiness.includes("CHAT_SPECIALIST_EXECUTION"));
+  assert.ok(readiness.includes('tech_architect_agent: { taskClass: "CODING"'));
 });
