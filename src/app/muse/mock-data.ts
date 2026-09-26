@@ -106,6 +106,49 @@ export const studioModel: StudioModel = {
   },
   employees,
   messages,
+  controls: {
+    config: {
+      version: "kern-conversation-config/v1",
+      modelProfileKey: null,
+      advisorCodes: null,
+      skillKeys: null,
+      capabilityKeys: null,
+    },
+    models: [
+      {
+        key: "balanced-default",
+        label: "Balanced",
+        description: "日常工作模型",
+        meta: "BALANCED",
+      },
+    ],
+    advisors: [
+      {
+        key: "research_agent",
+        label: "Market Research Agent",
+        description: "市场、竞品、用户和渠道研究",
+      },
+    ],
+    skills: [
+      {
+        key: "product_strategy",
+        label: "产品策略",
+        description: "产品定位、价值主张和方案结构",
+      },
+    ],
+    capabilities: [
+      {
+        key: "knowledge",
+        label: "知识库",
+        description: "检索公司事实和知识文档",
+      },
+      {
+        key: "visualize",
+        label: "可视化",
+        description: "生成结构与关系图",
+      },
+    ],
+  },
   activity: [
     {
       id: "a-1",
