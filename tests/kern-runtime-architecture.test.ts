@@ -142,3 +142,31 @@ test("autonomy is risk-based and Project Map is a first-class visual capability"
   assert.ok(projectMap.includes("toArchifyArchitectureSpec"));
   assert.ok(projectMap.includes('"VERIFIED"'));
 });
+
+
+test("Kern V2 keeps advanced runtime controls quiet and persists a non-executing goal plan", () => {
+  const shell = read("src/app/muse/components/shell.tsx");
+  const workbench = read("src/app/workbench-client.tsx");
+  const goalPlan = read("src/modules/assistant-runtime/goal-plan.ts");
+  const service = read("src/modules/assistant-runtime/service.ts");
+
+  assert.ok(shell.includes("m-advanced-controls"));
+  assert.ok(shell.includes("Auto · Kern"));
+  assert.ok(shell.includes("Conversation 高级运行配置"));
+  assert.equal(
+    workbench.includes("QUICK_ACTIONS"),
+    false,
+    "management workbench must not rebuild a prompt-template hero"
+  );
+  assert.equal(
+    workbench.includes("hermes-command-copy"),
+    false,
+    "management workbench must keep the Kern handoff compact"
+  );
+
+  assert.ok(goalPlan.includes('"kern-goal-plan-shadow/v1"'));
+  assert.ok(goalPlan.includes("autoCreateAgentTasks: false"));
+  assert.ok(goalPlan.includes("STRATEGIC_VALUE_TRADEOFF"));
+  assert.ok(service.includes("buildKernGoalPlanShadow"));
+  assert.ok(service.includes("goalPlanShadow"));
+});
