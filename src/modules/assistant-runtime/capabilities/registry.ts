@@ -29,6 +29,19 @@ export async function executeKernCapability(
 ): Promise<KernCapabilityResult> {
   const capabilityKey = capabilityKeyForIntent(intent);
   if (
+    intent === "UNSUPPORTED" &&
+    context.capabilityKeys !== null &&
+    context.capabilityKeys !== undefined &&
+    !context.capabilityKeys.includes("knowledge")
+  ) {
+    return {
+      toolKey: "none",
+      text: "这是普通对话，本轮不会调用你已关闭的额外功能。",
+      citations: [],
+    };
+  }
+
+  if (
     capabilityKey &&
     context.capabilityKeys !== null &&
     context.capabilityKeys !== undefined &&
