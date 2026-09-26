@@ -70,10 +70,18 @@
 ## 5. 待办
 - 当前阶段：**对话内全面展示（Display Layer）**。
   - 规格见 `docs/KERN_DISPLAY_SPEC.md`，grill 3 轮已完成，需求 v1 已定。
-  - 下一步：实现 PR ①（事件 + 控制 + SSE）。
+  - PR ①（事件 + 控制 + SSE，分支 `feat/kern-display-layer`）已开 PR，待用户 review：
+    - `KernMissionEvent` 表（每个 mission 的 seq 严格递增，advisory lock + 唯一约束）；`src/modules/supervisor/events.ts`；
+    - `controls.ts`：暂停 / 继续 / 取消 / 跳过 / 重跑 / 改计划 / 补充信息（owner-only）；新增结局 `CANCELLED`；
+    - 路由：`POST /api/missions/[id]/control`、`GET …/events?after=`、`GET …/stream`（SSE，DB 轮询 1s，支持 Last-Event-ID）；
+    - 模型网关还**不是流式**：`node.delta` 目前一次性发完整文本（`streamed:false`），打字效果由演示回放器做；
+    - `node.cite` 类型已预留，研究节点接入（P0-B）后才会真正产生；
+    - 跳过进行中的步骤：排队中的子任务会被取消，已在跑的会跑完但结果被忽略（可能多花一次模型调用）；
+    - `snapshot.log` 仍保留写入，UI 在 PR ② 切到事件流后再考虑移除。
+  - 下一步：PR ② 工作区 UI（过程 / 产出 tab）+ 对话卡片；PR ③ 演示回放、产出物、一键带走、导出。
 - Display Layer 实现时要预留给后续阶段的接口：
   - `node.cite` 事件带 `sourceCaptureId` / URL / fetchedAt，引用能从研究节点一直传到结论卡与导出（为 citation lineage 预留）；
-  - 演示 mission **不能**用 `kern-mission/v1` schema（billing 按它计任务数），或在计费查询里显式排除 `demo=true`；
+  - 快照里已加 `demo` 标记，事件表也有 `demo` 列；演示 mission **不能**用 `kern-mission/v1` schema（billing 按它计任务数），或在计费查询里显式排除 `demo=true`；
   - 事件里记录每次模型调用的耗时与额度，作为后续 cost guard / tracing 的数据来源。
 - P1（顺序与验收细节见 `docs/KERN_NEXT_PHASE_PLAN.md`）：
   - 研究结论附来源：ResearchRun 与 mission 幂等绑定（`missionId + nodeKey + revisionRound`，续跑不重抓网页、不重复付费）；引用全链传递；安全边界（来源正文只当数据、SSRF / 私网拒绝、大小与超时上限、保留 URL / fetchedAt / hash、法规结论带辖区与日期）；

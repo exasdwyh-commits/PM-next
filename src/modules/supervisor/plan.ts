@@ -66,9 +66,11 @@ export interface MissionState {
   nodes: Record<string, MissionNodeState>;
   tasksCreated: number;
   revisionRounds: number;
+  resumes?: number;
+  reruns?: number;
 }
 
-export type MissionOutcome = "COMPLETED" | "NEEDS_USER";
+export type MissionOutcome = "COMPLETED" | "NEEDS_USER" | "CANCELLED";
 
 export type MissionAction =
   | { type: "DISPATCH"; nodeKey: string }
@@ -475,4 +477,166 @@ export function prepareMissionResume(
     state: { ...state, nodes, revisionRounds: 0, resumes: resumes + 1 },
     resetKeys: [...reset],
   };
+}
+
+// ---------------------------------------------------------------------------
+// User interventions (pure): rerun a step, edit the plan
+// ---------------------------------------------------------------------------
+
+export const MAX_MISSION_RERUNS = 5;
+
+function downstreamClosure(plan: MissionPlan, seed: Iterable<string>): Set<string> {
+  const reset = new Set(seed);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const n of plan.nodes) {
+      if (!reset.has(n.key) && n.dependsOn.some((d) => reset.has(d))) {
+        reset.add(n.key);
+        grew = true;
+      }
+    }
+  }
+  return reset;
+}
+
+/**
+ * Rerun one finished step: it and everything downstream go back to PENDING
+ * (successful sibling work is kept). The budget is topped up by the reset
+ * count so a rerun never starves the rest of the mission.
+ */
+export function prepareNodeRerun(
+  plan: MissionPlan,
+  state: MissionState,
+  nodeKey: string,
+  feedback?: string | null
+): { plan: MissionPlan; state: MissionState; resetKeys: string[] } | { error: string } {
+  const node = plan.nodes.find((n) => n.key === nodeKey);
+  const ns = state.nodes[nodeKey];
+  if (!node || !ns) return { error: "NODE_NOT_FOUND" };
+  if (!isTerminalNodeStatus(ns.status)) return { error: "NODE_NOT_FINISHED" };
+  const reruns = state.reruns ?? 0;
+  if (reruns >= MAX_MISSION_RERUNS) return { error: "RERUN_LIMIT" };
+  const reset = downstreamClosure(plan, [nodeKey]);
+  for (const key of reset) {
+    if (state.nodes[key]?.status === "ACTIVE") return { error: "DOWNSTREAM_ACTIVE" };
+  }
+  const nodes = { ...state.nodes };
+  for (const key of reset) {
+    nodes[key] = {
+      ...nodes[key],
+      status: "PENDING",
+      taskId: null,
+      summary: null,
+      reason: null,
+      qa: null,
+      revisionFeedback: key === nodeKey ? (feedback?.trim() || null) : null,
+    };
+  }
+  return {
+    plan: { ...plan, budget: { ...plan.budget, maxTasks: plan.budget.maxTasks + reset.size } },
+    state: { ...state, nodes, reruns: reruns + 1 },
+    resetKeys: [...reset],
+  };
+}
+
+export type MissionPlanEdit =
+  | {
+      op: "add";
+      node: { key: string; agentCode: string; objective: string; dependsOn?: string[]; critical?: boolean };
+    }
+  | { op: "remove"; key: string }
+  | { op: "reassign"; key: string; agentCode: string }
+  | { op: "objective"; key: string; objective: string };
+
+const NODE_KEY_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
+
+/**
+ * Apply user edits to a running plan. Only PENDING specialist / red-team
+ * steps may change; QA and synthesis are structural. New steps feed QA and
+ * synthesis automatically so their output is never orphaned.
+ */
+export function applyPlanEdit(
+  plan: MissionPlan,
+  state: MissionState,
+  edits: MissionPlanEdit[]
+): { plan: MissionPlan; state: MissionState; summary: string[] } | { error: string } {
+  if (!edits.length) return { error: "NO_EDITS" };
+  const next: MissionPlan = JSON.parse(JSON.stringify(plan));
+  const nextState: MissionState = JSON.parse(JSON.stringify(state));
+  const summary: string[] = [];
+  const editable = (key: string) => {
+    const n = next.nodes.find((x) => x.key === key);
+    if (!n) return "NODE_NOT_FOUND:" + key;
+    if (n.kind === "QA" || n.kind === "SYNTHESIS") return "NODE_STRUCTURAL:" + key;
+    if (nextState.nodes[key]?.status !== "PENDING") return "NODE_NOT_PENDING:" + key;
+    return null;
+  };
+  for (const e of edits) {
+    if (e.op === "add") {
+      const key = e.node.key.trim();
+      if (!NODE_KEY_RE.test(key)) return { error: "INVALID_KEY:" + key };
+      if (next.nodes.some((n) => n.key === key)) return { error: "DUPLICATE_KEY:" + key };
+      const objective = e.node.objective.trim().slice(0, 1000);
+      if (!objective) return { error: "EMPTY_OBJECTIVE" };
+      next.nodes.splice(
+        Math.max(0, next.nodes.findIndex((n) => n.kind === "QA" || n.kind === "SYNTHESIS")),
+        0,
+        {
+          key,
+          kind: "SPECIALIST",
+          agentCode: e.node.agentCode,
+          objective,
+          dependsOn: [...new Set(e.node.dependsOn ?? [])],
+          taskClass: taskClassForAgent(e.node.agentCode),
+          critical: e.node.critical ?? false,
+        }
+      );
+      for (const n of next.nodes) {
+        if ((n.kind === "QA" || n.kind === "SYNTHESIS") && !n.dependsOn.includes(key)) {
+          // A step can only be added while its consumers have not started.
+          if (nextState.nodes[n.key] && nextState.nodes[n.key].status !== "PENDING") {
+            return { error: "CONSUMER_STARTED:" + n.key };
+          }
+          n.dependsOn.push(key);
+        }
+      }
+      nextState.nodes[key] = {
+        status: "PENDING",
+        taskId: null,
+        attempts: 0,
+        summary: null,
+        reason: null,
+        revisionFeedback: null,
+        qa: null,
+      };
+      next.budget.maxTasks += 1;
+      summary.push(`新增 ${key}（${e.node.agentCode}）`);
+    } else if (e.op === "remove") {
+      const err = editable(e.key);
+      if (err) return { error: err };
+      next.nodes = next.nodes.filter((n) => n.key !== e.key);
+      for (const n of next.nodes) n.dependsOn = n.dependsOn.filter((d) => d !== e.key);
+      delete nextState.nodes[e.key];
+      summary.push(`移除 ${e.key}`);
+    } else if (e.op === "reassign") {
+      const err = editable(e.key);
+      if (err) return { error: err };
+      const n = next.nodes.find((x) => x.key === e.key)!;
+      const from = n.agentCode;
+      n.agentCode = e.agentCode;
+      n.taskClass = taskClassForAgent(e.agentCode);
+      summary.push(`${e.key}：${from} → ${e.agentCode}`);
+    } else {
+      const err = editable(e.key);
+      if (err) return { error: err };
+      const objective = e.objective.trim().slice(0, 1000);
+      if (!objective) return { error: "EMPTY_OBJECTIVE" };
+      next.nodes.find((x) => x.key === e.key)!.objective = objective;
+      summary.push(`${e.key}：更新目标`);
+    }
+  }
+  const errors = validateMissionPlan(next);
+  if (errors.length) return { error: "INVALID_PLAN:" + errors.join("; ") };
+  return { plan: next, state: nextState, summary };
 }

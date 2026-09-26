@@ -18,7 +18,8 @@ export type AttentionSignal =
       kind: "MISSION";
       id: string;
       goal: string;
-      status: "RUNNING" | "COMPLETED" | "NEEDS_USER";
+      status: "RUNNING" | "COMPLETED" | "NEEDS_USER" | "CANCELLED";
+      paused?: boolean;
       progress: { done: number; total: number };
       reasons: string[];
       finishedAt: string | null;
@@ -74,6 +75,29 @@ function reasonText(reasons: string[]): string {
 export function classifyAttention(signal: AttentionSignal): AttentionItem {
   switch (signal.kind) {
     case "MISSION": {
+      if (signal.status === "CANCELLED") {
+        // The user stopped it themselves — nothing to ask for.
+        return {
+          id: `mission:${signal.id}`,
+          level: "AUTO_HANDLE",
+          title: signal.goal,
+          why: "已取消",
+          href: null,
+          conversationId: signal.conversationId,
+          sortKey: 0,
+        };
+      }
+      if (signal.status === "RUNNING" && signal.paused) {
+        return {
+          id: `mission:${signal.id}`,
+          level: "SURFACE",
+          title: signal.goal,
+          why: `已暂停 · ${signal.progress.done}/${signal.progress.total}，等你继续`,
+          href: null,
+          conversationId: signal.conversationId,
+          sortKey: 65,
+        };
+      }
       if (signal.status === "RUNNING") {
         return {
           id: `mission:${signal.id}`,

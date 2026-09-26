@@ -176,6 +176,7 @@ async function loadAttention(
       id: row.id,
       goal: row.goal.slice(0, 80),
       status: snap.outcome ? snap.outcome.status : "RUNNING",
+      paused: !snap.outcome && !!snap.paused,
       progress: { done, total: nodes.length },
       reasons: snap.outcome?.reasons ?? [],
       finishedAt: snap.outcome?.finishedAt ?? null,

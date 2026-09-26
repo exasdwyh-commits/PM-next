@@ -11,7 +11,7 @@ type MissionStatus = {
   progress: { done: number; total: number };
   revisionRounds: number;
   nodes: MissionNode[];
-  outcome: { status: "COMPLETED" | "NEEDS_USER"; reasons: string[] } | null;
+  outcome: { status: "COMPLETED" | "NEEDS_USER" | "CANCELLED"; reasons: string[] } | null;
 };
 
 const NODE_LABEL: Record<string, string> = {
@@ -92,7 +92,7 @@ export function MissionCard({ missionId }: { missionId: string }) {
   if (failed && !data) return null;
   const aside = !data ? null : data.outcome ? (
     <Tag tone={data.outcome.status === "COMPLETED" ? "ok" : "warn"}>
-      {data.outcome.status === "COMPLETED" ? "已完成" : "需要你处理"}
+      {data.outcome.status === "COMPLETED" ? "已完成" : data.outcome.status === "CANCELLED" ? "已取消" : "需要你处理"}
     </Tag>
   ) : (
     <Tag tone="accent" live>
@@ -104,7 +104,7 @@ export function MissionCard({ missionId }: { missionId: string }) {
     <Card>
       <CardHead
         icon={<I.plan />}
-        title={!data?.outcome ? "Kern 正在推进" : data.outcome.status === "COMPLETED" ? "Kern 已完成" : "这项工作停下了"}
+        title={!data?.outcome ? "Kern 正在推进" : data.outcome.status === "COMPLETED" ? "Kern 已完成" : data.outcome.status === "CANCELLED" ? "已取消" : "这项工作停下了"}
         aside={aside}
       />
       <div className="m-card-body">

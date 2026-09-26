@@ -10,6 +10,7 @@ import {
 import { isProviderRuntimeConfigured } from "@/modules/model-gateway/provider-runtime";
 import type { ExecutorOutcome, ExecutorStrategy } from "@/modules/worker/executor";
 import { parseQaVerdict, type MissionNodeKind } from "./plan";
+import { appendMissionEvents, type MissionEventInput } from "./events";
 
 /**
  * Generic Agent Executor
@@ -37,6 +38,8 @@ export interface MissionNodeContext {
   taskClass: ModelTaskClass;
   upstream: { key: string; agentCode: string; status: string; summary: string | null }[];
   revisionFeedback: string | null;
+  /** User input added mid-flight (shown as “已带入后续步骤”). */
+  userInputs?: { id: string; text: string }[];
 }
 
 export function readMissionNodeContext(value: unknown): MissionNodeContext | null {
@@ -217,6 +220,9 @@ export async function buildMissionNodeMessages(input: {
     `## 你的任务（${input.node.nodeKey}）\n${input.node.objective}`,
     `## 上游产出\n${upstream}`,
     input.node.revisionFeedback ? `## QA 要求你修正\n${input.node.revisionFeedback}` : "",
+    input.node.userInputs?.length
+      ? `## 用户在执行中补充的信息（优先采纳）\n${input.node.userInputs.map((u) => `- ${u.text.slice(0, 1000)}`).join("\n")}`
+      : "",
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -270,7 +276,32 @@ export const runMissionNodeAgent: ExecutorStrategy = async (context): Promise<Ex
       ((task.parentTask?.contextSnapshot as Record<string, unknown> | null)?.requestedByUserId as string | undefined) ?? null,
   });
 
+  const parentSnap = task.parentTask?.contextSnapshot as Record<string, unknown> | null;
+  const emit = (events: MissionEventInput[]) =>
+    appendMissionEvents({
+      organizationId: context.session.organizationId,
+      missionTaskId: node.missionTaskId,
+      demo: parentSnap?.demo === true,
+      events: events.map((e) => ({ ...e, nodeKey: node.nodeKey })),
+    });
+  await emit([
+    {
+      type: "node.started",
+      payload: {
+        agentCode: task.agent.code,
+        agentName: task.agent.name,
+        taskId: context.task.id,
+        agentRunId: context.task.runId,
+        method: task.agent.skillBindings.filter((b) => b.skill.status === "ACTIVE").map((b) => b.skill.name),
+        upstream: node.upstream.map((u) => ({ key: u.key, status: u.status })),
+        userInputIds: (node.userInputs ?? []).map((u) => u.id),
+        revision: !!node.revisionFeedback,
+      },
+    },
+  ]);
+
   const invoker = invokerOverride ?? defaultInvoker;
+  const startedAt = Date.now();
   const out = await invoker({
     organizationId: context.session.organizationId,
     agentRunId: context.task.runId,
@@ -279,7 +310,9 @@ export const runMissionNodeAgent: ExecutorStrategy = async (context): Promise<Ex
     messages,
   });
 
+  const latencyMs = Date.now() - startedAt;
   if ("unavailable" in out) {
+    await emit([{ type: "node.tool", payload: { tool: "model_call", ok: false, latencyMs, error: out.unavailable } }]);
     return {
       kind: "BLOCKED",
       summary: `${task.agent.name} 未执行：当前没有可用的模型（${out.unavailable}）。`,
@@ -289,6 +322,22 @@ export const runMissionNodeAgent: ExecutorStrategy = async (context): Promise<Ex
   }
 
   const text = out.text.trim();
+  // The gateway is not streaming yet: the full text is emitted once, honestly
+  // marked `complete`. The demo replayer chunks it for a typing effect.
+  await emit([
+    {
+      type: "node.tool",
+      payload: {
+        tool: "model_call",
+        ok: true,
+        latencyMs,
+        provider: out.provenance.provider ?? null,
+        model: out.provenance.modelId ?? null,
+        modelRunId: out.provenance.modelRunId ?? null,
+      },
+    },
+    { type: "node.delta", payload: { text, complete: true, streamed: false } },
+  ]);
   if (node.kind === "QA") {
     const verdict = parseQaVerdict(text);
     if (!verdict) {

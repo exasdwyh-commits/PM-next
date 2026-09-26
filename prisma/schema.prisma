@@ -2723,3 +2723,25 @@ model OrganizationSubscription {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 }
+
+/// Append-only event stream of a Kern mission (Display Layer). The mission root
+/// AgentTask snapshot stays the control state; this table is what the user sees
+/// happen: dispatches, model calls, streamed output, citations, QA revisions,
+/// user interventions. `seq` is monotonic per mission (SSE Last-Event-ID).
+/// `demo = true` rows come from the scripted replayer and never touch business
+/// data or quota.
+model KernMissionEvent {
+  id             String   @id @default(uuid())
+  organizationId String
+  missionTaskId  String
+  seq            Int
+  type           String
+  nodeKey        String?
+  actorUserId    String?
+  payload        Json     @default("{}")
+  demo           Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@unique([missionTaskId, seq])
+  @@index([organizationId, missionTaskId, seq])
+}

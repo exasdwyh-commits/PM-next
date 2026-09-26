@@ -19,6 +19,7 @@ import {
   type MissionState,
 } from "./plan";
 import { MISSION_NODE_SCHEMA, type MissionNodeContext } from "./generic-executor";
+import { appendMissionEventsTx, type MissionEventInput } from "./events";
 
 /**
  * Kern Supervisor Runtime
@@ -28,7 +29,8 @@ import { MISSION_NODE_SCHEMA, type MissionNodeContext } from "./generic-executor
  * whose contextSnapshot holds the plan + node state. Every node runs as a real
  * child AgentTask (with AgentDelegation lineage), executed by the existing
  * worker. Child completion calls `advanceKernMission`, which is idempotent and
- * serialized by a row lock on the root task. No new tables.
+ * serialized by a row lock on the root task. Every transition is also appended
+ * to KernMissionEvent (ordered per mission) for the live timeline.
  */
 
 export const MISSION_SCHEMA = "kern-mission/v1";
@@ -42,9 +44,22 @@ export interface MissionSnapshot {
   requestedByUserId: string;
   log: { at: string; event: string; detail?: string }[];
   outcome: { status: MissionOutcome; reasons: string[]; messageId: string | null; finishedAt: string } | null;
+  /** User paused: no new dispatch; active steps finish. */
+  paused?: { at: string; byUserId: string } | null;
+  /** Mid-flight user input, carried into every step dispatched afterwards. */
+  userInputs?: MissionUserInput[];
+  /** Demo missions never write business data and never consume quota. */
+  demo?: boolean;
 }
 
-function toJson(value: unknown): Prisma.InputJsonValue {
+export interface MissionUserInput {
+  id: string;
+  at: string;
+  text: string;
+  appliedTo: string[];
+}
+
+export function toJson(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
@@ -133,6 +148,22 @@ export async function launchKernMission(
         summary: `Kern 接手目标（${input.plan.playbook}，${input.plan.nodes.length} 个节点）：${input.plan.goal.slice(0, 100)}`,
         details: toJson({ nodes: input.plan.nodes.map((n) => `${n.key}:${n.agentCode}`), conversationId: input.conversationId }),
       });
+      await appendMissionEventsTx(tx, {
+        organizationId: session.organizationId,
+        missionTaskId: task.id,
+        events: [
+          {
+            type: "mission.launched",
+            actorUserId: session.userId,
+            payload: {
+              goal: input.plan.goal,
+              playbook: input.plan.playbook,
+              budget: input.plan.budget,
+              nodes: input.plan.nodes.map((n) => ({ key: n.key, kind: n.kind, agentCode: n.agentCode, objective: n.objective, dependsOn: n.dependsOn, critical: n.critical })),
+            },
+          },
+        ],
+      });
       return task;
     });
   } catch (error) {
@@ -170,6 +201,9 @@ export async function advanceKernMission(session: SessionContext, missionTaskId:
     const plan = snap.plan;
     let state = snap.state;
     const log = snap.log;
+    const events: MissionEventInput[] = [];
+    const userInputs = snap.userInputs ?? [];
+    const paused = !!snap.paused;
     const now = () => new Date().toISOString();
 
     // 1. reconcile child task outcomes
@@ -182,7 +216,7 @@ export async function advanceKernMission(session: SessionContext, missionTaskId:
             status: true,
             blockedReason: true,
             contextSnapshot: true,
-            runs: { orderBy: { createdAt: "desc" }, take: 1, select: { outputSummary: true } },
+            runs: { orderBy: { createdAt: "desc" }, take: 1, select: { id: true, outputSummary: true, durationMs: true } },
           },
         })
       : [];
@@ -201,6 +235,23 @@ export async function advanceKernMission(session: SessionContext, missionTaskId:
         | undefined;
       ns.qa = exec?.kind === "MISSION_QA" ? ((exec.verdict as MissionQaVerdict) ?? null) : null;
       log.push({ at: now(), event: `NODE_${status}`, detail: key });
+      events.push({
+        type: "node.finished",
+        nodeKey: key,
+        payload: {
+          status,
+          summary: ns.summary,
+          reason: ns.reason,
+          attempt: ns.attempts,
+          taskId: child.id,
+          agentRunId: child.runs[0]?.id ?? null,
+          durationMs: child.runs[0]?.durationMs ?? null,
+          provider: (exec?.provider as string | undefined) ?? null,
+          model: (exec?.modelId as string | undefined) ?? null,
+          modelRunId: (exec?.modelRunId as string | undefined) ?? null,
+          qa: ns.qa,
+        },
+      });
     }
 
     // 2. decide & apply until stable (REVISE produces new dispatches)
@@ -216,11 +267,13 @@ export async function advanceKernMission(session: SessionContext, missionTaskId:
             : action.reasons;
           outcome = { status: action.outcome, reasons, messageId: null, finishedAt: now() };
           log.push({ at: now(), event: `MISSION_${action.outcome}`, detail: action.reasons.join(",") });
+          events.push({ type: "mission.finished", payload: { outcome: action.outcome, reasons } });
           break;
         }
         if (action.type === "REVISE") {
           state = applyRevision(plan, state, action);
           log.push({ at: now(), event: "QA_REVISION", detail: action.nodeKeys.join(",") });
+          events.push({ type: "qa.revise", payload: { round: state.revisionRounds, nodeKeys: action.nodeKeys, feedback: action.feedback } });
           changed = true;
           break;
         }
@@ -228,10 +281,12 @@ export async function advanceKernMission(session: SessionContext, missionTaskId:
           state.nodes[action.nodeKey].status = "SKIPPED";
           state.nodes[action.nodeKey].reason = action.reason;
           log.push({ at: now(), event: "NODE_SKIPPED", detail: `${action.nodeKey}:${action.reason}` });
+          events.push({ type: "node.skipped", nodeKey: action.nodeKey, payload: { reason: action.reason } });
           changed = true;
           continue;
         }
-        // DISPATCH
+        // DISPATCH (held while the user has the mission paused)
+        if (paused) continue;
         const node = plan.nodes.find((n) => n.key === action.nodeKey)!;
         const ns = state.nodes[node.key];
         const agent = await tx.agent.findFirst({
@@ -242,6 +297,7 @@ export async function advanceKernMission(session: SessionContext, missionTaskId:
           ns.status = "BLOCKED";
           ns.reason = `AGENT_UNAVAILABLE:${node.agentCode}`;
           log.push({ at: now(), event: "NODE_BLOCKED", detail: `${node.key}:no active ${node.agentCode}` });
+          events.push({ type: "node.finished", nodeKey: node.key, payload: { status: "BLOCKED", reason: ns.reason } });
           changed = true;
           continue;
         }
@@ -260,6 +316,7 @@ export async function advanceKernMission(session: SessionContext, missionTaskId:
             summary: state.nodes[d].summary,
           })),
           revisionFeedback: ns.revisionFeedback,
+          userInputs: userInputs.map((u) => ({ id: u.id, text: u.text })),
         };
         const attempt = ns.attempts + 1;
         const child = await tx.agentTask.create({
@@ -295,12 +352,23 @@ export async function advanceKernMission(session: SessionContext, missionTaskId:
         ns.attempts = attempt;
         state.tasksCreated += 1;
         log.push({ at: now(), event: "NODE_DISPATCHED", detail: `${node.key}→${node.agentCode}` });
+        events.push({
+          type: "node.dispatched",
+          nodeKey: node.key,
+          payload: { agentCode: node.agentCode, agentName: agent.name, kind: node.kind, attempt, taskId: child.id, objective: node.objective, revision: !!ns.revisionFeedback },
+        });
+        for (const u of userInputs) {
+          if (u.appliedTo.includes(node.key)) continue;
+          u.appliedTo.push(node.key);
+          events.push({ type: "user.input.applied", nodeKey: node.key, payload: { inputId: u.id } });
+        }
         changed = true;
       }
       if (outcome || !changed) break;
     }
 
-    const nextSnap: MissionSnapshot = { ...snap, state, log: log.slice(-200), outcome };
+    const nextSnap: MissionSnapshot = { ...snap, state, log: log.slice(-200), outcome, ...(snap.userInputs ? { userInputs } : {}) };
+    await appendMissionEventsTx(tx, { organizationId: session.organizationId, missionTaskId: root.id, demo: !!snap.demo, events });
     await tx.agentTask.update({
       where: { id: root.id },
       data: {
@@ -320,7 +388,7 @@ export async function advanceKernMission(session: SessionContext, missionTaskId:
   if (finished) await reportMissionToConversation(session, missionTaskId, finished).catch((error: unknown) => {
     console.error(`[kern-supervisor] mission report failed ${missionTaskId}:`, error instanceof Error ? error.message : error);
   });
-  return getKernMissionStatus(session, missionTaskId);
+  return loadMissionStatus(session, missionTaskId, false);
 }
 
 async function reportMissionToConversation(session: SessionContext, missionTaskId: string, snap: MissionSnapshot) {
@@ -458,6 +526,12 @@ export async function resumeKernMission(
       summary: `Kern 继续推进（重跑 ${prepared.resetKeys.length} 个节点）`,
       details: toJson({ resetKeys: prepared.resetKeys }),
     });
+    await appendMissionEventsTx(tx, {
+      organizationId: session.organizationId,
+      missionTaskId,
+      demo: !!snap.demo,
+      events: [{ type: "mission.resumed", actorUserId: session.userId, payload: { from: "NEEDS_USER", resetKeys: prepared.resetKeys } }],
+    });
     return { resumed: true, resetKeys: prepared.resetKeys };
   });
   if (result.resumed) await advanceKernMission(session, missionTaskId);
@@ -481,13 +555,21 @@ export async function findResumableMission(session: SessionContext, conversation
 }
 
 export async function getKernMissionStatus(session: SessionContext, missionTaskId: string) {
+  return loadMissionStatus(session, missionTaskId, true);
+}
+
+/**
+ * `ownerOnly=false` is for supervisor-internal callers (worker sessions run
+ * as a system user); the org scope is still enforced.
+ */
+async function loadMissionStatus(session: SessionContext, missionTaskId: string, ownerOnly: boolean) {
   const root = await prisma.agentTask.findUnique({
     where: { id: missionTaskId },
     select: { id: true, organizationId: true, status: true, goal: true, contextSnapshot: true, createdAt: true },
   });
   // Missions are personal (like conversations): only the requester can see them.
   const snap = root && root.organizationId === session.organizationId ? readMissionSnapshot(root.contextSnapshot) : null;
-  if (!root || !snap || snap.requestedByUserId !== session.userId) throw new NotFoundError("Mission not found");
+  if (!root || !snap || (ownerOnly && snap.requestedByUserId !== session.userId)) throw new NotFoundError("Mission not found");
   const nodes = snap.plan.nodes.map((n) => ({
     key: n.key,
     kind: n.kind,
@@ -507,6 +589,9 @@ export async function getKernMissionStatus(session: SessionContext, missionTaskI
     tasksCreated: snap.state.tasksCreated,
     nodes,
     outcome: snap.outcome,
+    paused: snap.paused ?? null,
+    userInputs: snap.userInputs ?? [],
+    demo: !!snap.demo,
     log: snap.log.slice(-30),
   };
 }
