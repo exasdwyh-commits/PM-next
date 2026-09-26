@@ -576,6 +576,8 @@ export interface CreateAgentTaskInput {
   priority?: number;
   triggerType?: AgentTriggerType;
   triggerRef?: string | null;
+  /** Stable creation key for retried Supervisor/automation dispatches. */
+  idempotencyKey?: string | null;
   /** Primary Decision Intelligence provenance for autonomous/event routing. */
   triggerDecisionRunId?: string | null;
 }
@@ -756,6 +758,7 @@ export async function createAgentTask(
         priority,
         triggerType: input.triggerType ?? AgentTriggerType.MANUAL,
         triggerRef: input.triggerRef ?? null,
+        idempotencyKey: input.idempotencyKey ?? null,
         triggerDecisionRunId: triggerDecisionRun?.id ?? null,
         createdByUserId: session.userId,
       },
@@ -771,6 +774,8 @@ export async function createAgentTask(
         workItemId: task.workItemId,
         squadId: task.squadId,
         triggerType: task.triggerType,
+        triggerRef: task.triggerRef,
+        idempotencyKey: task.idempotencyKey,
         triggerDecisionRunId: task.triggerDecisionRunId,
       } as Prisma.InputJsonValue,
     });
