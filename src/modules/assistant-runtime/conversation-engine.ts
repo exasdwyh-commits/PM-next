@@ -130,7 +130,7 @@ export async function executeKernConversationTurn(
           organizationId: session.organizationId,
           permissionScope: "own organization only",
           runtimeOwner: "KERN_ASSISTANT",
-          capabilityProvider: "LEGACY_ADVISOR_COMPAT",
+          capabilityProvider: "KERN_CAPABILITY_REGISTRY",
           llmEnabled: modelPlanned,
           modelBackend: gatewayReady
             ? "MODEL_GATEWAY"
@@ -171,7 +171,7 @@ export async function executeKernConversationTurn(
           organizationId: session.organizationId,
           permissionScope: "own organization only",
           runtimeOwner: "KERN_ASSISTANT",
-          capabilityProvider: "LEGACY_ADVISOR_COMPAT",
+          capabilityProvider: "KERN_CAPABILITY_REGISTRY",
           llmEnabled: modelPlanned,
           modelBackend: gatewayReady
             ? "MODEL_GATEWAY"
