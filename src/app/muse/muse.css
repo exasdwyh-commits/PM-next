@@ -549,3 +549,11 @@
 .m-starter:first-child { border-color: var(--m-accent-line); background: var(--m-accent-wash); }
 .m-starter b { font-size: var(--m-t-sm); font-weight: 600; }
 .m-starter small { color: var(--m-ink-3); font-size: var(--m-t-xs); line-height: 1.45; }
+
+.m-prose { display: grid; gap: 10px; }
+.m-prose p, .m-prose ul, .m-prose ol, .m-prose h4 { margin: 0; }
+.m-prose ul, .m-prose ol { padding-left: 1.3em; display: grid; gap: 4px; }
+.m-prose h4 { font-size: var(--m-t-body); font-weight: 650; margin-top: 4px; }
+.m-prose strong { font-weight: 650; }
+.m-prose code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .88em; padding: 1px 5px; border-radius: 5px; background: var(--m-surface-2); }
+.m-prose hr { border: 0; border-top: 1px solid var(--m-hairline); margin: 4px 0; width: 100%; }

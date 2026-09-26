@@ -3,6 +3,7 @@
 import type { Decision, Employee, EvidenceRef, Message, MessageBlock, PlanStep } from "../types";
 import { KernGraphCard } from "./graph";
 import { MissionCard } from "./mission";
+import { Prose } from "./prose";
 import { Btn, Card, CardHead, CONF, I, Node, StateTag, Tag, TONE } from "./kit";
 
 export function Plan({ steps, employees }: { steps: PlanStep[]; employees: Employee[] }) {
@@ -85,11 +86,11 @@ export function CheckIn({ d, onOpenSource, onResolve }: { d: Decision; onOpenSou
 function Block({ b, employees, onOpenSource }: { b: MessageBlock; employees: Employee[]; onOpenSource: (r: EvidenceRef) => void }) {
   switch (b.kind) {
     case "text":
-      return <p className="m-prose">{b.text}</p>;
+      return <Prose text={b.text} />;
     case "graph":
       return <KernGraphCard graph={b.graph} />;
     case "mission":
-      return <MissionCard missionId={b.missionId} />;
+      return <MissionCard missionId={b.ref} />;
     case "plan":
       return (
         <Card>

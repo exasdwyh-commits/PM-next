@@ -84,9 +84,11 @@ function messageView(row: {
   const graphs = citations
     .map((citation) => readKernGraphCitation(citation))
     .filter((graph): graph is KernGraphV1 => graph !== null);
+  const isMission = (c: unknown) => asRecord(c).kind === "kern-mission" && typeof asRecord(c).ref === "string";
+  const missionIds = [...new Set(citations.filter(isMission).map((c) => String(asRecord(c).ref)))];
   const refs = citations
     .map((citation, index) =>
-      readKernGraphCitation(citation)
+      readKernGraphCitation(citation) || isMission(citation)
         ? null
         : evidenceFromCitation(citation, index, row.createdAt)
     )
@@ -101,6 +103,7 @@ function messageView(row: {
     blocks: [
       { kind: "text", text: row.content },
       ...graphs.map((graph) => ({ kind: "graph" as const, graph })),
+      ...missionIds.map((ref) => ({ kind: "mission" as const, ref })),
       ...(refs.length > 0
         ? ([{ kind: "evidence", title: "来源与回执", refs }] as Message["blocks"])
         : []),

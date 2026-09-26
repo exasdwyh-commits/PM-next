@@ -67,7 +67,7 @@ function fromApiMessage(message: ApiMessage): Message {
     blocks: [
       { kind: "text", text: message.content },
       ...graphs.map((graph) => ({ kind: "graph" as const, graph })),
-      ...[...new Set(missionIds)].map((missionId) => ({ kind: "mission" as const, missionId })),
+      ...[...new Set(missionIds)].map((ref) => ({ kind: "mission" as const, ref })),
       ...(refs.length > 0
         ? ([{ kind: "evidence", title: "来源与回执", refs }] as Message["blocks"])
         : []),

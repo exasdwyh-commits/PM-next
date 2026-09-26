@@ -104,15 +104,17 @@ export async function sendDepartmentAssistantMessage(
       mission = { ...launched, nodeCount: plan.nodes.length };
       const team = [...new Set(plan.nodes.filter((n) => n.kind !== "SYNTHESIS").map((n) => n.agentCode))];
       const note = [
-        `我已接手这项工作：拆成 ${plan.nodes.length} 步，由 ${team.length} 位专业成员并行推进，经过${plan.nodes.some((n) => n.kind === "RED_TEAM") ? "红队挑战和" : ""}独立 QA 复核后，我会把结论直接发在这里。`,
-        "过程中能自己解决的问题我会自己处理；只有涉及预算、对外发布、不可逆动作或战略取舍时才会找你。",
+        `**我已接手这项工作。**`,
+        `拆成 ${plan.nodes.length} 步，由 ${team.length} 位专业成员并行推进，经过${plan.nodes.some((n) => n.kind === "RED_TEAM") ? "红队挑战和" : ""}独立 QA 复核后，我会把结论直接发在这里。`,
+        "",
+        "进度在下面实时更新，你可以先去忙别的；只有涉及预算、对外发布、不可逆动作或战略取舍时我才会找你。",
       ].join("\n");
       responseMessage = await prisma.message.update({
         where: { id: result.message.id },
         data: {
-          content: `${result.message.content}\n\n——\n${note}`,
+          // The router's single-turn reply (e.g. an intake form) is superseded by the mission.
+          content: note,
           citations: [
-            ...(Array.isArray(result.message.citations) ? result.message.citations : []),
             { kind: "kern-mission", ref: launched.missionTaskId, title: "Kern 工作进展" },
           ] as Prisma.InputJsonValue,
         },
