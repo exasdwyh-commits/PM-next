@@ -167,6 +167,63 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     validationFirst: true,
   },
 
+  {
+    path: "/api/conversations/{id}/runtime-config",
+    method: "GET",
+    authz: "会话运行配置（只读）：与会话消息同口径（组织 + 本人），非本人会话一律 404",
+    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
+    ownerGate: [200],
+  },
+  {
+    path: "/api/conversations/{id}/runtime-config",
+    method: "PATCH",
+    authz: "修改会话运行配置：组织 + 本人；非本人会话一律 404",
+    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
+    ownerGate: "NOT_DENIED",
+    body: { config: { version: "kern-conversation-config/v1", modelProfileKey: null, advisorCodes: null, skillKeys: null, capabilityKeys: null } },
+  },
+
+  // ---------- Kern 个人助理：任务进展与长期记忆（用户自作用域） ----------
+  {
+    path: "/api/missions/{id}",
+    method: "GET",
+    authz: "Kern 工作进展：仅发起人可见（组织 + requestedByUserId），其他人一律 404，不泄露存在性",
+    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
+    ownerGate: [200],
+  },
+  {
+    path: "/api/memory",
+    method: "GET",
+    authz: "Kern 的记忆：只返回当前用户自己的条目",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    crossTenant: true,
+  },
+  {
+    path: "/api/memory",
+    method: "POST",
+    authz: "新增记忆：写入当前用户自己的空间，任何登录用户可用",
+    expect: { anon: [401], foreign: [201], outsider: [201], viewer: [201] },
+    ownerGate: [201],
+    body: { content: "矩阵探测记忆" },
+    phase: 3,
+  },
+  {
+    path: "/api/memory/{id}",
+    method: "PATCH",
+    authz: "置顶记忆：仅本人条目，他人一律 404",
+    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
+    ownerGate: [200],
+    body: { pinned: true },
+  },
+  {
+    path: "/api/memory/{id}",
+    method: "DELETE",
+    authz: "忘掉记忆：仅本人条目，他人一律 404",
+    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
+    ownerGate: [200],
+  },
+
   // ---------- 本机执行（Hermes Desktop Runtime） ----------
   //
   // 这一组的路由都是**用户自作用域**，不是项目作用域：路径里没有项目 id，

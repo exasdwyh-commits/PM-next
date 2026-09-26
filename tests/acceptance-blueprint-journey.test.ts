@@ -275,14 +275,17 @@ author: 战略发展部
     convo.id,
     "创建任务 安排刺梨冻干原料打样测试"
   );
-  assert(!!advisorTaskMsg.proposal, "成功生成待确认的 CREATE_WORK_ITEM 提议");
-  assert(advisorTaskMsg.proposal?.actionType === "CREATE_WORK_ITEM", "提议类型为创建工作项");
+  // Kern autonomy policy (assistant-runtime/autonomy.ts): an *explicit* “创建任务”
+  // for an internal WorkItem is AUTO — applied once with an audit receipt, no gate.
+  // Protected actions still produce PENDING proposals (covered by 门槛 2/6).
+  const receiptCitation = (advisorTaskMsg.message.citations as Array<{ kind?: string; ref?: string; title?: string }> | null ?? [])
+    .find((c) => c.kind === "action-receipt");
+  assert(!advisorTaskMsg.proposal && !!receiptCitation, "显式内部任务按自治策略自动执行并返回执行回执");
+  assert(/CREATE_WORK_ITEM/.test(receiptCitation?.title ?? ""), "回执类型为创建工作项");
 
-  const proposalId = advisorTaskMsg.proposal!.proposalId;
-
-  // 确认并执行提议
+  const proposalId = receiptCitation!.ref!;
   const apply1 = await applyProposal(sessionA, proposalId);
-  assert(apply1.status === "APPLIED", "首次确认成功执行写入业务工作项 (status=APPLIED)");
+  assert(apply1.status === "APPLIED", "自动执行已写入业务工作项 (status=APPLIED)");
   assert(!!apply1.appliedObjectId && apply1.appliedObjectType === "WorkItem", "业务命令回执返回生成的 WorkItem ID");
 
   // 重复点击确认（模拟网络重试或连击）

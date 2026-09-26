@@ -210,3 +210,20 @@ export function MemorySheet({ onClose }: { onClose: () => void }) {
     </Sheet>
   );
 }
+
+/** 拒绝理由：进入正式审计记录，因此必须填写。 */
+export function RejectSheet({ title, onClose, onSubmit }: { title: string; onClose: () => void; onSubmit: (reason: string) => void }) {
+  const [reason, setReason] = useState("");
+  return (
+    <Sheet title="拒绝这项改动" sub={title} onClose={onClose}>
+      <form className="m-reject" onSubmit={(e) => { e.preventDefault(); if (reason.trim()) onSubmit(reason.trim()); }}>
+        <label htmlFor="m-reject-reason">拒绝理由（会写入审计记录，Kern 也会据此调整）</label>
+        <textarea id="m-reject-reason" autoFocus rows={4} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
+        <div className="m-reject-acts">
+          <Btn size="sm" v="ghost" onClick={onClose}>取消</Btn>
+          <Btn size="sm" v="danger" type="submit" disabled={!reason.trim()}>确认拒绝</Btn>
+        </div>
+      </form>
+    </Sheet>
+  );
+}

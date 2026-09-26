@@ -433,7 +433,7 @@ export async function resumeKernMission(
     const root = await tx.agentTask.findUnique({ where: { id: missionTaskId }, select: { organizationId: true, contextSnapshot: true } });
     if (!root || root.organizationId !== session.organizationId) throw new NotFoundError("Mission not found");
     const snap = readMissionSnapshot(root.contextSnapshot);
-    if (!snap) throw new UnprocessableEntityError("Task is not a Kern mission");
+    if (!snap || snap.requestedByUserId !== session.userId) throw new NotFoundError("Mission not found");
     if (!snap.outcome) return { resumed: false, reason: "STILL_RUNNING" };
     if (snap.outcome.status === "COMPLETED") return { resumed: false, reason: "ALREADY_COMPLETED" };
     const prepared = prepareMissionResume(snap.plan, snap.state);
@@ -485,9 +485,9 @@ export async function getKernMissionStatus(session: SessionContext, missionTaskI
     where: { id: missionTaskId },
     select: { id: true, organizationId: true, status: true, goal: true, contextSnapshot: true, createdAt: true },
   });
-  if (!root || root.organizationId !== session.organizationId) throw new NotFoundError("Mission not found");
-  const snap = readMissionSnapshot(root.contextSnapshot);
-  if (!snap) throw new UnprocessableEntityError("Task is not a Kern mission");
+  // Missions are personal (like conversations): only the requester can see them.
+  const snap = root && root.organizationId === session.organizationId ? readMissionSnapshot(root.contextSnapshot) : null;
+  if (!root || !snap || snap.requestedByUserId !== session.userId) throw new NotFoundError("Mission not found");
   const nodes = snap.plan.nodes.map((n) => ({
     key: n.key,
     kind: n.kind,

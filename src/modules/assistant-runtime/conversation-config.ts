@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import prisma from "@/shared/db";
 import type { SessionContext } from "@/modules/identity/session";
-import { UnprocessableEntityError } from "@/shared/errors";
+import { NotFoundError, UnprocessableEntityError } from "@/shared/errors";
 import { isProviderRuntimeConfigured } from "@/modules/model-gateway/provider-runtime";
 import {
   KERN_CAPABILITY_CATALOG,
@@ -163,7 +163,8 @@ export async function updateKernConversationRuntimeConfig(
     select: { id: true },
   });
   if (!conversation) {
-    throw new UnprocessableEntityError("Conversation 不存在或不可访问");
+    // Same contract as conversation messages: not yours → 404 (no existence leak).
+    throw new NotFoundError("Conversation not found");
   }
 
   const config = await validateKernConversationRuntimeConfig(session, value);

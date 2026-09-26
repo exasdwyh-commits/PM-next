@@ -44,6 +44,7 @@ import {
   type RouteSpec,
 } from "./authz-matrix";
 import { DESKTOP_AGENT_CODE } from "../src/modules/desktop-runtime/contracts";
+import { buildNewProductMissionPlan, initialMissionState } from "../src/modules/supervisor/plan";
 
 const BASE = process.env.BASE_URL || "http://127.0.0.1:3110";
 const RUN_TAG = `mx${Date.now()}`;
@@ -59,9 +60,11 @@ const MARK = CROSS_TENANT_MARKER;
  *   以及 /api/conversations/{id}/messages 新增的 GET）。
  * 2026-09-25（并行分支 efd3f3d7 feat(desktop) 之后）：+1 路由（/api/desktop-runtime/overview），
  *   +1 方法（GET）。同为「用户自作用域只读」。
+ * 2026-09-26（Kern personal agent）：+4 路由（conversations/{id}/runtime-config 补登记、
+ *   /api/missions/{id}、/api/memory、/api/memory/{id}），+7 方法。均为用户自作用域。
  */
-const BASELINE_ROUTES = 67;
-const BASELINE_METHODS = 90;
+const BASELINE_ROUTES = 71;
+const BASELINE_METHODS = 97;
 
 let passed = 0;
 const failures: string[] = [];
@@ -411,6 +414,30 @@ async function main() {
     },
   });
 
+  const missionPlan = buildNewProductMissionPlan("矩阵探测任务");
+  const missionA = await prisma.agentTask.create({
+    data: {
+      organizationId: orgA.id,
+      agentId: desktopAgentA.id,
+      createdByUserId: ownerA.id,
+      goal: "矩阵探测任务",
+      status: "WAITING_HUMAN",
+      contextSnapshot: JSON.parse(JSON.stringify({
+        schemaVersion: "kern-mission/v1",
+        plan: missionPlan,
+        state: initialMissionState(missionPlan),
+        conversationId: null,
+        sourceRunId: null,
+        requestedByUserId: ownerA.id,
+        log: [],
+        outcome: null,
+      })),
+    },
+  });
+  const memoryA = await prisma.kernMemory.create({
+    data: { organizationId: orgA.id, userId: ownerA.id, kind: "PREFERENCE", content: `${MARK} 矩阵探测偏好` },
+  });
+
   const uploadDir = path.join(process.cwd(), ".uploads");
   await fs.promises.mkdir(uploadDir, { recursive: true });
   await fs.promises.writeFile(path.join(uploadDir, `${RUN_TAG}-attachment.txt`), "matrix");
@@ -435,6 +462,8 @@ async function main() {
     [/^\/api\/work-items\//, workItemA.id],
     [/^\/api\/workforce\/tasks\//, agentTaskA.id],
     [/^\/api\/desktop-runtime\/tasks\//, desktopTaskA.id],
+    [/^\/api\/missions\//, missionA.id],
+    [/^\/api\/memory\//, memoryA.id],
   ];
   const expand = (template: string): string => {
     if (!template.includes("{")) return template;

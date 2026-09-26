@@ -572,3 +572,7 @@
 .m-mem-acts { display: flex; gap: 12px; }
 .m-mem-acts button { border: 0; background: none; padding: 0; font: inherit; font-size: var(--m-t-xs); color: var(--m-ink-4); cursor: pointer; }
 .m-mem-acts button:hover { color: var(--m-accent); }
+.m-reject { display: grid; gap: 10px; }
+.m-reject label { font-size: var(--m-t-sm); color: var(--m-ink-3); }
+.m-reject textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--m-hairline); border-radius: var(--m-r-md); font: inherit; font-size: var(--m-t-sm); resize: vertical; background: var(--m-surface); color: var(--m-ink); }
+.m-reject-acts { display: flex; justify-content: flex-end; gap: 8px; }

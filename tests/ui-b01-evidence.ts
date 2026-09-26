@@ -221,7 +221,7 @@ async function main() {
      * 旧写法 goto 之后直接读 body：页面改成标签页后整块不参与渲染，5 项断言集体假失败
      * （文案本身没改，见下方既有断言）。故必须先切到「任务」标签。
      */
-    const tasksTab = page.getByRole("tab", { name: "任务" });
+    const tasksTab = page.getByRole("tab", { name: /^(任务|工作项)/ });
     if ((await tasksTab.count()) > 0) {
       await tasksTab.first().click();
       await page.waitForTimeout(1500);

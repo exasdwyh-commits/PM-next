@@ -7,13 +7,14 @@ import { readKernGraphCitation } from "@/modules/visual-intelligence/contracts";
 import type { KernGraphV1 } from "@/modules/visual-intelligence/contracts";
 import { Btn, I } from "./components/kit";
 import { CheckIn, Turn, Working } from "./components/turn";
-import { MemorySheet, Palette, SourceSheet, TrailSheet, TrustSheet } from "./components/sheets";
+import { MemorySheet, Palette, RejectSheet, SourceSheet, TrailSheet, TrustSheet } from "./components/sheets";
 import { Blank, Dock, Rail } from "./components/shell";
 
 type SheetState =
   | { kind: "trail" }
   | { kind: "trust" }
   | { kind: "memory" }
+  | { kind: "reject"; decision: Decision; choice: Decision["options"][number] }
   | { kind: "source"; ref: EvidenceRef }
   | null;
 
@@ -278,7 +279,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
   }, [draft, conversationId, model.newConversationProduct?.id, router, runtimeConfig, sending]);
 
   const resolve = useCallback(
-    async (decision: Decision, choice: Decision["options"][number]) => {
+    async (decision: Decision, choice: Decision["options"][number], givenReason?: string) => {
       if (decisionBusy) return;
 
       if (choice.kind === "defer") {
@@ -288,8 +289,12 @@ export default function KernClient({ model }: { model: StudioModel }) {
 
       let reason: string | null = null;
       if (choice.kind === "reject") {
-        reason = window.prompt("请填写拒绝理由。该理由会进入正式审计记录。");
-        if (!reason?.trim()) return;
+        reason = givenReason ?? null;
+        if (!reason?.trim()) {
+          // In-app reason sheet (no native dialogs): the reason is audited.
+          setSheet({ kind: "reject", decision, choice });
+          return;
+        }
       }
 
       setDecisionBusy(decision.id);
@@ -485,6 +490,17 @@ export default function KernClient({ model }: { model: StudioModel }) {
         />
       ) : null}
       {sheet?.kind === "memory" ? <MemorySheet onClose={() => setSheet(null)} /> : null}
+      {sheet?.kind === "reject" ? (
+        <RejectSheet
+          title={sheet.decision.title}
+          onClose={() => setSheet(null)}
+          onSubmit={(reason) => {
+            const { decision, choice } = sheet;
+            setSheet(null);
+            void resolve(decision, choice, reason);
+          }}
+        />
+      ) : null}
       {sheet?.kind === "trust" ? (
         <TrustSheet runtime={runtime} onClose={() => setSheet(null)} />
       ) : null}

@@ -173,7 +173,7 @@ if [[ -n "$build_reason" ]]; then
   #   NODE_ENV；所以"我手动单独跑一次构建是好的"**不能**证明这行 pin 多余。
   #   只有把它**导出进环境**（本脚本正是如此）才会 exit 1。
   #   （曾有一版注释写"本机加了与不加都能成功、该失败无法复现"，正是踩了这个反直觉点，已按实测改写。）
-  if ! NODE_OPTIONS= NODE_ENV=production ./node_modules/.bin/next build > /tmp/acc-build.log 2>&1; then
+  if ! NODE_OPTIONS="${ACC_BUILD_NODE_OPTIONS:-}" NODE_ENV=production ./node_modules/.bin/next build ${ACC_BUILD_FLAGS:-} > /tmp/acc-build.log 2>&1; then
     echo "❌ 构建失败："; tail -25 /tmp/acc-build.log; exit 1
   fi
 fi
