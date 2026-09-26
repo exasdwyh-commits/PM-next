@@ -31,6 +31,7 @@ export async function executeKernCapability(
   if (
     capabilityKey &&
     context.capabilityKeys !== null &&
+    context.capabilityKeys !== undefined &&
     !context.capabilityKeys.includes(capabilityKey)
   ) {
     return {
