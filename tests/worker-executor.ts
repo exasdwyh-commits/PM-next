@@ -120,6 +120,14 @@ async function main() {
         title: "Kern specialist return test",
       },
     });
+    const sourceRun = await prisma.agentRun.create({
+      data: {
+        organizationId: org.id,
+        conversationId: conversation.id,
+        userId: owner.id,
+        goal: "Kern source conversation run",
+      },
+    });
     const fakeReady = {
       version: "kern-dispatch-readiness/v1" as const,
       eligible: true,
@@ -129,25 +137,27 @@ async function main() {
       taskClass: "CODING" as const,
       reason: "test-only ready contract",
     };
-    const dispatch = await enqueueKernSpecialistDispatch({
+    const dispatchArgs = {
       session,
       conversationId: conversation.id,
-      sourceRunId: "source-run-" + tag,
+      sourceRunId: sourceRun.id,
       goal: "审查当前 API 架构并给出测试策略；不要执行任何代码修改。",
       readiness: fakeReady,
-    });
-    assert.ok(dispatch);
-    assert.equal(dispatch.created, true);
+    };
+    const [firstDispatch, secondDispatch] = await Promise.all([
+      enqueueKernSpecialistDispatch(dispatchArgs),
+      enqueueKernSpecialistDispatch(dispatchArgs),
+    ]);
+    assert.ok(firstDispatch);
+    assert.ok(secondDispatch);
+    const dispatch = firstDispatch.created ? firstDispatch : secondDispatch;
+    const replay = firstDispatch.created ? secondDispatch : firstDispatch;
+    assert.equal(
+      Number(firstDispatch.created) + Number(secondDispatch.created),
+      1,
+      "concurrent replay must create exactly one AgentTask"
+    );
     assert.equal(dispatch.status, AgentTaskStatus.QUEUED);
-
-    const replay = await enqueueKernSpecialistDispatch({
-      session,
-      conversationId: conversation.id,
-      sourceRunId: "source-run-" + tag,
-      goal: "审查当前 API 架构并给出测试策略；不要执行任何代码修改。",
-      readiness: fakeReady,
-    });
-    assert.ok(replay);
     assert.equal(replay.created, false);
     assert.equal(replay.taskId, dispatch.taskId);
     assert.equal(
