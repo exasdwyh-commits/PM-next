@@ -82,6 +82,29 @@ export interface Message {
   blocks: MessageBlock[];
 }
 
+export interface ConversationRuntimeConfig {
+  version: "kern-conversation-config/v1";
+  modelProfileKey: string | null;
+  advisorCodes: string[] | null;
+  skillKeys: string[] | null;
+  capabilityKeys: string[] | null;
+}
+
+export interface ConversationControlOption {
+  key: string;
+  label: string;
+  description: string;
+  meta?: string | null;
+}
+
+export interface ConversationControls {
+  config: ConversationRuntimeConfig;
+  models: ConversationControlOption[];
+  advisors: ConversationControlOption[];
+  skills: ConversationControlOption[];
+  capabilities: ConversationControlOption[];
+}
+
 export interface RuntimeStatus {
   connected: boolean;
   host: string;
@@ -115,6 +138,7 @@ export interface StudioModel {
   employees: Employee[];
   messages: Message[];
   activity: ActivityItem[];
+  controls: ConversationControls;
   runtime: RuntimeStatus;
   evidence: EvidenceRef[];
 }
