@@ -47,8 +47,16 @@ test("desktop runtime delivery wiring stays present", () => {
     path.join(root, "src/modules/desktop-runtime/service.ts"),
     "utf8"
   );
-  const advisor = fs.readFileSync(
-    path.join(root, "src/modules/advisor/service.ts"),
+  const router = fs.readFileSync(
+    path.join(root, "src/modules/assistant-runtime/router.ts"),
+    "utf8"
+  );
+  const desktopCapability = fs.readFileSync(
+    path.join(root, "src/modules/assistant-runtime/capabilities/desktop.ts"),
+    "utf8"
+  );
+  const registry = fs.readFileSync(
+    path.join(root, "src/modules/assistant-runtime/capabilities/registry.ts"),
     "utf8"
   );
   const client = fs.readFileSync(
@@ -63,8 +71,9 @@ test("desktop runtime delivery wiring stays present", () => {
   assert.ok(service.includes("desktopConversationId"));
   assert.ok(service.includes("desktopResult"));
   assert.ok(service.includes("prisma.message.create"));
-  assert.ok(advisor.includes('"DESKTOP_EXECUTION"'));
-  assert.ok(advisor.includes('"desktop.runtime"'));
+  assert.ok(router.includes('"DESKTOP_EXECUTION"'));
+  assert.ok(desktopCapability.includes('"desktop.runtime"'));
+  assert.ok(registry.includes("handleDesktopCapability"));
   assert.ok(client.includes("Desktop Runtime 完成任务后会把真实结果写回原会话"));
   assert.ok(runtime.includes('"codex"'));
   assert.ok(runtime.includes('"workspace-write"'));

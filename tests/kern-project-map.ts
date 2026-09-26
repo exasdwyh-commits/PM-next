@@ -55,7 +55,9 @@ for (const required of [
   "workbench",
   "conversation-api",
   "assistant-runtime",
-  "legacy-capabilities",
+  "kern-router",
+  "capability-registry",
+  "advisor-support",
   "model-gateway",
   "work-engine",
   "desktop-runtime",
@@ -71,20 +73,28 @@ assert.ok(
   "conversation API must enter Kern Assistant Runtime"
 );
 assert.ok(
-  edgeKeys.has("assistant-runtime->legacy-capabilities"),
-  "legacy Advisor must be visible only as a compatibility capability provider"
+  edgeKeys.has("assistant-runtime->kern-router"),
+  "Assistant Runtime must route through Kern Router"
+);
+assert.ok(
+  edgeKeys.has("assistant-runtime->capability-registry"),
+  "Assistant Runtime must execute through the native capability registry"
 );
 assert.ok(
   edgeKeys.has("assistant-runtime->model-gateway"),
   "Assistant Runtime must own model routing"
 );
 assert.ok(
-  edgeKeys.has("legacy-capabilities->work-engine"),
-  "legacy capability provider currently delegates Product R&D / workforce work"
+  edgeKeys.has("capability-registry->work-engine"),
+  "capability registry must delegate Product R&D / workforce work"
 );
 assert.ok(
-  edgeKeys.has("legacy-capabilities->desktop-runtime"),
-  "legacy capability provider currently delegates desktop work"
+  edgeKeys.has("capability-registry->desktop-runtime"),
+  "capability registry must delegate desktop work"
+);
+assert.ok(
+  edgeKeys.has("capability-registry->advisor-support"),
+  "legacy Advisor code may remain only as supporting libraries behind native capabilities"
 );
 
 const archify = toArchifyArchitectureSpec(graph);

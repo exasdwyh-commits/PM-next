@@ -1,0 +1,52 @@
+import type { SessionContext } from "@/modules/identity/session";
+import type {
+  KernCapabilityContext,
+  KernCapabilityHandler,
+  KernCapabilityIntent,
+  KernCapabilityResult,
+} from "./contracts";
+import { handleDesktopCapability } from "./desktop";
+import { handleProductRndCapability } from "./product-rnd";
+import { handleWorkspaceReadCapability } from "./workspace-read";
+import { handleProductWriteCapability } from "./product-write";
+import { handleChallengeCapability } from "./challenge";
+import { handleKnowledgeCapability } from "./knowledge";
+
+const HANDLERS: KernCapabilityHandler[] = [
+  handleDesktopCapability,
+  handleProductRndCapability,
+  handleWorkspaceReadCapability,
+  handleProductWriteCapability,
+  handleChallengeCapability,
+  handleKnowledgeCapability,
+];
+
+export async function executeKernCapability(
+  session: SessionContext,
+  intent: KernCapabilityIntent,
+  context: KernCapabilityContext
+): Promise<KernCapabilityResult> {
+  for (const handler of HANDLERS) {
+    const result = await handler(session, intent, context);
+    if (result) return result;
+  }
+
+  throw new Error(`No Kern capability handler registered for intent: ${intent}`);
+}
+
+export const KERN_NATIVE_CAPABILITY_INTENTS = new Set<KernCapabilityIntent>([
+  "DESKTOP_EXECUTION",
+  "START_PRODUCT_RND",
+  "PRODUCT_RND_STATUS",
+  "PRODUCT_RND_REPORT",
+  "PENDING_DECISIONS",
+  "PRODUCT_STATUS",
+  "WORKSPACE_STATUS",
+  "PENDING_PROPOSALS",
+  "PROPOSE_FIELD_CHANGE",
+  "PROPOSE_CREATE_WORK_ITEM",
+  "NEW_PRODUCT_INTAKE",
+  "CHALLENGE_THESIS",
+  "KNOWLEDGE_SEARCH",
+  "UNSUPPORTED",
+]);

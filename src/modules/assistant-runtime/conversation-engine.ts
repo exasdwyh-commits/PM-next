@@ -10,12 +10,14 @@ import {
   type AdvisorLLMMessage,
 } from "@/modules/advisor/llm";
 import {
-  advisorModelRouteForIntent,
-  resolveIntentWithKernPlanner,
-  runTool,
-  type ToolContext,
-  type ToolResult,
-} from "@/modules/advisor/service";
+  modelRouteForIntent,
+  resolveKernIntent,
+} from "./router";
+import {
+  executeKernCapability,
+  type KernCapabilityContext,
+  type KernCapabilityResult,
+} from "./capabilities";
 import { claimRun } from "@/modules/advisor/runs";
 import { tryResolveGatewayPolicyForAgentCode } from "@/modules/model-control/service";
 import {
@@ -45,9 +47,9 @@ const KERN_TOOL_WHITELIST = [
 /**
  * Kern owns the conversational run lifecycle.
  *
- * Legacy Advisor is temporarily a capability provider only:
- * intent compatibility + domain tool execution. New orchestration must not be
- * added back to advisor/service.ts.
+ * Kern owns intent routing and capability execution through its native registry.
+ * Advisor modules are support/compatibility libraries only and must never become
+ * the runtime owner again.
  */
 export async function executeKernConversationTurn(
   session: SessionContext,
@@ -67,14 +69,14 @@ export async function executeKernConversationTurn(
     select: { role: true, content: true },
   });
 
-  const intentRouting = await resolveIntentWithKernPlanner(session, {
+  const intentRouting = await resolveKernIntent(session, {
     conversationId,
     text,
     productBound: Boolean(conversation.productId),
     history: plannerHistoryRows.reverse(),
   });
   const intent = intentRouting.intent;
-  const modelRoute = advisorModelRouteForIntent(intent);
+  const modelRoute = modelRouteForIntent(intent);
   const startedAt = new Date();
 
   let gatewayPlan: Awaited<
@@ -128,7 +130,7 @@ export async function executeKernConversationTurn(
           organizationId: session.organizationId,
           permissionScope: "own organization only",
           runtimeOwner: "KERN_ASSISTANT",
-          capabilityProvider: "LEGACY_ADVISOR_COMPAT",
+          capabilityProvider: "KERN_CAPABILITY_REGISTRY",
           llmEnabled: modelPlanned,
           modelBackend: gatewayReady
             ? "MODEL_GATEWAY"
@@ -169,7 +171,7 @@ export async function executeKernConversationTurn(
           organizationId: session.organizationId,
           permissionScope: "own organization only",
           runtimeOwner: "KERN_ASSISTANT",
-          capabilityProvider: "LEGACY_ADVISOR_COMPAT",
+          capabilityProvider: "KERN_CAPABILITY_REGISTRY",
           llmEnabled: modelPlanned,
           modelBackend: gatewayReady
             ? "MODEL_GATEWAY"
@@ -193,7 +195,7 @@ export async function executeKernConversationTurn(
     });
   }
 
-  const ctx: ToolContext = {
+  const ctx: KernCapabilityContext = {
     conversationId,
     productId: conversation.productId ?? null,
     text,
@@ -220,7 +222,7 @@ export async function executeKernConversationTurn(
     data: { conversationId, role: "USER", content: text, runId: run.id },
   });
 
-  let result: ToolResult;
+  let result: KernCapabilityResult;
   let failed = false;
   let errorReason: string | null = gatewayResolutionError
     ? `Model Gateway 配置解析失败，已使用确定性工具：${gatewayResolutionError}`
@@ -241,7 +243,7 @@ export async function executeKernConversationTurn(
     | "DETERMINISTIC_TOOL" = "DETERMINISTIC_TOOL";
 
   try {
-    result = await runTool(session, intent, ctx);
+    result = await executeKernCapability(session, intent, ctx);
     result = await applyExplicitChatProposal(session, {
       intent,
       runId: run.id,

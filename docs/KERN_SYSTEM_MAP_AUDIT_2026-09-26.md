@@ -45,26 +45,37 @@
 
 这份地图审查已经进入实施阶段：
 
-- **P0 已完成第一阶段**：主聊天链从 `advisor.sendMessage` 迁到 `assistant-runtime/conversation-engine.ts`。Advisor 只作为 `LEGACY_ADVISOR_COMPAT` capability provider，Conversation CRUD 也已归到 Assistant Runtime。
+- **P0 已完成**：主聊天链、Intent Router、Capability Registry、Conversation CRUD 全部归到 `assistant-runtime`。Kern 主链不再依赖 `advisor/service.ts`；该文件已从 1804 行收缩为约 68 行兼容 facade。
 - **Conversation 语义已清理**：Kern Chat ViewModel 使用 `ConversationSummary / activeConversationId / conversationId`，不再把会话称为 Mission，也不再预加载 Today 管理驾驶舱。
 - **Autonomy 已升级**：从动作白名单改为 capability risk assessment，显式考虑 reversibility / external side effect / financial / permission / production release / formal gate / destructive / ambiguity。
 - **Project Map Builder 已落地**：可从真实 source file + static import 生成 VERIFIED KernGraph，并转换为 Archify architecture spec；`npm run kern:map` 可重复生成项目地图。
 
-当前尚未完全移除 Legacy Advisor provider；下一轮继续把领域 capability 按模块从 `advisor/service.ts` 抽出，而不是再把运行时逻辑放回去。
+领域 capability 已全部从 `advisor/service.ts` 抽离：Desktop、Product R&D、Workspace Read、Product Write、Challenge、Knowledge 都由 Kern Capability Registry 直接调度。Advisor 目录只保留 Proposal / Challenge 算法 / LLM / Runs 等兼容或专业支持库。
 
 ## 地图暴露出的结构债
 
-### P0 · Legacy Advisor capability provider 仍待继续拆分
+### P0 · Advisor 核心化问题已关闭
 
-`src/modules/assistant-runtime/service.ts` 已不再调用 `sendLegacyAdvisorMessage`。当前过渡依赖是 `conversation-engine.ts` 调用 Advisor 暂存的 intent/tool capability provider。
+`conversation-engine.ts` 已直接调用 Kern Router 与 Capability Registry；`advisor/service.ts` 只做历史 import 兼容转发，不持有 intent、tool case、Prisma 业务逻辑或模型编排。
 
 结果是：
 
-- 新产品身份已经是 Kern；
-- 但大量 intent、tool dispatch、产品提议、状态查询仍集中在旧 Advisor service；
-- 后续每加一种 Kern 能力，都容易继续把 `advisor/service.ts` 做大。
+当前结构已经改为：
 
-**目标：** 逐步把它拆成 `router → capability executor → response composer`，Advisor 变成一类 capability，而不是 Kern 的底座。
+```text
+Conversation Engine
+→ Kern Router
+→ Capability Registry
+   ├─ Desktop
+   ├─ Product R&D
+   ├─ Workspace Read
+   ├─ Product Write
+   ├─ Challenge
+   └─ Knowledge
+→ Response / Receipt
+```
+
+CI 会锁住 Advisor facade 不得重新出现 capability case 或 Prisma 业务逻辑。
 
 ### P1 · UI 内部仍残留 goal / mission 语义
 
@@ -113,10 +124,11 @@ repository
 ## 推荐继续顺序
 
 1. **保持 Muse 原始视觉系统不再重做 CSS。**
-2. **把 Conversation 语义从 goal / mission 中清出来。**
-3. **从 advisor/service.ts 抽出 Capability Executor。**
-4. **把 Autonomy 升级为 risk-based capability policy。**
-5. **做 Project Map Builder，让 Archify / KernGraph 都吃同一份 source-backed IR。**
+2. **Conversation 语义清理：已完成。**
+3. **Capability Registry：已完成，Advisor service 已降为兼容 facade。**
+4. **Risk-based Autonomy：已完成基础策略层。**
+5. **Project Map Builder：已完成第一版 source-backed KernGraph + Archify adapter。**
+6. **下一步：让通用 Work Mode 与 capability registry 使用统一 Task/Run contract，并继续减少历史 advisor 命名。**
 
 ## 产品边界
 
