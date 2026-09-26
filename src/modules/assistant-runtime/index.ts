@@ -8,3 +8,4 @@ export * from "./planner";
 export * from "./conversations";
 export * from "./conversation-engine";
 export * from "./autonomy";
+export * from "./capabilities";
