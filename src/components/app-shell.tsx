@@ -21,7 +21,7 @@ export interface NavItem {
 /** Kern 与管理后台保持清晰分层：这里只提供返回主操作入口。 */
 export const KERN_ITEM: NavItem = {
   key: "kern",
-  label: "Kern",
+  label: "返回 Kern",
   href: "/muse",
   icon: "chat",
   hint: "回到 Kern 的日常对话、委派、进度沟通与 Check-in",
