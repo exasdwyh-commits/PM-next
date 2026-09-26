@@ -20,7 +20,7 @@ export interface KernCapabilityContext {
   conversationId: string;
   productId: string | null;
   text: string;
-  capabilityKeys: KernCapabilityKey[] | null;
+  capabilityKeys?: KernCapabilityKey[] | null;
 }
 
 export interface KernCapabilityResult {
