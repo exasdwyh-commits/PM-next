@@ -71,13 +71,6 @@ interface WorkforceActivity {
   recentTraces: AutomationTraceView[];
 }
 
-const QUICK_ACTIONS = [
-  { label: "研究一个新产品", query: "我有一个新产品想法，请帮我先梳理目标用户、核心需求、市场机会和研发路径。" },
-  { label: "分析市场机会", query: "帮我分析最近值得关注的市场机会，并说明证据、风险和下一步验证方式。" },
-  { label: "开始产品研发", query: "我想启动一轮完整产品研发，请先帮我整理研发 Brief，再告诉我还缺哪些输入。" },
-  { label: "专家会诊", query: "我需要一次多专业专家会诊，请从市场、科研、配方、合规、成本和反方视角审查当前问题。" },
-];
-
 const TIER_LABEL: Record<string, string> = {
   high: "高价值",
   normal: "一般",
@@ -193,40 +186,20 @@ export default function WorkbenchClient({
         </div>
       }
     >
-      <section className="hermes-command-center" aria-labelledby="today-command-title">
-        <div className="hermes-command-copy">
-          <span className="eyebrow">AI 部门助理</span>
-          <h1 id="today-command-title">{displayName}，今天想让 Kern 做什么？</h1>
-          <p>
-            直接说业务目标。Kern 会先理解上下文，再决定是回答、研究、拆任务，还是启动产品研发流程。
-          </p>
-        </div>
-
+      <section className="hermes-command-center is-compact" aria-label="交给 Kern">
         <form className="hermes-command-box" onSubmit={submitCommand}>
-          <Icon name="chat" size={20} />
+          <Icon name="chat" size={18} />
           <input
             value={command}
             onChange={(e) => setCommand(e.target.value)}
-            placeholder="例如：我要做一款针对 25–45 岁女性的肠道产品，售价 299，先帮我评估"
+            placeholder="交代一件事给 Kern…"
             aria-label="告诉 Kern 你想完成什么"
           />
-          <button type="submit" className="hermes-primary-btn" disabled={!command.trim()}>
+          <button type="submit" className="hermes-primary-btn hermes-btn-sm" disabled={!command.trim()}>
             交给 Kern
-            <Icon name="arrow" size={15} />
+            <Icon name="arrow" size={14} />
           </button>
         </form>
-
-        <div className="hermes-command-actions" aria-label="常用任务">
-          {QUICK_ACTIONS.map((action) => (
-            <Link
-              key={action.label}
-              href={`/muse?query=${encodeURIComponent(action.query)}`}
-              className="hermes-command-chip"
-            >
-              {action.label}
-            </Link>
-          ))}
-        </div>
       </section>
 
       <DesktopConversationStrip overview={desktopOverview} />
