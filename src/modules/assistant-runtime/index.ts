@@ -9,4 +9,5 @@ export * from "./conversations";
 export * from "./conversation-engine";
 export * from "./autonomy";
 export * from "./capabilities";
-export * from "./router";\nexport * from "./intent-grammar";\n
+export * from "./router";
+export * from "./intent-grammar";
