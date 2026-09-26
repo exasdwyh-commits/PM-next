@@ -201,7 +201,10 @@ test("Kern specialist AUTO is database-idempotent and provenance-bound", () => {
   assert.ok(dispatch.includes('error.code === "P2002"'));
   assert.ok(returnPath.includes("FOR UPDATE"));
   assert.ok(returnPath.includes("kern-conversation-return-receipt/v1"));
-  assert.ok(executor.includes("runTechArchitectAgent"));
+  // Tech Architect now runs through the Generic Agent Executor contract.
+  assert.ok(executor.includes("createGenericAgentStrategy"));
+  assert.ok(executor.includes("tech_architect_agent: GENERIC_STRATEGIES.tech_architect_agent"));
+  assert.ok(executor.includes("resolveExecutorStrategy(task.agent.code, task.contextSnapshot)"));
   assert.ok(executor.includes("appendAgentTaskConversationReturn"));
 });
 
@@ -215,5 +218,9 @@ test("PAIR and COUNCIL are not silently promoted to AUTO", () => {
   assert.ok(readiness.includes('"AGENT_UNAVAILABLE"'));
   assert.ok(readiness.includes('status: "ACTIVE"'));
   assert.ok(readiness.includes("CHAT_SPECIALIST_EXECUTION"));
-  assert.ok(readiness.includes('tech_architect_agent: { taskClass: "CODING"'));
+  assert.ok(readiness.includes("chatDispatchableAgentCodes()"));
+  const contracts = read("src/modules/worker/generic-agent-contracts.ts");
+  assert.ok(contracts.includes('agentCode: "tech_architect_agent"'));
+  assert.ok(contracts.includes('taskClass: "CODING"'));
+  assert.ok(contracts.includes('scope: "KERN_DISPATCH_ONLY"'));
 });

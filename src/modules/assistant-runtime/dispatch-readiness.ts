@@ -4,6 +4,10 @@ import { hasEnabledPolicyCandidate } from "@/modules/model-gateway";
 import { isProviderRuntimeConfigured } from "@/modules/model-gateway/provider-runtime";
 import { tryResolveGatewayPolicyForAgentCode } from "@/modules/model-control/service";
 import type { KernCollaborationPlanShadow } from "./collaboration-planner";
+import {
+  GENERIC_AGENT_CONTRACTS,
+  chatDispatchableAgentCodes,
+} from "@/modules/worker/generic-agent-contracts";
 
 export type KernDispatchReadinessState =
   | "INLINE_READY"
@@ -25,12 +29,21 @@ export interface KernDispatchReadiness {
   reason: string;
 }
 
+/**
+ * Chat-dispatchable specialists are derived from the Generic Agent Executor
+ * contract registry — adding an advisory agent is configuration, not a new
+ * hard-coded branch. Every entry still needs an ACTIVE agent, an enabled model
+ * policy and a configured provider runtime before it is EXECUTOR_READY.
+ */
 const CHAT_SPECIALIST_EXECUTION: Record<
   string,
   { taskClass: ModelTaskClass; executor: "WORKER" }
-> = {
-  tech_architect_agent: { taskClass: "CODING", executor: "WORKER" },
-};
+> = Object.fromEntries(
+  chatDispatchableAgentCodes().map((code) => [
+    code,
+    { taskClass: GENERIC_AGENT_CONTRACTS[code].taskClass, executor: "WORKER" as const },
+  ])
+);
 
 /**
  * Resolve whether a shadow routing recommendation could be executed *now*.

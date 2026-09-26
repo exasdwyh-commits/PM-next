@@ -3,6 +3,7 @@ import prisma from "@/shared/db";
 import type { SessionContext } from "@/modules/identity/session";
 import { listAutomationTraces } from "@/modules/automation-trace";
 import { getWorkforceOverview } from "./service";
+import { planAttention, type AttentionSignal } from "@/modules/attention/engine";
 
 export async function getWorkforceActivityBrief(
   session: SessionContext,
@@ -70,29 +71,50 @@ export async function getWorkforceActivityBrief(
     (row) => row.autopilotReceipt?.status === AutopilotEventStatus.FAILED
   ).length;
 
-  // Personal-assistant attention budget:
+  // Personal-assistant attention budget (Kern Attention Engine v1):
   // returned child results are Kern's internal supervision work, not automatically
   // a human interruption. Keep returnReviewCount separately for Automation Center,
-  // but only true WAITING_HUMAN / policy gates enter the user's attention queue.
-  const attentionItems = [
-    ...overview.waitingTasks.map((task) => ({
+  // but only true WAITING_HUMAN / policy gates (HUMAN_GATE) plus budgeted
+  // SURFACE / INTERRUPT items enter the user's attention queue.
+  type AttentionItemKind = "WAITING_HUMAN" | "POLICY_WAITING" | "AUTOMATION_FAILED";
+  const itemById = new Map<
+    string,
+    {
+      id: string;
+      kind: AttentionItemKind;
+      title: string;
+      detail: string;
+      agentName: string;
+      updatedAt: Date;
+      href: string;
+    }
+  >();
+  const signals: AttentionSignal[] = [];
+
+  for (const task of overview.waitingTasks) {
+    const item = {
       id: task.id,
       kind: "WAITING_HUMAN" as const,
       title: task.goal,
       detail: task.blockedReason || "Agent 正在等待人工判断。",
       agentName: task.agent.name,
       updatedAt: task.updatedAt,
-      href: task.workItem
-        ? "/projects/" + task.workItem.projectId
-        : "/workforce",
-    })),
-    ...recentTraces
-      .filter(
-        (trace) =>
-          trace.createdAt >= since &&
-          trace.receipt?.status === AutopilotEventStatus.WAITING_HUMAN
-      )
-      .map((trace) => ({
+      href: task.workItem ? "/projects/" + task.workItem.projectId : "/workforce",
+    };
+    itemById.set(item.id, item);
+    signals.push({
+      id: item.id,
+      kind: "WAITING_HUMAN",
+      title: item.title,
+      occurredAt: item.updatedAt,
+    });
+  }
+
+  for (const trace of recentTraces) {
+    if (trace.createdAt < since) continue;
+    const status = trace.receipt?.status;
+    if (status === AutopilotEventStatus.WAITING_HUMAN) {
+      const item = {
         id: trace.id,
         kind: "POLICY_WAITING" as const,
         title: "Autopilot 等待人工：" + trace.eventType,
@@ -103,12 +125,42 @@ export async function getWorkforceActivityBrief(
         agentName: "Kern Policy Gate",
         updatedAt: trace.createdAt,
         href: "/workforce",
-      })),
-  ]
-    .sort(
-      (a, b) =>
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    )
+      };
+      itemById.set(item.id, item);
+      signals.push({ id: item.id, kind: "POLICY_GATE", title: item.title, occurredAt: item.updatedAt });
+    } else if (status === AutopilotEventStatus.FAILED) {
+      const item = {
+        id: trace.id,
+        kind: "AUTOMATION_FAILED" as const,
+        title: "自动化失败：" + trace.eventType,
+        detail: trace.receipt?.suppressionReason || "自动化执行失败，需要查看原因。",
+        agentName: "Kern Autopilot",
+        updatedAt: trace.createdAt,
+        href: "/workforce",
+      };
+      itemById.set(item.id, item);
+      signals.push({ id: item.id, kind: "TASK_FAILED", title: item.title, occurredAt: item.updatedAt });
+    } else if (status === AutopilotEventStatus.SUPPRESSED) {
+      signals.push({ id: trace.id, kind: "EVENT_SUPPRESSED", title: trace.eventType, occurredAt: trace.createdAt });
+    }
+  }
+
+  if (returnReviewCount > 0) {
+    signals.push({
+      id: "child-return-review",
+      kind: "CHILD_RETURN_REVIEW",
+      title: `${returnReviewCount} 个子任务回执待 Kern 复核`,
+      occurredAt: generatedAt,
+    });
+  }
+
+  const attentionPlan = planAttention(signals, { now: generatedAt });
+  const attentionItems = attentionPlan.visible
+    .map((visible) => {
+      const item = itemById.get(visible.id);
+      return item ? { ...item, level: visible.decision.level } : null;
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null)
     .slice(0, 6);
 
   return {
@@ -124,6 +176,11 @@ export async function getWorkforceActivityBrief(
     returnReviewCount,
     attentionCount: waitingHumanCount + waitingPolicyCount,
     attentionItems,
+    attention: {
+      version: attentionPlan.version,
+      counts: attentionPlan.counts,
+      budget: attentionPlan.budget,
+    },
     recentTraces: recentTraces
       .filter((trace) => trace.createdAt >= since)
       .slice(0, 8),

@@ -1,3 +1,4 @@
+import { getGenericAgentContract } from "@/modules/worker/generic-agent-contracts";
 import { Prisma } from "@prisma/client";
 import prisma from "@/shared/db";
 import type { SessionContext } from "@/modules/identity/session";
@@ -91,8 +92,13 @@ export async function sendDepartmentAssistantMessage(
       });
 
       if (specialistDispatch) {
+        const specialistName =
+          getGenericAgentContract(specialistDispatch.agentCode)?.displayName ??
+          specialistDispatch.agentCode;
+        const requestKind =
+          specialistDispatch.agentCode === "tech_architect_agent" ? "技术请求" : "专业请求";
         const dispatchNote = [
-          "Kern 协作路由：已将这条低风险技术请求交给 Tech Architect。",
+          `Kern 协作路由：已将这条低风险${requestKind}交给 ${specialistName}。`,
           `当前任务状态：${specialistDispatch.status}。专家完成后，回执会自动追加到本会话。`,
         ].join("\n");
         const originalContent = result.message.content;
@@ -112,7 +118,7 @@ export async function sendDepartmentAssistantMessage(
               {
                 kind: "agent-task",
                 ref: specialistDispatch.taskId,
-                title: "Tech Architect · " + specialistDispatch.status,
+                title: `${specialistName} · ${specialistDispatch.status}`,
               },
             ] as Prisma.InputJsonValue,
           },

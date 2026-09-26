@@ -51,3 +51,9 @@ V1/Beta 不再继续“顺手优化”。后续只从真实试用反馈进入新
 4. 下一版本功能进入独立 V1.1 规划，不直接改冻结基线。
 
 继续工作时，先核对 `main` 是否仍包含上述 validated head，再检查当前 PR / Issue / CI。
+
+## Architecture V2 批次（`release/v0.1.0-rc1` 之上）
+
+- Batch 1 · Generic Agent Executor v1 + Attention Engine v1：分支 `feat/kern-v2-supervisor-batch1`
+  - 本地验证：typecheck / lint / build 全绿；pure tests 55+11 通过；DB 回归 test:worker（含新 W1c）/ workforce / qa-retry / qa-dedup / product-rnd-fusion / autopilot / business-events / experience / golden-org 通过（本机 PostgreSQL，按 CI 环境变量）。
+  - 详情见 `docs/KERN_ARCHITECTURE_V2.md` §17。

@@ -84,7 +84,9 @@
     "test:kern-runtime-architecture": "node --import tsx --test tests/kern-runtime-architecture.test.ts",
     "kern:map": "tsx scripts/kern-map.ts",
     "test:kern-conversation-controls": "node --import tsx --test tests/kern-conversation-controls.test.ts",
-    "test:kern-goal-plan": "node --import tsx --test tests/kern-goal-plan.test.ts"
+    "test:kern-goal-plan": "node --import tsx --test tests/kern-goal-plan.test.ts",
+    "test:kern-generic-executor": "node --import tsx --test tests/kern-generic-executor.test.ts",
+    "test:kern-attention": "node --import tsx --test tests/kern-attention-engine.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

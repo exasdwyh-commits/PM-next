@@ -61,7 +61,8 @@ interface WorkforceActivity {
   attentionCount: number;
   attentionItems: Array<{
     id: string;
-    kind: "RETURN_REVIEW" | "WAITING_HUMAN" | "POLICY_WAITING";
+    kind: "RETURN_REVIEW" | "WAITING_HUMAN" | "POLICY_WAITING" | "AUTOMATION_FAILED";
+    level?: "SURFACE" | "INTERRUPT" | "HUMAN_GATE" | "WATCH" | "AUTO_HANDLE";
     title: string;
     detail: string;
     agentName: string;

@@ -21,6 +21,12 @@ on:
       - "tests/kern-runtime-architecture.test.ts"
       - "tests/kern-goal-plan.test.ts"
       - "tests/kern-conversation-controls.test.ts"
+      - "src/modules/worker/generic-agent-contracts.ts"
+      - "src/modules/worker/generic-executor.ts"
+      - "src/modules/attention/**"
+      - "src/modules/workforce/activity-brief.ts"
+      - "tests/kern-generic-executor.test.ts"
+      - "tests/kern-attention-engine.test.ts"
       - "package.json"
       - ".github/workflows/experience-ci.yml"
   push:
@@ -43,6 +49,12 @@ on:
       - "tests/kern-project-map.ts"
       - "tests/kern-runtime-architecture.test.ts"
       - "tests/kern-conversation-controls.test.ts"
+      - "src/modules/worker/generic-agent-contracts.ts"
+      - "src/modules/worker/generic-executor.ts"
+      - "src/modules/attention/**"
+      - "src/modules/workforce/activity-brief.ts"
+      - "tests/kern-generic-executor.test.ts"
+      - "tests/kern-attention-engine.test.ts"
       - "package.json"
       - ".github/workflows/experience-ci.yml"
 
@@ -114,3 +126,7 @@ jobs:
         run: npm run test:kern-goal-plan
       - name: Verify Kern conversation controls
         run: npm run test:kern-conversation-controls
+      - name: Verify Kern Generic Agent Executor contracts
+        run: npm run test:kern-generic-executor
+      - name: Verify Kern Attention Engine protocol
+        run: npm run test:kern-attention

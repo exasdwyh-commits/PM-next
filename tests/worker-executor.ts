@@ -204,6 +204,74 @@ async function main() {
     );
     console.log("✅ Kern specialist 排队幂等；无模型诚实 BLOCKED；回执只回写一次");
 
+    console.log("▶ W1c Generic Agent Executor：Kern 派发的 product_agent 走通用契约；非 Kern 任务不被 Worker 代跑");
+    const productAgent = await prisma.agent.findFirstOrThrow({
+      where: { organizationId: org.id, code: "product_agent" },
+      select: { id: true },
+    });
+    const plainProductTask = await prisma.agentTask.create({
+      data: {
+        organizationId: org.id,
+        agentId: productAgent.id,
+        goal: "非 Kern 派发的 product_agent 任务（应保持人工/编排语义）",
+        status: AgentTaskStatus.QUEUED,
+        contextSnapshot: { schemaVersion: "some-other-flow/v1" },
+      },
+    });
+    const plainSkip = await executeAgentTask(session, plainProductTask.id);
+    assert.equal(plainSkip.executed, false);
+    assert.equal(plainSkip.skippedReason, "no-strategy");
+
+    const productSourceRun = await prisma.agentRun.create({
+      data: {
+        organizationId: org.id,
+        conversationId: conversation.id,
+        userId: owner.id,
+        goal: "Kern source run for product agent",
+      },
+    });
+    const productDispatch = await enqueueKernSpecialistDispatch({
+      session,
+      conversationId: conversation.id,
+      sourceRunId: productSourceRun.id,
+      goal: "帮我梳理这个新品的价值主张和定位选项。",
+      readiness: {
+        ...fakeReady,
+        agentCode: "product_agent",
+        taskClass: "PRODUCT_ANALYSIS" as const,
+      },
+    });
+    assert.ok(productDispatch?.created);
+    const loopResult = await executorLoopOnce({ organizationId: org.id, limit: 5 });
+    assert.ok(
+      (loopResult.notes ?? []).some((note) => note.startsWith("product_agent:BLOCKED")),
+      "worker loop must pick up the Kern-dispatched product_agent task: " +
+        JSON.stringify(loopResult)
+    );
+    const plainAfterLoop = await prisma.agentTask.findUniqueOrThrow({
+      where: { id: plainProductTask.id },
+    });
+    assert.equal(plainAfterLoop.status, AgentTaskStatus.QUEUED, "non-Kern task must stay queued");
+    const productTask = await prisma.agentTask.findUniqueOrThrow({
+      where: { id: productDispatch!.taskId },
+      include: { runs: { orderBy: { createdAt: "desc" }, take: 1 } },
+    });
+    assert.equal(productTask.status, AgentTaskStatus.BLOCKED);
+    assert.match(productTask.runs[0]?.outputSummary ?? "", /Product Agent 未执行/);
+    const productReturn = await prisma.message.findFirst({
+      where: {
+        conversationId: conversation.id,
+        role: "ASSISTANT",
+        content: { contains: "Product Agent 未执行" },
+      },
+    });
+    assert.ok(productReturn, "generic executor BLOCKED receipt must return to the Kern conversation");
+    await prisma.agentTask.update({
+      where: { id: plainProductTask.id },
+      data: { status: AgentTaskStatus.CANCELLED },
+    });
+    console.log("✅ 通用执行器按契约 scope 执行；无模型诚实 BLOCKED 并回到原会话");
+
     const project = await prisma.project.create({
       data: {
         organizationId: org.id,

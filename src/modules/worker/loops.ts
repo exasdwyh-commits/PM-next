@@ -7,7 +7,12 @@ import prisma from "@/shared/db";
 import { dispatchPendingBusinessEvents } from "@/modules/business-events";
 import { advanceProductRndProgram } from "@/modules/product-rnd";
 import { resumeResearchRun } from "@/modules/research/research-run";
-import { executeAgentTask, executorStrategyCodes } from "./executor";
+import {
+  executeAgentTask,
+  executorStrategyCodes,
+  kernDispatchOnlyStrategyCodes,
+} from "./executor";
+import { KERN_SPECIALIST_DISPATCH_SCHEMA } from "./generic-agent-contracts";
 import { ensureWorkerProjectAccess, resolveWorkerSession } from "./identity";
 
 /**
@@ -54,12 +59,26 @@ export async function executorLoopOnce(
   const limit = options.limit ?? 2;
   const result = emptyResult();
   const codes = executorStrategyCodes();
+  const kernOnlyCodes = kernDispatchOnlyStrategyCodes();
 
   const candidates = await prisma.agentTask.findMany({
     where: {
       status: AgentTaskStatus.QUEUED,
       availableAt: { lte: new Date() },
-      agent: { code: { in: codes } },
+      OR: [
+        { agent: { code: { in: codes } } },
+        ...(kernOnlyCodes.length
+          ? [
+              {
+                agent: { code: { in: kernOnlyCodes } },
+                contextSnapshot: {
+                  path: ["schemaVersion"],
+                  equals: KERN_SPECIALIST_DISPATCH_SCHEMA,
+                },
+              },
+            ]
+          : []),
+      ],
       ...(options.organizationId
         ? { organizationId: options.organizationId }
         : {}),

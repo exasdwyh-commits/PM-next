@@ -936,13 +936,25 @@ Architecture V2 已开始落代码，不再只是目标文档。
 - 幂等：AgentTask 使用唯一 `idempotencyKey` 防并发双建；Conversation return 使用 AgentTask row lock + receipt 防并发双回执。
 - Provenance：自动 specialist dispatch 必须绑定当前组织、当前用户、当前 Conversation 的真实 source AgentRun。
 
+### 2026-09-26 · Batch 1（Generic Executor + Attention Engine）
+
+- **Generic Agent Executor v1**：`src/modules/worker/generic-agent-contracts.ts`（纯配置契约）+ `generic-executor.ts`（共享运行时）。Agent 由 identity / authority / taskClass / outputSections / scope 定义，不再新增 `runXxxAgent()`。
+  - Tech Architect 已迁移到通用运行时（行为、BLOCKED 文案与 `TECH_ARCHITECT_ADVISORY` 结果不变）。
+  - 新增顾问型契约：Product Agent（PRODUCT_ANALYSIS）、Marketing Agent（SUMMARIZATION）、Supply & Ops Agent（QUICK_CLASSIFY）、Red Team（RED_TEAM，不进入聊天 AUTO）。
+  - `scope: KERN_DISPATCH_ONLY`：只执行 `contextSnapshot.schemaVersion = kern-specialist-dispatch/v1` 的任务；Product R&D / Workforce 中同一 Agent 的任务保持原有人工/编排语义。
+  - 确定性 specialist（research / science / compliance / formulation / cost）仍优先；QA 永不由 Worker 代跑。
+  - Dispatch readiness 的聊天可派发集合从契约注册表派生；仍需 ACTIVE Agent + 启用策略 + provider runtime 才是 `EXECUTOR_READY`。
+- **Attention Engine v1**：`src/modules/attention/engine.ts`，正式协议 `AUTO_HANDLE / WATCH / SURFACE / INTERRUPT / HUMAN_GATE` + Decision Budget（默认 INTERRUPT ≤ 2、SURFACE ≤ 6，HUMAN_GATE 豁免、溢出逐级降级）。
+  - Workforce Activity Brief 已接入：WAITING_HUMAN / 策略门 → HUMAN_GATE；自动化最终失败 → SURFACE（新增，之前不可见）；子任务回执 / 被抑制事件 → AUTO_HANDLE。
+- 回归：`test:kern-generic-executor`、`test:kern-attention`（Experience CI）；`test:worker` 新增 W1c DB 回归。
+
 ### 仍保持 Shadow
 
 - PAIR
 - COUNCIL
 - RED_TEAM 的通用聊天执行
 - FULL_RND 的通用 GoalPlan DAG 自动展开
-- Marketing / Ops / Research 等 generic chat executor
+- Research 的 generic chat executor（研究必须走 ResearchRun / SourceCapture 证据链）
 - GoalPlan 整张 DAG 的自动创建与调度
 
 现有 Product R&D 自己的正式编排链继续运行，不因为上述通用 Supervisor 仍是 Shadow 而降级。
@@ -951,7 +963,8 @@ Architecture V2 已开始落代码，不再只是目标文档。
 
 1. 用 CI / DB regression 验证 Phase 2A 迁移与并发幂等。
 2. 收敛 `main` / `release/v0.1.0-rc1` 为唯一可信基线。
-3. 抽象 Generic Agent Executor contract，不按 Agent 继续堆巨大 switch。
-4. 建立 Attention Engine 的 `AUTO_HANDLE / WATCH / SURFACE / INTERRUPT / HUMAN_GATE` 正式协议。
-5. 再推进 Episodic Memory 与 Assistant Benchmark。
+3. ~~抽象 Generic Agent Executor contract~~（Batch 1 完成）。
+4. ~~Attention Engine 正式协议~~（Batch 1 完成；下一步接入 Kern 首页与会话主动汇报）。
+5. GoalPlan → AgentTask DAG 受控执行（PAIR 优先，复用 Generic Executor + QA）。
+6. 再推进 Episodic Memory 与 Assistant Benchmark。
 
