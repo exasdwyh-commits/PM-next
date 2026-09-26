@@ -5,6 +5,7 @@ import { executeKernConversationTurn } from "./conversation-engine";
 import { buildDepartmentAssistantContext } from "./context-builder";
 import { runDepartmentAssistantReflexShadow } from "./reflex";
 import { buildKernCollaborationPlanShadow } from "./collaboration-planner";
+import { buildKernGoalPlanShadow } from "./goal-plan";
 import {
   buildKernCouncilGraph,
   shouldAttachKernCouncilGraph,
@@ -53,6 +54,10 @@ export async function sendDepartmentAssistantMessage(
     reflex,
     selectedAdvisorCodes: result.runtimeSelection.config.advisorCodes,
   });
+  const goalPlanShadow = buildKernGoalPlanShadow({
+    goal: content,
+    collaboration: collaborationPlanShadow,
+  });
   const visualAllowed =
     result.runtimeSelection.config.capabilityKeys === null ||
     result.runtimeSelection.config.capabilityKeys.includes("visualize");
@@ -84,6 +89,7 @@ export async function sendDepartmentAssistantMessage(
           reflexDecisions: reflex.decisions,
           reflexError: reflex.error,
           collaborationPlanShadow,
+          goalPlanShadow,
           visualGraphShadow,
           conversationRuntimeConfig: result.runtimeSelection.config,
           selectedAdvisors: result.runtimeSelection.advisors,
@@ -120,6 +126,7 @@ export async function sendDepartmentAssistantMessage(
     assistantRuntime: context.runtimeVersion,
     reflexMode: reflex.mode,
     collaborationPlanShadow,
+    goalPlanShadow,
     visualGraphShadow,
   };
 }
