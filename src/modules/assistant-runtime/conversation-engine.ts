@@ -47,9 +47,9 @@ const KERN_TOOL_WHITELIST = [
 /**
  * Kern owns the conversational run lifecycle.
  *
- * Legacy Advisor is temporarily a capability provider only:
- * intent compatibility + domain tool execution. New orchestration must not be
- * added back to advisor/service.ts.
+ * Kern owns intent routing and capability execution through its native registry.
+ * Advisor modules are support/compatibility libraries only and must never become
+ * the runtime owner again.
  */
 export async function executeKernConversationTurn(
   session: SessionContext,
