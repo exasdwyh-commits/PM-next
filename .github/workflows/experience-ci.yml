@@ -19,6 +19,7 @@ on:
       - "tests/kern-autonomy-policy.test.ts"
       - "tests/kern-project-map.ts"
       - "tests/kern-runtime-architecture.test.ts"
+      - "tests/kern-conversation-controls.test.ts"
       - "package.json"
       - ".github/workflows/experience-ci.yml"
   push:
@@ -40,6 +41,7 @@ on:
       - "tests/kern-autonomy-policy.test.ts"
       - "tests/kern-project-map.ts"
       - "tests/kern-runtime-architecture.test.ts"
+      - "tests/kern-conversation-controls.test.ts"
       - "package.json"
       - ".github/workflows/experience-ci.yml"
 
@@ -107,3 +109,5 @@ jobs:
         run: npm run test:kern-project-map
       - name: Verify Kern runtime architecture contract
         run: npm run test:kern-runtime-architecture
+      - name: Verify Kern conversation controls
+        run: npm run test:kern-conversation-controls
