@@ -82,7 +82,8 @@
     "test:kern-autonomy": "node --import tsx --test tests/kern-autonomy-policy.test.ts",
     "test:kern-project-map": "tsx tests/kern-project-map.ts",
     "test:kern-runtime-architecture": "node --import tsx --test tests/kern-runtime-architecture.test.ts",
-    "kern:map": "tsx scripts/kern-map.ts"
+    "kern:map": "tsx scripts/kern-map.ts",
+    "test:kern-conversation-controls": "node --import tsx --test tests/kern-conversation-controls.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
