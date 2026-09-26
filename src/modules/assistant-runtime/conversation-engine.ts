@@ -23,10 +23,17 @@ import { tryResolveGatewayPolicyForAgentCode } from "@/modules/model-control/ser
 import {
   executePersistedModelGateway,
   hasEnabledPolicyCandidate,
+  type ModelPolicy,
+  type ModelProfile,
 } from "@/modules/model-gateway";
 import { buildDepartmentAssistantSystemPrompt } from "./persona";
 import { applyExplicitChatProposal } from "./proposal-executor";
 import { getKernConversation } from "./conversations";
+import {
+  buildKernConversationSelectionPrompt,
+  resolveKernConversationRuntimeSelection,
+} from "./conversation-config";
+import { resolveExplicitConversationModel } from "./conversation-model";
 
 const KERN_TOOL_WHITELIST = [
   "workspace.overview",
@@ -61,6 +68,10 @@ export async function executeKernConversationTurn(
   if (!text) throw new UnprocessableEntityError("消息内容不能为空");
 
   const conversation = await getKernConversation(session, conversationId);
+  const runtimeSelection = await resolveKernConversationRuntimeSelection(
+    session,
+    conversation.runtimeConfig
+  );
 
   const plannerHistoryRows = await prisma.message.findMany({
     where: { conversationId, role: { in: ["USER", "ASSISTANT"] } },
@@ -77,33 +88,73 @@ export async function executeKernConversationTurn(
   });
   const intent = intentRouting.intent;
   const modelRoute = modelRouteForIntent(intent);
+  const primaryAdvisor =
+    runtimeSelection.advisors.length === 1
+      ? runtimeSelection.advisors[0]
+      : null;
+  const requestedAgentCode = primaryAdvisor?.code ?? modelRoute.agentCode;
   const startedAt = new Date();
 
-  let gatewayPlan: Awaited<
-    ReturnType<typeof tryResolveGatewayPolicyForAgentCode>
-  > = null;
+  let gatewayPolicy: ModelPolicy | null = null;
+  let gatewayProfiles: ModelProfile[] = [];
+  let gatewayAgent: { id: string; code: string; name: string } | null = null;
   let gatewayResolutionError: string | null = null;
 
   try {
-    gatewayPlan = await tryResolveGatewayPolicyForAgentCode({
-      organizationId: session.organizationId,
-      agentCode: modelRoute.agentCode,
-      taskClass: modelRoute.taskClass,
-    });
+    if (runtimeSelection.config.modelProfileKey) {
+      const explicit = await resolveExplicitConversationModel({
+        organizationId: session.organizationId,
+        profileKey: runtimeSelection.config.modelProfileKey,
+        taskClass: modelRoute.taskClass,
+      });
+      gatewayPolicy = explicit.policy;
+      gatewayProfiles = [explicit.profile];
+      gatewayAgent =
+        primaryAdvisor ??
+        (await prisma.agent.findFirst({
+          where: {
+            organizationId: session.organizationId,
+            code: modelRoute.agentCode,
+            status: "ACTIVE",
+          },
+          select: { id: true, code: true, name: true },
+        }));
+    } else {
+      let resolved = await tryResolveGatewayPolicyForAgentCode({
+        organizationId: session.organizationId,
+        agentCode: requestedAgentCode,
+        taskClass: modelRoute.taskClass,
+      });
+      if (!resolved && requestedAgentCode !== modelRoute.agentCode) {
+        resolved = await tryResolveGatewayPolicyForAgentCode({
+          organizationId: session.organizationId,
+          agentCode: modelRoute.agentCode,
+          taskClass: modelRoute.taskClass,
+        });
+      }
+      if (resolved) {
+        gatewayPolicy = resolved.policy;
+        gatewayProfiles = resolved.profiles;
+        gatewayAgent = resolved.agent;
+      }
+    }
   } catch (error: unknown) {
     gatewayResolutionError =
       error instanceof Error ? error.message : String(error);
   }
 
   const gatewayReady =
-    !!gatewayPlan &&
+    !!gatewayPolicy &&
     hasEnabledPolicyCandidate({
-      policy: gatewayPlan.policy,
-      profiles: gatewayPlan.profiles,
+      policy: gatewayPolicy,
+      profiles: gatewayProfiles,
     });
 
   const legacyEnabled =
-    !gatewayPlan && !gatewayResolutionError && isAdvisorLLMEnabled();
+    !runtimeSelection.config.modelProfileKey &&
+    !gatewayPolicy &&
+    !gatewayResolutionError &&
+    isAdvisorLLMEnabled();
   const modelPlanned = gatewayReady || legacyEnabled;
 
   let run;
@@ -116,7 +167,7 @@ export async function executeKernConversationTurn(
       where: { id: options.runId },
       data: {
         conversationId,
-        agentId: gatewayPlan?.agent.id || null,
+        agentId: gatewayAgent?.id || null,
         goal: text.slice(0, 200),
         runMode: modelPlanned ? RunMode.LLM : RunMode.TEST_STUB,
         provider: null,
@@ -138,8 +189,12 @@ export async function executeKernConversationTurn(
               ? "LEGACY_ADVISOR_LLM"
               : "DETERMINISTIC_TOOL",
           modelTaskClass: modelRoute.taskClass,
-          modelAgentCode: modelRoute.agentCode,
-          modelPolicyKey: gatewayPlan?.policy.id || null,
+          modelAgentCode: gatewayAgent?.code || modelRoute.agentCode,
+          modelPolicyKey: gatewayPolicy?.id || null,
+          selectedModelProfileKey: runtimeSelection.config.modelProfileKey,
+          selectedAdvisorCodes: runtimeSelection.config.advisorCodes,
+          selectedSkillKeys: runtimeSelection.config.skillKeys,
+          selectedCapabilityKeys: runtimeSelection.config.capabilityKeys,
           gatewayResolutionError,
           intentRouting: {
             source: intentRouting.source,
@@ -156,7 +211,7 @@ export async function executeKernConversationTurn(
         organizationId: session.organizationId,
         conversationId,
         userId: session.userId,
-        agentId: gatewayPlan?.agent.id || null,
+        agentId: gatewayAgent?.id || null,
         goal: text.slice(0, 200),
         status: "RUNNING",
         runMode: modelPlanned ? RunMode.LLM : RunMode.TEST_STUB,
@@ -179,8 +234,12 @@ export async function executeKernConversationTurn(
               ? "LEGACY_ADVISOR_LLM"
               : "DETERMINISTIC_TOOL",
           modelTaskClass: modelRoute.taskClass,
-          modelAgentCode: modelRoute.agentCode,
-          modelPolicyKey: gatewayPlan?.policy.id || null,
+          modelAgentCode: gatewayAgent?.code || modelRoute.agentCode,
+          modelPolicyKey: gatewayPolicy?.id || null,
+          selectedModelProfileKey: runtimeSelection.config.modelProfileKey,
+          selectedAdvisorCodes: runtimeSelection.config.advisorCodes,
+          selectedSkillKeys: runtimeSelection.config.skillKeys,
+          selectedCapabilityKeys: runtimeSelection.config.capabilityKeys,
           gatewayResolutionError,
           intentRouting: {
             source: intentRouting.source,
@@ -199,6 +258,7 @@ export async function executeKernConversationTurn(
     conversationId,
     productId: conversation.productId ?? null,
     text,
+    capabilityKeys: runtimeSelection.config.capabilityKeys,
   };
 
   let historyTurns = 0;
@@ -256,11 +316,15 @@ export async function executeKernConversationTurn(
       toolKey: result.toolKey,
       toolResultText: result.text,
     });
-    const assistantPersona = buildDepartmentAssistantSystemPrompt(
+    const basePersona = buildDepartmentAssistantSystemPrompt(
       modelRoute.taskClass
     );
+    const selectionPrompt = buildKernConversationSelectionPrompt(runtimeSelection);
+    const assistantPersona = [basePersona, selectionPrompt]
+      .filter((value): value is string => Boolean(value))
+      .join("\n\n");
 
-    if (gatewayReady && gatewayPlan) {
+    if (gatewayReady && gatewayPolicy) {
       llmAttempted = true;
       executionBackend = "MODEL_GATEWAY";
       const llmMessages: AdvisorLLMMessage[] = assistantPersona
@@ -270,8 +334,8 @@ export async function executeKernConversationTurn(
         const gatewayExecution = await executePersistedModelGateway({
           organizationId: session.organizationId,
           agentRunId: run.id,
-          policy: gatewayPlan.policy,
-          profiles: gatewayPlan.profiles,
+          policy: gatewayPolicy,
+          profiles: gatewayProfiles,
           request: {
             taskClass: modelRoute.taskClass,
             messages: llmMessages,
@@ -373,7 +437,7 @@ export async function executeKernConversationTurn(
     ? ""
     : llmAttempted
       ? "（模型调用失败，本轮已安全回落到确定性工具结果）\n\n"
-      : gatewayPlan && !gatewayReady
+      : gatewayPolicy && !gatewayReady
         ? "（模型策略已配置但暂无启用的候选 Profile，本轮使用确定性工具结果）\n\n"
         : "（本轮未接入语言模型，以下为受治理 capability 返回的真实数据）\n\n";
 
@@ -407,7 +471,7 @@ export async function executeKernConversationTurn(
         historyTurns,
         backend: executionBackend,
         modelRunId,
-        policyKey: gatewayPlan?.policy.id || null,
+        policyKey: gatewayPolicy?.id || null,
       }
     : llmAttempted
       ? {
@@ -416,13 +480,13 @@ export async function executeKernConversationTurn(
           historyTurns,
           backend: executionBackend,
           modelRunId,
-          policyKey: gatewayPlan?.policy.id || null,
+          policyKey: gatewayPolicy?.id || null,
         }
       : {
           note: "未接入模型，无 token 计量",
           historyTurns,
           backend: executionBackend,
-          policyKey: gatewayPlan?.policy.id || null,
+          policyKey: gatewayPolicy?.id || null,
         };
 
   await prisma.agentRun.update({
@@ -456,5 +520,17 @@ export async function executeKernConversationTurn(
     message: assistantMsg,
     proposal: result.proposal ?? null,
     modelRunId,
+    runtimeSelection: {
+      config: runtimeSelection.config,
+      advisors: runtimeSelection.advisors.map((advisor) => ({
+        code: advisor.code,
+        name: advisor.name,
+        roleKey: advisor.roleKey,
+      })),
+      skills: runtimeSelection.skills.map((skill) => ({
+        key: skill.key,
+        name: skill.name,
+      })),
+    },
   };
 }
