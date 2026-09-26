@@ -1,7 +1,7 @@
 "use client";
 /** Kern 对话外壳：最近会话、输入坞、空态。 */
 import { useRef } from "react";
-import type { ConversationSummary, RuntimeStatus, StudioModel } from "../types";
+import type { ConversationControlOption, ConversationControls, ConversationRuntimeConfig, ConversationSummary, RuntimeStatus, StudioModel } from "../types";
 import { Btn, I } from "./kit";
 
 export function Rail({
@@ -59,17 +59,154 @@ export function Rail({
   );
 }
 
+function selectedLabel(
+  options: ConversationControlOption[],
+  keys: string[] | null,
+  autoLabel = "自动"
+) {
+  if (keys === null) return autoLabel;
+  if (keys.length === 0) return "无";
+  if (keys.length === 1) {
+    return options.find((option) => option.key === keys[0])?.label || "1 项";
+  }
+  return `${keys.length} 项`;
+}
+
+function MultiControl({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: ConversationControlOption[];
+  value: string[] | null;
+  onChange: (value: string[] | null) => void;
+}) {
+  const toggle = (key: string) => {
+    const current = value ?? [];
+    onChange(
+      current.includes(key)
+        ? current.filter((item) => item !== key)
+        : [...current, key]
+    );
+  };
+
+  return (
+    <details className="m-control">
+      <summary className="m-pill">
+        {label} · {selectedLabel(options, value)}
+      </summary>
+      <div className="m-control-menu">
+        <button
+          type="button"
+          className="m-control-row"
+          aria-pressed={value === null}
+          onClick={() => onChange(null)}
+        >
+          <span>
+            <b>自动</b>
+            <small>由 Kern 根据任务自己选择</small>
+          </span>
+          <i>{value === null ? "✓" : ""}</i>
+        </button>
+        {options.map((option) => {
+          const checked = value !== null && value.includes(option.key);
+          return (
+            <button
+              key={option.key}
+              type="button"
+              className="m-control-row"
+              aria-pressed={checked}
+              onClick={() => toggle(option.key)}
+            >
+              <span>
+                <b>{option.label}</b>
+                <small>{option.description}</small>
+              </span>
+              <i>{checked ? "✓" : ""}</i>
+            </button>
+          );
+        })}
+      </div>
+    </details>
+  );
+}
+
+function ModelControl({
+  options,
+  value,
+  onChange,
+}: {
+  options: ConversationControlOption[];
+  value: string | null;
+  onChange: (value: string | null) => void;
+}) {
+  const current = options.find((option) => option.key === value);
+  return (
+    <details className="m-control">
+      <summary className="m-pill">模型 · {current?.label || "自动"}</summary>
+      <div className="m-control-menu">
+        <button
+          type="button"
+          className="m-control-row"
+          aria-pressed={value === null}
+          onClick={() => onChange(null)}
+        >
+          <span>
+            <b>自动</b>
+            <small>按任务类型和策略自动路由</small>
+          </span>
+          <i>{value === null ? "✓" : ""}</i>
+        </button>
+        {options.map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            className="m-control-row"
+            aria-pressed={value === option.key}
+            onClick={() => onChange(option.key)}
+          >
+            <span>
+              <b>{option.label}</b>
+              <small>{option.meta ? `${option.meta} · ` : ""}{option.description}</small>
+            </span>
+            <i>{value === option.key ? "✓" : ""}</i>
+          </button>
+        ))}
+        {options.length === 0 ? (
+          <p className="m-control-empty">没有已启用且已配置运行时的模型。</p>
+        ) : null}
+      </div>
+    </details>
+  );
+}
+
 export function Dock({
-  value, onChange, onSend, sending, capabilities, onTrust,
+  value,
+  onChange,
+  onSend,
+  sending,
+  controls,
+  config,
+  onConfigChange,
+  capabilities,
+  onTrust,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSend: () => void;
   sending: boolean;
+  controls: ConversationControls;
+  config: ConversationRuntimeConfig;
+  onConfigChange: (config: ConversationRuntimeConfig) => void;
   capabilities: string[];
   onTrust: () => void;
 }) {
   const ta = useRef<HTMLTextAreaElement>(null);
+  const patch = (next: Partial<ConversationRuntimeConfig>) =>
+    onConfigChange({ ...config, ...next });
+
   return (
     <div className="m-dock">
       <form
@@ -88,7 +225,32 @@ export function Dock({
           aria-label="对 Kern 说"
         />
         <div className="m-dock-bar">
-          <button type="button" className="m-pill" onClick={onTrust}>
+          <div className="m-control-strip" aria-label="Conversation 运行配置">
+            <ModelControl
+              options={controls.models}
+              value={config.modelProfileKey}
+              onChange={(modelProfileKey) => patch({ modelProfileKey })}
+            />
+            <MultiControl
+              label="顾问"
+              options={controls.advisors}
+              value={config.advisorCodes}
+              onChange={(advisorCodes) => patch({ advisorCodes })}
+            />
+            <MultiControl
+              label="技能"
+              options={controls.skills}
+              value={config.skillKeys}
+              onChange={(skillKeys) => patch({ skillKeys })}
+            />
+            <MultiControl
+              label="功能"
+              options={controls.capabilities}
+              value={config.capabilityKeys}
+              onChange={(capabilityKeys) => patch({ capabilityKeys })}
+            />
+          </div>
+          <button type="button" className="m-pill m-runtime-pill" onClick={onTrust}>
             <I.mac />
             {capabilities.length} 项本机能力
           </button>

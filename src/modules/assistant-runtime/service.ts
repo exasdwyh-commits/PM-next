@@ -51,11 +51,14 @@ export async function sendDepartmentAssistantMessage(
     text: content,
     productBound: Boolean(context.productId),
     reflex,
+    selectedAdvisorCodes: result.runtimeSelection.config.advisorCodes,
   });
-  const visualGraphShadow = shouldAttachKernCouncilGraph(
-    content,
-    collaborationPlanShadow
-  )
+  const visualAllowed =
+    result.runtimeSelection.config.capabilityKeys === null ||
+    result.runtimeSelection.config.capabilityKeys.includes("visualize");
+  const visualGraphShadow =
+    visualAllowed &&
+    shouldAttachKernCouncilGraph(content, collaborationPlanShadow)
     ? buildKernCouncilGraph({
         graphId: `${result.runId}:council-shadow`,
         goal: content,
@@ -82,6 +85,9 @@ export async function sendDepartmentAssistantMessage(
           reflexError: reflex.error,
           collaborationPlanShadow,
           visualGraphShadow,
+          conversationRuntimeConfig: result.runtimeSelection.config,
+          selectedAdvisors: result.runtimeSelection.advisors,
+          selectedSkills: result.runtimeSelection.skills,
         }),
       },
     });

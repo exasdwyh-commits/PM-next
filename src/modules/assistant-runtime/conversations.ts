@@ -1,6 +1,7 @@
 import prisma from "@/shared/db";
 import { NotFoundError } from "@/shared/errors";
 import type { SessionContext } from "@/modules/identity/session";
+import { validateKernConversationRuntimeConfig } from "./conversation-config";
 
 export async function listKernConversations(
   session: SessionContext,
@@ -35,9 +36,17 @@ export async function listKernConversations(
 
 export async function createKernConversation(
   session: SessionContext,
-  params: { title?: string; productId?: string | null }
+  params: {
+    title?: string;
+    productId?: string | null;
+    runtimeConfig?: unknown;
+  }
 ) {
   const title = params.title?.trim() || "新对话";
+  const runtimeConfig =
+    params.runtimeConfig === undefined
+      ? null
+      : await validateKernConversationRuntimeConfig(session, params.runtimeConfig);
   return prisma.conversation.create({
     data: {
       organizationId: session.organizationId,
@@ -45,6 +54,7 @@ export async function createKernConversation(
       kind: params.productId ? "PRODUCT" : "ADVISOR",
       title,
       productId: params.productId || null,
+      ...(runtimeConfig ? { runtimeConfig: runtimeConfig as any } : {}),
     },
   });
 }

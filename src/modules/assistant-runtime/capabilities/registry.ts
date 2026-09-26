@@ -11,6 +11,7 @@ import { handleWorkspaceReadCapability } from "./workspace-read";
 import { handleProductWriteCapability } from "./product-write";
 import { handleChallengeCapability } from "./challenge";
 import { handleKnowledgeCapability } from "./knowledge";
+import { capabilityKeyForIntent } from "./catalog";
 
 const HANDLERS: KernCapabilityHandler[] = [
   handleDesktopCapability,
@@ -26,6 +27,33 @@ export async function executeKernCapability(
   intent: KernCapabilityIntent,
   context: KernCapabilityContext
 ): Promise<KernCapabilityResult> {
+  const capabilityKey = capabilityKeyForIntent(intent);
+  if (
+    intent === "UNSUPPORTED" &&
+    context.capabilityKeys !== null &&
+    context.capabilityKeys !== undefined &&
+    !context.capabilityKeys.includes("knowledge")
+  ) {
+    return {
+      toolKey: "none",
+      text: "这是普通对话，本轮不会调用你已关闭的额外功能。",
+      citations: [],
+    };
+  }
+
+  if (
+    capabilityKey &&
+    context.capabilityKeys !== null &&
+    context.capabilityKeys !== undefined &&
+    !context.capabilityKeys.includes(capabilityKey)
+  ) {
+    return {
+      toolKey: "kern.capability.disabled",
+      text: `这个 Conversation 没有启用「${capabilityKey}」功能。可以在输入框下方的“功能”里重新打开，或切回自动。`,
+      citations: [],
+    };
+  }
+
   for (const handler of HANDLERS) {
     const result = await handler(session, intent, context);
     if (result) return result;

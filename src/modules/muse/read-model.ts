@@ -2,6 +2,7 @@ import { AgentLifecycleStatus, AgentRunStatus, AgentTaskStatus } from "@prisma/c
 import type { SessionContext } from "@/modules/identity/session";
 import {
   getKernConversation,
+  getKernConversationControlState,
   listKernConversations,
 } from "@/modules/assistant-runtime";
 import { listProposals } from "@/modules/advisor/proposals";
@@ -213,6 +214,11 @@ export async function buildKernViewModel(
     }),
   ]);
 
+  const controls = await getKernConversationControlState(
+    session,
+    activeConversation?.runtimeConfig
+  );
+
   const productIds = [
     ...new Set([
       ...conversations
@@ -381,6 +387,7 @@ export async function buildKernViewModel(
     employees,
     messages,
     activity,
+    controls,
     runtime: {
       connected: desktop.presence.status === "ONLINE",
       host: desktop.presence.deviceId || desktop.presence.label,

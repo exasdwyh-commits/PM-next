@@ -1,3 +1,5 @@
+import type { KernCapabilityKey } from "./catalog";
+
 export type KernCapabilityIntent =
   | "WORKSPACE_STATUS"
   | "PENDING_DECISIONS"
@@ -18,6 +20,7 @@ export interface KernCapabilityContext {
   conversationId: string;
   productId: string | null;
   text: string;
+  capabilityKeys?: KernCapabilityKey[] | null;
 }
 
 export interface KernCapabilityResult {

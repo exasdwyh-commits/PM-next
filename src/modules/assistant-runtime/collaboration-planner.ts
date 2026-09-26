@@ -34,6 +34,7 @@ export function buildKernCollaborationPlanShadow(input: {
   text: string;
   productBound: boolean;
   reflex: AssistantReflexShadowResult;
+  selectedAdvisorCodes?: string[] | null;
 }): KernCollaborationPlanShadow {
   const text = input.text.trim();
   const upper = text.toUpperCase();
@@ -55,6 +56,11 @@ export function buildKernCollaborationPlanShadow(input: {
     experts.add(code);
     reasons.push(reason);
   };
+
+  for (const code of input.selectedAdvisorCodes ?? []) {
+    if (code === "hermes_pm") continue;
+    add(code, `USER_SELECTED_ADVISOR_${code}`);
+  }
 
   const expertMap: Record<string, string> = {
     PRODUCT: "product_agent",

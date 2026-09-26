@@ -11,3 +11,5 @@ export * from "./autonomy";
 export * from "./capabilities";
 export * from "./router";
 export * from "./intent-grammar";
+export * from "./conversation-config";
+export * from "./conversation-model";
