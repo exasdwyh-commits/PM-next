@@ -170,3 +170,16 @@ test("Kern V2 keeps advanced runtime controls quiet and persists a non-executing
   assert.ok(service.includes("buildKernGoalPlanShadow"));
   assert.ok(service.includes("goalPlanShadow"));
 });
+
+
+test("Kern human attention excludes internal return-review work", () => {
+  const activityBrief = read("src/modules/workforce/activity-brief.ts");
+  assert.ok(
+    activityBrief.includes("attentionCount: waitingHumanCount + waitingPolicyCount"),
+    "human attention count must only include true human waits and policy gates"
+  );
+  assert.ok(
+    activityBrief.includes("returned child results are Kern's internal supervision work"),
+    "return reviews must be documented as Kern supervision, not default user interruption"
+  );
+});
