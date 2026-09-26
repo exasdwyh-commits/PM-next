@@ -3,3 +3,6 @@ export * from "./registry";
 export * from "./desktop";
 export * from "./product-rnd";
 export * from "./workspace-read";
+export * from "./product-write";
+export * from "./challenge";
+export * from "./knowledge";
