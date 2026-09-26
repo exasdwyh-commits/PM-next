@@ -172,7 +172,7 @@ Tech Architect 不直接伪装本机执行。
 - 新增 `CODING` policy `tech-architecture-coding`，默认 Profile 仍禁用
 - Tech Architect 只产出架构/代码审查/测试策略等 advisory 结果，不拥有文件、终端、GitHub 或业务写权限
 - 未安装 policy、未启用 Profile、provider runtime 未配置时均 fail closed / BLOCKED
-- routing receipt 新增运行时 dispatch readiness：区分 INLINE_READY、EXECUTOR_READY、MODEL_POLICY_MISSING、MODEL_PROFILE_DISABLED、PROVIDER_RUNTIME_MISSING、NO_CHAT_EXECUTOR、REVIEW_REQUIRED
+- routing receipt 新增运行时 dispatch readiness：区分 INLINE_READY、EXECUTOR_READY、AGENT_UNAVAILABLE、MODEL_POLICY_MISSING、MODEL_PROFILE_DISABLED、PROVIDER_RUNTIME_MISSING、NO_CHAT_EXECUTOR、REVIEW_REQUIRED
 - “可以路由给某专家”与“这个专家现在真的能无人值守执行”不再混为一谈
 - 执行契约完成后才允许进入受限 AUTO，避免“会路由但不会执行”
 
