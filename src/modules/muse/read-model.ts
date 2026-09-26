@@ -87,9 +87,11 @@ function messageView(row: {
     .filter((graph): graph is KernGraphV1 => graph !== null);
   const isMission = (c: unknown) => asRecord(c).kind === "kern-mission" && typeof asRecord(c).ref === "string";
   const missionIds = [...new Set(citations.filter(isMission).map((c) => String(asRecord(c).ref)))];
+  const isBrief = (c: unknown) => asRecord(c).kind === "kern-brief";
+  const hasBrief = citations.some(isBrief);
   const refs = citations
     .map((citation, index) =>
-      readKernGraphCitation(citation) || isMission(citation)
+      readKernGraphCitation(citation) || isMission(citation) || isBrief(citation)
         ? null
         : evidenceFromCitation(citation, index, row.createdAt)
     )
@@ -104,6 +106,7 @@ function messageView(row: {
     blocks: [
       { kind: "text", text: row.content },
       ...graphs.map((graph) => ({ kind: "graph" as const, graph })),
+      ...(hasBrief ? [{ kind: "brief" as const, ref: row.id }] : []),
       ...missionIds.map((ref) => ({ kind: "mission" as const, ref })),
       ...(refs.length > 0
         ? ([{ kind: "evidence", title: "来源与回执", refs }] as Message["blocks"])
@@ -397,7 +400,7 @@ export async function buildKernViewModel(
       return {
         id: conversation.id,
         title: conversation.title || "未命名对话",
-        preview: latest?.content || "这段对话还没有消息。",
+        preview: plainPreview(latest?.content) || "这段对话还没有消息。",
         state,
         productId: conversation.productId,
         productName: conversation.productId
@@ -496,4 +499,17 @@ export async function buildKernViewModel(
     },
     evidence: [],
   };
+}
+
+/** Sidebar preview: strip markdown markers so "**" / "##" never leak into the list. */
+function plainPreview(content?: string | null): string {
+  if (!content) return "";
+  return content
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/^\s{0,3}(#{1,6}|>|[-*+]|\d+\.)\s+/gm, "")
+    .replace(/(\*\*|__|\*|`|~~)/g, "")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 200);
 }

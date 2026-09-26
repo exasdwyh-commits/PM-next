@@ -38,8 +38,10 @@ function fromApiMessage(message: ApiMessage): Message {
     return item.kind === "kern-mission" && typeof item.ref === "string" ? [item.ref] : [];
   });
 
+  const hasBrief = citations.some((raw) => !!raw && typeof raw === "object" && (raw as Record<string, unknown>).kind === "kern-brief");
   const refs: EvidenceRef[] = citations.flatMap((raw, index) => {
     if (readKernGraphCitation(raw)) return [];
+    if (raw && typeof raw === "object" && (raw as Record<string, unknown>).kind === "kern-brief") return [];
     if (raw && typeof raw === "object" && (raw as Record<string, unknown>).kind === "kern-mission") return [];
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
     const item = raw as Record<string, unknown>;
@@ -69,6 +71,7 @@ function fromApiMessage(message: ApiMessage): Message {
     blocks: [
       { kind: "text", text: message.content },
       ...graphs.map((graph) => ({ kind: "graph" as const, graph })),
+      ...(hasBrief ? [{ kind: "brief" as const, ref: message.id }] : []),
       ...[...new Set(missionIds)].map((ref) => ({ kind: "mission" as const, ref })),
       ...(refs.length > 0
         ? ([{ kind: "evidence", title: "来源与回执", refs }] as Message["blocks"])

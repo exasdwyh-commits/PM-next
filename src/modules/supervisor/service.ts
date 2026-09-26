@@ -50,6 +50,8 @@ export interface MissionSnapshot {
   userInputs?: MissionUserInput[];
   /** Demo missions never write business data and never consume quota. */
   demo?: boolean;
+  /** Memories that shaped this mission (shown as meta info). */
+  memoriesUsed?: { id: string; text: string }[];
 }
 
 export interface MissionUserInput {
@@ -91,6 +93,9 @@ export async function launchKernMission(
     conversationId: string | null;
     sourceRunId: string | null;
     idempotencyKey?: string;
+    /** Demo: same UI, canned outputs, no model calls, no quota. */
+    demo?: boolean;
+    memoriesUsed?: { id: string; text: string }[];
   }
 ): Promise<{ missionTaskId: string; created: boolean }> {
   const errors = validateMissionPlan(input.plan);
@@ -108,7 +113,7 @@ export async function launchKernMission(
     if (existing) return { missionTaskId: existing.id, created: false };
   }
 
-  await assertMissionQuota(session.organizationId);
+  if (!input.demo) await assertMissionQuota(session.organizationId);
 
   const snapshot: MissionSnapshot = {
     schemaVersion: MISSION_SCHEMA,
@@ -119,6 +124,8 @@ export async function launchKernMission(
     requestedByUserId: session.userId,
     log: [{ at: new Date().toISOString(), event: "LAUNCHED", detail: input.plan.playbook }],
     outcome: null,
+    ...(input.demo ? { demo: true } : {}),
+    ...(input.memoriesUsed?.length ? { memoriesUsed: input.memoriesUsed } : {}),
   };
 
   let root: { id: string };
@@ -151,6 +158,7 @@ export async function launchKernMission(
       await appendMissionEventsTx(tx, {
         organizationId: session.organizationId,
         missionTaskId: task.id,
+        demo: !!input.demo,
         events: [
           {
             type: "mission.launched",
@@ -159,6 +167,8 @@ export async function launchKernMission(
               goal: input.plan.goal,
               playbook: input.plan.playbook,
               budget: input.plan.budget,
+              demo: !!input.demo,
+              memoriesUsed: input.memoriesUsed ?? [],
               nodes: input.plan.nodes.map((n) => ({ key: n.key, kind: n.kind, agentCode: n.agentCode, objective: n.objective, dependsOn: n.dependsOn, critical: n.critical })),
             },
           },
@@ -602,6 +612,8 @@ async function loadMissionStatus(session: SessionContext, missionTaskId: string,
     paused: snap.paused ?? null,
     userInputs: snap.userInputs ?? [],
     demo: !!snap.demo,
+    memoriesUsed: snap.memoriesUsed ?? [],
+    conversationId: snap.conversationId,
     log: snap.log.slice(-30),
   };
 }

@@ -59,17 +59,22 @@ export async function getUsage(organizationId: string) {
   const sub = await getSubscription(organizationId);
   const limits = limitsFor(sub.tier);
   const period = currentPeriod(sub.currentPeriodStart);
-  const [missions, modelCalls] = await Promise.all([
+  const missionWhere = {
+    organizationId,
+    parentTaskId: null,
+    createdAt: { gte: period.start, lt: period.end },
+    contextSnapshot: { path: ["schemaVersion"], equals: "kern-mission/v1" },
+  };
+  // Demo missions never consume quota. Counted as total − demo, because a
+  // JSON-path NOT would also drop rows that have no `demo` key at all.
+  const [allMissions, demoMissions, modelCalls] = await Promise.all([
+    prisma.agentTask.count({ where: missionWhere }),
     prisma.agentTask.count({
-      where: {
-        organizationId,
-        parentTaskId: null,
-        createdAt: { gte: period.start, lt: period.end },
-        contextSnapshot: { path: ["schemaVersion"], equals: "kern-mission/v1" },
-      },
+      where: { ...missionWhere, AND: [{ contextSnapshot: { path: ["demo"], equals: true } }] },
     }),
     prisma.modelRun.count({ where: { organizationId, createdAt: { gte: period.start, lt: period.end } } }),
   ]);
+  const missions = allMissions - demoMissions;
   return { tier: sub.tier, limits, period, used: { missions, modelCalls } };
 }
 

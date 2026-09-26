@@ -3,6 +3,7 @@
 import type { Decision, Employee, EvidenceRef, Message, MessageBlock, PlanStep } from "../types";
 import { KernGraphCard } from "./graph";
 import { MissionCard } from "./mission";
+import { BriefCard } from "./brief";
 import { Prose } from "./prose";
 import { Btn, Card, CardHead, CONF, I, Node, StateTag, Tag, TONE } from "./kit";
 
@@ -91,6 +92,8 @@ function Block({ b, employees, onOpenSource }: { b: MessageBlock; employees: Emp
       return <KernGraphCard graph={b.graph} />;
     case "mission":
       return <MissionCard missionId={b.ref} />;
+    case "brief":
+      return <BriefCard messageId={b.ref} />;
     case "plan":
       return (
         <Card>

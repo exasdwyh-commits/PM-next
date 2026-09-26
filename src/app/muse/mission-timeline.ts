@@ -48,6 +48,7 @@ export type MissionStatusView = {
   paused: { at: string; byUserId: string } | null;
   userInputs: { id: string; at: string; text: string; appliedTo: string[] }[];
   demo?: boolean;
+  memoriesUsed?: { id: string; text: string }[];
 };
 
 export type ModelCall = { at: string; ok: boolean; latencyMs: number | null; provider: string | null; model: string | null; error?: string };

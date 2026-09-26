@@ -135,7 +135,7 @@ export function MissionWorkspace({ missionId, onClose, initialTab = "process" }:
   return (
     <Sheet
       wide
-      title={status?.goal ?? "任务"}
+      title={status?.goal ? status.goal.split("\n")[0].trim() : "任务"}
       sub={status ? `${status.progress.done}/${status.progress.total} 步 · ${currentActivity(status, events)}` : "读取中…"}
       onClose={onClose}
       aside={controls}
@@ -528,6 +528,8 @@ function OutputTab({ status, lanes, usage }: { status: MissionStatusView; lanes:
             {status.tasksCreated} 个步骤任务{status.budget ? `（上限 ${status.budget.maxTasks}）` : ""} · {usage.calls} 次模型调用 · 模型累计 {formatMs(usage.latencyMs)}
             {status.demo ? " · 演示不计额度" : ""}
           </span>
+          <i>用到的记忆</i>
+          <span>{status.memoriesUsed?.length ? status.memoriesUsed.map((m) => m.text).join("；") : "这次没有用到你的记忆"}</span>
           <i>成功标准</i>
           <span>{status.successCriteria?.join("；") ?? "—"}</span>
         </div>

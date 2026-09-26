@@ -11,6 +11,7 @@ import { isProviderRuntimeConfigured } from "@/modules/model-gateway/provider-ru
 import type { ExecutorOutcome, ExecutorStrategy } from "@/modules/worker/executor";
 import { parseQaVerdict, type MissionNodeKind } from "./plan";
 import { appendMissionEvents, type MissionEventInput } from "./events";
+import { chunkForReplay, demoDelayMs, demoOutput, DEMO_MODEL, DEMO_PROVIDER } from "./demo";
 
 /**
  * Generic Agent Executor
@@ -238,6 +239,7 @@ export const runMissionNodeAgent: ExecutorStrategy = async (context): Promise<Ex
     where: { id: context.task.id },
     select: {
       contextSnapshot: true,
+      idempotencyKey: true,
       agent: {
         select: {
           code: true,
@@ -300,7 +302,21 @@ export const runMissionNodeAgent: ExecutorStrategy = async (context): Promise<Ex
     },
   ]);
 
-  const invoker = invokerOverride ?? defaultInvoker;
+  const isDemo = parentSnap?.demo === true;
+  const attempt = Number(/:(\d+)$/.exec(task.idempotencyKey ?? "")?.[1] ?? 1);
+  const demoInvoker: MissionModelInvoker = async () => {
+    const text = demoOutput(node.nodeKey, node.kind, attempt);
+    const delay = demoDelayMs();
+    // Replay in chunks so the demo shows the typing timeline the real stream will have.
+    if (node.kind !== "QA") {
+      for (const chunk of chunkForReplay(text)) {
+        if (delay) await new Promise((r) => setTimeout(r, delay));
+        await emit([{ type: "node.delta", payload: { text: chunk, complete: false, streamed: true, demo: true } }]);
+      }
+    } else if (delay) await new Promise((r) => setTimeout(r, delay * 2));
+    return { text, provenance: { provider: DEMO_PROVIDER, modelId: DEMO_MODEL, modelRunId: null, demo: true } };
+  };
+  const invoker = isDemo ? demoInvoker : invokerOverride ?? defaultInvoker;
   const startedAt = Date.now();
   const out = await invoker({
     organizationId: context.session.organizationId,

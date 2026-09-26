@@ -7,6 +7,7 @@ import { sendDepartmentAssistantMessage } from "../src/modules/assistant-runtime
 import { bootstrapDefaultWorkforce } from "../src/modules/workforce/service";
 import { executorLoopOnce, reconcileLoopOnce } from "../src/modules/worker/loops";
 import {
+  actOnBrief,
   buildNewProductMissionPlan,
   getKernMissionStatus,
   launchKernMission,
@@ -126,19 +127,22 @@ async function main() {
     assert.doesNotMatch(last!.content, /推荐方向/);
     console.log("  ✔ no fabricated result; user is asked to intervene");
 
-    console.log("▶ S5 saying 'I want to build a new product' in Kern chat launches a mission");
+    console.log("▶ S5 'I want to build a new product' → clarify brief → user confirms → mission");
     const chat = await prisma.conversation.create({
       data: { organizationId: org.id, ownerId: admin.id, title: "Kern" },
     });
     const turn = await sendDepartmentAssistantMessage(session, chat.id, "我想开发一个新的产品");
-    assert.ok(turn.mission?.missionTaskId, "mission launched from chat: " + turn.missionError);
-    assert.equal(turn.routingReceipt.phase, "MISSION");
-    assert.match(turn.message.content, /我已接手这项工作/);
-    const chatMission = await getKernMissionStatus(session, turn.mission!.missionTaskId);
+    assert.equal(turn.mission, null, "nothing runs before the user confirms");
+    assert.equal(turn.routingReceipt.phase, "BRIEF", String(turn.missionError));
+    assert.equal(turn.brief?.stage, "CLARIFY");
+    assert.match(turn.message.content, /开工前先确认/);
+    await actOnBrief(session, turn.message.id, { action: "skip-questions" });
+    const launchedBrief = await actOnBrief(session, turn.message.id, { action: "launch" });
+    const chatMission = await getKernMissionStatus(session, launchedBrief.brief.missionTaskId!);
     assert.equal(chatMission.playbook, "NEW_PRODUCT");
     const casual = await sendDepartmentAssistantMessage(session, chat.id, "今天有什么任务");
     assert.equal(casual.mission, null, "ordinary questions stay single-turn");
-    console.log("  ✔ chat entry → mission; ordinary question → no mission");
+    console.log("  ✔ chat entry → brief → confirmed mission; ordinary question → no mission");
 
     console.log("▶ S6 '继续' after fixing the model resumes the stopped mission in place");
     setMissionModelInvokerForTest(async ({ messages }) => {

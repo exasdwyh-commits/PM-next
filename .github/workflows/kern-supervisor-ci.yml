@@ -14,6 +14,8 @@ on:
       - "tests/regression-kern-mission-controls.ts"
       - "tests/kern-mission-controls.test.ts"
       - "tests/kern-mission-timeline.test.ts"
+      - "tests/kern-brief.test.ts"
+      - "tests/regression-kern-brief.ts"
       - "src/app/muse/**"
       - "src/modules/muse/**"
       - "src/modules/memory/**"
@@ -35,6 +37,8 @@ on:
       - "tests/regression-kern-mission-controls.ts"
       - "tests/kern-mission-controls.test.ts"
       - "tests/kern-mission-timeline.test.ts"
+      - "tests/kern-brief.test.ts"
+      - "tests/regression-kern-brief.ts"
       - "src/app/muse/**"
       - "src/modules/muse/**"
       - "src/modules/memory/**"
@@ -96,5 +100,6 @@ jobs:
       - run: npm run test:kern-supervisor
       - run: npm run test:kern-memory-quota
       - run: npm run test:kern-mission-controls
+      - run: npm run test:kern-brief
       - run: npm run test:workforce
       - run: npm run test:golden-org

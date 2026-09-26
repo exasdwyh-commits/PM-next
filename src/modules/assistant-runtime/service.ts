@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import prisma from "@/shared/db";
-import { QuotaExceededError } from "@/modules/billing";
+import { getUsage, QuotaExceededError } from "@/modules/billing";
 import { extractExplicitMemory, rememberForUser } from "@/modules/memory";
 import type { SessionContext } from "@/modules/identity/session";
 import { executeKernConversationTurn } from "./conversation-engine";
@@ -15,9 +15,9 @@ import {
 } from "./specialist-dispatch";
 import {
   buildMissionPlanFromGoalPlan,
-  buildNewProductMissionPlan,
+  briefCitation,
+  createBriefForMessage,
   decideMissionLaunch,
-  launchKernMission,
   findResumableMission,
   isKernModelReady,
   resumeKernMission,
@@ -100,6 +100,7 @@ export async function sendDepartmentAssistantMessage(
   });
   let mission: { missionTaskId: string; created: boolean; nodeCount: number } | null = null;
   let missionError: string | null = null;
+  let briefCreated: { messageId: string; stage: string } | null = null;
 
   // “记住…” is stored as a user-visible preference, immediately.
   let memorySaved: { id: string } | null = null;
@@ -164,52 +165,46 @@ export async function sendDepartmentAssistantMessage(
 
   if (!memoryHandled && !resumed && missionDecision.launch) {
     try {
-      const plan =
-        missionDecision.playbook === "NEW_PRODUCT"
-          ? buildNewProductMissionPlan(content)
-          : buildMissionPlanFromGoalPlan(goalPlanShadow);
-      const launched = await launchKernMission(session, {
-        plan,
-        conversationId,
-        sourceRunId: result.runId,
+      // Display Layer: clarify → plan card → the user confirms (or runs a demo).
+      // Nothing runs and no quota is used until the user presses 开始.
+      const playbook = missionDecision.playbook === "NEW_PRODUCT" ? "NEW_PRODUCT" : "GENERIC";
+      const brief = await createBriefForMessage(session, {
+        messageId: result.message.id,
+        goal: content,
+        playbook,
+        goalPlan: playbook === "GENERIC" ? buildMissionPlanFromGoalPlan(goalPlanShadow) : undefined,
       });
-      mission = { ...launched, nodeCount: plan.nodes.length };
-      const team = [...new Set(plan.nodes.filter((n) => n.kind !== "SYNTHESIS").map((n) => n.agentCode))];
-      const note = [
-        `**我已接手这项工作。**`,
-        `拆成 ${plan.nodes.length} 步，由 ${team.length} 位专业成员并行推进，经过${plan.nodes.some((n) => n.kind === "RED_TEAM") ? "红队挑战和" : ""}独立 QA 复核后，我会把结论直接发在这里。`,
-        "",
-        "进度在下面实时更新，你可以先去忙别的；只有涉及预算、对外发布、不可逆动作或战略取舍时我才会找你。",
-      ].join("\n");
+      briefCreated = { messageId: result.message.id, stage: brief.stage };
+      // Tell the user up-front when the plan is out of missions — the brief
+      // still works for adjusting the plan and for a quota-free demo run.
+      const usage = await getUsage(session.organizationId).catch(() => null);
+      const quotaFull =
+        usage && usage.limits.missionsPerMonth !== null && usage.used.missions >= usage.limits.missionsPerMonth
+          ? `\n\n> 注意：本月任务额度已用完（已用 ${usage.used.missions}/${usage.limits.missionsPerMonth}）。你仍可以先确认需求、用**演示运行**看效果；要让团队真正开工，可以在「设置 → 套餐与用量」升级，或等下个周期。`
+          : "";
+      const note0 =
+        brief.stage === "CLARIFY"
+          ? [
+              "**这件事我来牵头。** 开工前先确认几件事，这样团队不会跑偏：",
+              brief.memoriesUsed.length ? "标着「我记得」的是我从之前的对话里记下的，不对可以直接改。" : "",
+            ].filter(Boolean).join("\n\n")
+          : "**这件事我来牵头。** 下面是我拟的计划，你确认后团队就开工；也可以先调整，或用演示模式看看效果。";
+      const note = note0 + quotaFull;
       responseMessage = await prisma.message.update({
         where: { id: result.message.id },
         data: {
-          // The router's single-turn reply (e.g. an intake form) is superseded by the mission.
+          // The router's single-turn reply (e.g. an intake form) is superseded by the brief.
           content: note,
-          citations: [
-            { kind: "kern-mission", ref: launched.missionTaskId, title: "Kern 工作进展" },
-          ] as Prisma.InputJsonValue,
+          citations: JSON.parse(JSON.stringify([briefCitation(result.message.id, brief)])) as Prisma.InputJsonValue,
         },
       });
     } catch (error: unknown) {
       missionError = error instanceof Error ? error.message : String(error);
-      if (error instanceof QuotaExceededError) {
-        responseMessage = await prisma.message.update({
-          where: { id: result.message.id },
-          data: {
-            content: [
-              `这件事我可以接手，但${error.message}（已用 ${error.quota.used}/${error.quota.limit}）。`,
-              "",
-              "你可以：升级套餐（「设置 → 套餐与用量」）继续让 Kern 在后台推进；或者等下个周期；也可以先在对话里直接问我具体问题，这不占工作额度。",
-            ].join("\n"),
-          },
-        });
-      }
     }
   }
 
   if (
-    !mission && !resumed && !memoryHandled &&
+    !mission && !briefCreated && !resumed && !memoryHandled &&
     collaborationPlanShadow.mode === "SPECIALIST" &&
     dispatchReadiness.eligible &&
     dispatchReadiness.state === "EXECUTOR_READY"
@@ -262,11 +257,14 @@ export async function sendDepartmentAssistantMessage(
     runId: result.runId,
     phase: mission
       ? ("MISSION" as const)
-      : specialistDispatch
+      : briefCreated
+        ? ("BRIEF" as const)
+        : specialistDispatch
         ? ("AUTO" as const)
         : ("SHADOW" as const),
     missionDecision,
     missionTaskId: mission?.missionTaskId ?? null,
+    briefMessageId: briefCreated?.messageId ?? null,
     missionError,
     authority: collaborationPlanShadow.authority,
     recommendedMode: collaborationPlanShadow.mode,
@@ -365,6 +363,7 @@ export async function sendDepartmentAssistantMessage(
     specialistDispatch,
     specialistDispatchError,
     mission,
+    brief: briefCreated,
     missionError,
     memorySaved,
     visualGraphShadow,

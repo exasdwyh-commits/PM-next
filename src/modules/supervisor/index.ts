@@ -22,3 +22,19 @@ export {
   type MissionEventType,
   type MissionEventRecord,
 } from "./events";
+export {
+  actOnBrief,
+  briefCitation,
+  buildBriefPlan,
+  buildClarifyQuestions,
+  createBriefForMessage,
+  estimateBrief,
+  getBrief,
+  parseBriefAction,
+  readBrief,
+  BRIEF_SCHEMA,
+  type BriefAction,
+  type BriefEstimate,
+  type BriefQuestion,
+  type MissionBrief,
+} from "./brief";

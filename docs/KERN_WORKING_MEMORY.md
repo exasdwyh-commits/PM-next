@@ -97,3 +97,12 @@
   - 支付；
   - 多渠道推送；
   - 可观测性。
+
+## Display Layer PR ③ 第一部分（feat/kern-display-output，基于 feat/kern-display-ui）
+- 新增：任务简报（supervisor/brief.ts）——新产品先出澄清卡（2–3 题，可点选项；记忆命中显示「我记得」可改），确认后出计划卡（步骤/成员/为什么/预估额度，可删步），再「开始」或「演示运行」。
+- 演示模式（supervisor/demo.ts）：同一套 UI，明确标注，不写业务数据、不计入任务额度。
+- assistant-runtime：launch 决策改为先生成简报，不再直接开跑；额度满时提示可演示运行。
+- API：GET/POST /api/missions/brief/[messageId]。
+- 显示修复：工作区标题只取目标首行；侧栏预览去掉 Markdown 符号；产出步骤行对齐。
+- 验证：tsc、eslint、kern-brief(B1–B6)、kern-supervisor(S5 走简报)、mission-controls、memory-quota、unit 全过；next build 通过；截图 shots/p3-*。
+- 下一步：产出（表格/决策卡）、带走（Proposal，演示禁止）、MD/PDF 导出；再 P0-D 每次调用额度检查。
