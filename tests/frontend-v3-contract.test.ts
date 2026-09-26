@@ -40,8 +40,9 @@ test("Kern is the primary operating shell and management stays independent", () 
 
 test("management conversations route back through Kern", () => {
   const home = read("src/app/workbench-client.tsx");
-  assert.ok(home.includes("今天想让 Kern 做什么？"));
-  assert.ok(home.includes("/muse?query="), "management commands must enter the Kern operating shell");
+  assert.equal(home.includes("今天想让 Kern 做什么？"), false, "management must not restore a hero prompt surface");
+  assert.ok(home.includes('placeholder="交代一件事给 Kern…"'));
+  assert.ok(home.includes("/muse?query="), "management handoff must enter the Kern operating shell");
   assert.ok(home.includes("需要你处理"));
   assert.ok(home.includes("Kern 正在工作"));
   assert.ok(home.includes("第一次使用，三步就够了"), "empty org must have first-use onboarding");
