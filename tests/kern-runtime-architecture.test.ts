@@ -26,8 +26,13 @@ test("Kern owns the primary conversation lifecycle", () => {
     "AgentRun context must record Kern as the runtime owner"
   );
   assert.ok(
-    engine.includes('capabilityProvider: "LEGACY_ADVISOR_COMPAT"'),
-    "remaining Advisor dependency must be explicitly marked as compatibility provider"
+    engine.includes('capabilityProvider: "KERN_CAPABILITY_REGISTRY"'),
+    "AgentRun context must record the native capability registry"
+  );
+  assert.equal(
+    engine.includes("@/modules/advisor/service"),
+    false,
+    "conversation engine must not depend on the legacy Advisor service facade"
   );
   assert.equal(
     messagesRoute.includes("@/modules/advisor/service"),
@@ -38,6 +43,33 @@ test("Kern owns the primary conversation lifecycle", () => {
     conversationsRoute.includes("@/modules/advisor/service"),
     false,
     "conversation CRUD API must not import legacy Advisor directly"
+  );
+});
+
+
+test("legacy Advisor service is a compatibility facade, not a runtime core", () => {
+  const advisor = read("src/modules/advisor/service.ts");
+  const registry = read("src/modules/assistant-runtime/capabilities/registry.ts");
+
+  assert.ok(advisor.split("\n").length < 100, "Advisor service must stay a thin facade");
+  for (const forbidden of [
+    'case "START_PRODUCT_RND"',
+    'case "PRODUCT_RND_STATUS"',
+    'case "DESKTOP_EXECUTION"',
+    'case "PROPOSE_FIELD_CHANGE"',
+    'case "KNOWLEDGE_SEARCH"',
+    "prisma.",
+  ]) {
+    assert.equal(advisor.includes(forbidden), false, `Advisor core logic returned: ${forbidden}`);
+  }
+  assert.equal(
+    registry.includes("@/modules/advisor/service"),
+    false,
+    "native capability registry must never fall back to Advisor service"
+  );
+  assert.ok(
+    registry.includes('"UNSUPPORTED"'),
+    "registry must own the fallback capability path too"
   );
 });
 
