@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Decision, EvidenceRef, Message, StudioModel } from "./types";
+import type { ConversationRuntimeConfig, Decision, EvidenceRef, Message, StudioModel } from "./types";
 import { readKernGraphCitation } from "@/modules/visual-intelligence/contracts";
 import type { KernGraphV1 } from "@/modules/visual-intelligence/contracts";
 import { Btn, I } from "./components/kit";
@@ -73,6 +73,9 @@ export default function KernClient({ model }: { model: StudioModel }) {
   const [conversationId, setConversationId] = useState<string | null>(model.activeConversationId);
   const [messages, setMessages] = useState<Message[]>(model.messages);
   const [draft, setDraft] = useState(model.initialDraft);
+  const [runtimeConfig, setRuntimeConfig] = useState<ConversationRuntimeConfig>(
+    model.controls.config
+  );
   const [sending, setSending] = useState(false);
   const [decisionBusy, setDecisionBusy] = useState<string | null>(null);
   const [sheet, setSheet] = useState<SheetState>(null);
@@ -84,7 +87,8 @@ export default function KernClient({ model }: { model: StudioModel }) {
   useEffect(() => {
     setConversationId(model.activeConversationId);
     setMessages(model.messages);
-  }, [model.activeConversationId, model.messages]);
+    setRuntimeConfig(model.controls.config);
+  }, [model.activeConversationId, model.messages, model.controls.config]);
 
   const conversation = useMemo(
     () => brief.conversations.find((item) => item.id === conversationId) ?? null,
@@ -153,6 +157,48 @@ export default function KernClient({ model }: { model: StudioModel }) {
     []
   );
 
+  const updateRuntimeConfig = useCallback(
+    async (next: ConversationRuntimeConfig) => {
+      const previous = runtimeConfig;
+      setRuntimeConfig(next);
+      if (!conversationId) return;
+
+      try {
+        const response = await fetch(
+          `/api/conversations/${conversationId}/runtime-config`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ config: next }),
+          }
+        );
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.message || "保存 Conversation 配置失败");
+        }
+        setRuntimeConfig(data.config as ConversationRuntimeConfig);
+        router.refresh();
+      } catch (error) {
+        setRuntimeConfig(previous);
+        const message =
+          error instanceof Error ? error.message : "保存 Conversation 配置失败";
+        setMessages((current) => [
+          ...current,
+          {
+            id: `config-error-${Date.now()}`,
+            author: "kern",
+            byEmployeeId: "e-hermes",
+            at: new Date().toISOString(),
+            state: "error",
+            blocks: [{ kind: "text", text: message }],
+          },
+        ]);
+      }
+    },
+    [conversationId, router, runtimeConfig]
+  );
+
+
   const send = useCallback(async () => {
     const text = draft.trim();
     if (!text || sending) return;
@@ -177,6 +223,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
           body: JSON.stringify({
             title: text.slice(0, 60) || "新任务",
             productId: model.newConversationProduct?.id ?? null,
+            runtimeConfig,
           }),
         });
         const created = await create.json();
@@ -219,7 +266,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
     } finally {
       setSending(false);
     }
-  }, [draft, conversationId, router, sending]);
+  }, [draft, conversationId, model.newConversationProduct?.id, router, runtimeConfig, sending]);
 
   const resolve = useCallback(
     async (decision: Decision, choice: Decision["options"][number]) => {
@@ -307,6 +354,13 @@ export default function KernClient({ model }: { model: StudioModel }) {
       if (!id) {
         setConversationId(null);
         setMessages([]);
+        setRuntimeConfig({
+          version: "kern-conversation-config/v1",
+          modelProfileKey: null,
+          advisorCodes: null,
+          skillKeys: null,
+          capabilityKeys: null,
+        });
         router.push("/muse");
         return;
       }
@@ -396,6 +450,9 @@ export default function KernClient({ model }: { model: StudioModel }) {
           onChange={setDraft}
           onSend={send}
           sending={sending || Boolean(decisionBusy)}
+          controls={model.controls}
+          config={runtimeConfig}
+          onConfigChange={updateRuntimeConfig}
           capabilities={runtime.capabilities}
           onTrust={() => setSheet({ kind: "trust" })}
         />
