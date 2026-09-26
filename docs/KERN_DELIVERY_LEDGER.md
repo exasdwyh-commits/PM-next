@@ -51,3 +51,9 @@ V1/Beta 不再继续“顺手优化”。后续只从真实试用反馈进入新
 4. 下一版本功能进入独立 V1.1 规划，不直接改冻结基线。
 
 继续工作时，先核对 `main` 是否仍包含上述 validated head，再检查当前 PR / Issue / CI。
+
+## 2026-09-26 · 分支收敛（P0）
+
+- `main` = `release/v0.1.0-rc1` = `193ae32c`（#33/#34/#35 经 #37 集成，快进合并，保留原 SHA 与 CI 结果）；tag `v0.1.0-rc1-kern-v2`；默认分支 → `main`。
+- 回退点：旧 release `85c75bbc`、旧 main `5c3d08c7`。
+- 下一阶段计划：`docs/KERN_NEXT_PHASE_PLAN.md`（唯一有效计划）。

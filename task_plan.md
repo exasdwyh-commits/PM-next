@@ -1,6 +1,6 @@
 # HERMES PM-next 当前执行计划
 
-更新时间：2026-09-23  
+更新时间：2026-09-23（**已过时**，当前计划见 docs/KERN_NEXT_PHASE_PLAN.md）  
 状态：Code Freeze / Local Final Acceptance
 
 ## 1. 当前结论

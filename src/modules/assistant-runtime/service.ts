@@ -103,21 +103,39 @@ export async function sendDepartmentAssistantMessage(
 
   // “记住…” is stored as a user-visible preference, immediately.
   let memorySaved: { id: string } | null = null;
+  // True once a "记住…" turn has been answered (saved, or honestly refused by
+  // quota) so it is not re-interpreted as a resume / mission request.
+  let memoryHandled = false;
   const explicitMemory = extractExplicitMemory(content);
   if (explicitMemory) {
-    const saved = await rememberForUser(session, { ...explicitMemory, source: null }).catch(() => null);
+    let memoryQuotaNote: string | null = null;
+    const saved = await rememberForUser(session, { ...explicitMemory, source: null }).catch(
+      (error: unknown) => {
+        if (error instanceof QuotaExceededError) memoryQuotaNote = error.message;
+        return null;
+      }
+    );
+    if (!saved && memoryQuotaNote) {
+      // Honest: never pretend it was remembered.
+      responseMessage = await prisma.message.update({
+        where: { id: result.message.id },
+        data: { content: `这条我没能记住：${memoryQuotaNote}。` },
+      });
+      memoryHandled = true;
+    }
     if (saved) {
       responseMessage = await prisma.message.update({
         where: { id: result.message.id },
         data: { content: `记住了：${saved.content}\n\n之后的工作我都会按这个来。随时可以在「设置 → Kern 的记忆」里查看或删除。` },
       });
       memorySaved = { id: saved.id };
+      memoryHandled = true;
     }
   }
 
   // “继续 / 重试” picks up the stopped mission in this conversation instead of starting over.
   let resumed = false;
-  if (!memorySaved && isResumeIntent(content)) {
+  if (!memoryHandled && isResumeIntent(content)) {
     const stoppedId = await findResumableMission(session, conversationId).catch(() => null);
     if (stoppedId) {
       resumed = true;
@@ -144,7 +162,7 @@ export async function sendDepartmentAssistantMessage(
     }
   }
 
-  if (!memorySaved && !resumed && missionDecision.launch) {
+  if (!memoryHandled && !resumed && missionDecision.launch) {
     try {
       const plan =
         missionDecision.playbook === "NEW_PRODUCT"
@@ -191,7 +209,7 @@ export async function sendDepartmentAssistantMessage(
   }
 
   if (
-    !mission && !resumed && !memorySaved &&
+    !mission && !resumed && !memoryHandled &&
     collaborationPlanShadow.mode === "SPECIALIST" &&
     dispatchReadiness.eligible &&
     dispatchReadiness.state === "EXECUTOR_READY"

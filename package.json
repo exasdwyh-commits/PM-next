@@ -85,6 +85,7 @@
     "kern:map": "tsx scripts/kern-map.ts",
     "test:kern-conversation-controls": "node --import tsx --test tests/kern-conversation-controls.test.ts",
     "test:kern-goal-plan": "node --import tsx --test tests/kern-goal-plan.test.ts",
+    "test:kern-memory-quota": "tsx scripts/run-test.ts tests/regression-kern-memory-quota.ts",
     "test:kern-supervisor-plan": "node --import tsx --test tests/kern-supervisor-plan.test.ts tests/kern-attention.test.ts tests/kern-prose.test.ts tests/kern-memory.test.ts tests/kern-billing.test.ts",
     "kern:set-plan": "tsx scripts/kern-set-plan.ts",
     "test:kern-supervisor": "tsx scripts/run-test.ts tests/regression-kern-supervisor.ts"
