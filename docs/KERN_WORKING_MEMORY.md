@@ -1,0 +1,89 @@
+# Kern 工作记忆（给未来的自己 / 接手者）
+
+> 目的：上下文会被压缩，这份文档是**唯一可信的进度汇总**。每完成一个阶段就更新。
+> 事实优先级：代码 / DB / API / CI > 本文档 > 其他历史文档。
+
+## 1. 产品定位（用户已确认）
+- Kern = 面向“做产品的人”的私人 AI / Chief of Staff + Product OS。
+- 链路：机会发现 → 验证 → 研发 → 推进 → 营销 → 结果 → 复盘。
+- 对标：Meta Muse 这类 personal agent：
+  - 像发消息一样交代；
+  - 后台持续干活；
+  - 只在需要批准或有变化时回来；
+  - 会记住你；
+  - 免费版 + 订阅版。
+- 体验原则：
+  - 用户只面对 Kern；
+  - 内部越复杂，外部越简单；
+  - 只在涉及战略、风险、权限、预算或不可逆动作时升级给人。
+
+## 2. 协作约定（用户明确要求）
+- 每个大阶段一个分支 / PR，**不直接推 main / release**。
+  - ⚠️ 2026-09-26 例外记录：分支收敛时，另一会话把 `main`、`release` 直接快进到 `193ae32c`（未经用户 review），并自行 squash 合并了 #38。当时的回退点：旧 release `85c75bbc`、旧 main `5c3d08c7`。以后不再这样做：**只开 PR，由用户 review 后合并**。
+- 默认分支：**`main`**（2026-09-26 起）。`release/v0.1.0-rc1` 冻结在 `193ae32c`，只是历史指针；main 继续前进属正常。
+- 仓库已开启“合并后自动删除分支”；远程只保留 `main` 与冻结的 release。
+- 每阶段都要过：typecheck、tests、CI、review。
+- 大改要说明：为什么改、保留什么、替换什么、风险、如何验证。
+- 不频繁问“要不要继续”；只在真正的战略分歧或要删用户可能在用的页面时才问。
+- Token 只在对话里出现，**绝不写入文件**。
+  - 推送命令：`git push https://x-access-token:$T@github.com/exasdwyh-commits/PM-next.git <branch>`。
+  - 需要 classic token，勾选 `repo` + `workflow`（fine-grained 的写权限一直没生效）。
+
+## 3. 已交付（全部 CI 绿）
+| PR | 分支 | 内容 |
+|---|---|---|
+| #33 | feat/kern-supervisor-runtime → release/v0.1.0-rc1 | Supervisor：目标 → mission DAG → 真实子 AgentTask → QA/红队 → 综合结论回对话 |
+| #34 | feat/kern-attention-home → #33 | Attention 首页、统一视觉、安全 Markdown、受阻汇报可读 |
+| #35 | feat/kern-personal-agent → #34 | 继续续跑、KernMemory、今天简报、套餐与额度（OrganizationSubscription）、authz 修复 |
+| #36 | — | ❌ 关闭未合并：与 #33/#34 重复实现 generic executor / attention（没看开放 PR 就开工的教训） |
+| #37 | integration/kern-v2-final → release | #33+#34+#35 集成；release 与 main 快进到 `193ae32c`，tag `v0.1.0-rc1-kern-v2` |
+| #38 | → main（`d179f8f7`） | 记忆条数额度真正执行（事务 + 组织级 advisory lock）；对话里超额如实告知；文档改为实际状态。**该修复不在 `v0.1.0-rc1-kern-v2` tag 里**；下次封版打 `v0.1.0-rc2`，不移动旧 tag |
+
+补充说明：
+- 同一 `source` 的记忆更新不占新额度；用户说两次“记住…”（source=null）仍会产生两条，以后做语义去重。
+- 已删除 37 个已吸收远程分支（清单见 `docs/KERN_NEXT_PHASE_PLAN.md` 附录）；无 PR 或合并后又有新提交的 2 个分支保留为 `archive/*` tag。
+
+关键模块：
+- `src/modules/supervisor/{plan,service,generic-executor,attention}.ts`
+- `src/modules/memory`
+- `src/modules/billing`
+- `src/app/muse/*`：Kern 对话 UI
+- `components/{mission,prose,sheets,shell,turn}.tsx`
+
+## 4. 环境备忘
+- 每次开工先 `source /home/user/kern-env.sh`。
+- 快照恢复后 `node_modules` 会丢，需要重跑 `npm ci`。
+  - 分支也可能丢：用 `/home/user/*.bundle` 恢复。
+- Postgres 17：`sudo pg_ctlcluster 17 main start`。
+  - 测试库：hermes_test。
+  - 预览库：kern_dev。
+- 构建必须带 `NODE_OPTIONS=--max-old-space-size=1536 npx next build --no-lint`（2GB 内存）。
+  - tsc 用 `--max-old-space-size=1800`。
+- 预览：
+  - 用 `next start -H 0.0.0.0 -p 3100`，DATABASE_URL 指向 kern_dev。
+  - 账号：zhang_pm@hermes.test / kern-dev-2026。
+- 需要服务端的验收测试要设置：`ACC_BUILD_NODE_OPTIONS=--max-old-space-size=1536 ACC_BUILD_FLAGS=--no-lint`。
+  - 另外需要 `.env`（gitignored，从 kern-env.sh 生成）。
+- 开发环境**没有模型**：所有 mission 都会以“模型服务不可用”停下。
+- 注意：上面是**原开发沙箱**的备忘。其他会话的沙箱可能没有 `kern-env.sh` / bundle（例如 Postgres 需自行 `apt-get install postgresql`，按 CI 的环境变量建 `hermes_test` + `hermes_dev_guard`；build 需 `--max-old-space-size=3072`）。
+
+## 5. 待办
+- 当前阶段：**对话内全面展示（Display Layer）**。
+  - 规格见 `docs/KERN_DISPLAY_SPEC.md`，grill 3 轮已完成，需求 v1 已定。
+  - 下一步：实现 PR ①（事件 + 控制 + SSE）。
+- Display Layer 实现时要预留给后续阶段的接口：
+  - `node.cite` 事件带 `sourceCaptureId` / URL / fetchedAt，引用能从研究节点一直传到结论卡与导出（为 citation lineage 预留）；
+  - 演示 mission **不能**用 `kern-mission/v1` schema（billing 按它计任务数），或在计费查询里显式排除 `demo=true`；
+  - 事件里记录每次模型调用的耗时与额度，作为后续 cost guard / tracing 的数据来源。
+- P1（顺序与验收细节见 `docs/KERN_NEXT_PHASE_PLAN.md`）：
+  - 研究结论附来源：ResearchRun 与 mission 幂等绑定（`missionId + nodeKey + revisionRound`，续跑不重抓网页、不重复付费）；引用全链传递；安全边界（来源正文只当数据、SSRF / 私网拒绝、大小与超时上限、保留 URL / fetchedAt / hash、法规结论带辖区与日期）；
+  - 每次模型调用前原子扣额度（**真实模型试用之前做**）+ 最小 tracing；
+  - product-rnd 并入 playbook：新任务走 playbook，在途旧 run 按原路径跑完，旧 API 保留为 adapter，稳定一个周期后再删旧编排器；
+  - 信息架构收敛（Kern / 产品 / 项目 / 设置）；
+  - 反馈学习。
+- Beta 验收：Worker 常驻（崩溃自动重启、开机自启、租约恢复、防重复 Worker、模型 / DB 断线恢复），然后打 `v0.1.0-rc2`。
+- P1 Desktop Intelligence：屏幕理解、坐标点击、拖拽、视觉恢复还没有，不能把 Desktop Runtime 说成已完成的 Computer Use。
+- P2：
+  - 支付；
+  - 多渠道推送；
+  - 可观测性。
