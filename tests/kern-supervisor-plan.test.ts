@@ -115,3 +115,26 @@ test("QA verdict parser is strict", () => {
   assert.equal(parseQaVerdict("looks fine"), null);
   assert.equal(parseQaVerdict('{"verdict":"MAYBE"}'), null);
 });
+
+import { prepareMissionResume, initialMissionState as _init, buildNewProductMissionPlan as _np } from "../src/modules/supervisor/plan";
+import { isResumeIntent } from "../src/modules/assistant-runtime/service";
+
+test("resume keeps successful work, resets blocked + downstream, tops up budget, is bounded", () => {
+  const plan = _np("x");
+  const st = _init(plan);
+  for (const k of Object.keys(st.nodes)) st.nodes[k].status = "BLOCKED";
+  st.nodes.market.status = "SUCCEEDED";
+  const r = prepareMissionResume(plan, st);
+  assert.ok(!("error" in r));
+  if ("error" in r) return;
+  assert.equal(r.state.nodes.market.status, "SUCCEEDED");
+  assert.ok(r.resetKeys.includes("synthesis"));
+  assert.equal(r.plan.budget.maxTasks, plan.budget.maxTasks + r.resetKeys.length);
+  const limited = prepareMissionResume(plan, { ...st, resumes: 3 });
+  assert.ok("error" in limited);
+});
+
+test("resume intent is narrow", () => {
+  for (const t of ["继续", "继续。", "重试", "接着做", "continue"]) assert.ok(isResumeIntent(t), t);
+  for (const t of ["继续帮我分析竞品", "我想开发一个新产品"]) assert.equal(isResumeIntent(t), false, t);
+});

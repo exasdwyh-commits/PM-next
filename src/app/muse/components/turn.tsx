@@ -162,6 +162,17 @@ function Block({ b, employees, onOpenSource }: { b: MessageBlock; employees: Emp
   }
 }
 
+export function friendlyTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const now = new Date();
+  const hm = d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
+  if (d.toDateString() === now.toDateString()) return hm;
+  const y = new Date(now); y.setDate(now.getDate() - 1);
+  if (d.toDateString() === y.toDateString()) return `昨天 ${hm}`;
+  return `${d.getMonth() + 1}月${d.getDate()}日 ${hm}`;
+}
+
 export function Turn({ m, employees, onOpenSource }: { m: Message; employees: Employee[]; onOpenSource: (r: EvidenceRef) => void }) {
   if (m.author === "user") {
     return (
@@ -175,10 +186,9 @@ export function Turn({ m, employees, onOpenSource }: { m: Message; employees: Em
     <article className="m-turn">
       <div className="m-who">
         <span className="m-who-av" aria-hidden>{by?.mark ?? "K"}</span>
-        <b>{by?.name ?? "Kern"}</b>
-        <span>{by?.role ?? "你的助理"}</span>
+        <b>{by?.name && !/^Kern\b/.test(by.name) ? by.name : "Kern"}</b>
         <span aria-hidden>·</span>
-        <span>{m.at}</span>
+        <time dateTime={m.at} title={m.at}>{friendlyTime(m.at)}</time>
         {m.state !== "success" ? <StateTag state={m.state} /> : null}
       </div>
       {m.blocks.map((b, i) => <Block key={i} b={b} employees={employees} onOpenSource={onOpenSource} />)}

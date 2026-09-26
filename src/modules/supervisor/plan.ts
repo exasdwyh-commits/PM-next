@@ -435,3 +435,44 @@ export function parseQaVerdict(text: string): MissionQaVerdict | null {
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Resume (pure): user said “继续” after fixing the cause (e.g. connected a model)
+// ---------------------------------------------------------------------------
+
+export const MAX_MISSION_RESUMES = 3;
+
+/**
+ * Reset every unfinished node — and everything downstream of it — to PENDING,
+ * grant a budget top-up equal to the reset count, and keep successful work.
+ */
+export function prepareMissionResume(
+  plan: MissionPlan,
+  state: MissionState & { resumes?: number }
+): { plan: MissionPlan; state: MissionState & { resumes: number }; resetKeys: string[] } | { error: string } {
+  const resumes = state.resumes ?? 0;
+  if (resumes >= MAX_MISSION_RESUMES) return { error: "RESUME_LIMIT" };
+  const reset = new Set(
+    plan.nodes.filter((n) => state.nodes[n.key].status !== "SUCCEEDED").map((n) => n.key)
+  );
+  if (!reset.size) return { error: "NOTHING_TO_RESUME" };
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const n of plan.nodes) {
+      if (!reset.has(n.key) && n.dependsOn.some((d) => reset.has(d))) {
+        reset.add(n.key);
+        grew = true;
+      }
+    }
+  }
+  const nodes = { ...state.nodes };
+  for (const key of reset) {
+    nodes[key] = { ...nodes[key], status: "PENDING", taskId: null, summary: null, reason: null, qa: null, revisionFeedback: null };
+  }
+  return {
+    plan: { ...plan, budget: { ...plan.budget, maxTasks: plan.budget.maxTasks + reset.size } },
+    state: { ...state, nodes, revisionRounds: 0, resumes: resumes + 1 },
+    resetKeys: [...reset],
+  };
+}

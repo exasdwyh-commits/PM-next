@@ -102,7 +102,11 @@ export function MissionCard({ missionId }: { missionId: string }) {
 
   return (
     <Card>
-      <CardHead icon={<I.plan />} title="Kern 正在推进" aside={aside} />
+      <CardHead
+        icon={<I.plan />}
+        title={!data?.outcome ? "Kern 正在推进" : data.outcome.status === "COMPLETED" ? "Kern 已完成" : "这项工作停下了"}
+        aside={aside}
+      />
       <div className="m-card-body">
         {!data ? (
           <p className="m-hint">读取进展…</p>

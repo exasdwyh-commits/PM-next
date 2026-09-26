@@ -16,6 +16,9 @@ import {
   buildNewProductMissionPlan,
   decideMissionLaunch,
   launchKernMission,
+  findResumableMission,
+  isKernModelReady,
+  resumeKernMission,
 } from "@/modules/supervisor";
 import {
   buildKernCouncilGraph,
@@ -30,6 +33,11 @@ function asJsonObject(value: Prisma.JsonValue | null): Record<string, unknown> {
 
 function asInputJson(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
+const RESUME_RE = /^\s*(继续|接着(做|来|推进)?|重试|再试(一次)?|继续推进|开始吧?|go on|continue|resume|retry)\s*[。.!！]?\s*$/i;
+export function isResumeIntent(text: string): boolean {
+  return RESUME_RE.test(text);
 }
 
 /**
@@ -90,7 +98,37 @@ export async function sendDepartmentAssistantMessage(
   });
   let mission: { missionTaskId: string; created: boolean; nodeCount: number } | null = null;
   let missionError: string | null = null;
-  if (missionDecision.launch) {
+
+  // “继续 / 重试” picks up the stopped mission in this conversation instead of starting over.
+  let resumed = false;
+  if (isResumeIntent(content)) {
+    const stoppedId = await findResumableMission(session, conversationId).catch(() => null);
+    if (stoppedId) {
+      resumed = true;
+      const ready = await isKernModelReady(session.organizationId);
+      let note: string;
+      if (!ready) {
+        note = "还是没有可用的模型，我先不重跑，免得白白消耗额度。到「设置 → 模型」连接一个模型后，再跟我说“继续”。";
+      } else {
+        const r = await resumeKernMission(session, stoppedId).catch((e: unknown) => ({ resumed: false, reason: e instanceof Error ? e.message : String(e) }));
+        note = r.resumed
+          ? `**好的，接着推进。** 已完成的部分保留，重跑 ${"resetKeys" in r && r.resetKeys ? r.resetKeys.length : 0} 个环节，进度在下面。`
+          : r.reason === "RESUME_LIMIT"
+            ? "这项工作已经重试过多次仍未成功。我建议换个角度重新描述目标，或告诉我哪一部分可以先跳过。"
+            : "这项工作目前不需要继续。";
+        if (r.resumed) mission = { missionTaskId: stoppedId, created: false, nodeCount: 0 };
+      }
+      responseMessage = await prisma.message.update({
+        where: { id: result.message.id },
+        data: {
+          content: note,
+          citations: [{ kind: "kern-mission", ref: stoppedId, title: "Kern 工作进展" }] as Prisma.InputJsonValue,
+        },
+      });
+    }
+  }
+
+  if (!resumed && missionDecision.launch) {
     try {
       const plan =
         missionDecision.playbook === "NEW_PRODUCT"
@@ -125,7 +163,7 @@ export async function sendDepartmentAssistantMessage(
   }
 
   if (
-    !mission &&
+    !mission && !resumed &&
     collaborationPlanShadow.mode === "SPECIALIST" &&
     dispatchReadiness.eligible &&
     dispatchReadiness.state === "EXECUTOR_READY"

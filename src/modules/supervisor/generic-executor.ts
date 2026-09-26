@@ -60,6 +60,31 @@ export function setMissionModelInvokerForTest(fn: MissionModelInvoker | null) {
   invokerOverride = fn;
 }
 
+/**
+ * Cheap readiness probe: can Kern run *any* model right now?
+ * Used to tell the user up-front instead of failing a whole mission.
+ */
+export async function isKernModelReady(organizationId: string): Promise<boolean> {
+  if (invokerOverride) return true;
+  for (const taskClass of ["ASSISTANT_SYNTHESIS", "ASSISTANT_DIALOGUE"] as ModelTaskClass[]) {
+    const resolved = await tryResolveGatewayPolicyForAgentCode({ organizationId, agentCode: "hermes_pm", taskClass }).catch(() => null);
+    if (!resolved) continue;
+    const ids = new Set(resolved.policy.candidates.map((c) => c.profileId));
+    if (
+      resolved.profiles.some(
+        (p) =>
+          ids.has(p.id) &&
+          p.enabled &&
+          p.health !== "UNAVAILABLE" &&
+          (resolved.policy.cloudAllowed || p.locality === "LOCAL") &&
+          isProviderRuntimeConfigured(p.provider)
+      )
+    )
+      return true;
+  }
+  return false;
+}
+
 const defaultInvoker: MissionModelInvoker = async (input) => {
   const attempts: Array<[string, ModelTaskClass]> = [
     [input.agentCode, input.taskClass],

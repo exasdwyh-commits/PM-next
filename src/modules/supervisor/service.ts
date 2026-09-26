@@ -9,6 +9,7 @@ import {
   initialMissionState,
   isTerminalNodeStatus,
   validateMissionPlan,
+  prepareMissionResume,
   type MissionNodeStatus,
   type MissionOutcome,
   type MissionPlan,
@@ -397,6 +398,70 @@ export function isModelUnavailableMission(snap: MissionSnapshot): boolean {
   return blocked.length > 0 &&
     !Object.values(snap.state.nodes).some((n) => n.status === "SUCCEEDED") &&
     blocked.every((n) => (n.reason ?? "").startsWith("MODEL_UNAVAILABLE"));
+}
+
+/**
+ * Resume a stopped mission (NEEDS_USER) in place: keeps successful nodes,
+ * re-dispatches the rest. Returns null when nothing was resumable.
+ */
+export async function resumeKernMission(
+  session: SessionContext,
+  missionTaskId: string
+): Promise<{ resumed: boolean; reason?: string; resetKeys?: string[] }> {
+  const result = await prisma.$transaction(async (tx) => {
+    await tx.$queryRawUnsafe(
+      'SELECT "id" FROM "AgentTask" WHERE "id" = $1 AND "organizationId" = $2 FOR UPDATE',
+      missionTaskId,
+      session.organizationId
+    );
+    const root = await tx.agentTask.findUnique({ where: { id: missionTaskId }, select: { organizationId: true, contextSnapshot: true } });
+    if (!root || root.organizationId !== session.organizationId) throw new NotFoundError("Mission not found");
+    const snap = readMissionSnapshot(root.contextSnapshot);
+    if (!snap) throw new UnprocessableEntityError("Task is not a Kern mission");
+    if (!snap.outcome) return { resumed: false, reason: "STILL_RUNNING" };
+    if (snap.outcome.status === "COMPLETED") return { resumed: false, reason: "ALREADY_COMPLETED" };
+    const prepared = prepareMissionResume(snap.plan, snap.state);
+    if ("error" in prepared) return { resumed: false, reason: prepared.error };
+    const at = new Date().toISOString();
+    const next: MissionSnapshot = {
+      ...snap,
+      plan: prepared.plan,
+      state: prepared.state,
+      outcome: null,
+      log: [...snap.log, { at, event: "MISSION_RESUMED", detail: prepared.resetKeys.join(",") }].slice(-200),
+    };
+    await tx.agentTask.update({
+      where: { id: missionTaskId },
+      data: { contextSnapshot: toJson(next), status: AgentTaskStatus.RUNNING, completedAt: null, blockedReason: null },
+    });
+    await createAuditEventInTx(tx, {
+      actorId: session.userId,
+      action: "KERN_MISSION_RESUMED",
+      objectType: "AgentTask",
+      objectId: missionTaskId,
+      summary: `Kern 继续推进（重跑 ${prepared.resetKeys.length} 个节点）`,
+      details: toJson({ resetKeys: prepared.resetKeys }),
+    });
+    return { resumed: true, resetKeys: prepared.resetKeys };
+  });
+  if (result.resumed) await advanceKernMission(session, missionTaskId);
+  return result;
+}
+
+/** Latest stopped mission in a conversation (for “继续”). */
+export async function findResumableMission(session: SessionContext, conversationId: string) {
+  const rows = await prisma.agentTask.findMany({
+    where: {
+      organizationId: session.organizationId,
+      triggerRef: `conversation:${conversationId}`,
+      contextSnapshot: { path: ["schemaVersion"], equals: MISSION_SCHEMA },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 1,
+    select: { id: true, contextSnapshot: true },
+  });
+  const snap = rows[0] ? readMissionSnapshot(rows[0].contextSnapshot) : null;
+  return snap?.outcome?.status === "NEEDS_USER" ? rows[0].id : null;
 }
 
 export async function getKernMissionStatus(session: SessionContext, missionTaskId: string) {

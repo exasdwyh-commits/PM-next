@@ -140,6 +140,26 @@ async function main() {
     assert.equal(casual.mission, null, "ordinary questions stay single-turn");
     console.log("  ✔ chat entry → mission; ordinary question → no mission");
 
+    console.log("▶ S6 '继续' after fixing the model resumes the stopped mission in place");
+    setMissionModelInvokerForTest(async ({ messages }) => {
+      const user = messages[messages.length - 1].content;
+      const key = /## 你的任务（([^）]+)）/.exec(user)?.[1] ?? "?";
+      if (key === "qa") return { text: JSON.stringify({ verdict: "PASS", summary: "ok", issues: [] }), provenance: { stub: true } };
+      if (key === "synthesis") return { text: "恢复后结论：推荐方向 B", provenance: { stub: true } };
+      return { text: `${key} 已完成`, provenance: { stub: true } };
+    });
+    const again = await sendDepartmentAssistantMessage(session, conversation.id, "继续");
+    assert.equal(again.mission?.missionTaskId, blocked.missionTaskId, "resumes the same mission, not a new one");
+    assert.match(again.message.content, /接着推进/);
+    await drain(org.id);
+    const rs = await getKernMissionStatus(session, blocked.missionTaskId);
+    assert.equal(rs.outcome?.status, "COMPLETED");
+    const report = await prisma.message.findFirst({ where: { conversationId: conversation.id }, orderBy: { createdAt: "desc" } });
+    assert.match(report!.content, /推荐方向 B/);
+    const noop = await sendDepartmentAssistantMessage(session, conversation.id, "继续");
+    assert.equal(noop.mission, null, "completed missions are not resumed");
+    console.log("  ✔ resumed in place and completed");
+
     console.log("\n✅ Kern supervisor regression passed");
   } finally {
     setMissionModelInvokerForTest(null);
