@@ -15,6 +15,7 @@ import { fmtDateTime } from "@/shared/datetime";
 import RecentAuditList from "./recent-audit-list";
 import ModelControlClient from "./model-control-client";
 import { getModelControlOverview } from "@/modules/model-control/service";
+import { getUsage, PLANS } from "@/modules/billing";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,7 @@ export default async function SettingsPage() {
     prisma.product.count({ where: { organizationId: session.organizationId } }),
     getModelControlOverview(session),
   ]);
+  const usage = await getUsage(session.organizationId);
 
   const totalRuns = agentRunCounts.reduce((a, b) => a + b._count._all, 0);
 
@@ -144,6 +146,34 @@ export default async function SettingsPage() {
           </div>
           <div id="models" />
       <ModelControlClient initial={JSON.parse(JSON.stringify(modelControl))} />
+        </Panel>
+
+        <Panel icon="chart" className="is-span-all" eyebrow="PLAN" title="套餐与用量" sub={`当前：${usage.limits.label} · 本期 ${fmtDateTime(usage.period.start)} – ${fmtDateTime(usage.period.end)}`}>
+          <div id="billing" />
+          <div className="kern-usage">
+            {([
+              ["Kern 接手的工作", usage.used.missions, usage.limits.missionsPerMonth],
+              ["模型调用", usage.used.modelCalls, usage.limits.modelCallsPerMonth],
+            ] as const).map(([label, used, limit]) => (
+              <div key={label} className="kern-usage-row">
+                <div className="kern-usage-head"><span>{label}</span><b>{used}{limit === null ? " · 不限" : ` / ${limit}`}</b></div>
+                <div className="kern-usage-bar"><i style={{ width: limit ? `${Math.min(100, (used / limit) * 100)}%` : "4%" }} data-hot={limit !== null && used >= limit ? "" : undefined} /></div>
+              </div>
+            ))}
+          </div>
+          <div className="kern-plans">
+            {(Object.keys(PLANS) as (keyof typeof PLANS)[]).map((tier) => {
+              const p = PLANS[tier];
+              return (
+                <div key={tier} className="kern-plan" data-current={tier === usage.tier ? "" : undefined}>
+                  <strong>{p.label}</strong>
+                  <span className="kern-plan-price">{p.priceLabel}</span>
+                  <small>{p.missionsPerMonth === null ? "不限" : `每月 ${p.missionsPerMonth} 项`}后台工作 · {p.memoryItems === null ? "不限" : p.memoryItems} 条记忆</small>
+                  {tier === usage.tier ? <Badge tone="ok">当前套餐</Badge> : <span className="kern-plan-soon">在线支付即将开放，请联系我们升级</span>}
+                </div>
+              );
+            })}
+          </div>
         </Panel>
 
         <Panel icon="chart" className="is-span-all" eyebrow="USAGE" title="用量与审计" sub="留痕用于追溯，不用于考核">

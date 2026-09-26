@@ -177,6 +177,19 @@ async function main() {
     assert.ok(prompts.length > 0 && prompts.every((p) => p.includes("只做跨境电商")), "preference injected into every node");
     console.log("  ✔ memory written, stored and injected");
 
+    console.log("▶ S8 plan quota: over-limit work is refused honestly, chat still answers");
+    const used = await prisma.agentTask.count({ where: { organizationId: org.id, parentTaskId: null, contextSnapshot: { path: ["schemaVersion"], equals: "kern-mission/v1" } } });
+    process.env.KERN_PLAN_FREE_MISSIONS = String(used);
+    try {
+      const over = await sendDepartmentAssistantMessage(session, chat.id, "我想开发一个新的产品，做宠物零食");
+      assert.equal(over.mission, null);
+      assert.match(over.message.content, /额度已用完/);
+      assert.match(over.message.content, /套餐与用量/);
+    } finally {
+      delete process.env.KERN_PLAN_FREE_MISSIONS;
+    }
+    console.log("  ✔ quota enforced with an upgrade path");
+
     console.log("\n✅ Kern supervisor regression passed");
   } finally {
     setMissionModelInvokerForTest(null);

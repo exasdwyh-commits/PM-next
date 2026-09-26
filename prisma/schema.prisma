@@ -2706,3 +2706,20 @@ model KernMemory {
   @@unique([userId, source])
   @@index([organizationId, userId, forgottenAt])
 }
+
+/// Commercial plan per organization. Billing provider reference is optional
+/// (Stripe etc. plugs in later); limits live in code (src/modules/billing).
+enum KernPlanTier {
+  FREE
+  PRO
+  TEAM
+}
+
+model OrganizationSubscription {
+  organizationId String       @id
+  tier           KernPlanTier @default(FREE)
+  externalRef    String?
+  currentPeriodStart DateTime @default(now())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}

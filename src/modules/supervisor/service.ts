@@ -1,5 +1,6 @@
 import { AgentTaskStatus, AgentTriggerType, KernMemoryKind, Prisma } from "@prisma/client";
 import { rememberForUser } from "@/modules/memory";
+import { assertMissionQuota } from "@/modules/billing";
 import prisma from "@/shared/db";
 import { createAuditEventInTx } from "@/shared/audit";
 import { NotFoundError, UnprocessableEntityError } from "@/shared/errors";
@@ -91,6 +92,8 @@ export async function launchKernMission(
     const existing = await prisma.agentTask.findUnique({ where: { idempotencyKey }, select: { id: true } });
     if (existing) return { missionTaskId: existing.id, created: false };
   }
+
+  await assertMissionQuota(session.organizationId);
 
   const snapshot: MissionSnapshot = {
     schemaVersion: MISSION_SCHEMA,

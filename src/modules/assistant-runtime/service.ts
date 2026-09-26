@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import prisma from "@/shared/db";
+import { QuotaExceededError } from "@/modules/billing";
 import { extractExplicitMemory, rememberForUser } from "@/modules/memory";
 import type { SessionContext } from "@/modules/identity/session";
 import { executeKernConversationTurn } from "./conversation-engine";
@@ -174,6 +175,18 @@ export async function sendDepartmentAssistantMessage(
       });
     } catch (error: unknown) {
       missionError = error instanceof Error ? error.message : String(error);
+      if (error instanceof QuotaExceededError) {
+        responseMessage = await prisma.message.update({
+          where: { id: result.message.id },
+          data: {
+            content: [
+              `这件事我可以接手，但${error.message}（已用 ${error.quota.used}/${error.quota.limit}）。`,
+              "",
+              "你可以：升级套餐（「设置 → 套餐与用量」）继续让 Kern 在后台推进；或者等下个周期；也可以先在对话里直接问我具体问题，这不占工作额度。",
+            ].join("\n"),
+          },
+        });
+      }
     }
   }
 
