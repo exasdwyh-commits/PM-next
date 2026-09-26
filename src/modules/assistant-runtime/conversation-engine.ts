@@ -12,10 +12,12 @@ import {
 import {
   advisorModelRouteForIntent,
   resolveIntentWithKernPlanner,
-  runTool,
-  type ToolContext,
-  type ToolResult,
 } from "@/modules/advisor/service";
+import {
+  executeKernCapability,
+  type KernCapabilityContext,
+  type KernCapabilityResult,
+} from "./capabilities";
 import { claimRun } from "@/modules/advisor/runs";
 import { tryResolveGatewayPolicyForAgentCode } from "@/modules/model-control/service";
 import {
@@ -193,7 +195,7 @@ export async function executeKernConversationTurn(
     });
   }
 
-  const ctx: ToolContext = {
+  const ctx: KernCapabilityContext = {
     conversationId,
     productId: conversation.productId ?? null,
     text,
@@ -220,7 +222,7 @@ export async function executeKernConversationTurn(
     data: { conversationId, role: "USER", content: text, runId: run.id },
   });
 
-  let result: ToolResult;
+  let result: KernCapabilityResult;
   let failed = false;
   let errorReason: string | null = gatewayResolutionError
     ? `Model Gateway 配置解析失败，已使用确定性工具：${gatewayResolutionError}`
@@ -241,7 +243,7 @@ export async function executeKernConversationTurn(
     | "DETERMINISTIC_TOOL" = "DETERMINISTIC_TOOL";
 
   try {
-    result = await runTool(session, intent, ctx);
+    result = await executeKernCapability(session, intent, ctx);
     result = await applyExplicitChatProposal(session, {
       intent,
       runId: run.id,
