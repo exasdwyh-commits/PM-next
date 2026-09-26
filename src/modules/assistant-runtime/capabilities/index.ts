@@ -6,3 +6,4 @@ export * from "./workspace-read";
 export * from "./product-write";
 export * from "./challenge";
 export * from "./knowledge";
+export * from "./catalog";
