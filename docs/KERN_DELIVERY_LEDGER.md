@@ -57,3 +57,5 @@ V1/Beta 不再继续“顺手优化”。后续只从真实试用反馈进入新
 - `main` = `release/v0.1.0-rc1` = `193ae32c`（#33/#34/#35 经 #37 集成，快进合并，保留原 SHA 与 CI 结果）；tag `v0.1.0-rc1-kern-v2`；默认分支 → `main`。
 - 回退点：旧 release `85c75bbc`、旧 main `5c3d08c7`。
 - 下一阶段计划：`docs/KERN_NEXT_PHASE_PLAN.md`（唯一有效计划）。
+- #38 合并后 main 前进到 release 之后（预期行为）；release 冻结、tag 不移动，下次 freeze 打 `v0.1.0-rc2`。
+- P0-A：删除 37 个已吸收远程分支（清单见计划附录），开启自动删除已合并分支。

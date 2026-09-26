@@ -18,7 +18,7 @@ PM-next 是一个面向产品负责人和小型团队的 **Kern Personal Chief o
 → Kern 继续推进
 ```
 
-**`main` 是唯一开发 / 交付事实源**（2026-09-26 已与 `release/v0.1.0-rc1` 收敛到同一提交，tag `v0.1.0-rc1-kern-v2`）。当前唯一有效计划见 `docs/KERN_NEXT_PHASE_PLAN.md`。默认用户入口仍为兼容路由 `/muse`，产品品牌统一为 **Kern**。
+**`main` 是唯一开发 / 交付事实源。** `release/v0.1.0-rc1` 已冻结为历史指针（停在 `193ae32c`，tag `v0.1.0-rc1-kern-v2`），main 在其之后继续前进属正常。当前唯一有效计划见 `docs/KERN_NEXT_PHASE_PLAN.md`。默认用户入口仍为兼容路由 `/muse`，产品品牌统一为 **Kern**。
 
 ## 核心能力
 
