@@ -271,21 +271,79 @@ export function Dock({
   );
 }
 
-export function Blank({ seeds, onSeed }: { seeds: { id: string; title: string; why: string; prompt: string }[]; onSeed: (p: string) => void }) {
+export function Blank({
+  seeds,
+  attention,
+  onSeed,
+  onOpen,
+}: {
+  seeds: { id: string; title: string; why: string; prompt: string }[];
+  attention?: {
+    needsYou: { id: string; level: string; title: string; why: string; href: string | null; conversationId: string | null }[];
+    inProgress: { id: string; title: string; why: string; conversationId: string | null }[];
+    handledQuietly: number;
+  };
+  onSeed: (p: string) => void;
+  onOpen?: (conversationId: string) => void;
+}) {
+  const needs = attention?.needsYou ?? [];
+  const doing = attention?.inProgress ?? [];
+  const open = (item: { href: string | null; conversationId: string | null }) => {
+    if (item.conversationId && onOpen) onOpen(item.conversationId);
+    else if (item.href) window.location.href = item.href;
+  };
   return (
-    <div className="m-blank">
-      <span className="m-blank-orb" aria-hidden />
-      <h2>有什么需要我做的？</h2>
-      <p>直接说目标。能做的我会自己推进，真正需要你决定时再问。</p>
-      <div className="m-seeds">
-        {seeds.map((s) => (
-          <button key={s.id} type="button" className="m-seed" onClick={() => onSeed(s.prompt)}>
-            <b>{s.title}</b>
-            <small>{s.why}</small>
-          </button>
-        ))}
-      </div>
-      <Btn size="sm" onClick={() => onSeed("")}>自己写</Btn>
+    <div className="m-home">
+      <header className="m-home-head">
+        <span className="m-blank-orb" aria-hidden />
+        <div>
+          <h2>{needs.length ? `有 ${needs.length} 件事需要你` : "目前不需要你操心"}</h2>
+          <p>
+            {doing.length
+              ? `Kern 正在推进 ${doing.length} 项工作。`
+              : "直接说目标，能做的我会自己推进。"}
+            {attention?.handledQuietly ? ` 另有 ${attention.handledQuietly} 项已安静处理完。` : ""}
+          </p>
+        </div>
+      </header>
+
+      {needs.length > 0 && (
+        <section className="m-home-sec" aria-label="需要你">
+          <h3>需要你</h3>
+          {needs.map((item) => (
+            <button key={item.id} type="button" className={`m-row ${item.level === "INTERRUPT" ? "is-hot" : ""}`} onClick={() => open(item)}>
+              <i className="m-row-dot" aria-hidden />
+              <span className="m-row-main"><b>{item.title}</b><small>{item.why}</small></span>
+              <span className="m-row-go" aria-hidden>›</span>
+            </button>
+          ))}
+        </section>
+      )}
+
+      {doing.length > 0 && (
+        <section className="m-home-sec" aria-label="Kern 正在做">
+          <h3>Kern 正在做</h3>
+          {doing.map((item) => (
+            <button key={item.id} type="button" className="m-row is-live" onClick={() => open({ href: null, conversationId: item.conversationId })}>
+              <i className="m-row-dot" aria-hidden />
+              <span className="m-row-main"><b>{item.title}</b><small>{item.why}</small></span>
+              <span className="m-row-go" aria-hidden>›</span>
+            </button>
+          ))}
+        </section>
+      )}
+
+      <section className="m-home-sec" aria-label="开始">
+        <h3>交给 Kern</h3>
+        <div className="m-starters">
+          {seeds.map((s) => (
+            <button key={s.id} type="button" className="m-starter" onClick={() => onSeed(s.prompt)}>
+              <b>{s.title}</b>
+              <small>{s.why}</small>
+            </button>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

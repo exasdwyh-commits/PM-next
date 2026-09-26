@@ -120,7 +120,9 @@ async function main() {
     assert.equal(bs.status, AgentTaskStatus.WAITING_HUMAN);
     assert.equal(bs.outcome?.status, "NEEDS_USER");
     const last = await prisma.message.findFirst({ where: { conversationId: conversation.id }, orderBy: { createdAt: "desc" } });
-    assert.match(last!.content, /需要你介入/);
+    assert.match(last!.content, /没有可用的模型/);
+    assert.ok(bs.outcome?.reasons.includes("MODEL_UNAVAILABLE"));
+    assert.doesNotMatch(last!.content, /tried|policy/, "no raw internals shown to the user");
     assert.doesNotMatch(last!.content, /推荐方向/);
     console.log("  ✔ no fabricated result; user is asked to intervene");
 

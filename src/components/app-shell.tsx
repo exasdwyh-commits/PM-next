@@ -21,7 +21,7 @@ export interface NavItem {
 /** Kern 与管理后台保持清晰分层：这里只提供返回主操作入口。 */
 export const KERN_ITEM: NavItem = {
   key: "kern",
-  label: "返回 Kern",
+  label: "Kern",
   href: "/muse",
   icon: "chat",
   hint: "回到 Kern 的日常对话、委派、进度沟通与 Check-in",
@@ -137,24 +137,22 @@ export default function AppShell({
     <main className="hermes-shell">
       <aside className="hermes-sidebar">
         <div className="hermes-brand">
-          <div className="hermes-monogram">K</div>
-          <div className="hermes-wordmark">KERN</div>
-          <div className="hermes-submark">DEPARTMENT OS</div>
+          <div className="hermes-monogram" aria-hidden>K</div>
+          <div className="hermes-wordmark">Kern</div>
         </div>
 
         <nav className="hermes-nav" aria-label="专业管理后台导航">
           <div className="hermes-nav-section" aria-label="主操作">
-            <span className="hermes-nav-section-label">主操作</span>
             {renderItem(KERN_ITEM, true)}
           </div>
 
           <div className="hermes-nav-section" aria-label="专业管理">
-            <span className="hermes-nav-section-label">专业管理</span>
+            <span className="hermes-nav-section-label">工作台</span>
             {NAV_ITEMS.map((it) => renderItem(it))}
           </div>
 
           <div className="hermes-nav-section" aria-label="系统">
-            <span className="hermes-nav-section-label">系统</span>
+            <span className="hermes-nav-section-label">运行</span>
             {renderItem(AUTOMATION_ITEM, true)}
           </div>
 
@@ -184,8 +182,7 @@ export default function AppShell({
         <div className="hermes-topbar">
           {topbarLeft ?? (
             <div className="hermes-topbar-title">
-              <span className="eyebrow">KERN</span>
-              <strong>{current?.label || "工作台"}</strong>
+                            <strong>{current?.label || "工作台"}</strong>
             </div>
           )}
           <div className="hermes-top-actions">

@@ -8,6 +8,8 @@ import {
 import { listProposals } from "@/modules/advisor/proposals";
 import { getDesktopOverview } from "@/modules/desktop-runtime";
 import prisma from "@/shared/db";
+import { buildAttentionBrief, type AttentionSignal } from "@/modules/supervisor/attention";
+import { readMissionSnapshot } from "@/modules/supervisor/service";
 import { readKernGraphCitation } from "@/modules/visual-intelligence/contracts";
 import type { KernGraphV1 } from "@/modules/visual-intelligence/contracts";
 import type {
@@ -133,6 +135,61 @@ function proposalDecision(
     ],
     evidence: [],
   };
+}
+
+
+async function loadAttention(
+  session: SessionContext,
+  proposals: Awaited<ReturnType<typeof listProposals>>
+) {
+  const missions = await prisma.agentTask.findMany({
+    where: {
+      organizationId: session.organizationId,
+      createdByUserId: session.userId,
+      contextSnapshot: { path: ["schemaVersion"], equals: "kern-mission/v1" },
+    },
+    orderBy: { updatedAt: "desc" },
+    take: 12,
+    select: { id: true, goal: true, contextSnapshot: true },
+  });
+  const signals: AttentionSignal[] = [];
+  for (const row of missions) {
+    const snap = readMissionSnapshot(row.contextSnapshot);
+    if (!snap) continue;
+    const nodes = Object.values(snap.state.nodes);
+    const done = nodes.filter((n) => ["SUCCEEDED", "BLOCKED", "FAILED", "SKIPPED"].includes(n.status)).length;
+    let seen = false;
+    if (snap.outcome?.messageId && snap.conversationId) {
+      const report = await prisma.message.findUnique({ where: { id: snap.outcome.messageId }, select: { createdAt: true } });
+      seen = report
+        ? (await prisma.message.count({
+            where: { conversationId: snap.conversationId, role: "USER", createdAt: { gt: report.createdAt } },
+          })) > 0
+        : false;
+    }
+    signals.push({
+      kind: "MISSION",
+      id: row.id,
+      goal: row.goal.slice(0, 80),
+      status: snap.outcome ? snap.outcome.status : "RUNNING",
+      progress: { done, total: nodes.length },
+      reasons: snap.outcome?.reasons ?? [],
+      finishedAt: snap.outcome?.finishedAt ?? null,
+      conversationId: snap.conversationId,
+      seenByUser: seen,
+    });
+  }
+  for (const row of proposals) {
+    signals.push({
+      kind: "PROPOSAL",
+      id: row.id,
+      title: `${row.actionLabel} · ${row.product?.name || row.project?.title || "当前工作"}`,
+      actionType: String((row as { actionType?: unknown }).actionType ?? ""),
+      createdAt: new Date().toISOString(),
+      conversationId: row.conversationId ?? null,
+    });
+  }
+  return buildAttentionBrief(signals);
 }
 
 export async function buildKernViewModel(
@@ -342,6 +399,12 @@ export async function buildKernViewModel(
       )
     : [];
 
+  const attention = await loadAttention(session, proposals).catch(() => ({
+    needsYou: [],
+    inProgress: [],
+    handledQuietly: 0,
+  }));
+
   const requestedProductId = input.productId?.trim() || null;
   const requestedProductName = requestedProductId
     ? productName.get(requestedProductId) ?? null
@@ -363,18 +426,19 @@ export async function buildKernViewModel(
     brief: {
       decisions: proposals.map(proposalDecision),
       conversations: conversationSummaries,
+      attention,
       suggestions: [
+        {
+          id: "s-new-product",
+          title: "我想开发一个新的产品",
+          why: "Kern 组织研究、验证、营销和红队，给你一个可信结论",
+          prompt: "我想开发一个新的产品，方向是：",
+        },
         {
           id: "s-products",
           title: "汇总产品进展",
-          why: "让 Kern 找阻塞和下一步",
+          why: "找出阻塞和下一步",
           prompt: "汇总正在推进的产品、阻塞和下一步。",
-        },
-        {
-          id: "s-decisions",
-          title: "需要我决定什么",
-          why: "只看真正需要人工 Gate 的事项",
-          prompt: "现在有哪些事情必须由我决定？只列真正需要我拍板的。",
         },
         {
           id: "s-work",

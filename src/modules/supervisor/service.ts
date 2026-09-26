@@ -206,7 +206,10 @@ export async function advanceKernMission(session: SessionContext, missionTaskId:
       let changed = false;
       for (const action of actions) {
         if (action.type === "FINISH") {
-          outcome = { status: action.outcome, reasons: action.reasons, messageId: null, finishedAt: now() };
+          const reasons = isModelUnavailableMission({ ...snap, state })
+            ? ["MODEL_UNAVAILABLE", ...action.reasons]
+            : action.reasons;
+          outcome = { status: action.outcome, reasons, messageId: null, finishedAt: now() };
           log.push({ at: now(), event: `MISSION_${action.outcome}`, detail: action.reasons.join(",") });
           break;
         }
@@ -324,22 +327,33 @@ async function reportMissionToConversation(session: SessionContext, missionTaskI
   if (!conversation) return;
   const synth = snap.plan.nodes.find((n) => n.kind === "SYNTHESIS")!;
   const synthState = snap.state.nodes[synth.key];
-  const gaps = snap.plan.nodes
-    .filter((n) => n.kind !== "SYNTHESIS" && snap.state.nodes[n.key].status !== "SUCCEEDED")
-    .map((n) => `- ${n.key}（${n.agentCode}）：${snap.state.nodes[n.key].status}${snap.state.nodes[n.key].reason ? " · " + snap.state.nodes[n.key].reason!.slice(0, 160) : ""}`);
+  const unfinished = snap.plan.nodes.filter((n) => snap.state.nodes[n.key].status !== "SUCCEEDED");
+  const label = (key: string) => MISSION_NODE_LABELS[key] ?? key.replace(/^specialist-\d+-/, "");
+  const statusText: Record<string, string> = { BLOCKED: "受阻", FAILED: "失败", SKIPPED: "超出预算未执行", PENDING: "未开始", ACTIVE: "进行中" };
+  const modelMissing = isModelUnavailableMission(snap);
 
-  const body =
-    snap.outcome.status === "COMPLETED" && synthState.summary
-      ? synthState.summary
-      : [
-          "我没能把这项工作完整推进到可信结论，需要你介入：",
-          ...gaps,
-          synthState.summary ? "\n目前能给出的部分结论：\n" + synthState.summary : "",
-        ].filter(Boolean).join("\n");
-  const content = [
-    body,
-    gaps.length && snap.outcome.status === "COMPLETED" ? "\n——\n未完成的部分（已按 UNKNOWN 处理）：\n" + gaps.join("\n") : "",
-  ].filter(Boolean).join("\n");
+  let content: string;
+  if (snap.outcome.status === "COMPLETED" && synthState.summary) {
+    const gaps = unfinished.filter((n) => n.kind !== "SYNTHESIS");
+    content = gaps.length
+      ? `${synthState.summary}\n\n——\n以下部分未完成，结论中已按 UNKNOWN 处理：${gaps.map((n) => label(n.key)).join("、")}。`
+      : synthState.summary;
+  } else if (modelMissing) {
+    content = [
+      "这项工作我已经拆好了计划，但现在**没有可用的模型**，团队无法开工，所以我不会给你一个编出来的结论。",
+      "",
+      "你只需要做一件事：到「设置 → 模型」为 Kern 启用一个模型（配置好服务端 API Key）。配置完成后回到这里说“继续”，我会从头推进。",
+    ].join("\n");
+  } else {
+    const lines = unfinished
+      .filter((n) => n.kind !== "SYNTHESIS")
+      .map((n) => `- ${label(n.key)}：${statusText[snap.state.nodes[n.key].status] ?? snap.state.nodes[n.key].status}`);
+    content = [
+      "这项工作没能推进到可信结论，需要你介入：",
+      ...lines,
+      synthState.summary && synthState.status === "SUCCEEDED" ? "\n目前能给出的部分结论：\n" + synthState.summary : "",
+    ].filter(Boolean).join("\n");
+  }
 
   const message = await prisma.$transaction(async (tx) => {
     const locked = await tx.agentTask.findUnique({ where: { id: missionTaskId }, select: { contextSnapshot: true } });
@@ -364,6 +378,25 @@ async function reportMissionToConversation(session: SessionContext, missionTaskI
     return m;
   });
   return message;
+}
+
+export const MISSION_NODE_LABELS: Record<string, string> = {
+  market: "市场与竞品研究",
+  compliance: "合规边界",
+  economics: "单位经济性",
+  opportunity: "机会判断",
+  validation: "验证计划",
+  gtm: "上市与营销策略",
+  "red-team": "红队挑战",
+  qa: "独立 QA",
+  synthesis: "综合结论",
+};
+
+export function isModelUnavailableMission(snap: MissionSnapshot): boolean {
+  const blocked = Object.values(snap.state.nodes).filter((n) => n.status === "BLOCKED");
+  return blocked.length > 0 &&
+    !Object.values(snap.state.nodes).some((n) => n.status === "SUCCEEDED") &&
+    blocked.every((n) => (n.reason ?? "").startsWith("MODEL_UNAVAILABLE"));
 }
 
 export async function getKernMissionStatus(session: SessionContext, missionTaskId: string) {

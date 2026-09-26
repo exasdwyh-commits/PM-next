@@ -123,9 +123,23 @@ export interface ActivityItem {
   conversationId: string | null;
 }
 
+export interface AttentionItemView {
+  id: string;
+  level: "AUTO_HANDLE" | "WATCH" | "SURFACE" | "INTERRUPT";
+  title: string;
+  why: string;
+  href: string | null;
+  conversationId: string | null;
+}
+
 export interface ChatBrief {
   decisions: Decision[];
   conversations: ConversationSummary[];
+  attention: {
+    needsYou: AttentionItemView[];
+    inProgress: AttentionItemView[];
+    handledQuietly: number;
+  };
   suggestions: { id: string; title: string; why: string; prompt: string }[];
 }
 

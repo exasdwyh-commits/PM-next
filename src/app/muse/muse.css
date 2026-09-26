@@ -525,3 +525,27 @@
 .m-advanced-controls:not([open]) > .m-control-strip {
   display: none;
 }
+
+/* Home = attention brief: 需要你 / Kern 正在做 / 交给 Kern */
+.m-home { display: grid; gap: 22px; padding: 7vh 4px 24px; }
+.m-home-head { display: flex; gap: 16px; align-items: center; }
+.m-home-head .m-blank-orb { width: 44px; height: 44px; flex: none; }
+.m-home-head h2 { margin: 0; font-size: 24px; font-weight: 650; letter-spacing: -.02em; }
+.m-home-head p { margin: 2px 0 0; color: var(--m-ink-3); font-size: var(--m-t-sm); }
+.m-home-sec { display: grid; gap: 6px; }
+.m-home-sec h3 { margin: 0 0 2px; font-size: var(--m-t-xs); font-weight: 600; color: var(--m-ink-4); letter-spacing: .04em; }
+.m-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 14px; border: 1px solid var(--m-hairline); border-radius: var(--m-r-md); background: var(--m-surface); color: var(--m-ink); font: inherit; text-align: left; cursor: pointer; box-shadow: var(--m-sh-1); transition: border-color .15s ease, transform .15s ease; }
+.m-row:hover { border-color: var(--m-accent-line); transform: translateY(-1px); }
+.m-row-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--m-warn); flex: none; box-shadow: 0 0 0 4px var(--m-warn-wash); }
+.m-row.is-hot .m-row-dot { background: var(--m-bad); box-shadow: 0 0 0 4px var(--m-bad-wash); }
+.m-row.is-live .m-row-dot { background: var(--m-accent); box-shadow: 0 0 0 4px var(--m-accent-wash); animation: m-breathe 2.4s ease-in-out infinite; }
+.m-row-main { display: grid; gap: 1px; min-width: 0; flex: 1; }
+.m-row-main b { font-size: var(--m-t-body); font-weight: 560; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-row-main small { color: var(--m-ink-3); font-size: var(--m-t-xs); }
+.m-row-go { color: var(--m-ink-4); font-size: 20px; }
+.m-starters { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+.m-starter { display: grid; gap: 4px; padding: 13px 14px; border: 1px solid var(--m-hairline); border-radius: var(--m-r-md); background: var(--m-surface-2); color: var(--m-ink); font: inherit; text-align: left; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+.m-starter:hover { border-color: var(--m-accent-line); background: var(--m-surface); }
+.m-starter:first-child { border-color: var(--m-accent-line); background: var(--m-accent-wash); }
+.m-starter b { font-size: var(--m-t-sm); font-weight: 600; }
+.m-starter small { color: var(--m-ink-3); font-size: var(--m-t-xs); line-height: 1.45; }
