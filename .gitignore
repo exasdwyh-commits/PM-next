@@ -56,3 +56,4 @@ services/judgment-runtime/__pycache__/
 
 # PM Worker 运行时单实例锁与心跳
 .pm-worker/
+tools/response-preview/kern-conversation.html
