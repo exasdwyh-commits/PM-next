@@ -114,3 +114,10 @@
 - UI：产出页顶部「需要你决定」卡 + 「带走」栏（提案回执、导出 MD/PDF、演示说明）；Prose 支持表格。
 - 验证：tsc、eslint、kern-report 单测、test:kern-takeaway（T1–T7）及既有 kern 套件全过；next build；截图 shots/p4-*。
 - 下一步：P0-D 每次模型调用前查额度，跳过/取消后不再调用模型。
+
+## 回复格式框架 PR ⑤（feat/kern-reply-format，基于 feat/kern-display-artifacts / #43）
+- 规范 + Harness + 渲染三层，详见 docs/KERN_REPLY_FORMAT.md。
+- persona 版本升到 2026-09-27-v3（附加格式规范）；对话引擎模型输出入库前 normalizeReply，结果写入 toolCall.resultJson.replyFormat；任务节点产出同样规范化；综合结论改为 `##` 分节。
+- 渲染器重写：嵌套列表、任务清单、表格对齐/数字列、代码块复制、5 种提示框、事实标签；修复共享正则导致的死循环（已加回归测试）。
+- 验证：tsc、eslint、kern-reply-format/prose/report 单测、kern DB 套件全过；next build；桌面/手机/暗色截图 shots/r-*, z3-*。
+- 下一步：P0-D 每次模型调用前查额度，跳过/取消后不再调用模型。

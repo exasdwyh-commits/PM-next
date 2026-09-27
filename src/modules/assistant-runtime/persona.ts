@@ -1,4 +1,5 @@
 import type { ModelTaskClass } from "@/modules/model-gateway";
+import { KERN_REPLY_FORMAT_PROMPT } from "./reply-format";
 
 /**
  * Kern 专属人格层。
@@ -19,7 +20,7 @@ import type { ModelTaskClass } from "@/modules/model-gateway";
  */
 
 export const DEPARTMENT_ASSISTANT_PERSONA_VERSION =
-  "department-assistant-persona/2026-09-26-v2";
+  "department-assistant-persona/2026-09-27-v3";
 
 const ASSISTANT_TASK_CLASSES = new Set<string>([
   "ASSISTANT_DIALOGUE",
@@ -78,5 +79,5 @@ export function buildDepartmentAssistantSystemPrompt(
   if (!isAssistantTaskClass(taskClass)) return null;
   const mode = MODE_PERSONA[taskClass];
   if (!mode) return null;
-  return `${CORE_PERSONA}\n\n${mode}`;
+  return `${CORE_PERSONA}\n\n${mode}\n\n${KERN_REPLY_FORMAT_PROMPT}`;
 }
