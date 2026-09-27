@@ -13,6 +13,8 @@
  * Pure module: no server imports, unit-tested in tests/kern-reply-format.test.ts.
  */
 
+import { findBannedPhrase, hasEmoji, PREAMBLE } from "@/modules/response-format/text-rules";
+
 export const KERN_REPLY_FORMAT_VERSION = "kern-reply-format/v1";
 
 export const CALLOUT_KINDS = ["NOTE", "TIP", "WARNING", "DECISION", "UNKNOWN"] as const;
@@ -63,11 +65,11 @@ export type ReplyIssue =
   | "too-many-callouts"
   | "too-many-sections"
   | "emoji"
+  | "banned-phrase"
   | "no-lead";
 
 export type NormalizedReply = { text: string; fixed: ReplyIssue[]; issues: ReplyIssue[] };
 
-const PREAMBLE = /^(?:好的|好|当然|没问题|收到|明白了?|可以的?|OK|Sure|Certainly|Of course|Great question)[！!，,。.、~\s]+(?:(?:我(?:来|将|会)|下面|以下|这是)[^\n。！!：:]{0,24}[：:]\s*)?/i;
 const CALLOUT_ALIASES: Record<string, CalloutKind> = {
   NOTE: "NOTE", INFO: "NOTE", IMPORTANT: "NOTE", 说明: "NOTE", 提示: "NOTE",
   TIP: "TIP", 建议: "TIP",
@@ -75,7 +77,6 @@ const CALLOUT_ALIASES: Record<string, CalloutKind> = {
   DECISION: "DECISION", 决定: "DECISION", 需要你决定: "DECISION",
   UNKNOWN: "UNKNOWN", 待验证: "UNKNOWN", 未知: "UNKNOWN",
 };
-const EMOJI = /\p{Extended_Pictographic}/u;
 const HTML_TAG = /<\/?(?:div|span|p|br|b|i|strong|em|u|font|table|tr|td|th|thead|tbody|ul|ol|li|h[1-6]|img|a|center|small|sup|sub|details|summary|style|script)\b[^>]*>/gi;
 
 /** Map each line to whether it sits inside a fenced code block. */
@@ -179,7 +180,8 @@ export function lintReply(text: string): ReplyIssue[] {
   if (headings.length && plain.length < 180) issues.push("headings-on-short");
   if (prose.filter((l) => /^##\s/.test(l)).length > 6) issues.push("too-many-sections");
   if (prose.filter((l) => /^>\s*\[!/.test(l)).length > 2) issues.push("too-many-callouts");
-  if (prose.some((l) => EMOJI.test(l.replace(/[✓✔✗✘→←↑↓]/g, "")))) issues.push("emoji");
+  if (prose.some((l) => hasEmoji(l))) issues.push("emoji");
+  if (findBannedPhrase(prose.join("\n"))) issues.push("banned-phrase");
   const first = prose.find((l) => l.trim());
   if (first && /^(#{1,6}\s|[-*]\s|\d+[.、)]\s|\|)/.test(first) && plain.length >= 180) issues.push("no-lead");
   return issues;

@@ -9,9 +9,9 @@
  *   paragraphs · ## / ### headings · nested lists (2 levels) · task lists ·
  *   tables (alignment, numeric columns) · fenced code (language + copy) ·
  *   quotes · callouts > [!NOTE|TIP|WARNING|DECISION|UNKNOWN] · hr ·
- *   inline **bold** *em* ~~del~~ `code` [links](https://…) and (推断)/(待验证) tags
+ *   inline **bold** *em* ~~del~~ `code` [links](https://…), [n] source markers and (推断)/(待验证) tags
  */
-import { Fragment, useState, type ReactNode } from "react";
+import { createContext, Fragment, useContext, useState, type ReactNode } from "react";
 import { isTableDivider, tableCells } from "@/modules/supervisor/report-format";
 import { CALLOUT_KINDS, CALLOUT_LABEL, type CalloutKind } from "@/modules/assistant-runtime/reply-format";
 
@@ -137,8 +137,25 @@ function dedent(lines: string[]): string[] {
 
 // ───────── inline ─────────
 
+/**
+ * Source markers `[n]` (see docs/KERN_RESPONSE_SPEC.md). Inside a ResponseView
+ * the envelope provides a handler that jumps to evidence item n; elsewhere the
+ * marker renders as a quiet superscript so the text stays honest.
+ */
+export const SourceRefContext = createContext<((n: number) => void) | null>(null);
+
+function SourceRef({ n }: { n: number }) {
+  const onRef = useContext(SourceRefContext);
+  if (!onRef) return <sup className="kr-ref" data-static>{n}</sup>;
+  return (
+    <button type="button" className="kr-ref" onClick={() => onRef(n)} title={`查看来源 ${n}`}>
+      {n}
+    </button>
+  );
+}
+
 const INLINE_SRC =
-  /(`[^`\n]+`)|(\*\*[^*\n]+?\*\*|__[^_\n]+?__)|(~~[^~\n]+?~~)|(\[[^\]\n]+\]\((?:https?:\/\/|mailto:)[^)\s]+\))|((?:https?:\/\/)[^\s<>()（）]+[^\s<>()（）.,;:!?。，；：！？])|((?<![*\w])\*[^*\s][^*\n]*?\*(?![*\w]))|([（(](?:推断|待验证|UNKNOWN|事实|估算)[）)])/g;
+  /(`[^`\n]+`)|(\*\*[^*\n]+?\*\*|__[^_\n]+?__)|(~~[^~\n]+?~~)|(\[[^\]\n]+\]\((?:https?:\/\/|mailto:)[^)\s]+\))|((?:https?:\/\/)[^\s<>()（）]+[^\s<>()（）.,;:!?。，；：！？])|((?<![*\w])\*[^*\s][^*\n]*?\*(?![*\w]))|([（(](?:推断|待验证|UNKNOWN|事实|估算)[）)])|(\[\d{1,3}\](?!\())/g;
 
 export function inline(text: string, key: string): ReactNode[] {
   const out: ReactNode[] = [];
@@ -163,7 +180,7 @@ export function inline(text: string, key: string): ReactNode[] {
     else if (m[7]) {
       const label = tok.slice(1, -1);
       out.push(<span key={k} className="m-tagline" data-k={label === "事实" ? "fact" : label === "推断" || label === "估算" ? "infer" : "unknown"}>{label}</span>);
-    }
+    } else if (m[8]) out.push(<SourceRef key={k} n={Number(tok.slice(1, -1))} />);
     last = m.index + tok.length;
   }
   if (last < text.length) out.push(text.slice(last));

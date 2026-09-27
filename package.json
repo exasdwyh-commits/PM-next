@@ -92,7 +92,7 @@
     "test:kern-mission-controls": "tsx scripts/run-test.ts tests/regression-kern-mission-controls.ts",
     "test:kern-brief": "tsx scripts/run-test.ts tests/regression-kern-brief.ts",
     "test:kern-takeaway": "tsx scripts/run-test.ts tests/regression-kern-takeaway.ts",
-    "test:response-format": "node --import tsx --test tests/kern-response-format.test.ts tests/kern-response-from-mission.test.ts"
+    "test:response-format": "node --import tsx --test tests/kern-response-format.test.ts tests/kern-response-from-mission.test.ts tests/kern-response-unify.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

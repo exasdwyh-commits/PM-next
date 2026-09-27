@@ -448,7 +448,13 @@ async function reportMissionToConversation(session: SessionContext, missionTaskI
         role: "ASSISTANT",
         content,
         citations: toJson([
-          { kind: "kern-mission", ref: missionTaskId, title: `Kern 工作结果 · ${snap.outcome!.status === "COMPLETED" ? "已完成" : "需要你处理"}` },
+          {
+            kind: "kern-mission",
+            ref: missionTaskId,
+            title: `Kern 工作结果 · ${snap.outcome!.status === "COMPLETED" ? "已完成" : "需要你处理"}`,
+            // Completed conclusions are rendered through the ResponseEnvelope (see isMissionConclusionCitation).
+            ...(snap.outcome!.status === "COMPLETED" && synthState.summary ? { conclusion: true } : {}),
+          },
         ]),
       },
       select: { id: true },

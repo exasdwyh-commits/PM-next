@@ -26,6 +26,7 @@ import {
 } from "../mission-timeline";
 import { useMission } from "../use-mission";
 import { Btn, I, Node, Tag } from "./kit";
+import { MissionConclusion } from "./mission-conclusion";
 import { Prose } from "./prose";
 import { Sheet } from "./sheets";
 
@@ -491,7 +492,11 @@ function OutputTab({ status, lanes, usage }: { status: MissionStatusView; lanes:
       <section className="m-ws-sec">
         <h3>结论</h3>
         {conclusion ? (
-          <div className="m-report"><Prose text={conclusion} /></div>
+          <div className="m-report">
+            {status.outcome?.status === "COMPLETED"
+              ? <MissionConclusion missionId={status.missionTaskId} text={conclusion} density="full" showAsk={false} />
+              : <Prose text={conclusion} />}
+          </div>
         ) : (
           <p className="m-quiet">{status.outcome ? "这次没有形成综合结论。" : "综合结论会在所有步骤与 QA 完成后出现。"}</p>
         )}

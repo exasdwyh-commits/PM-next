@@ -10,7 +10,9 @@
  * 规范见 docs/KERN_RESPONSE_SPEC.md。
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+
+import { inline, Prose, SourceRefContext } from "@/app/muse/components/prose";
 
 import {
   CLAIM_LABEL,
@@ -21,44 +23,10 @@ import {
 } from "@/modules/response-format/types";
 import { validate } from "@/modules/response-format/validate";
 
-/* ── 极小的安全内联格式：**粗** *强调* `码` [n] 角标 ───────────── */
-type Frag = { t: "text" | "b" | "em" | "code"; s: string } | { t: "ref"; n: number };
-
-export function parseInline(src: string): Frag[] {
-  const out: Frag[] = [];
-  const re = /\*\*(.+?)\*\*|(?<!\*)\*([^*]+)\*|`([^`]+)`|\[(\d+)\]/g;
-  let last = 0;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(src))) {
-    if (m.index > last) out.push({ t: "text", s: src.slice(last, m.index) });
-    if (m[1] !== undefined) out.push({ t: "b", s: m[1] });
-    else if (m[2] !== undefined) out.push({ t: "em", s: m[2] });
-    else if (m[3] !== undefined) out.push({ t: "code", s: m[3] });
-    else if (m[4] !== undefined) out.push({ t: "ref", n: Number(m[4]) });
-    last = m.index + m[0].length;
-  }
-  if (last < src.length) out.push({ t: "text", s: src.slice(last) });
-  return out;
-}
-
-function Inline({ text, onRef }: { text: string; onRef?: (n: number) => void }) {
-  const frags = useMemo(() => parseInline(text), [text]);
-  return (
-    <>
-      {frags.map((f, i) => {
-        if (f.t === "b") return <strong key={i}>{f.s}</strong>;
-        if (f.t === "em") return <em key={i}>{f.s}</em>;
-        if (f.t === "code") return <code key={i}>{f.s}</code>;
-        if (f.t === "ref")
-          return (
-            <button key={i} type="button" className="kr-ref" onClick={() => onRef?.(f.n)} title={`查看来源 ${f.n}`}>
-              {f.n}
-            </button>
-          );
-        return <span key={i}>{f.s}</span>;
-      })}
-    </>
-  );
+/* ── 行内格式：与日常对话回复共用同一个解析器（src/app/muse/components/prose.tsx），
+      [n] 角标经 SourceRefContext 跳到对应来源。 ─────────────────── */
+function Inline({ text }: { text: string; onRef?: (n: number) => void }) {
+  return <>{inline(text, "i")}</>;
 }
 
 function Section({ title, full, children }: { title?: string; full?: boolean; children: React.ReactNode }) {
@@ -81,15 +49,8 @@ function BlockView({ b, onRef }: { b: Block; onRef: (n: number) => void }) {
       return (
         <Section title={b.title} full={b.full}>
           <div className="kr-prose">
-            {b.body.map((p, i) =>
-              p.startsWith("### ") ? (
-                <h3 key={i}><Inline text={p.slice(4)} onRef={onRef} /></h3>
-              ) : p.startsWith("> ") ? (
-                <blockquote key={i}><Inline text={p.slice(2)} onRef={onRef} /></blockquote>
-              ) : (
-                <p key={i}><Inline text={p} onRef={onRef} /></p>
-              )
-            )}
+            {/* ProseBlock = 一段 Kern 回复格式的 Markdown（docs/KERN_REPLY_FORMAT.md） */}
+            <Prose text={b.body.join("\n\n")} />
           </div>
         </Section>
       );
@@ -319,7 +280,7 @@ function BlockView({ b, onRef }: { b: Block; onRef: (n: number) => void }) {
                       <span className="ag">{s.agent}</span>
                       {s.elapsedMs != null ? <span className="el">{(s.elapsedMs / 1000).toFixed(1)}s</span> : null}
                     </div>
-                    {s.delta ? <div className={`dl${s.state === "running" ? " typing" : ""}`}>{s.delta}</div> : null}
+                    {s.delta ? <div className={`dl${s.state === "running" ? " typing" : ""}`}><Prose text={s.delta} variant="compact" /></div> : null}
                   </div>
                 </div>
               ))}
@@ -361,9 +322,15 @@ function BlockView({ b, onRef }: { b: Block; onRef: (n: number) => void }) {
 export function ResponseView({
   envelope,
   defaultDensity = "summary",
+  fallback,
+  onAsk,
 }: {
   envelope: ResponseEnvelope;
   defaultDensity?: "summary" | "full";
+  /** 校验不通过时的替代内容（例如原始 Markdown 结论）；缺省显示诚实失败态。 */
+  fallback?: ReactNode;
+  /** 用户选了 ask 的某个选项；缺省时选项只展示、不可点。 */
+  onAsk?: (label: string) => void;
 }) {
   const [density, setDensity] = useState<"summary" | "full">(defaultDensity);
   const issues = useMemo(() => validate(envelope), [envelope]);
@@ -377,6 +344,7 @@ export function ResponseView({
   };
 
   // 诚实失败态：宁可承认没答好，也不渲染一个不合规的结论。
+  if (blocked.length && fallback !== undefined) return <>{fallback}</>;
   if (blocked.length) {
     return (
       <div className="kr-response kr-failed">
@@ -395,6 +363,7 @@ export function ResponseView({
 
   const { meta } = envelope;
   return (
+    <SourceRefContext.Provider value={jumpToRef}>
     <article className="kr-response" data-density={density}>
       {envelope.demo ? (
         <div className="kr-demo-bar">演示数据 · 不代表真实调研结论，不写入业务数据，不消耗额度</div>
@@ -426,15 +395,26 @@ export function ResponseView({
                 <p className="q">{envelope.ask.question}</p>
                 <p className="why">{envelope.ask.why_you}</p>
                 <div className="opts">
-                  {envelope.ask.options.map((o) => (
-                    <button type="button" className="opt" key={o.label}>
-                      <span className="ring" />
-                      <span>
-                        <span className="ol">{o.label}</span>
-                        <span className="oc">{o.consequence}</span>
-                      </span>
-                    </button>
-                  ))}
+                  {envelope.ask.options.map((o) =>
+                    onAsk ? (
+                      <button type="button" className="opt" key={o.label} onClick={() => onAsk(o.label)}>
+                        <span className="ring" />
+                        <span>
+                          <span className="ol">{o.label}</span>
+                          <span className="oc">{o.consequence}</span>
+                        </span>
+                      </button>
+                    ) : (
+                      // 没有接上处理函数时不渲染成按钮：点了没反应的按钮比没有更糟。
+                      <div className="opt" data-static key={o.label}>
+                        <span className="ring" />
+                        <span>
+                          <span className="ol">{o.label}</span>
+                          <span className="oc">{o.consequence}</span>
+                        </span>
+                      </div>
+                    )
+                  )}
                 </div>
               </div>
             </section>
@@ -476,6 +456,7 @@ export function ResponseView({
         </aside>
       </div>
     </article>
+    </SourceRefContext.Provider>
   );
 }
 

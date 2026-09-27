@@ -1,9 +1,12 @@
-/* Kern 回复排版层 —— 由 docs/KERN_RESPONSE_SPEC.md §3 定义，ResponseView 独占使用。 */
+/* Kern 回复排版层 —— 由 docs/KERN_RESPONSE_SPEC.md §3 定义，ResponseView 独占使用。
+   Token 作用域收在 .kr-response 内：--line/--paper/--ok/--warn 等名字在应用其他样式里已存在，
+   放在 :root 会覆盖全站。独立预览 / 导出用下面的默认值；在 Kern 对话界面（.muse）内，
+   由文件末尾的映射改为继承 --m-* 设计 token，保证与日常回复同色系、同暗色模式。 */
 
 /* ═══════════════════════════════════════════════════════════
    KERN RESPONSE FRAMEWORK — design tokens
    ═══════════════════════════════════════════════════════════ */
-:root{
+.kr-response{
   --ink-900:#0f1116; --ink-800:#1b1f27; --ink-700:#333944; --ink-600:#4b525f;
   --ink-500:#6b7280; --ink-400:#9099a6; --ink-300:#c3c9d2;
   --line:#e7e9ef; --line-soft:#f0f2f6;
@@ -24,7 +27,7 @@
   --mono: "SFMono-Regular",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
 }
 @media (prefers-color-scheme: dark){
-  :root{
+  .kr-response{
     --ink-900:#f2f4f8; --ink-800:#e5e8ef; --ink-700:#cbd1dc; --ink-600:#aab2c0;
     --ink-500:#8a93a3; --ink-400:#6e7788; --ink-300:#4a5262;
     --line:#252a34; --line-soft:#1d222b;
@@ -363,3 +366,32 @@
 /* ── 布局补丁 ────────────────────────────────────────────── */
 .kr-confbar .kr-spacer{flex:1}
 .kr-mem .m.is-empty{color:var(--ink-400)}
+
+/* ═══════════════════════════════════════════════════════════
+   Kern 界面内：映射到 muse 设计 token（与日常回复 .m-prose 共用一套色板）
+   ═══════════════════════════════════════════════════════════ */
+.muse .kr-response{
+  --ink-900:var(--m-ink); --ink-800:var(--m-ink); --ink-700:var(--m-ink-2); --ink-600:var(--m-ink-2);
+  --ink-500:var(--m-ink-3); --ink-400:var(--m-ink-4); --ink-300:var(--m-hairline-2);
+  --line:var(--m-hairline-2); --line-soft:var(--m-hairline);
+  --paper:transparent; --canvas:var(--m-surface-sunk); --sunk:var(--m-surface-sunk);
+  --brand:var(--m-accent); --brand-ink:var(--m-accent-ink); --brand-soft:var(--m-accent-wash); --brand-line:var(--m-accent-line);
+  --ok:var(--m-ok); --ok-soft:var(--m-ok-wash); --ok-line:color-mix(in srgb, var(--m-ok) 30%, transparent);
+  --warn:var(--m-warn); --warn-soft:var(--m-warn-wash); --warn-line:color-mix(in srgb, var(--m-warn) 30%, transparent);
+  --bad:var(--m-bad); --bad-soft:var(--m-bad-wash); --bad-line:color-mix(in srgb, var(--m-bad) 30%, transparent);
+  --r-sm:var(--m-r-sm); --r:var(--m-r-md); --r-lg:var(--m-r-lg);
+  --font:var(--m-font); --mono:var(--m-mono);
+  font-size:var(--m-t-body);
+}
+/* prose 块由 .m-prose 负责排版，这里只去掉外层重复的段距 */
+.muse .kr-response .kr-prose > .m-prose{margin:0}
+/* 非 ResponseView 场景下的静态来源角标 */
+.m-prose sup.kr-ref[data-static]{font-size:.72em;color:var(--m-ink-3);margin-left:1px}
+.kr-ask .opt[data-static]{cursor:default}
+.kr-ask .opt[data-static]:hover{border-color:var(--line);box-shadow:none}
+/* Kern 界面内：无 lede 图标，徽章不缩进 */
+.muse .kr-response .kr-confbar{padding-left:0}
+/* 对话主轴（≤748px）内「完整」侧栏改为堆叠在正文下方，不挤压正文 */
+.muse .m-turn .kr-body{grid-template-columns:minmax(0,1fr)}
+.muse .m-turn .kr-aside{border-left:0;border-top:1px solid var(--line);background:transparent;margin-top:18px;padding:18px 0 0}
+.muse .kr-response .dl .m-prose{font-size:inherit}

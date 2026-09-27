@@ -147,3 +147,11 @@
 - 渲染器重写：嵌套列表、任务清单、表格对齐/数字列、代码块复制、5 种提示框、事实标签；修复共享正则导致的死循环（已加回归测试）。
 - 验证：tsc、eslint、kern-reply-format/prose/report 单测、kern DB 套件全过；next build；桌面/手机/暗色截图 shots/r-*, z3-*。
 - 下一步：P0-D 每次模型调用前查额度，跳过/取消后不再调用模型。
+
+## 回复分层集成 PR ⑥（feat/kern-response-unify，叠在 ⑤ 上，包含 #44）
+- 分层：日常对话 = Markdown 回复层（KERN_REPLY_FORMAT.md）；任务结论 = ResponseEnvelope（KERN_RESPONSE_SPEC.md）。
+- 一个行内渲染器：ProseBlock 与所有块的行内文字走 prose.tsx；`[n]` 角标经 SourceRefContext 跳转来源。
+- 一套文本规则：response-format/text-rules.ts（套话黑名单 / 客套开头 / emoji），对话 lint 与信封 R9/R12/R15/R16 共用。
+- CSS：#44 的 token 从 :root 收进 .kr-response（原来会覆盖全站 --line/--paper/--ok/--warn），在 .muse 内映射到 --m-*。
+- 接线：完成的结论消息 citation 带 `conclusion: true`；GET /api/missions/[id]/response 读时生成信封 + harness 结果；对话与「产出」用 ResponseView，校验不过回退 Markdown。
+- 下一步：P0-D（每次模型调用前查额度）→ 流式 → 引用。

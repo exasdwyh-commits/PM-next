@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { validate } from "../src/modules/response-format/validate";
+import { isMissionConclusionCitation } from "../src/modules/supervisor/report-format";
+import { missionResponseEnvelope } from "../src/modules/supervisor/response";
 import { randomUUID } from "node:crypto";
 import { AgentTaskStatus, OrgRole } from "@prisma/client";
 import prisma from "../src/shared/db";
@@ -107,7 +110,13 @@ async function main() {
     const messages = await prisma.message.findMany({ where: { conversationId: conversation.id } });
     assert.equal(messages.length, 1);
     assert.match(messages[0].content, /推荐方向 A/);
-    console.log("  ✔ single mission report message");
+    const conclusionRef = (messages[0].citations as unknown[]).map(isMissionConclusionCitation).find(Boolean);
+    assert.ok(conclusionRef, "completed conclusion is flagged for the ResponseEnvelope");
+    const env = await missionResponseEnvelope(session, conclusionRef!);
+    assert.ok(!validate(env).some((i) => i.level === "error"), "mission envelope passes the harness");
+    assert.equal(env.demo, false);
+    assert.ok(env.meta.quota, "real missions report quota");
+    console.log("  ✔ single mission report message (flagged conclusion, valid envelope)");
 
     console.log("▶ S4 no runnable model → honest BLOCKED, mission escalates to user");
     setMissionModelInvokerForTest(async () => ({ unavailable: "no policy" }));
@@ -125,6 +134,7 @@ async function main() {
     assert.ok(bs.outcome?.reasons.includes("MODEL_UNAVAILABLE"));
     assert.doesNotMatch(last!.content, /tried|policy/, "no raw internals shown to the user");
     assert.doesNotMatch(last!.content, /推荐方向/);
+    assert.ok(!(last!.citations as unknown[]).some((c) => isMissionConclusionCitation(c)), "blocked result is not a conclusion");
     console.log("  ✔ no fabricated result; user is asked to intervene");
 
     console.log("▶ S5 'I want to build a new product' → clarify brief → user confirms → mission");

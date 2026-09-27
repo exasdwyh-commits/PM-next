@@ -130,12 +130,9 @@ export function envelopeFromMission(r: MissionReport, opts: FromMissionOptions):
     blocks.push({
       type: "prose",
       title: "结论",
-      body: r.conclusion
-        .replace(/\r/g, "")
-        .split("\n\n")
-        .map((p) => p.trim())
-        .filter(Boolean)
-        .slice(0, 12),
+      // 整段交给回复格式渲染器（Prose）：按空行切段会切断代码块和表格，
+      // 截断段数会悄悄丢内容。
+      body: [r.conclusion.replace(/\r/g, "").trim()],
     });
   }
 

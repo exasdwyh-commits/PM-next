@@ -9,6 +9,7 @@
  * - error 级 → 不渲染，回退成"我这次没答好"并重跑；warn 级 → 渲染但在完整层标黄。
  */
 
+import { BANNED_PHRASES, hasEmoji, startsWithPreamble } from "./text-rules";
 import type { Block, ClaimKind, ResponseEnvelope } from "./types";
 
 export type Level = "error" | "warn";
@@ -28,9 +29,7 @@ export interface Issue {
   detail: string;
 }
 
-/** AI 套话黑名单。命中即阻断——Kern 是同事，不是客服机器人。 */
-export const BANNED_PHRASES =
-  /作为一个\s*AI|作为一名\s*AI|我只是一个|我无法提供|希望[^。！？\n]{0,10}帮助|如有(任何)?疑问，?请随时|总的来说，我建议您/;
+export { BANNED_PHRASES } from "./text-rules";
 
 const blocksOf = <T extends Block["type"]>(env: ResponseEnvelope, t: T) =>
   env.blocks.filter((b): b is Extract<Block, { type: T }> => b.type === t);
@@ -161,7 +160,7 @@ export const RULES: Rule[] = [
     level: "warn",
     run: (e) => {
       const t = blocksOf(e, "prose").flatMap((b) => b.body).join("");
-      return !/\p{Extended_Pictographic}/u.test(t) || "正文出现 emoji";
+      return !hasEmoji(t) || "正文出现 emoji";
     },
   },
   {
@@ -187,6 +186,27 @@ export const RULES: Rule[] = [
         if (!c.unit?.trim()) return `图表「${c.label}」缺单位`;
         if (!c.source?.trim()) return `图表「${c.label}」缺来源`;
       }
+      return true;
+    },
+  },
+  // ── 与日常对话回复层共用的底层规则（docs/KERN_REPLY_FORMAT.md） ──
+  {
+    id: "R15",
+    desc: "lede 与正文不以客套话开头",
+    level: "warn",
+    run: (e) => {
+      const hit = [e.lede, ...blocksOf(e, "prose").map((b) => b.body[0] ?? "")].find((t) => t && startsWithPreamble(t));
+      return !hit || `以客套开头：「${hit.slice(0, 12)}…」`;
+    },
+  },
+  {
+    id: "R16",
+    desc: "prose 正文只用回复格式允许的 Markdown（无一级标题、无 HTML）",
+    level: "warn",
+    run: (e) => {
+      const t = blocksOf(e, "prose").flatMap((b) => b.body).join("\n");
+      if (/^#\s/m.test(t)) return "正文出现一级标题";
+      if (/<\/?(?:div|span|p|br|b|i|strong|em|table|img|a|script|style)\b[^>]*>/i.test(t)) return "正文出现 HTML 标签";
       return true;
     },
   },

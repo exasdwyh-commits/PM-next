@@ -2,13 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { ConversationRuntimeConfig, Decision, EvidenceRef, Message, StudioModel } from "./types";
+import type { ConversationRuntimeConfig, Decision, EvidenceRef, Message, MessageBlock, StudioModel } from "./types";
 import { readKernGraphCitation } from "@/modules/visual-intelligence/contracts";
 import type { KernGraphV1 } from "@/modules/visual-intelligence/contracts";
 import { Btn, I } from "./components/kit";
 import { CheckIn, Turn, Working } from "./components/turn";
 import { MemorySheet, Palette, RejectSheet, SourceSheet, TrailSheet, TrustSheet } from "./components/sheets";
 import { Blank, Dock, Rail } from "./components/shell";
+
+import { isMissionConclusionCitation } from "@/modules/supervisor/report-format";
+
+function conclusionBlock(text: string, citations: unknown[]): MessageBlock {
+  const ref = citations.map(isMissionConclusionCitation).find((id): id is string => !!id);
+  return ref ? { kind: "conclusion", ref, text } : { kind: "text", text };
+}
 
 type SheetState =
   | { kind: "trail" }
@@ -69,7 +76,7 @@ function fromApiMessage(message: ApiMessage): Message {
     at: message.createdAt,
     state: "success",
     blocks: [
-      { kind: "text", text: message.content },
+      conclusionBlock(message.content, citations),
       ...graphs.map((graph) => ({ kind: "graph" as const, graph })),
       ...(hasBrief ? [{ kind: "brief" as const, ref: message.id }] : []),
       ...[...new Set(missionIds)].map((ref) => ({ kind: "mission" as const, ref })),

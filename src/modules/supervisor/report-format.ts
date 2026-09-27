@@ -234,3 +234,16 @@ ${markdownToHtml(markdown)}
 <script>window.addEventListener("load",function(){setTimeout(function(){window.print()},300)})</script>
 </body></html>`;
 }
+
+/**
+ * The mission id when this message citation marks a completed mission
+ * conclusion (rendered via the ResponseEnvelope), else null. Messages written
+ * before the explicit `conclusion` flag are recognised by their title.
+ */
+export function isMissionConclusionCitation(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const c = raw as Record<string, unknown>;
+  if (c.kind !== "kern-mission" || typeof c.ref !== "string") return null;
+  if (c.conclusion === true) return c.ref;
+  return typeof c.title === "string" && c.title === "Kern 工作结果 · 已完成" ? c.ref : null;
+}

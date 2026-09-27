@@ -65,6 +65,8 @@ export interface Decision {
 
 export type MessageBlock =
   | { kind: "text"; text: string }
+  /** A completed mission conclusion: rendered as a ResponseEnvelope, `text` is the Markdown fallback. */
+  | { kind: "conclusion"; ref: string; text: string }
   | { kind: "graph"; graph: KernGraphV1 }
   | { kind: "plan"; title: string; steps: PlanStep[] }
   | { kind: "mission"; ref: string }

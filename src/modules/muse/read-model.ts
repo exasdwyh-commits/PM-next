@@ -21,8 +21,16 @@ import type {
   Employee,
   EvidenceRef,
   Message,
+  MessageBlock,
   StudioModel,
 } from "@/app/muse/types";
+
+import { isMissionConclusionCitation } from "@/modules/supervisor/report-format";
+
+function conclusionBlock(text: string, citations: unknown[]): MessageBlock {
+  const ref = citations.map(isMissionConclusionCitation).find((id): id is string => !!id);
+  return ref ? { kind: "conclusion", ref, text } : { kind: "text", text };
+}
 
 const ACTIVE_TASK_STATUSES: AgentTaskStatus[] = [
   AgentTaskStatus.QUEUED,
@@ -104,7 +112,7 @@ function messageView(row: {
     at: row.createdAt.toISOString(),
     state: "success",
     blocks: [
-      { kind: "text", text: row.content },
+      conclusionBlock(row.content, citations),
       ...graphs.map((graph) => ({ kind: "graph" as const, graph })),
       ...(hasBrief ? [{ kind: "brief" as const, ref: row.id }] : []),
       ...missionIds.map((ref) => ({ kind: "mission" as const, ref })),
