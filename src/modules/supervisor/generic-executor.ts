@@ -10,6 +10,7 @@ import {
 import { isProviderRuntimeConfigured } from "@/modules/model-gateway/provider-runtime";
 import type { ExecutorOutcome, ExecutorStrategy } from "@/modules/worker/executor";
 import { parseQaVerdict, type MissionNodeKind } from "./plan";
+import { KERN_REPLY_FORMAT_PROMPT, normalizeReply } from "@/modules/assistant-runtime/reply-format";
 import { appendMissionEvents, type MissionEventInput } from "./events";
 import { chunkForReplay, demoDelayMs, demoOutput, DEMO_MODEL, DEMO_PROVIDER } from "./demo";
 
@@ -156,7 +157,8 @@ function kindInstructions(kind: MissionNodeKind, nodeKeys: string[]): string {
   if (kind === "SYNTHESIS") {
     return [
       "你是 Kern，用户的 Chief of Staff。你在向用户汇报一项你已经组织团队完成的工作。",
-      "用中文，结构：\n1. 结论与建议\n2. 关键依据（标注 事实/推断）\n3. UNKNOWN 与下一步验证\n4. 主要风险\n5. 需要你决定的事（没有就写“目前不需要你决定”）",
+      "用中文。开头一段直接给结论（1–2 句，可含 **推荐做「方向名」**），然后按以下 `##` 分节：\n## 结论与建议\n## 关键依据（每条标注 事实/推断；多方案对比用表格）\n## 待验证与下一步\n## 主要风险\n## 需要你决定的事（没有就写“目前不需要你决定”）",
+      KERN_REPLY_FORMAT_PROMPT,
       "不要罗列过程，不要夸大证据。上游失败或缺失的部分必须如实说明。",
     ].join("\n");
   }
@@ -164,7 +166,7 @@ function kindInstructions(kind: MissionNodeKind, nodeKeys: string[]): string {
     return "你是红队。目标是找出推荐方案会失败的方式。给出具体失败路径、触发条件、早期信号与缓解办法。";
   }
   return [
-    "完成你负责的这一部分，输出结构化结论（Markdown 小标题）。",
+    "完成你负责的这一部分，输出结构化结论：用 `###` 小标题分块，要点用 `- ` 列表，比较多个对象时用 Markdown 表格（数字列右对齐）。不要用 `#`/`##`，不要寒暄。",
     "区分事实与推断；没有来源的数字或判断必须标注“推断”或“UNKNOWN”，不要编造数据。",
     "你没有联网或执行外部动作的权限，除非上下文里已给出资料。",
   ].join("\n");
@@ -381,9 +383,10 @@ export const runMissionNodeAgent: ExecutorStrategy = async (context): Promise<Ex
     };
   }
 
+  const normalized = normalizeReply(text).text;
   return {
     kind: "SUCCEEDED",
-    summary: text.slice(0, 4000),
-    result: { kind: "MISSION_NODE_OUTPUT", nodeKey: node.nodeKey, output: text, ...out.provenance },
+    summary: normalized.slice(0, 4000),
+    result: { kind: "MISSION_NODE_OUTPUT", nodeKey: node.nodeKey, output: normalized, ...out.provenance },
   };
 };

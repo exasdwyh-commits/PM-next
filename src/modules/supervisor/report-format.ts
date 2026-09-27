@@ -56,6 +56,13 @@ const NO_DECISION = /^(目前)?(不需要|无需|暂无|没有)/;
 export function extractDecision(conclusion: string | null | undefined): string | null {
   if (!conclusion) return null;
   const lines = conclusion.replace(/\r/g, "").split("\n");
+  const call = lines.findIndex((l) => /^>\s*\[!DECISION\]/.test(l));
+  if (call >= 0) {
+    const body = [lines[call].replace(/^>\s*\[!DECISION\]\s*/, "")];
+    for (const l of lines.slice(call + 1)) { if (!/^>/.test(l)) break; body.push(l.replace(/^>\s?/, "")); }
+    const t = body.join("\n").trim().replace(/\*\*/g, "");
+    if (t && !NO_DECISION.test(t)) return t;
+  }
   const at = lines.findIndex((l) => /需要你(来)?决定/.test(l));
   if (at < 0) return null;
   const head = lines[at];

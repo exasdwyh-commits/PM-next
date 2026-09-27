@@ -29,6 +29,7 @@ import {
   type ModelProfile,
 } from "@/modules/model-gateway";
 import { buildDepartmentAssistantSystemPrompt } from "./persona";
+import { KERN_REPLY_FORMAT_VERSION, normalizeReply, type NormalizedReply } from "./reply-format";
 import { applyExplicitChatProposal } from "./proposal-executor";
 import { getKernConversation } from "./conversations";
 import {
@@ -252,6 +253,7 @@ export async function executeKernConversationTurn(
 
   let historyTurns = 0;
   let conversationHistory: { role: string; content: string }[] = [];
+  let replyFormat: NormalizedReply | null = null;
   try {
     const historyRows = await prisma.message.findMany({
       where: { conversationId, role: { in: ["USER", "ASSISTANT"] } },
@@ -344,7 +346,8 @@ export async function executeKernConversationTurn(
 
         modelRunId = gatewayExecution.modelRunId;
         const gatewayResult = gatewayExecution.result;
-        result = { ...result, text: gatewayResult.text };
+        replyFormat = normalizeReply(gatewayResult.text);
+        result = { ...result, text: replyFormat.text };
         modelOutputUsed = true;
         llmModelId = gatewayResult.resolvedModelId;
         actualProvider = gatewayResult.provider;
@@ -373,7 +376,8 @@ export async function executeKernConversationTurn(
           process.env.ADVISOR_MODEL_PROVIDER?.trim() || "openai-compatible";
         try {
           const llmResult = await llmClient.chat(llmMessages);
-          result = { ...result, text: llmResult.text };
+          replyFormat = normalizeReply(llmResult.text);
+          result = { ...result, text: replyFormat.text };
           modelOutputUsed = true;
           llmUsage = llmResult.usage;
           llmModelId = llmResult.modelId;
@@ -407,6 +411,9 @@ export async function executeKernConversationTurn(
       resultJson: {
         text: result.text,
         ...(result.proposal ? { proposal: result.proposal } : {}),
+        ...(replyFormat
+          ? { replyFormat: { version: KERN_REPLY_FORMAT_VERSION, fixed: replyFormat.fixed, issues: replyFormat.issues } }
+          : {}),
       } as any,
       status: failed ? "FAILED" : "SUCCEEDED",
       errorReason,
