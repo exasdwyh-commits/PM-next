@@ -1,8 +1,8 @@
 import { PrismaClient } from "@prisma/client";
-import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { loadEnvFiles } from "../src/shared/env";
+import { verifyStructureMatchesSchema } from "./prepare-test-database-verify";
 
 loadEnvFiles();
 
@@ -39,22 +39,8 @@ function listOnDiskMigrations(): string[] {
     .sort();
 }
 
-/**
- * 结构比对（4b）：实库 vs `schema.prisma`。
- *
- * 用 `prisma migrate diff --from-url <库> --to-schema-datamodel <schema> --exit-code`：
- *   exit 0 → 无差异（结构已验证）；exit 2 → 有差异；其它非 0 → 工具/连接错误。
- * **任何非 0 都判为「未验证」**——宁可说未验证，不许说已验证。
- */
-function verifyStructureMatchesSchema(dbUrl: string): { ok: boolean; detail: string } {
-  const res = spawnSync(
-    "./node_modules/.bin/prisma",
-    ["migrate", "diff", "--from-url", dbUrl, "--to-schema-datamodel", "prisma/schema.prisma", "--exit-code"],
-    { encoding: "utf8", env: { ...process.env, DATABASE_URL: dbUrl } }
-  );
-  const detail = `${res.stdout ?? ""}${res.stderr ?? ""}`.trim();
-  return { ok: res.status === 0, detail };
-}
+// 结构比对实现见 ./prepare-test-database-verify.ts（退出码 0/2/非0 的解读是
+// TASK-004 的核心不变量，抽成可注入依赖的纯函数以便被回归测试直接喂 0/1/2/null）。
 
 async function getState(): Promise<SchemaState> {
   const identity = await prisma.$queryRaw<Array<{ database: string; user: string }>>`

@@ -4,6 +4,7 @@ import { ForbiddenError, NotFoundError, UnprocessableEntityError } from "@/share
 import { Prisma, ProductLifecycleStage, ProjectMode, Role } from "@prisma/client";
 import { createAuditEventInTx } from "@/shared/audit";
 import { PRODUCT_WRITE_ROLES, requireProductRead, requireProductRole } from "../identity/product-access";
+import { assertObjectInput, assertOptionalBoolean, assertOptionalNonnegativeNumber, assertOptionalText, requiredText } from "@/shared/input-validation";
 import {
   BUSINESS_EVENT_TYPES,
   dispatchBusinessEvent,
@@ -19,15 +20,16 @@ export interface CreateProductParams {
 }
 
 export async function createProduct(session: SessionContext, params: CreateProductParams) {
+  assertObjectInput(params);
   // D-017：缺必填字段此前会一路冒到 `params.targetAudience.trim()`，抛**原生 TypeError**
   // （"Cannot read properties of undefined (reading 'trim')"）→ 被当成「服务端崩了」的 500。
   // 修法照抄本文件 createDevelopmentProduct 的既有范式（收集缺失项 → 一次性 422 并点名字段），
   // 不发明新写法。缺失项用 **API 字段名**，便于调用方直接定位。
-  const name = params.name?.trim();
-  const identityCode = params.identityCode?.trim();
-  const targetAudience = params.targetAudience?.trim();
-  const marketPath = params.marketPath?.trim();
-  const devMode = params.devMode?.trim();
+  const name = typeof params.name === "string" ? params.name.trim() : "";
+  const identityCode = typeof params.identityCode === "string" ? params.identityCode.trim() : "";
+  const targetAudience = typeof params.targetAudience === "string" ? params.targetAudience.trim() : "";
+  const marketPath = typeof params.marketPath === "string" ? params.marketPath.trim() : "";
+  const devMode = typeof params.devMode === "string" ? params.devMode.trim() : "";
 
   const missing = [
     ["name", name],
@@ -77,16 +79,22 @@ export async function publishProductVersion(
   // 现要求调用者是该产品**关联项目**的 OWNER / DECISION_MAKER。
   // 产品不存在或跨组织由 requireProductRole 统一返回 404，不泄露存在性。
   await requireProductRole(session, productId, PRODUCT_WRITE_ROLES);
-
-  if (!params.versionTag || !params.specs) {
+  assertObjectInput(params);
+  const versionTag = requiredText(params.versionTag, "versionTag");
+  if (!params.specs || typeof params.specs !== "object" || Array.isArray(params.specs)) {
     throw new UnprocessableEntityError("versionTag and specs are required");
   }
+  for (const field of ["technicalAdvice", "experienceGoals", "currency"] as const) {
+    assertOptionalText(params[field], field);
+  }
+  assertOptionalBoolean(params.isConfirmed, "isConfirmed");
+  assertOptionalNonnegativeNumber(params.targetCost, "targetCost");
 
   const created = await prisma.$transaction(async (tx) => {
     const version = await tx.productVersion.create({
       data: {
         productId,
-        versionTag: params.versionTag.trim(),
+        versionTag,
         specs: params.specs,
         technicalAdvice: params.technicalAdvice,
         experienceGoals: params.experienceGoals,
@@ -215,11 +223,12 @@ export async function createDevelopmentProductInTx(
   session: SessionContext,
   params: CreateDevelopmentProductParams
 ) {
-  const name = params.name?.trim();
-  const coreIdea = params.coreIdea?.trim();
-  const targetAudience = params.targetAudience?.trim();
-  const coreSellingPoints = params.coreSellingPoints?.trim();
-  const targetChannels = params.targetChannels?.trim();
+  assertObjectInput(params);
+  const name = typeof params.name === "string" ? params.name.trim() : "";
+  const coreIdea = typeof params.coreIdea === "string" ? params.coreIdea.trim() : "";
+  const targetAudience = typeof params.targetAudience === "string" ? params.targetAudience.trim() : "";
+  const coreSellingPoints = typeof params.coreSellingPoints === "string" ? params.coreSellingPoints.trim() : "";
+  const targetChannels = typeof params.targetChannels === "string" ? params.targetChannels.trim() : "";
 
   const missing = [
     ["名称", name],
@@ -234,6 +243,11 @@ export async function createDevelopmentProductInTx(
   if (missing.length > 0) {
     throw new UnprocessableEntityError(`入库必填项缺失：${missing.join("、")}`);
   }
+
+  for (const field of ["priceExpectation", "formSpec", "forbiddenItems", "targetLaunchDate"] as const) {
+    assertOptionalText(params[field], field);
+  }
+  assertOptionalNonnegativeNumber(params.targetCost, "targetCost");
 
   const targetLaunchDate = params.targetLaunchDate ? new Date(params.targetLaunchDate) : null;
   if (targetLaunchDate && Number.isNaN(targetLaunchDate.getTime())) {

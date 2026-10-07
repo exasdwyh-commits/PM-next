@@ -17,17 +17,29 @@ import {
   currentActivity,
   formatClock,
   formatMs,
+  toolInputPreview,
   nodeLabel,
   qaLabel,
   reasonLabel,
   totalModelCalls,
   type Lane,
   type MissionStatusView,
+  metricsLine,
+  type AutomationView,
+  type MissionMetricsView,
 } from "../mission-timeline";
 import { useMission } from "../use-mission";
-import { Btn, I, Node, Tag } from "./kit";
+import { AskCard } from "./ask-card";
+import { HoldToConfirm } from "@/components/motion/hold-to-confirm";
+import { useBtnState } from "@/components/motion/react";
+import { Btn, I, Node, StatefulBtn, Tag } from "./kit";
+import { CopyBtn, Segmented } from "./controls";
+import { MissionConclusion } from "./mission-conclusion";
 import { Prose } from "./prose";
-import { Sheet } from "./sheets";
+import { Sheet } from "./sheet";
+import { WorkerNotice } from "./worker-notice";
+import { ContractReview } from "./contract-card";
+import { ExecutionFlow } from "./execution-flow";
 
 export function laneState(status: string): AiState {
   switch (status) {
@@ -77,12 +89,11 @@ function friendly(message?: string) {
 const TERMINAL = new Set(["SUCCEEDED", "BLOCKED", "FAILED", "SKIPPED"]);
 
 export function MissionWorkspace({ missionId, onClose, initialTab = "process" }: { missionId: string; onClose: () => void; initialTab?: "process" | "output" }) {
-  const { status, events, live, control } = useMission(missionId);
+  const { status, events, live, connected, control } = useMission(missionId);
   const [tab, setTab] = useState<"process" | "output">(initialTab);
   const [detail, setDetail] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: "ok" | "bad"; text: string } | null>(null);
-  const [confirmCancel, setConfirmCancel] = useState(false);
 
   const lanes = useMemo(() => buildLanes(status, events), [status, events]);
   const timeline = useMemo(() => buildTimeline(events), [events]);
@@ -117,18 +128,9 @@ export function MissionWorkspace({ missionId, onClose, initialTab = "process" }:
         </Btn>
       ) : null}
       {running ? (
-        confirmCancel ? (
-          <>
-            <Btn size="sm" v="danger" disabled={!!busy} onClick={async () => { setConfirmCancel(false); await act("cancel", { action: "cancel" }, "任务已取消"); }}>
-              确认取消
-            </Btn>
-            <Btn size="sm" v="ghost" onClick={() => setConfirmCancel(false)}>算了</Btn>
-          </>
-        ) : (
-          <Btn size="sm" v="ghost" disabled={!!busy} onClick={() => setConfirmCancel(true)}>
-            取消任务
-          </Btn>
-        )
+        <HoldToConfirm size="sm" hint="按住取消任务" disabled={!!busy} onConfirm={() => void act("cancel", { action: "cancel" }, "任务已取消")}>
+          取消任务
+        </HoldToConfirm>
       ) : null}
     </div>
   ) : null;
@@ -137,11 +139,11 @@ export function MissionWorkspace({ missionId, onClose, initialTab = "process" }:
     <Sheet
       wide
       title={status?.goal ? status.goal.split("\n")[0].trim() : "任务"}
-      sub={status ? `${status.progress.done}/${status.progress.total} 步 · ${currentActivity(status, events)}` : "读取中…"}
+      sub={status ? `${status.progress.done}/${status.progress.total} 步已结束 · ${currentActivity(status, events)}` : "读取中…"}
       onClose={onClose}
       aside={controls}
     >
-      {status?.demo ? <div className="m-ws-demo">演示模式 · 不写入业务数据、不消耗额度</div> : null}
+      {status?.demo ? <div className="m-ws-demo">演示模式 · 不调用模型、不写入业务数据</div> : null}
       <div className="m-ws-tabs" role="tablist">
         <button type="button" role="tab" aria-selected={tab === "process"} onClick={() => setTab("process")}>过程</button>
         <button type="button" role="tab" aria-selected={tab === "output"} onClick={() => setTab("output")}>
@@ -149,14 +151,20 @@ export function MissionWorkspace({ missionId, onClose, initialTab = "process" }:
         </button>
         <span className="m-ws-spacer" />
         {tab === "process" ? (
-          <div className="m-seg" role="group" aria-label="展示粒度">
-            <button type="button" aria-pressed={!detail} onClick={() => setDetail(false)}>摘要</button>
-            <button type="button" aria-pressed={detail} onClick={() => setDetail(true)}>完整</button>
-          </div>
+          <Segmented
+            label="展示粒度"
+            value={detail ? "full" : "summary"}
+            onChange={(v) => setDetail(v === "full")}
+            options={[
+              { value: "summary", label: "摘要" },
+              { value: "full", label: "完整", title: "方法、模型、耗时、来源、重试与你的每次干预" },
+            ]}
+          />
         ) : null}
-        {live ? <Tag tone="accent" live>实时</Tag> : null}
+        {live && running && !status?.paused ? <Tag tone="accent" live>实时</Tag> : null}
       </div>
       {notice ? <p className="m-ws-notice" data-t={notice.tone} role="status">{notice.text}</p> : null}
+      <WorkerNotice active={running} />
 
       {!status ? (
         <p className="m-quiet">读取进展…</p>
@@ -168,6 +176,7 @@ export function MissionWorkspace({ missionId, onClose, initialTab = "process" }:
               <span>进行中的步骤会做完，不会派发新步骤。你可以趁现在补充信息或调整计划。</span>
             </div>
           ) : null}
+          <ExecutionFlow status={status} events={events} connected={connected} />
           <ol className="m-lanes">
             {lanes.map((lane) => (
               <LaneRow
@@ -183,13 +192,18 @@ export function MissionWorkspace({ missionId, onClose, initialTab = "process" }:
             ))}
           </ol>
 
+          {status.outcome?.status !== "CANCELLED"
+            ? status.pendingAsks?.map((a) => <AskCard key={a.askId} ask={a} control={control} canAbort={running} />)
+            : null}
           {running ? (
+            <>
             <InterventionPanel
               status={status}
               busy={busy}
               onInput={(text) => act("input", { action: "add-input", text }, "已收到，会带入后续步骤")}
               onAddStep={(node) => act("add", { action: "edit-plan", edits: [{ op: "add", node }] }, `已加入步骤「${node.key}」`)}
             />
+            </>
           ) : null}
 
           {status.userInputs.length ? (
@@ -253,7 +267,7 @@ export function MissionWorkspace({ missionId, onClose, initialTab = "process" }:
           ) : null}
         </>
       ) : (
-        <OutputTab status={status} lanes={lanes} usage={usage} />
+        <OutputTab status={status} lanes={lanes} usage={usage} busy={!!busy} onReview={(verdicts) => act("review", { action: "review", verdicts }, verdicts.some((v) => !v.pass) ? "已打回，综合结论按你的意见重做" : "复核通过，契约成立")} />
       )}
     </Sheet>
   );
@@ -325,6 +339,19 @@ function LaneRow({
                   </FragmentKV>
                 ))}
                 {a.durationMs != null ? (<><i>用时</i><span>{formatMs(a.durationMs)}</span></>) : null}
+                {a.toolCalls.map((t, k) => (
+                  <FragmentKV key={`t${k}`} label={`工具${a.toolCalls.length > 1 ? " " + (k + 1) : ""}`}>
+                    <details className="m-tool">
+                      <summary>
+                        {t.label}
+                        {toolInputPreview(t.input)}
+                        {t.ok ? "" : " · 失败"}
+                        {t.latencyMs != null ? ` · ${formatMs(t.latencyMs)}` : ""}
+                      </summary>
+                      {t.output ? <pre className="m-term">{t.output}</pre> : null}
+                    </details>
+                  </FragmentKV>
+                ))}
                 {a.userInputIds.length ? (<><i>带入</i><span>你补充的 {a.userInputIds.length} 条信息</span></>) : null}
                 <i>来源</i>
                 <span>
@@ -465,7 +492,7 @@ function InterventionPanel({
   );
 }
 
-function OutputTab({ status, lanes, usage }: { status: MissionStatusView; lanes: Lane[]; usage: { calls: number; latencyMs: number } }) {
+function OutputTab({ status, lanes, usage, busy, onReview }: { status: MissionStatusView; lanes: Lane[]; usage: { calls: number; latencyMs: number }; busy: boolean; onReview: (verdicts: { id: string; pass: boolean; note?: string }[]) => Promise<boolean> }) {
   const synth = lanes.find((l) => l.kind === "SYNTHESIS");
   const conclusion = synth?.attempts.at(-1)?.output ?? status.nodes.find((n) => n.kind === "SYNTHESIS")?.summary ?? null;
   const decision = status.outcome?.status === "COMPLETED" ? extractDecision(conclusion) : null;
@@ -487,11 +514,16 @@ function OutputTab({ status, lanes, usage }: { status: MissionStatusView; lanes:
           <p className="m-hint">团队已经把能做的做完了，这一步涉及取舍或资金，只能由你拍板。</p>
         </section>
       ) : null}
-      {status.outcome ? <Takeaway missionId={status.missionTaskId} demo={!!status.demo} /> : null}
+      {status.outcome?.status === "COMPLETED" && status.contract ? <ContractReview c={status.contract} busy={busy} onSubmit={onReview} /> : null}
+      {status.outcome ? <Takeaway missionId={status.missionTaskId} demo={!!status.demo} completed={status.outcome.status === "COMPLETED"} automation={status.automation} metrics={status.metrics} /> : null}
       <section className="m-ws-sec">
         <h3>结论</h3>
         {conclusion ? (
-          <div className="m-report"><Prose text={conclusion} /></div>
+          <div className="m-report">
+            {status.outcome?.status === "COMPLETED"
+              ? <MissionConclusion missionId={status.missionTaskId} text={conclusion} density="full" showAsk={false} />
+              : <Prose text={conclusion} />}
+          </div>
         ) : (
           <p className="m-quiet">{status.outcome ? "这次没有形成综合结论。" : "综合结论会在所有步骤与 QA 完成后出现。"}</p>
         )}
@@ -536,10 +568,11 @@ function OutputTab({ status, lanes, usage }: { status: MissionStatusView; lanes:
           <i>消耗</i>
           <span>
             {status.tasksCreated} 个步骤任务{status.budget ? `（上限 ${status.budget.maxTasks}）` : ""} · {usage.calls} 次模型调用 · 模型累计 {formatMs(usage.latencyMs)}
-            {status.demo ? " · 演示不计额度" : ""}
+            {status.demo ? " · 演示不计入用量" : ""}
           </span>
           <i>用到的记忆</i>
           <span>{status.memoriesUsed?.length ? status.memoriesUsed.map((m) => m.text).join("；") : "这次没有用到你的记忆"}</span>
+          {status.savedPlaybook ? <><i>做法</i><span>按你保存的做法「{status.savedPlaybook.name}」</span></> : null}
           <i>成功标准</i>
           <span>{status.successCriteria?.join("；") ?? "—"}</span>
         </div>
@@ -551,10 +584,83 @@ function OutputTab({ status, lanes, usage }: { status: MissionStatusView; lanes:
 type TakeawayInfo = { blocked: string | null; product: boolean; workItem: boolean; project: { id: string; title: string } | null };
 type TakeawayReceipt = { proposalId: string; created: boolean; status: string; target: string; projectTitle: string | null };
 
+/** KX-34：定期重跑——按这次的计划定时再做一遍（例如每周竞品监测）。 */
+const RERUN_OPTIONS: Array<[string, string]> = [["每周一 9:00", "0 9 * * 1"], ["每天 9:00", "0 9 * * *"], ["每月 1 日 9:00", "0 9 1 * *"]];
+function RerunSchedule({ missionId, automation }: { missionId: string; automation?: AutomationView | null }) {
+  const [cron, setCron] = useState(RERUN_OPTIONS[0][1]);
+  const [state, run] = useBtnState();
+  const [done, setDone] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const save = async () => {
+    setError(null);
+    try {
+      const d = await run(async () => {
+        const r = await fetch("/api/schedules", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kind: "MISSION", cron, missionTaskId: missionId, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+        });
+        const body = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(body?.error?.message ?? "没能设置定期重跑");
+        return body as { item: { cronText: string } };
+      });
+      if (d) setDone(d.item.cronText);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "没能设置定期重跑");
+    }
+  };
+  if (done) return <p className="m-receipt" role="status"><I.check /> 已设置：{done}按同样的计划重跑，结果会发回这个对话。可在顶部「定时」里暂停或删除。</p>;
+  if (automation && !automation.allowed) {
+    return (
+      <p className="m-hint" data-testid="rerun-gate">定期重跑：{automation.reason ?? "暂不可用"}{automation.required ? `（连续验收 ${automation.streak}/${automation.required}）` : ""}</p>
+    );
+  }
+  return (
+    <div className="m-takeaway-row">
+      <b>定期重跑</b>
+      <select value={cron} onChange={(e) => setCron(e.target.value)} aria-label="重跑频率">
+        {RERUN_OPTIONS.map(([l, v]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+      <StatefulBtn size="sm" state={state} onClick={() => void save()}>设置</StatefulBtn>
+      {error ? <span className="m-ws-notice" data-t="warn" role="alert">{error}</span> : null}
+    </div>
+  );
+}
+
 /** 带走：一键生成提案（经确认才写入业务）+ 导出 MD / PDF。 */
-function Takeaway({ missionId, demo }: { missionId: string; demo: boolean }) {
+/** KX-36：顺利完成的工作可以存成做法；下次说类似的事，Kern 会按这个做法拆计划。 */
+function SavePlaybook({ missionId }: { missionId: string }) {
+  const [state, run] = useBtnState();
+  const [done, setDone] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const save = async () => {
+    setError(null);
+    try {
+      const d = await run(async () => {
+        const r = await fetch("/api/playbooks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ missionTaskId: missionId }) });
+        const body = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(body?.error?.message ?? "没能保存做法");
+        return body as { item: { name: string } };
+      });
+      if (d) setDone(d.item.name);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "没能保存做法");
+    }
+  };
+  if (done) return <p className="m-receipt" role="status"><I.check /> 已保存为做法「{done}」。下次说类似的事，我会按这个做法拆计划；可在「记忆」里改名或删除。</p>;
+  return (
+    <div className="m-takeaway-row">
+      <b>做法</b>
+      <span className="m-hint">这次的拆法好用？存下来，下次类似的事按它来。</span>
+      <StatefulBtn size="sm" state={state} onClick={() => void save()}>保存为做法</StatefulBtn>
+      {error ? <span className="m-ws-notice" data-t="warn" role="alert">{error}</span> : null}
+    </div>
+  );
+}
+
+function Takeaway({ missionId, demo, completed, automation, metrics }: { missionId: string; demo: boolean; completed: boolean; automation?: AutomationView | null; metrics?: MissionMetricsView | null }) {
   const [info, setInfo] = useState<TakeawayInfo | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [proposeState, runPropose] = useBtnState();
   const [receipt, setReceipt] = useState<TakeawayReceipt | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -566,22 +672,27 @@ function Takeaway({ missionId, demo }: { missionId: string; demo: boolean }) {
     return () => { live = false; };
   }, [missionId]);
   const propose = async (target: "product" | "work-item") => {
-    setBusy(target);
     setError(null);
     try {
-      const r = await fetch(`/api/missions/${missionId}/takeaway`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target }),
+      const d = await runPropose(async () => {
+        const r = await fetch(`/api/missions/${missionId}/takeaway`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target }),
+        });
+        const body = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(body?.error?.message ?? body?.message ?? body?.error ?? "没能生成提案");
+        return body as TakeawayReceipt;
       });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(d?.error?.message ?? d?.message ?? d?.error ?? "没能生成提案");
-      setReceipt(d as TakeawayReceipt);
+      if (d) setReceipt(d);
     } catch (e) {
       setError(e instanceof Error ? e.message : "没能生成提案");
-    } finally {
-      setBusy(null);
     }
+  };
+  const copyMarkdown = async () => {
+    const r = await fetch(`/api/missions/${missionId}/export?format=md`, { cache: "no-store" });
+    if (!r.ok) throw new Error("导出失败");
+    return r.text();
   };
   const blocked = info?.blocked ?? (demo ? "演示运行的数据不会写入业务，不能带走。" : null);
   return (
@@ -589,15 +700,22 @@ function Takeaway({ missionId, demo }: { missionId: string; demo: boolean }) {
       <div className="m-takeaway-row">
         <b>带走</b>
         {receipt ? null : info?.product ? (
-          <Btn size="sm" v="primary" disabled={!!busy} onClick={() => propose("product")}>{busy === "product" ? "生成中…" : "转为新产品并立项"}</Btn>
+          <StatefulBtn size="sm" v="primary" state={proposeState} onClick={() => void propose("product")}>转为新产品并立项</StatefulBtn>
         ) : info?.workItem ? (
-          <Btn size="sm" v="primary" disabled={!!busy} onClick={() => propose("work-item")}>{busy === "work-item" ? "生成中…" : `加到「${info.project?.title}」作为工作项`}</Btn>
+          <StatefulBtn size="sm" v="primary" state={proposeState} onClick={() => void propose("work-item")}>{`加到「${info.project?.title}」作为工作项`}</StatefulBtn>
         ) : null}
         <span className="m-ws-spacer" />
+        <CopyBtn text={copyMarkdown} title="复制整份报告的 Markdown，可直接贴进文档或 IM">复制 Markdown</CopyBtn>
         <a className="m-btn" data-size="sm" href={`/api/missions/${missionId}/export?format=md`} download>导出 MD</a>
         <a className="m-btn" data-size="sm" href={`/api/missions/${missionId}/export?format=pdf`} target="_blank" rel="noreferrer">导出 PDF</a>
+        <a className="m-btn" data-size="sm" href={`/api/missions/${missionId}/export?format=docx`} download>Word</a>
+        <a className="m-btn" data-size="sm" href={`/api/missions/${missionId}/export?format=xlsx`} download>Excel</a>
+        <a className="m-btn" data-size="sm" href={`/api/missions/${missionId}/export?format=pptx`} download>PPT</a>
       </div>
       {blocked ? <p className="m-hint">{blocked}{demo ? "导出的报告会标明「演示」。" : ""}</p> : null}
+      {metrics ? <p className="m-hint" data-testid="mission-metrics">这次的指标：{metricsLine(metrics)}</p> : null}
+      {demo ? null : <RerunSchedule missionId={missionId} automation={automation} />}
+      {demo || !completed ? null : <SavePlaybook missionId={missionId} />}
       {receipt ? (
         <p className="m-receipt" role="status">
           <I.check /> {receipt.created ? "已生成提案" : "提案已存在"}：{receipt.target === "product" ? "新建产品并立项" : `在「${receipt.projectTitle}」下新建工作项`}。

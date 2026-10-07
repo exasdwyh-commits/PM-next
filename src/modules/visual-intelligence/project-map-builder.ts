@@ -42,7 +42,28 @@ const AREAS: Area[] = [
     label: "Management Workbench",
     type: "WORKBENCH",
     layer: 0,
-    prefixes: ["src/app/manage/", "src/app/workbench-client"],
+    prefixes: [
+      "src/app/manage/",
+      "src/app/workbench-client",
+      "src/app/products/",
+      "src/app/projects/",
+      "src/app/settings/",
+      "src/app/workforce/",
+      "src/app/opportunities/",
+      "src/app/organization/",
+      "src/app/knowledge/",
+      "src/app/war-room/",
+      "src/app/trace/",
+      "src/app/consultation/",
+      "src/app/dashboard/",
+      "src/app/advisor/",
+      "src/app/login/",
+      "src/app/layout.tsx",
+      "src/app/page.tsx",
+      "src/app/error.tsx",
+      "src/app/not-found.tsx",
+      "src/app/logout-button.tsx",
+    ],
     detail: "Products, projects, tasks, evidence and audit management.",
   },
   {
@@ -52,6 +73,14 @@ const AREAS: Area[] = [
     layer: 1,
     prefixes: ["src/app/api/conversations/"],
     detail: "Single HTTP entry for Kern conversations.",
+  },
+  {
+    id: "platform-api",
+    label: "Platform API",
+    type: "API",
+    layer: 1,
+    prefixes: ["src/app/api/"],
+    detail: "Remaining HTTP surface for products, missions, evidence and admin.",
   },
   {
     id: "kern-router",
@@ -94,16 +123,32 @@ const AREAS: Area[] = [
     label: "Model Gateway",
     type: "MODEL_GATEWAY",
     layer: 4,
-    prefixes: ["src/modules/model-gateway/", "src/modules/model-control/"],
-    detail: "Model policy, routing and provider execution.",
+    prefixes: [
+      "src/modules/model-gateway/",
+      "src/modules/model-control/",
+      "src/modules/usage/",
+    ],
+    detail: "Model policy, routing, provider execution and usage metering.",
+  },
+  {
+    id: "supervisor",
+    label: "Mission Supervisor",
+    type: "SUPERVISOR",
+    layer: 4,
+    prefixes: ["src/modules/supervisor/"],
+    detail: "Mission planning, node execution, controls and receipts.",
   },
   {
     id: "work-engine",
     label: "Work Engine",
     type: "WORK_ENGINE",
     layer: 5,
-    prefixes: ["src/modules/product-rnd/", "src/modules/workforce/"],
-    detail: "Longer-running Product R&D and workforce execution.",
+    prefixes: [
+      "src/modules/product-rnd/",
+      "src/modules/workforce/",
+      "src/modules/product-development/",
+    ],
+    detail: "Longer-running Product R&D, workforce and product development execution.",
   },
   {
     id: "desktop-runtime",
@@ -114,6 +159,38 @@ const AREAS: Area[] = [
     detail: "Local computer execution and receipts.",
   },
   {
+    id: "worker",
+    label: "Worker Runtime",
+    type: "WORKER",
+    layer: 5,
+    prefixes: ["src/modules/worker/"],
+    detail: "Leases, heartbeats, retries and recovery for queued execution.",
+  },
+  {
+    id: "research",
+    label: "Research",
+    type: "RESEARCH",
+    layer: 5,
+    prefixes: ["src/modules/research/"],
+    detail: "Web research, source capture and lineage.",
+  },
+  {
+    id: "cost-engine",
+    label: "Cost Engine",
+    type: "COST_ENGINE",
+    layer: 5,
+    prefixes: ["src/modules/cost-engine/"],
+    detail: "Cost, budget and scenario calculation.",
+  },
+  {
+    id: "decision-intelligence",
+    label: "Decision Intelligence",
+    type: "DECISION_INTELLIGENCE",
+    layer: 5,
+    prefixes: ["src/modules/decision-intelligence/"],
+    detail: "Decision runs, options and outcome intelligence.",
+  },
+  {
     id: "governance",
     label: "Governance",
     type: "GOVERNANCE",
@@ -122,12 +199,76 @@ const AREAS: Area[] = [
     detail: "Protected approvals, ToolBroker and capability boundaries.",
   },
   {
+    id: "evidence",
+    label: "Evidence",
+    type: "EVIDENCE",
+    layer: 6,
+    prefixes: ["src/modules/evidence/"],
+    detail: "Source capture, verification and claim lineage.",
+  },
+  {
+    id: "domain-data",
+    label: "Domain Data Modules",
+    type: "DOMAIN",
+    layer: 6,
+    prefixes: [
+      "src/modules/products/",
+      "src/modules/projects/",
+      "src/modules/workspace/",
+      "src/modules/production/",
+      "src/modules/work/",
+      "src/modules/decisions/",
+      "src/modules/signal/",
+      "src/modules/knowledge/",
+    ],
+    detail: "Product, project, work, decision and signal domain records.",
+  },
+  {
+    id: "platform-services",
+    label: "Platform Services",
+    type: "PLATFORM",
+    layer: 6,
+    prefixes: [
+      "src/modules/tenant/",
+      "src/modules/identity/",
+      "src/modules/connectors/",
+      "src/modules/notify/",
+      "src/modules/schedule/",
+      "src/modules/business-events/",
+      "src/modules/autopilot/",
+      "src/modules/automation-trace/",
+      "src/modules/playbooks/",
+      "src/modules/vault/",
+      "src/modules/memory/",
+      "src/modules/muse/",
+      "src/modules/collaboration/",
+      "src/modules/launch/",
+      "src/modules/evaluation-harness/",
+      "src/modules/visual-intelligence/",
+    ],
+    detail: "Tenancy, identity, scheduling, notifications and supporting services.",
+  },
+  {
     id: "persistence",
     label: "Persistence",
     type: "PERSISTENCE",
     layer: 7,
     prefixes: ["prisma/", "src/shared/db"],
     detail: "PostgreSQL schema and persisted runs, work and receipts.",
+  },
+  {
+    id: "shared-kernel",
+    label: "Shared Kernel",
+    type: "SHARED_KERNEL",
+    layer: 7,
+    prefixes: [
+      "src/shared/",
+      "src/config/",
+      "src/components/",
+      "src/modules/kern-contracts/",
+      "src/modules/response-format/",
+    ],
+    detail: "Cross-cutting helpers, UI primitives, contracts and reply formats.",
   },
 ];
 
@@ -142,6 +283,13 @@ function areaFor(filePath: string): Area | null {
       area.prefixes.some((prefix) => normalized.startsWith(prefix))
     ) ?? null
   );
+}
+
+export function listUnmappedSourceFiles(files: ProjectSourceFile[]): string[] {
+  return files
+    .map((file) => clean(file.path))
+    .filter((filePath) => !areaFor(filePath))
+    .sort();
 }
 
 function targetCandidates(source: string, specifier: string): string[] {

@@ -3,9 +3,23 @@ export const DESKTOP_AGENT_CODE = "desktop_operator";
 export type DesktopAction =
   | { tool: "fs.list"; path: string }
   | { tool: "fs.read_text"; path: string }
-  | { tool: "fs.write_text"; path: string; content: string; append?: boolean }
+  | {
+      tool: "fs.write_text";
+      path: string;
+      content: string;
+      /** 追加到末尾，不动已有内容 */
+      append?: boolean;
+      /** 用户显式要求覆盖已有文件；缺省时目标已存在会停下等人 */
+      overwrite?: boolean;
+    }
   | { tool: "fs.mkdir"; path: string }
-  | { tool: "fs.move"; from: string; to: string }
+  | {
+      tool: "fs.move";
+      from: string;
+      to: string;
+      /** 用户显式要求覆盖已存在的目标；缺省时目标已存在会停下等人 */
+      overwrite?: boolean;
+    }
   | { tool: "shell.run"; command: string; cwd?: string }
   | { tool: "git.status"; cwd?: string }
   | { tool: "git.diff"; cwd?: string }
@@ -34,6 +48,8 @@ export interface DesktopRuntimeResult {
   ok: boolean;
   summary: string;
   output?: string;
+  /** 没有失败，但需要用户决定才能继续（执行端据此回报 WAITING_HUMAN） */
+  needsHuman?: boolean;
   artifacts?: Array<{
     kind: "file" | "directory" | "url" | "text";
     path?: string;
@@ -62,13 +78,16 @@ export function describeDesktopAction(action: DesktopAction): {
       return { kind: "读取文件", detail: action.path };
     case "fs.write_text":
       return {
-        kind: action.append ? "追加写入文件" : "写入文件",
+        kind: action.append ? "追加写入文件" : action.overwrite ? "覆盖写入文件" : "写入文件",
         detail: action.path,
       };
     case "fs.mkdir":
       return { kind: "创建目录", detail: action.path };
     case "fs.move":
-      return { kind: "移动文件", detail: `${action.from} → ${action.to}` };
+      return {
+        kind: action.overwrite ? "覆盖移动文件" : "移动文件",
+        detail: `${action.from} → ${action.to}`,
+      };
     case "shell.run":
       return {
         kind: "执行命令",
@@ -190,14 +209,29 @@ export function parseDesktopInstruction(text: string): DesktopAction | null {
     return { tool: "fs.mkdir", path: cleanQuoted(mkdir[1]) };
   }
 
-  const write = input.match(
-    /(?:写入|保存到|写到)(?:文件)?(?:[:：\s]+)([~./][^\s，。；;]+)\s+(?:内容[:：]?\s*)?([\s\S]+)$/i
+  const move = input.match(
+    /(覆盖)?(?:移动|移到|挪动)(?:文件|目录|文件夹)?(?:[:：\s]+)([~./][^\s，。；;]+)\s*(?:到|至|→|->)\s*([~./][^\s，。；;]+)\s*$/i
   );
-  if (write?.[1] && write?.[2]) {
+  if (move?.[2] && move?.[3]) {
+    return {
+      tool: "fs.move",
+      from: cleanQuoted(move[2]),
+      to: cleanQuoted(move[3]),
+      ...(move[1] ? { overwrite: true } : {}),
+    };
+  }
+
+  // 「覆盖写入」「追加到」是用户对已有内容的显式授权；普通「写入」遇到已存在的文件会停下等人。
+  const write = input.match(
+    /(覆盖写入|覆盖保存到|覆盖写到|追加写入|追加到|写入|保存到|写到)(?:文件)?(?:[:：\s]+)([~./][^\s，。；;]+)\s+(?:内容[:：]?\s*)?([\s\S]+)$/i
+  );
+  if (write?.[2] && write?.[3]) {
     return {
       tool: "fs.write_text",
-      path: cleanQuoted(write[1]),
-      content: cleanQuoted(write[2]),
+      path: cleanQuoted(write[2]),
+      content: cleanQuoted(write[3]),
+      ...(write[1].startsWith("覆盖") ? { overwrite: true } : {}),
+      ...(write[1].startsWith("追加") ? { append: true } : {}),
     };
   }
 
@@ -213,4 +247,113 @@ export function parseDesktopInstruction(text: string): DesktopAction | null {
     goal: input,
     cwd: extractCwd(input),
   };
+}
+
+/**
+ * 本机危险命令黑名单（执行端 scripts/hermes-desktop.ts 调用）。
+ *
+ * 黑名单天然不完备，只是最后一道兜底；受保护动作的正路是 human gate
+ * （见 governance/protected-actions.ts 的 DESKTOP_TOOL_RISK）。放在这里而不是执行端，
+ * 是为了能被单测覆盖——此前的 `rm\s+-…r…f\b` 写法漏掉了 `rm -fr`，
+ * 却会误拦 `rm -r report.pdf`（f 出现在文件名末尾）。
+ */
+const DANGEROUS_SHELL_PATTERNS: readonly RegExp[] = [
+  /\bsudo\b/i,
+  /\bdiskutil\s+(?:erase|partition|secureErase)/i,
+  /\bmkfs\b/i,
+  /\bshutdown\b/i,
+  /\breboot\b/i,
+  /:\(\)\s*\{\s*:\|:&\s*\};:/,
+];
+
+/** `rm` 同时带递归与强制（任意顺序、合并或分开、长短选项、命令替换内）。 */
+function hasRecursiveForceRm(command: string): boolean {
+  const normalized = command.replace(/[`$(){}"'\\]/g, " ");
+  for (const segment of normalized.split(/[;&|\n]+/)) {
+    const tokens = segment.trim().split(/\s+/);
+    const at = tokens.findIndex((t) => t === "rm" || t.endsWith("/rm"));
+    if (at < 0) continue;
+    let recursive = false;
+    let force = false;
+    for (const token of tokens.slice(at + 1)) {
+      if (token === "--") break;
+      if (token === "--recursive") recursive = true;
+      else if (token === "--force") force = true;
+      else if (/^-[A-Za-z]+$/.test(token)) {
+        if (/[rR]/.test(token)) recursive = true;
+        if (/[fF]/.test(token)) force = true;
+      }
+    }
+    if (recursive && force) return true;
+  }
+  return false;
+}
+
+export function isDangerousShellCommand(command: string): boolean {
+  return (
+    hasRecursiveForceRm(command) ||
+    DANGEROUS_SHELL_PATTERNS.some((rule) => rule.test(command))
+  );
+}
+
+/** 执行端发现目标已存在时的现状描述（由 desktop-runtime/local-fs.ts 产生）。 */
+export interface ExistingDesktopTarget {
+  path: string;
+  kind: "file" | "directory" | "other";
+  size: number;
+  modifiedAt: string;
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} 字节`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/**
+ * 覆盖保护的等人回执：不改动任何内容，告诉用户现状，并给出可以原样照说的确认指令
+ * （这些指令由 parseDesktopInstruction 解析为带 overwrite / append 的动作，有单测锁定）。
+ */
+export function overwriteConfirmationResult(
+  action: Extract<DesktopAction, { tool: "fs.write_text" | "fs.move" }>,
+  existing: ExistingDesktopTarget
+): DesktopRuntimeResult {
+  const what = existing.kind === "directory" ? "目录" : existing.kind === "file" ? "文件" : "条目";
+  const facts = `现有${what}：${existing.path}，${formatSize(existing.size)}，最后修改 ${existing.modifiedAt.replace("T", " ").slice(0, 16)} UTC`;
+  if (action.tool === "fs.write_text") {
+    return {
+      ok: false,
+      needsHuman: true,
+      summary: `没有写入：${action.path} 已存在，直接写入会覆盖原${what}。`,
+      output: [
+        facts,
+        "",
+        `要替换原文件，请说：本机覆盖写入 ${action.path} <内容>`,
+        `只想加在末尾，请说：本机追加到 ${action.path} <内容>`,
+      ].join("\n"),
+    };
+  }
+  return {
+    ok: false,
+    needsHuman: true,
+    summary: `没有移动：目标 ${action.to} 已存在，移动会覆盖它。`,
+    output: [
+      facts,
+      "",
+      `要覆盖目标，请说：本机覆盖移动 ${action.from} 到 ${action.to}`,
+      "或者换一个目标路径重新交代。",
+    ].join("\n"),
+  };
+}
+
+/** 执行结果 → 回报给服务端的 outcome。 */
+export function desktopOutcomeFor(
+  result: DesktopRuntimeResult
+): "SUCCEEDED" | "WAITING_HUMAN" | "FAILED" {
+  if (result.ok) return "SUCCEEDED";
+  // 旧文案匹配保留兼容：AppleScript 关闭 / 未安装 Codex / 非 macOS 属于「需要人处理」而非失败。
+  if (result.needsHuman || /默认关闭|没有找到 Codex CLI|requires macOS/.test(result.summary)) {
+    return "WAITING_HUMAN";
+  }
+  return "FAILED";
 }

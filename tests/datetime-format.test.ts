@@ -19,6 +19,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
+import { localBin } from "../scripts/lib/local-bin";
 import { fmtDate, fmtTime, fmtDateTime, fmtDateTimeFull, isValidDate } from "../src/shared/datetime";
 
 /** 2026-09-16 00:45:18Z = 北京时间 08:45:18（跨日验证：UTC 还是 16 日 00:45，北京已是 08:45 同日） */
@@ -62,7 +63,7 @@ test("跨环境一致性：TZ=UTC 与 TZ=America/New_York 两个子进程输出�
   `;
 
   const run = (tz: string) =>
-    execFileSync(path.resolve(process.cwd(), "node_modules/.bin/tsx"), ["-e", snippet], {
+    execFileSync(...localBin("tsx", ["-e", snippet]), {
       env: { ...process.env, TZ: tz, NODE_OPTIONS: "" },
       encoding: "utf8",
       cwd: process.cwd(),
@@ -85,7 +86,7 @@ test("反证：宿主的 toLocale* 天真用法确实会随 TZ/locale 漂移（�
     process.stdout.write([d.toLocaleString(), d.toLocaleTimeString(), fmtDateTime(d)].join("~"));
   `;
   const run = (tz: string) =>
-    execFileSync(path.resolve(process.cwd(), "node_modules/.bin/tsx"), ["-e", snippet], {
+    execFileSync(...localBin("tsx", ["-e", snippet]), {
       env: { ...process.env, TZ: tz, NODE_OPTIONS: "" },
       encoding: "utf8",
       cwd: process.cwd(),

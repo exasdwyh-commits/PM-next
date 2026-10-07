@@ -1,3 +1,4 @@
+import { getTenantPack } from "@/modules/tenant";
 /**
  * 科学证据层（Scientific Evidence Intelligence）
  *
@@ -254,7 +255,7 @@ export function validateEvidenceSourceConsistency(
   return { valid: errors.length === 0, errors };
 }
 
-const STRONG_CLAIM_PATTERN = /改善|降低|逆龄|减龄|生物年龄|甲基化年龄|预防|治疗|治愈|根治|延寿|年轻|抗衰(?:老)?|抗癌|降糖|降压|减脂|减肥/;
+const STRONG_CLAIM_PATTERN = new RegExp(getTenantPack().claims.strongClaimPattern);
 
 const RISK_ORDER = { LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3 } as const;
 type RiskLevel = keyof typeof RISK_ORDER;

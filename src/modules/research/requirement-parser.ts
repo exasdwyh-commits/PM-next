@@ -1,3 +1,4 @@
+import { getTenantPack } from "@/modules/tenant";
 /**
  * 需求语义与约束精准解析模块 (F13)
  *
@@ -98,7 +99,8 @@ export function parseProjectRequirements(rawText: string): RequirementParseResul
   const negatedClauses = extractNegatedClauses(text);
   const negatedText = negatedClauses.join(" ");
 
-  const candidateForms = ["胶囊", "软糖", "口服液", "条包", "片剂", "粉剂", "压片糖果", "茶包", "速溶茶粉", "干粉", "凝胶糖果"];
+  const lexicon = getTenantPack().lexicon;
+  const candidateForms = lexicon.forms;
   const forbiddenForms: string[] = [];
   for (const form of candidateForms) {
     if (negatedText.includes(form)) {
@@ -107,24 +109,7 @@ export function parseProjectRequirements(rawText: string): RequirementParseResul
     }
   }
 
-  const candidateClaims = [
-    "护肝",
-    "解酒",
-    "醒酒",
-    "抗衰",
-    "抗初老",
-    "减龄",
-    "逆龄",
-    "生物年龄",
-    "甲基化年龄",
-    "减肥",
-    "降糖",
-    "降压",
-    "助眠",
-    "壮阳",
-    "美白",
-    "免疫",
-  ];
+  const candidateClaims = lexicon.claims;
   const forbiddenClaims: string[] = [];
   const requestedClaims: string[] = [];
   for (const claim of candidateClaims) {
@@ -139,7 +124,7 @@ export function parseProjectRequirements(rawText: string): RequirementParseResul
     facts.push(`用户提出待验证功效方向: ${requestedClaims.join("、")}（仅记录诉求，不代表证据成立）`);
   }
 
-  const candidateIngredients = ["功能性菌株", "益生菌", "西药成分", "人工色素", "防腐剂", "蔗糖", "阿斯巴甜"];
+  const candidateIngredients = lexicon.ingredients;
   const forbiddenIngredients: string[] = [];
   for (const ing of candidateIngredients) {
     if (negatedText.includes(ing)) {

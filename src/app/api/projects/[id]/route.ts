@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/modules/identity/session";
 import { getProjectDetail, updateProject } from "@/modules/projects/service";
 import { handleApiError } from "@/shared/api-handler";
+import { readJsonObjectBody } from "@/shared/request-body";
 
 export async function GET(
   req: NextRequest,
@@ -24,8 +25,12 @@ export async function PATCH(
   try {
     const session = await getServerSession(req);
     const { id } = await params;
-    const body = await req.json();
-    const updated = await updateProject(session, id, body);
+    const body = await readJsonObjectBody(req);
+    const updated = await updateProject(session, id, {
+      target: body.target,
+      constraints: body.constraints,
+      expectedRevision: body.expectedRevision,
+    });
     return NextResponse.json(updated);
   } catch (error) {
     return handleApiError(error, req);

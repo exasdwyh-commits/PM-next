@@ -9,6 +9,7 @@ import { handleApiError } from "@/shared/api-handler";
 import { readJsonObjectBody } from "@/shared/request-body";
 import { ForbiddenError, UnauthorizedError, UnprocessableEntityError } from "@/shared/errors";
 import prisma from "@/shared/db";
+import { LOCAL_TEST_EMAIL, LOCAL_TEST_ORG, LOCAL_TEST_SESSION_DAYS, localTestRequestAllowed } from "@/modules/identity/local-test-policy";
 
 /**
  * B01-01 登录：
@@ -28,6 +29,17 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await readJsonObjectBody(req);
+    if (body.localTest === true) {
+      if (!localTestRequestAllowed(req.headers)) throw new ForbiddenError("Local test login is disabled");
+      const user = await prisma.user.findUnique({
+        where: { email: LOCAL_TEST_EMAIL },
+        include: { organization: true },
+      });
+      if (!user || !user.isActive || user.isSystem || user.organization.code !== LOCAL_TEST_ORG) {
+        throw new ForbiddenError("Local test account is unavailable");
+      }
+      return await issueSession(user.id, false, LOCAL_TEST_SESSION_DAYS);
+    }
     const { email, password, userId } = body as { email?: string; password?: string; userId?: string };
 
     if (!email || typeof email !== "string") {
@@ -51,8 +63,8 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function issueSession(targetUserId: string, isProd: boolean) {
-  const { token, expiresAt } = await createSession(targetUserId);
+async function issueSession(targetUserId: string, isProd: boolean, expiresInDays = 7) {
+  const { token, expiresAt } = await createSession(targetUserId, expiresInDays);
 
   const user = await prisma.user.findUnique({
     where: { id: targetUserId },

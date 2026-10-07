@@ -1,0 +1,41 @@
+/* KX-22 设置页（方案 B：概览卡片 + 下钻）。颜色 / 圆角 / 阴影 / 字号全部取自 theme/kern-design.css；小件、抽屉、用量条见 @/components/kx。 */
+.kx-st { display: grid; gap: 14px; color: var(--k-ink); }
+.kx-st-head h1 { margin: 0; font-size: var(--k-t-title); font-weight: 650; letter-spacing: -.015em; line-height: 1.35; }
+.kx-st-head p { margin: 2px 0 14px; color: var(--k-ink-2); font-size: var(--k-t-xs); }
+
+.kx-st-card { min-width: 0; border: 1px solid var(--k-line); border-radius: 14px; background: var(--k-surface); box-shadow: var(--k-sh-1); }
+.kx-st-card-h { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; padding: 12px 16px 8px; }
+.kx-st-card-h h2 { margin: 0; font-size: 14.5px; font-weight: 650; line-height: 1.4; }
+.kx-st-card-h small { color: var(--k-ink-2); font-size: var(--k-t-xs); }
+.kx-st-link { margin-left: auto; padding: 0; border: 0; background: none; color: var(--k-brand-ink); font: inherit; font-size: var(--k-t-xs); font-weight: 560; cursor: pointer; }
+.kx-st-link:hover { text-decoration: underline; }
+.kx-st-card-b { display: grid; gap: 2px; justify-items: start; padding: 0 16px 14px; }
+.kx-st-card-b > * { justify-self: stretch; }
+.kx-st-card-b > button { justify-self: start; margin-top: 8px; }
+.kx-st-l1 { margin: 0; color: var(--k-ink); font-size: var(--k-t-sm); line-height: 1.6; overflow-wrap: anywhere; }
+.kx-st-l2 { margin: 0; color: var(--k-ink-2); font-size: var(--k-t-xs); line-height: 1.6; overflow-wrap: anywhere; }
+.kx-st-note { margin: 0; padding: 0 16px 12px; color: var(--k-ink-2); font-size: var(--k-t-xs); }
+
+.kx-st-meters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 4px 16px 14px; }
+.kx-st-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+
+/* 抽屉内的行 */
+.kx-st-rows { border: 1px solid var(--k-line); border-radius: 12px; }
+.kx-st-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 10px 14px; border-top: 1px solid var(--k-line-soft); font-size: var(--k-t-sm); }
+.kx-st-row:first-child { border-top: 0; }
+.kx-st-row > span:first-child { display: grid; flex: 1 1 160px; gap: 2px; min-width: 0; }
+.kx-st-row > span:first-child small { color: var(--k-ink-2); font-size: var(--k-t-xs); }
+.kx-st-row > b { font-weight: 560; overflow-wrap: anywhere; }
+.kx-st-sub { margin: 0; color: var(--k-ink-2); font-size: var(--k-t-xs); font-weight: 650; }
+
+/* 界面动效偏好（KX-27）：跟随系统 / 始终播放 */
+.kx-st-motion { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.kx-st-motion label { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 14px; border: 1px solid var(--k-line-2); border-radius: 999px; background: var(--k-surface); color: var(--k-ink-2); font-size: var(--k-t-sm); cursor: pointer; transition: var(--m-tr-ui); }
+.kx-st-motion label:hover { border-color: var(--k-brand-line); color: var(--k-ink); }
+.kx-st-motion label:has(input:checked) { border-color: var(--k-brand-line); background: var(--k-brand-soft); color: var(--k-brand-ink); font-weight: 600; }
+.kx-st-motion input { margin: 0; accent-color: var(--k-brand); }
+@media (max-width: 720px) {
+  .kx-st-grid, .kx-st-meters { grid-template-columns: minmax(0, 1fr); }
+  .kx-st-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; }
+  .kx-st-card-b > button, .kx-st-row button, .kx-st-row a { min-height: 44px; }
+}

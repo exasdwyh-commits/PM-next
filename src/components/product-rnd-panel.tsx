@@ -6,6 +6,7 @@ import { ExecutiveReportView } from "@/components/executive-report";
 import { identityHeaders } from "@/shared/client-identity";
 import type { ExecutiveReportPayload } from "@/shared/executive-report-types";
 import { labelAgentTaskStatus } from "@/shared/status-labels";
+import { fmtTime } from "@/shared/datetime";
 
 /**
  * AI 产品研发（数字员工流水线）
@@ -43,6 +44,13 @@ interface ProductRndTaskRow {
 interface ProductRndStatusResponse {
   workItem: { id: string; status: string; inputRevision: number };
   parentTaskId: string | null;
+  autoAdvance?: {
+    attempts: number;
+    maxAttempts: number;
+    message: string;
+    nextRetryAt: string | null;
+    exhausted: boolean;
+  } | null;
   tasks: ProductRndTaskRow[];
   latestReport:
     | ({
@@ -287,6 +295,33 @@ export function ProductRndPanel({
             ))}
           </div>
 
+          {status?.autoAdvance ? (
+            <div
+              className={`hermes-banner ${status.autoAdvance.exhausted ? "is-danger" : "is-warn"}`}
+              role="status"
+              style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}
+            >
+              <span>
+                {status.autoAdvance.exhausted
+                  ? `流程推进连续失败 ${status.autoAdvance.attempts} 次，已停止自动重试，需要你确认后再试。`
+                  : `流程推进失败（第 ${status.autoAdvance.attempts}/${status.autoAdvance.maxAttempts} 次），Kern 会${
+                      status.autoAdvance.nextRetryAt ? `在 ${fmtTime(status.autoAdvance.nextRetryAt)} ` : ""
+                    }自动重试。`}
+                <br />
+                <small>原因：{status.autoAdvance.message || "未知"}</small>
+              </span>
+              {parentTaskId ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy || !canOperate}
+                  onClick={() => void call({ action: "RECONCILE", parentTaskId }, "已重试推进")}
+                >
+                  立即重试
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
           <div className="hermes-rnd-status-head">
             <div>
               <span className="eyebrow">专业工作</span>

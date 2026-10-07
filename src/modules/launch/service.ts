@@ -391,11 +391,23 @@ export async function getLaunchContext(session: SessionContext, productId: strin
 
   // 写权限同样由服务端判定，前端据此决定是否禁用表单（不作安全边界）
   let canEdit = false;
+  let writableProjectId: string | null | undefined;
   try {
-    await assertLaunchWritePermission(session, productId);
+    writableProjectId = await assertLaunchWritePermission(session, productId);
     canEdit = true;
   } catch {
     canEdit = false;
+  }
+
+  // Legacy products without a project allow an organization administrator to
+  // prepare a plan. Offer that real, active user instead of an empty owner select.
+  // This supplies an owner only; it does not create the project required for G3.
+  if (canEdit && writableProjectId === null && members.length === 0) {
+    const administrator = await prisma.user.findFirst({
+      where: { id: session.userId, organizationId: session.organizationId, isActive: true },
+      select: { id: true, name: true, email: true },
+    });
+    if (administrator) members.push({ role: Role.ORG_ADMIN, user: administrator });
   }
 
   const gate = plan ? await evaluateFormalG3Gate(session, plan) : null;

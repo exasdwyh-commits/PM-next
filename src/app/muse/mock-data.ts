@@ -99,10 +99,22 @@ export const studioModel: StudioModel = {
     attention: { needsYou: [], inProgress: [], handledQuietly: 0, completedRecently: 0 },
     suggestions: [
       {
-        id: "s-1",
-        title: "交代一项工作",
-        why: "Kern 会自己规划和推进",
-        prompt: "帮我处理这件事：",
+        id: "s-new-product",
+        title: "评估一个新品方向",
+        why: "市场、合规、成本逐项研究，红队证伪，给你一个带依据的结论",
+        prompt: "我想开发一个新的产品，方向是：",
+      },
+      {
+        id: "s-competitors",
+        title: "做一份竞品调研",
+        why: "对比定位、价格带和渠道，每个判断标来源，查不到的写明未知",
+        prompt: "帮我做一份竞品调研：比较定位、价格带、渠道和差异化，每个判断标注来源，查不到的写明未知。调研对象是：",
+      },
+      {
+        id: "s-compliance",
+        title: "排查一个方向的合规风险",
+        why: "宣称边界、资质备案、渠道限制，列出可能阻断上市的硬约束",
+        prompt: "帮我排查一个方向的合规风险：宣称边界、资质备案和渠道限制，列出可能阻断上市的硬约束。方向是：",
       },
     ],
   },

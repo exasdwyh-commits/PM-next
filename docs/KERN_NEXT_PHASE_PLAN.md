@@ -26,6 +26,8 @@
 | P0-A | 基线清理：文档 SHA 表述、删除已吸收远程分支、自动删分支 | ✅ 2026-09-26 |
 | 当前 | Display Layer：PR ① 事件 + 控制 + SSE → ② 工作区 UI + 对话卡 → ③ 演示回放 + 产出 + 带走 | 🚧 |
 | P0-B | Research Foundation | ⏳ Display Layer 之后 |
+| T1 | Tenant Pack P1/P2：行业设定抽离为租户包 + 行业中立守卫（`docs/KERN_TENANT_PACK_PLAN.md`） | ✅ 2026-09-27 · 分支 `feat/tenant-pack`，待 PR |
+| T2 | Tenant Pack P3：第二个 pack 实证中立性 + 运行时化（详见同文§4） | ⏳ |
 | P0-C | NEW_PRODUCT Playbook 合流 | ⏳ |
 | P0-D | ModelRun 原子 cost guard + 最小 tracing（**真实模型 dogfooding 之前**） | ⏳ |
 | P0-E | Feedback → Memory → Harness Promotion | ⏳ |

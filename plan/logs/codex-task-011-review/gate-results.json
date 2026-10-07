@@ -1,0 +1,38 @@
+[
+  {
+    "name": "worker",
+    "exitCode": 0
+  },
+  {
+    "name": "kern-message-execution",
+    "exitCode": 0
+  },
+  {
+    "name": "kern-execution-control",
+    "exitCode": 0
+  },
+  {
+    "name": "kern-worker-recovery",
+    "exitCode": 0
+  },
+  {
+    "name": "model-cancellation",
+    "exitCode": 0
+  },
+  {
+    "name": "model-call-quota",
+    "exitCode": 0
+  },
+  {
+    "name": "provider-attempt-quota",
+    "exitCode": 0
+  },
+  {
+    "name": "model-execution-facts",
+    "exitCode": 0
+  },
+  {
+    "name": "kern-supervisor",
+    "exitCode": 1
+  }
+]

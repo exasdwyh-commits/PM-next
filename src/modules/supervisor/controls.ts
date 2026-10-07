@@ -1,11 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { AgentTaskStatus, Prisma } from "@prisma/client";
+import { AgentTaskStatus, Prisma, KernMemoryKind } from "@prisma/client";
 import prisma from "@/shared/db";
 import { createAuditEventInTx } from "@/shared/audit";
 import { ConflictError, NotFoundError, UnprocessableEntityError } from "@/shared/errors";
 import type { SessionContext } from "@/modules/identity/session";
-import { applyPlanEdit, isTerminalNodeStatus, prepareNodeRerun, type MissionPlanEdit } from "./plan";
+import { applyPlanEdit, isTerminalNodeStatus, prepareNodeRerun, rejectionRerunRoot, type MissionPlanEdit } from "./plan";
+import { applyContractReview, contractAccepted, reviewFeedback, type ReviewVerdict } from "./contract";
+import { recordPlaybookAcceptance } from "@/modules/playbooks/service";
+import { refreshMissionMetrics } from "./service";
 import { appendMissionEventsTx, type MissionEventInput } from "./events";
+import { rememberForUser, extractTopics } from "@/modules/memory";
+import { AppError } from "@/shared/errors";
+import { connectorApprovalService } from "@/modules/connectors";
 import {
   advanceKernMission,
   getKernMissionStatus,
@@ -32,7 +38,11 @@ export type MissionControl =
   | { action: "skip"; nodeKey: string }
   | { action: "rerun"; nodeKey: string; feedback?: string }
   | { action: "edit-plan"; edits: MissionPlanEdit[] }
-  | { action: "add-input"; text: string };
+  | { action: "add-input"; text: string }
+  | { action: "answer"; askId: string; mode: "answer" | "ignore" | "abort"; text?: string }
+  | { action: "approve"; askId: string; allow: boolean }
+  /** KX-72：按条复核契约；有打回项则带意见重跑综合结论。 */
+  | { action: "review"; verdicts: ReviewVerdict[] };
 
 export function parseMissionControl(body: unknown): MissionControl {
   const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
@@ -60,6 +70,30 @@ export function parseMissionControl(body: unknown): MissionControl {
       if (!text) break;
       return { action: "add-input", text };
     }
+    case "answer": {
+      const askId = str(b.askId, 100);
+      const mode = b.mode === "answer" || b.mode === "ignore" || b.mode === "abort" ? b.mode : null;
+      const text = str(b.text, 2000);
+      if (!askId || !mode || (mode === "answer" && !text)) break;
+      return { action: "answer", askId, mode, text: mode === "answer" ? text : undefined };
+    }
+    case "approve": {
+      const askId = str(b.askId, 100);
+      if (!askId || typeof b.allow !== "boolean") break;
+      return { action: "approve", askId, allow: b.allow };
+    }
+    case "review": {
+      if (!Array.isArray(b.verdicts) || b.verdicts.length > 40) break;
+      const verdicts: ReviewVerdict[] = [];
+      for (const raw of b.verdicts) {
+        const v = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+        const id = str(v.id, 60);
+        if (!id || typeof v.pass !== "boolean") break;
+        verdicts.push({ id, pass: v.pass, note: str(v.note, 500) || null });
+      }
+      if (verdicts.length !== b.verdicts.length) break;
+      return { action: "review", verdicts };
+    }
   }
   throw new UnprocessableEntityError("Invalid mission control");
 }
@@ -72,6 +106,9 @@ const AUDIT_ACTION: Record<MissionControl["action"], string> = {
   rerun: "KERN_MISSION_NODE_RERUN",
   "edit-plan": "KERN_MISSION_PLAN_EDITED",
   "add-input": "KERN_MISSION_USER_INPUT",
+  answer: "KERN_MISSION_NODE_ANSWERED",
+  approve: "KERN_MISSION_CONNECTOR_APPROVAL",
+  review: "KERN_MISSION_CONTRACT_REVIEWED",
 };
 
 interface Mutation {
@@ -106,6 +143,7 @@ export async function controlKernMission(
     }
   }
 
+  let answeredAsk: AskRef | undefined;
   const mutation = await prisma.$transaction(async (tx) => {
     await tx.$queryRawUnsafe(
       'SELECT "id" FROM "AgentTask" WHERE "id" = $1 AND "organizationId" = $2 FOR UPDATE',
@@ -119,15 +157,81 @@ export async function controlKernMission(
     const snap = root && root.organizationId === session.organizationId ? readMissionSnapshot(root.contextSnapshot) : null;
     if (!root || !snap || snap.requestedByUserId !== session.userId) throw new NotFoundError("Mission not found");
 
-    const m = mutate(session, snap, control);
+    // KX-51b：回答必须对应一个存在且未回答的提问。
+    let ask: AskRef | undefined;
+    let effective: MissionControl = control;
+    let approvedEvent: MissionEventInput | null = null;
+    if (control.action === "answer" || control.action === "approve") {
+      const evs = await tx.kernMissionEvent.findMany({
+        where: {
+          organizationId: session.organizationId,
+          missionTaskId,
+          type: { in: ["node.ask", "node.answered"] },
+          payload: { path: ["askId"], equals: control.askId },
+        },
+        select: { type: true, nodeKey: true, payload: true },
+      });
+      const asked = evs.find((e) => e.type === "node.ask");
+      if (!asked) throw new NotFoundError("Question not found");
+      if (evs.some((e) => e.type === "node.answered")) throw new ConflictError("Question already answered");
+      const p = (asked.payload ?? {}) as Record<string, unknown>;
+      ask = { nodeKey: asked.nodeKey, question: String(p.question ?? "") };
+      answeredAsk = ask;
+      // KX-31b：审批型提问只能用 approve 处理，普通提问不能用 approve。
+      const approval = p.approval as Record<string, unknown> | undefined;
+      if (control.action === "answer" && approval) throw new UnprocessableEntityError("This is an approval request; use approve");
+      if (control.action === "approve") {
+        if (!approval) throw new UnprocessableEntityError("Not an approval request");
+        const title = `${String(approval.connector ?? "")} · ${String(approval.title ?? "")}`;
+        let grantId: string | null = null;
+        if (control.allow) {
+          const svc = connectorApprovalService();
+          if (!svc) throw new AppError("审批服务未配置（PM_OS_APPROVAL_HMAC_SECRET）", "APPROVAL_NOT_CONFIGURED", 503);
+          const grant = await svc.issue(session, {
+            taskRef: missionTaskId,
+            capability: String(approval.capability ?? ""),
+            resource: String(approval.resource ?? ""),
+            actionHash: String(approval.actionHash ?? ""),
+            validUntil: new Date(Date.now() + 60 * 60 * 1000),
+            channel: "kern-mission",
+          });
+          grantId = grant.id;
+        }
+        const text = control.allow
+          ? `允许一次「${title}」。请用完全相同的输入再调用一次 ${String(approval.toolName ?? "")}：${String(approval.inputJson ?? approval.inputPreview ?? "{}")}，然后完成这一步。`
+          : `不允许「${title}」。不要再尝试这个操作，在结论里写明用户未批准。`;
+        effective = control.allow
+          ? { action: "answer", askId: control.askId, mode: "answer", text }
+          : { action: "answer", askId: control.askId, mode: "ignore" };
+        approvedEvent = {
+          type: "node.answered",
+          payload: { askId: control.askId, mode: control.allow ? "answer" : "ignore", decision: control.allow ? "allow" : "deny", text: title, grantId },
+        };
+      }
+    }
+    const inner = mutate(session, snap, effective, ask);
+    const m: Mutation = approvedEvent
+      ? {
+          ...inner,
+          events: [approvedEvent, ...inner.events.filter((e) => e.type !== "node.answered")],
+          summary: control.action === "approve" && control.allow ? `用户允许了一次连接器写操作；${inner.summary}` : "用户没有允许连接器写操作",
+        }
+      : inner;
     await tx.agentTask.update({
       where: { id: missionTaskId },
       data: { ...(m.rootData ?? {}), contextSnapshot: toJson(m.next) },
     });
     if (m.cancelChildIds?.length) {
-      await tx.agentTask.updateMany({
-        where: { id: { in: m.cancelChildIds }, status: AgentTaskStatus.QUEUED },
-        data: { status: AgentTaskStatus.CANCELLED, completedAt: new Date(), blockedReason: "Cancelled by user via Kern mission control" },
+      const cancelled = await tx.$queryRaw<Array<{ id: string }>>`
+        UPDATE "AgentTask" SET status = 'CANCELLED', "completedAt" = now(),
+          "blockedReason" = 'Cancelled by user via Kern mission control',
+          "contextSnapshot" = COALESCE("contextSnapshot", '{}'::jsonb) - 'executorLease'
+        WHERE id = ANY(${m.cancelChildIds}::text[]) AND "organizationId" = ${session.organizationId}
+          AND status NOT IN ('SUCCEEDED', 'FAILED', 'CANCELLED') RETURNING id
+      `;
+      await tx.agentRun.updateMany({
+        where: { agentTaskId: { in: cancelled.map(t => t.id) }, status: { in: ["QUEUED", "RUNNING", "WAITING_CONFIRMATION"] } },
+        data: { status: "CANCELLED", cancelRequestedAt: new Date(), finishedAt: new Date(), errorReason: "用户取消了任务或该步骤已被替换" },
       });
     }
     await createAuditEventInTx(tx, {
@@ -147,12 +251,47 @@ export async function controlKernMission(
     return m;
   });
 
+  // KX-73：复核结束后刷新指标；通过且按做法跑的，做法连续验收 +1（演示不计）。
+  if (control.action === "review") {
+    const next = mutation.next;
+    if (mutation.result.accepted === true && next.playbookRef && !next.demo) await recordPlaybookAcceptance(next.playbookRef.id).catch(() => undefined);
+    // KX-74：打回意见沉淀为「纠正」记忆（程序性记忆），下次同类工作先看；演示不记。
+    if (!next.demo) {
+      const goalTopics = extractTopics(next.plan.goal);
+      for (const v of control.verdicts) {
+        if (v.pass || !v.note?.trim()) continue;
+        const item = next.contract?.acceptance.find((c) => c.id === v.id);
+        await rememberForUser(session, {
+          kind: KernMemoryKind.CORRECTION,
+          content: `做「${next.plan.goal.slice(0, 40)}」这类工作时：${v.note.trim().slice(0, 200)}${item ? `（针对「${item.text.slice(0, 40)}」）` : ""}`,
+          source: `mission:${missionTaskId}:correction:${v.id}`,
+          topics: goalTopics,
+        }).catch(() => undefined);
+      }
+    }
+    await refreshMissionMetrics(session.organizationId, missionTaskId).catch(() => undefined);
+  }
+
+  // KX-51b：回答沉淀为记忆（类似「总是允许」），同类问题下次不必再问；失败（如额度满）不影响回答本身。
+  if (control.action === "answer" && control.mode === "answer" && control.text && answeredAsk?.question) {
+    try {
+      await rememberForUser(session, {
+        kind: "FACT",
+        content: `${answeredAsk.question} → ${control.text}`,
+        source: `mission-ask:${control.askId}`,
+      });
+    } catch {
+      /* 记忆写入失败不影响任务 */
+    }
+  }
   if (mutation.advance) await advanceKernMission(session, missionTaskId);
   return { ok: true as const, action: control.action, ...mutation.result, mission: await getKernMissionStatus(session, missionTaskId) };
 }
 
 /** Pure-ish state transition for a control; throws on an invalid request. */
-function mutate(session: SessionContext, snap: MissionSnapshot, control: MissionControl): Mutation {
+type AskRef = { nodeKey: string | null; question: string };
+
+function mutate(session: SessionContext, snap: MissionSnapshot, control: MissionControl, ask?: AskRef): Mutation {
   const at = new Date().toISOString();
   const running = !snap.outcome;
   const log = (event: string, detail?: string) => [...snap.log, { at, event, detail }].slice(-200);
@@ -291,6 +430,120 @@ function mutate(session: SessionContext, snap: MissionSnapshot, control: Mission
         summary: `用户补充了信息（将带入 ${pending.length} 个后续步骤）`,
         advance: true,
         result: { inputId: input.id, willApplyTo: pending },
+      };
+    }
+    case "answer": {
+      if (snap.outcome?.status === "CANCELLED") throw new ConflictError("Mission was cancelled");
+      const answered = {
+        type: "node.answered" as const,
+        payload: { askId: control.askId, mode: control.mode, text: control.text ?? null },
+      };
+      if (control.mode === "abort") {
+        requireRunning();
+        const cancel = mutate(session, snap, { action: "cancel" });
+        return { ...cancel, events: [answered, ...cancel.events], summary: `用户在提问处中止了任务；${cancel.summary}` };
+      }
+      if (control.mode === "ignore" || !control.text) {
+        return {
+          next: { ...snap, log: log("NODE_ANSWERED", `${control.askId}:ignore`) },
+          events: [answered],
+          summary: "用户确认按默认假设继续",
+          advance: false,
+          result: { askId: control.askId, mode: control.mode, applied: "none" },
+        };
+      }
+      // 回答：以用户回答为准重做提问的那一步（非阻塞提问的收口）。
+      const nodeKey = ask?.nodeKey ?? null;
+      const feedback = `用户回答了你之前的提问「${ask?.question ?? ""}」：${control.text}。以用户回答为准重做这一步，不再使用默认假设。`;
+      const ns = nodeKey ? snap.state.nodes[nodeKey] : undefined;
+      if (nodeKey && ns?.status === "ACTIVE") {
+        // 还在跑：作废当前这次执行，带着回答重新派发（旧结果在 reconcile 时因 taskId 不匹配被忽略）。
+        const state = JSON.parse(JSON.stringify(snap.state)) as MissionSnapshot["state"];
+        state.nodes[nodeKey] = { ...state.nodes[nodeKey], status: "PENDING", taskId: null, summary: null, reason: null, qa: null, revisionFeedback: feedback };
+        return {
+          next: { ...snap, state, log: log("NODE_ANSWERED", `${control.askId}:rerun-active`) },
+          cancelChildIds: ns.taskId ? [ns.taskId] : [],
+          events: [answered, { type: "node.rerun", nodeKey, payload: { resetKeys: [nodeKey], feedback, reason: "USER_ANSWERED", reopened: false } }],
+          summary: `用户回答了提问，「${nodeKey}」带着回答重做`,
+          advance: true,
+          result: { askId: control.askId, mode: control.mode, applied: "rerun", resetKeys: [nodeKey] },
+        };
+      }
+      if (nodeKey && ns && isTerminalNodeStatus(ns.status) && !snap.paused) {
+        const prepared = prepareNodeRerun(snap.plan, snap.state, nodeKey, feedback);
+        if (!("error" in prepared)) {
+          const reopened = !!snap.outcome;
+          return {
+            next: { ...snap, plan: prepared.plan, state: prepared.state, outcome: null, log: log("NODE_ANSWERED", `${control.askId}:rerun`) },
+            rootData: reopened ? { status: AgentTaskStatus.RUNNING, completedAt: null, blockedReason: null } : undefined,
+            events: [answered, { type: "node.rerun", nodeKey, payload: { resetKeys: prepared.resetKeys, feedback, reason: "USER_ANSWERED", reopened } }],
+            summary: `用户回答了提问，重做「${nodeKey}」（连带 ${prepared.resetKeys.length - 1} 个下游步骤）`,
+            advance: true,
+            result: { askId: control.askId, mode: control.mode, applied: "rerun", resetKeys: prepared.resetKeys, reopened },
+          };
+        }
+      }
+      // 兜底（重跑次数用完 / 下游正在跑 / 已暂停）：作为补充信息带入后续步骤。
+      const input = { id: randomUUID(), at, text: `${ask?.question ?? ""} → ${control.text}`, appliedTo: [] as string[] };
+      const pending = snap.plan.nodes.filter((n) => snap.state.nodes[n.key]?.status === "PENDING").map((n) => n.key);
+      return {
+        next: { ...snap, userInputs: [...(snap.userInputs ?? []), input].slice(-20), log: log("NODE_ANSWERED", `${control.askId}:input`) },
+        events: [answered, { type: "user.input", payload: { inputId: input.id, text: input.text, willApplyTo: pending } }],
+        summary: `用户回答了提问（将带入 ${pending.length} 个后续步骤）`,
+        advance: running,
+        result: { askId: control.askId, mode: control.mode, applied: "input", willApplyTo: pending },
+      };
+    }
+    case "approve":
+      // controlKernMission 先把 approve 换算成 answer 再调用 mutate，这里不会走到。
+      throw new UnprocessableEntityError("approve must be translated before mutate");
+    case "review": {
+      if (!snap.contract) throw new ConflictError("This mission has no contract to review");
+      if (snap.outcome?.status !== "COMPLETED") throw new ConflictError("Review is only possible after the mission completed");
+      const reviewed = applyContractReview(snap.contract, control.verdicts, { userId: session.userId, at });
+      const round = reviewed.contract.reviews.length;
+      const base = {
+        type: "contract.reviewed" as const,
+        payload: { round, rejected: reviewed.rejected.map((c) => ({ id: c.id, text: c.text, note: c.note })), accepted: reviewed.rejected.length === 0 },
+      };
+      if (!reviewed.rejected.length) {
+        return {
+          next: { ...snap, contract: reviewed.contract, log: log("CONTRACT_ACCEPTED", `round ${round}`) },
+          events: [base],
+          summary: `用户复核通过（第 ${round} 轮），契约成立`,
+          advance: false,
+          result: { accepted: contractAccepted(reviewed.contract), round, rejected: [] },
+        };
+      }
+      // 有打回：从「被打回的那条真正怪罪的节点」重跑（连带下游），任务重新打开。
+      // 只重跑综合结论的话，QA 的 FAIL 结论原样保留，auto:qa-pass 永远过不了（窗口 B 实测）。
+      const synth = snap.plan.nodes.find((n) => n.kind === "SYNTHESIS");
+      const rerunKey = rejectionRerunRoot(snap.plan, snap.state, reviewed.rejected.map((c) => c.id)) ?? synth?.key ?? null;
+      const prepared = rerunKey ? prepareNodeRerun(snap.plan, snap.state, rerunKey, reviewFeedback(reviewed.rejected)) : { error: "NO_SYNTHESIS" as const };
+      if ("error" in prepared) {
+        // 重跑不了（次数用完等）：只记录复核结果，让用户看到哪些没过。
+        return {
+          next: { ...snap, contract: reviewed.contract, log: log("CONTRACT_REJECTED", `round ${round}:${prepared.error}`) },
+          events: [base],
+          summary: `用户打回 ${reviewed.rejected.length} 条，但无法重跑（${prepared.error}）`,
+          advance: false,
+          result: { accepted: false, round, rejected: reviewed.rejected.map((c) => c.id), rerun: null, error: prepared.error },
+        };
+      }
+      // 重跑后：自动项回到待检查；被打回的人工项回到待复核（保留意见，下一轮用户再判）。
+      const contract = {
+        ...reviewed.contract,
+        acceptance: reviewed.contract.acceptance.map((c) =>
+          c.check === "auto" ? { ...c, status: "PENDING" as const, note: null } : c.status === "FAIL" ? { ...c, status: "PENDING" as const } : c
+        ),
+      };
+      return {
+        next: { ...snap, plan: prepared.plan, state: prepared.state, outcome: null, contract, log: log("CONTRACT_REJECTED", `round ${round}:${reviewed.rejected.map((c) => c.id).join(",")}`) },
+        rootData: { status: AgentTaskStatus.RUNNING, completedAt: null, blockedReason: null },
+        events: [base, { type: "node.rerun", nodeKey: rerunKey!, payload: { resetKeys: prepared.resetKeys, feedback: reviewFeedback(reviewed.rejected), reason: "CONTRACT_REJECTED", reopened: true } }],
+        summary: `用户打回 ${reviewed.rejected.length} 条完成标准，从「${rerunKey}」起按意见重做`,
+        advance: true,
+        result: { accepted: false, round, rejected: reviewed.rejected.map((c) => c.id), rerun: prepared.resetKeys },
       };
     }
   }

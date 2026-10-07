@@ -29,6 +29,9 @@ test("decision: inline, heading form, and 'nothing to decide'", () => {
   const heading = "1. 结论与建议\n做 A\n5. 需要你决定的事\n- 是否签约代工厂\n- 定价 199 还是 249\n## 附录\n无关";
   assert.equal(extractDecision(heading), "- 是否签约代工厂\n- 定价 199 还是 249");
   assert.equal(extractDecision("5. 需要你决定的事：目前不需要你决定"), null);
+  assert.equal(extractDecision("报告即为最终交付物，可在产出视图下载导出，目前不需要你决定。"), null);
+  assert.equal(extractDecision("**需要你决定的事**\n目前不需要你决定。"), null);
+  assert.equal(extractDecision("无需再次确认。需要你决定的事：是否签约供应商。"), "是否签约供应商。");
   assert.equal(extractDecision("没有这一节"), null);
   assert.equal(extractDecision(null), null);
 });

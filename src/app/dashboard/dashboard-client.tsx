@@ -36,14 +36,13 @@ export default function DashboardClient({ initialStats, user, runtime, knowledge
       topbarRight={<Link href="/" className="hermes-link">← 返回工作简报</Link>}
     >
       <PageHeading
-        eyebrow="RAW COUNTS · 明细层"
         title="数据明细"
         subtitle="本页是原始计数的可追溯视图，不做结论。日常阅读请先看工作简报。"
       />
 
       <StatGrid>
         <Stat label="参与项目" value={s.projectCount} />
-        <Stat label="OPEN 数据缺口" value={s.openGapCount} />
+        <Stat label="待补数据缺口" value={s.openGapCount} />
         <Stat label="在册成员" value={s.memberCount} />
         <Stat label="决策包总数" value={packetTotal} />
         <Stat label="原料证据卡" value={s.ingredientCount} />

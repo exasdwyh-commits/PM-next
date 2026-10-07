@@ -1,3 +1,4 @@
+import { getTenantPack } from "@/modules/tenant";
 import prisma from "@/shared/db";
 import { NotFoundError } from "@/shared/errors";
 import { SessionContext, requireProjectRole } from "../identity/session";
@@ -302,7 +303,7 @@ async function branchMarket(runId: string): Promise<TaskOutcome> {
     frozenRequirement?.productName ||
     legacyRequirement.productName ||
     project.productVersion?.product?.name ||
-    "健康食品";
+    getTenantPack().tenant.defaults.categoryName;
 
   try {
     const report = synthesizeMarketResearch(run.projectId, categoryName, constraints, verifiedSnippets);

@@ -31,6 +31,7 @@ import {
   startResearchRun,
 } from "@/modules/research/research-run";
 import type { ExecutiveReportPayload } from "@/shared/executive-report-types";
+import { describeAutoAdvance } from "./advance-retry";
 
 const PRODUCT_RND_SPECIALISTS = [
   {
@@ -904,6 +905,8 @@ export async function getProductRndProgramStatus(
       inputRevision: workItem.inputRevision,
     },
     parentTaskId: parent?.id ?? null,
+    // KX-05：自动推进失败时告诉界面失败了几次、下次何时自动重试、是否已停止自动重试。
+    autoAdvance: describeAutoAdvance(parent?.blockedReason),
     tasks:
       parent?.childTasks.map((task) => ({
         id: task.id,

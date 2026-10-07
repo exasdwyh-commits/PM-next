@@ -1,3 +1,4 @@
+import { getTenantPack } from "@/modules/tenant";
 /**
  * 挑战我的判断（Challenge My Thesis）
  *
@@ -84,7 +85,7 @@ export function generateChallengeReport(input: ChallengeInput): ChallengeReport 
 
   const triggers = shouldTriggerScientificReview({
     claim: proposedClaim,
-    hasHealthClaim: /改善|降低|逆龄|减龄|生物年龄|甲基化年龄|抗衰|预防|治疗|健康|功效|代谢|衰老|免疫|血糖|血压|肠道|肌肉|减肥/.test(proposedClaim),
+    hasHealthClaim: new RegExp(getTenantPack().claims.healthClaimPattern).test(proposedClaim),
     advisorVerdict: advisorVerdict ?? null,
     productPrice: targetPrice,
     evidenceConfidence:
@@ -155,7 +156,7 @@ export function generateChallengeReport(input: ChallengeInput): ChallengeReport 
     );
   }
   if (topFailureReasons.length < 3 && (targetPrice ?? 0) > 1500) {
-    topFailureReasons.push(`定价 ${targetPrice} 元属于高客单价，消费者对「体感」预期极高，抗衰老品类常见「无体感退货」`);
+    topFailureReasons.push(getTenantPack().claims.messages.highPriceRisk.replace("{price}", String(targetPrice)));
   }
   if (topFailureReasons.length < 3 && ingredients.length > 2) {
     topFailureReasons.push(`复配 ${ingredients.length} 种原料，但联用人体证据未知，可能只是「堆砌明星原料」`);
@@ -171,9 +172,9 @@ export function generateChallengeReport(input: ChallengeInput): ChallengeReport 
   }
 
   const vetoData: string[] = [];
-  const hasMethylationClaim = /甲基化|生物年龄|逆龄|减龄|年轻/.test(proposedClaim);
+  const hasMethylationClaim = new RegExp(getTenantPack().claims.biomarkerClaimPattern).test(proposedClaim);
   if (hasMethylationClaim) {
-    vetoData.push("若后续同批样本检测显示甲基化年龄无变化或上升，则停止扩大该宣称（需先取得真实检测结果）");
+    vetoData.push(getTenantPack().claims.messages.biomarkerVeto);
   }
   const lowLevelIngredients = ingredients.filter((i) => i.evidenceLevel === "D");
   if (lowLevelIngredients.length > 0) {

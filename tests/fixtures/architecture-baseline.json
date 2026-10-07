@@ -1,0 +1,135 @@
+{
+  "note": "KX-70 分层守卫基线：只许减少、不许新增；每条须带论证 why（见 tests/helpers/architecture-layers.ts 的 BaselineEntry）。还掉一条后运行 `npm run arch:baseline` 重写本文件，旧论证会自动保留，新条目留空待补。",
+  "layerViolations": [
+    {
+      "key": "src/modules/cost-engine/scenarios.ts -> modules/work",
+      "why": "成本场景落盘复用 work 的 structured-artifacts 写入客户端与 artifact-schema 版本常量（L5 引 L4），不另建第二套 artifact 写入。消除路径：把写入客户端下沉到 shared。"
+    },
+    {
+      "key": "src/modules/desktop-runtime/service.ts -> modules/workforce",
+      "why": "桌面运行时是 workforce 任务的执行外壳，create/start/finishAgentTask 与 bootstrapDefaultWorkforce 全经 workforce/service（L4 引 L3）。消除路径：把任务生命周期接口下沉为底座能力。"
+    },
+    {
+      "key": "src/modules/evidence/source-fetch-executor.ts -> modules/governance",
+      "why": "取证执行器经 governance 的 ToolBroker 出站，外部抓取必须受治理门管控（L5 引 L4），是安全设计而非绕路。长期接受：治理门就是出站的唯一入口。"
+    },
+    {
+      "key": "src/modules/product-development/analysis.ts -> modules/advisor",
+      "why": "专业分析动态调用 advisor/context 的 buildAuthorizedAnalysisContext 组装鉴权后上下文（L3 引 L2），复用 L2 的授权上下文能力而非自建。消除路径：授权上下文组装下沉为平台能力。"
+    },
+    {
+      "key": "src/modules/product-development/professional-analysis.ts -> modules/advisor",
+      "why": "直接复用 advisor/llm 的 createAdvisorLLMClient 与 advisor/context 类型（L3 引 L2），与上一条同源。消除路径：同上，LLM 接入与授权上下文下沉后消除。"
+    },
+    {
+      "key": "src/modules/schedule/service.ts -> modules/muse",
+      "why": "定时执行前读 muse 的注意力 read-model（loadAttentionForUser）做触发判断（L4 引 L2）。消除路径：注意力状态改走事件或注册表推送而非直接读模型。"
+    },
+    {
+      "key": "src/modules/schedule/service.ts -> modules/supervisor",
+      "why": "定时槽位到期直接 launchKernMission 起 mission，并用 readMissionSnapshot 与 automationEligibility 做门控（L4 引 L2）；schedule 是 mission 的定时触发器，依赖 supervisor 服务是职责使然。消除路径：触发经统一任务总线而非直调。"
+    }
+  ],
+  "appDbFiles": [
+    {
+      "key": "src/app/api/attachments/[id]/route.ts",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/api/auth/session/route.ts",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/api/evidences/[id]/verify/route.ts",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/api/health/details/route.ts",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/api/health/route.ts",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/api/memory/route.ts",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/api/products/[id]/cost-scenarios/route.ts",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/api/products/[id]/revisions/compare/route.ts",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/api/projects/[id]/attachments/route.ts",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/api/projects/[id]/evidence-gaps/route.ts",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/api/projects/[id]/evidences/route.ts",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/api/projects/[id]/opportunity/route.ts",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/api/projects/route.ts",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/api/workforce/tasks/route.ts",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/consultation/page.tsx",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/dashboard/page.tsx",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/knowledge/page.tsx",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/manage/page.tsx",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/organization/page.tsx",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/products/page.tsx",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/projects/[id]/page.tsx",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/projects/page.tsx",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/settings/page.tsx",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/trace/page.tsx",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/war-room/page.tsx",
+      "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    }
+  ]
+}

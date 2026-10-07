@@ -15,15 +15,8 @@
  * 本地 vLLM / Ollama 等）。接非兼容协议时新增 adapter，不改 AdvisorLLMClient 接口。
  */
 
-export interface AdvisorLLMConfig {
-  provider: string;
-  modelId: string;
-  baseUrl: string;
-  apiKey: string | null;
-  timeoutMs: number;
-  maxTokens: number;
-  temperature: number;
-}
+import { getAdvisorLLMConfig, isAdvisorLLMEnabled, type AdvisorLLMConfig } from "../model-gateway/legacy-config";
+export { getAdvisorLLMConfig, isAdvisorLLMEnabled, type AdvisorLLMConfig } from "../model-gateway/legacy-config";
 
 export interface AdvisorLLMMessage {
   role: "system" | "user" | "assistant";
@@ -63,36 +56,12 @@ export class AdvisorLLMError extends Error {
  * - 此处只判断开关本身；模型标识是否配置由 createAdvisorLLMClient 校验，
  *   显式开了开关却缺配置时抛错，而不是静默回落（避免误配置被掩盖）。
  */
-export function isAdvisorLLMEnabled(): boolean {
-  const raw = process.env.ADVISOR_LLM_ENABLED?.trim().toLowerCase();
-  return raw === "true" || raw === "1" || raw === "on";
-}
-
-export function getAdvisorLLMConfig(): AdvisorLLMConfig {
-  const provider = process.env.ADVISOR_MODEL_PROVIDER?.trim() || "openai-compatible";
-  const modelId = process.env.ADVISOR_MODEL_ID?.trim() || "";
-  const baseUrl =
-    process.env.ADVISOR_LLM_BASE_URL?.trim().replace(/\/+$/, "") || "https://api.openai.com/v1";
-  const timeoutMs = parseInt(process.env.ADVISOR_LLM_TIMEOUT_MS?.trim() || "30000", 10);
-  const maxTokens = parseInt(process.env.ADVISOR_LLM_MAX_TOKENS?.trim() || "1024", 10);
-  const temperature = parseFloat(process.env.ADVISOR_LLM_TEMPERATURE?.trim() || "0.2");
-
-  return {
-    provider,
-    modelId,
-    baseUrl,
-    apiKey: process.env.ADVISOR_LLM_API_KEY?.trim() || null,
-    timeoutMs: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30000,
-    maxTokens: Number.isFinite(maxTokens) && maxTokens > 0 ? maxTokens : 1024,
-    temperature: Number.isFinite(temperature) ? temperature : 0.2,
-  };
-}
-
 /**
  * 工厂：未启用返回 null（调用方回落确定性工具）；启用但缺 modelId 视为配置错误并抛出，
  * 由调用方把失败原因如实写进运行留痕。apiKey 允许为 null：本地网关（vLLM/Ollama）
  * 常不设鉴权，由端点自身决定。
  */
+/** @deprecated Compatibility adapter for isolated tests; product execution uses executeLegacyAdvisorModel. */
 export function createAdvisorLLMClient(): AdvisorLLMClient | null {
   if (!isAdvisorLLMEnabled()) return null;
   const cfg = getAdvisorLLMConfig();

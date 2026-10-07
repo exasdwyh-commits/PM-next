@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/modules/identity/session";
-import { sendDepartmentAssistantMessage, getKernConversation } from "@/modules/assistant-runtime";
+import { acceptKernMessage, listKernMessageExecutions, getKernConversation } from "@/modules/assistant-runtime";
 import { handleApiError } from "@/shared/api-handler";
+import { readJsonObjectBody } from "@/shared/request-body";
 
 export async function GET(
   req: NextRequest,
@@ -10,8 +11,10 @@ export async function GET(
   try {
     const session = await getServerSession(req);
     const { id: conversationId } = await params;
+    const executions = await listKernMessageExecutions(session, conversationId);
     const conversation = await getKernConversation(session, conversationId);
     return NextResponse.json({
+      ...executions,
       messages: conversation.messages.map((message) => ({
         id: message.id,
         role: message.role,
@@ -33,23 +36,9 @@ export async function POST(
   try {
     const session = await getServerSession(req);
     const { id: conversationId } = await params;
-    const body = await req.json();
-    const result = await sendDepartmentAssistantMessage(session, conversationId, body?.content);
-    return NextResponse.json(
-      {
-        runId: result.runId,
-        message: {
-          id: result.message.id,
-          role: result.message.role,
-          content: result.message.content,
-          createdAt: result.message.createdAt,
-          citations: result.message.citations,
-        },
-        proposal: result.proposal ?? null,
-        visualGraph: result.visualGraphShadow ?? null,
-      },
-      { status: 201 }
-    );
+    const body = await readJsonObjectBody(req);
+    const result = await acceptKernMessage(session, conversationId, { content: body?.content, clientMessageId: body?.clientMessageId });
+    return NextResponse.json(result, { status: result.replayed ? 200 : 202 });
   } catch (error) {
     return handleApiError(error, req);
   }

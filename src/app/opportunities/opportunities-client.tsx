@@ -203,15 +203,15 @@ export default function OpportunitiesClient({
       user={{ name: currentSession?.userName, meta: currentSession?.userEmail }}
       runtime={runtime}
       topbarLeft={
+        /* 2026-10-04：顶栏页名与页内 h1 同名会重复一次（首屏可见的冗余）。
+           顶栏改为只放**分区上下文**，页面主标题由 h1 独占。 */
         <div className="hermes-topbar-title">
-          <span className="eyebrow">MARKET SIGNALS</span>
-          <strong>市场机会</strong>
+          <span className="hermes-topbar-scope">工作台</span>
         </div>
       }
     >
       <div className="hermes-page-heading">
         <div>
-          <p className="eyebrow">机会库</p>
           <h1>市场机会</h1>
           <p>有来源的信号、机会摘要与待验证假设</p>
         </div>
@@ -224,8 +224,8 @@ export default function OpportunitiesClient({
       <div className="hermes-banner is-warn">
         <strong>关于数据来源（如实标注）</strong>
         <div style={{ marginTop: 4 }}>
-          自动监测尚未接入：所有外部平台 adapter 当前均未真实接入，采集时会跳过而非伪造。
-          现阶段仅支持手工录入来源明确的观察，录入后核验状态保持「未核实」，需人工补充证据后再转为决策依据。
+          自动监测尚未接入，采集时会跳过而非伪造。现阶段仅支持手工录入来源明确的观察，
+          录入后保持「未核实」，需人工补充证据后再转为决策依据。
         </div>
       </div>
 
@@ -239,11 +239,10 @@ export default function OpportunitiesClient({
       </section>
 
       {/* 机会雷达：两轴当前无可靠连续数值来源 → 不画点，只出坐标框 + 来源说明（证据契约）。 */}
-      <Panel eyebrow="OPPORTUNITY RADAR" title="机会雷达" sub="价值轴 × 匹配度轴：无可靠数据源时不绘制。">
+      <Panel title="机会雷达" sub="价值轴 × 匹配度轴：无可靠数据源时不绘制。">
         <BubbleChart data={[]} xLabel="价值轴" yLabel="匹配度轴" source="none" />
         <p className="viz-source-note">
-          匹配度轴无数据：SignalItem.relevance 无任何写入（唯一写入点恒为 null）；价值轴仅人工序数 valueTier
-          （high / normal / low，且可空），importance 恒为 1。两轴都不满足可靠连续数值，故不绘制。
+          匹配度暂无数据，价值只有人工定的高中低三档，画不出可靠散点；数据补齐后自动绘制。
         </p>
       </Panel>
 

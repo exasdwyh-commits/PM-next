@@ -1,24 +1,27 @@
 "use client";
 
 import * as React from "react";
-import { Badge, Empty } from "@/components/ui";
+import { Empty } from "@/components/ui";
 import {
   EXECUTIVE_REPORT_PROVENANCE_PREVIEW_LIMIT,
   type ExecutiveReportPayload,
 } from "@/shared/executive-report-types";
 import { labelAgentTaskStatus, labelEvidenceClaimKind, labelEvidenceLevel } from "@/shared/status-labels";
+import { Count, Tag, type Tone } from "@/components/kx";
+import "./executive-report.css";
 
 /**
- * Executive Report Renderer
+ * Executive Report Renderer（KX-22 方案 C：决策面板 + 依据表）
  *
- * 负责人先看“能不能继续 / 还缺什么 / 要我决定什么”，
- * 再按需下钻结论、专业意见与溯源。UNKNOWN 与风险始终保持显式。
+ * 主区：结论 → 关键依据表 → 最大风险 / UNKNOWN 并排 → 附录折叠；
+ * 右侧常驻「需要你决定」面板（含下一步与去做决策 / 去补证据），手机上落到正文下方。
+ * UNKNOWN 与风险始终显式；决策不会由 AI 自动批准。
  */
 
-function toneOfVerification(status?: string | null) {
-  if (status === "READY_FOR_HUMAN_REVIEW") return "ok" as const;
-  if (status === "BLOCKED_BY_QA") return "danger" as const;
-  return "warn" as const;
+function toneOfVerification(status?: string | null): Tone {
+  if (status === "READY_FOR_HUMAN_REVIEW") return "ok";
+  if (status === "BLOCKED_BY_QA") return "bad";
+  return "warn";
 }
 
 function verificationLabel(status?: string | null) {
@@ -34,37 +37,53 @@ function verificationLabel(status?: string | null) {
   }
 }
 
-function evidenceLevelTone(level?: string | null) {
+function evidenceLevelTone(level?: string | null): Tone {
   switch ((level || "").toUpperCase()) {
     case "A":
     case "B":
-      return "ok" as const;
+      return "ok";
     case "C":
-      return "warn" as const;
+      return "warn";
     case "D":
-      return "danger" as const;
+      return "bad";
     default:
-      return "neutral" as const;
+      return "";
   }
 }
 
-function BulletList({
-  items,
-  emptyText,
-  tone,
-}: {
-  items: string[];
-  emptyText: string;
-  tone?: "warn" | "danger";
-}) {
-  if (!items.length) {
-    return <p className="hermes-row-meta">{emptyText}</p>;
+function agentStatusTone(status?: string | null): Tone {
+  switch (status) {
+    case "COMPLETED":
+      return "ok";
+    case "FAILED":
+    case "BLOCKED":
+      return "bad";
+    case "PARTIAL":
+    case "WAITING_HUMAN":
+      return "warn";
+    default:
+      return "";
   }
+}
 
+function DotList({ items, tone, emptyText }: { items: string[]; tone: Tone; emptyText: string }) {
+  if (!items.length) {
+    return (
+      <ul className="kx-rp-list">
+        <li>
+          <i className="kx-dot is-ok" aria-hidden />
+          <span className="kx-rp-muted">{emptyText}</span>
+        </li>
+      </ul>
+    );
+  }
   return (
-    <ul className={`hermes-report-list ${tone ? `is-${tone}` : ""}`}>
+    <ul className="kx-rp-list">
       {items.map((item, index) => (
-        <li key={index}>{item}</li>
+        <li key={index}>
+          <i className={`kx-dot${tone ? ` is-${tone}` : ""}`} aria-hidden />
+          <span>{item}</span>
+        </li>
       ))}
     </ul>
   );
@@ -100,239 +119,202 @@ export function ExecutiveReportView({
   const provenance = report.provenance;
   const tone = toneOfVerification(report.verificationStatus);
 
-  const primaryMessage =
-    report.verificationStatus === "BLOCKED_BY_QA"
-      ? "这份报告暂不能用于推进正式决策。先处理独立 QA 指出的阻断项。"
-      : unknowns.length > 0
-        ? `当前还有 ${unknowns.length} 个未闭合项。建议先补证据或人工确认，再做不可逆决策。`
-        : decisions.length > 0
-          ? `证据与 QA 已形成管理结论，现在有 ${decisions.length} 个事项需要负责人判断。`
-          : "当前没有显式未闭合项或待决策项，可以结合正式门禁要求继续推进。";
-
   return (
-    <section data-testid="executive-report" className="hermes-executive-report">
-      <header className="hermes-report-hero">
-        <div className="hermes-report-hero-copy">
-          <span className="eyebrow">EXECUTIVE REPORT</span>
-          <h2>{report.title || "产品研发管理报告"}</h2>
-          <p><strong>当前结论：</strong>{report.summary || "报告未提供摘要。"}</p>
-        </div>
-        <div className="hermes-report-hero-meta">
-          <Badge tone={tone}>{verificationLabel(report.verificationStatus)}</Badge>
-          {report.contentVersion !== undefined ? (
-            <span className="hermes-chip">v{report.contentVersion}</span>
-          ) : null}
-          {report.createdAt ? (
-            <span>{new Date(report.createdAt).toLocaleString()}</span>
-          ) : null}
-        </div>
+    <section data-testid="executive-report" className="kx-rp">
+      <header className="kx-rp-title">
+        <h2>{report.title || "产品研发管理报告"}</h2>
+        <Tag tone={tone}>{verificationLabel(report.verificationStatus)}</Tag>
+        <span className="kx-rp-meta">
+          {[
+            report.contentVersion !== undefined ? `v${report.contentVersion}` : null,
+            report.createdAt ? new Date(report.createdAt).toLocaleString() : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
       </header>
 
-      <div
-        className={`hermes-report-next-action is-${
-          report.verificationStatus === "BLOCKED_BY_QA"
-            ? "danger"
-            : unknowns.length > 0
-              ? "warn"
-              : "ok"
-        }`}
-      >
-        <div>
-          <span>负责人现在最需要知道</span>
-          <strong>{primaryMessage}</strong>
-        </div>
-        <div className="hermes-inline">
-          {unknowns.length > 0 && onOpenEvidence ? (
-            <button type="button" className="hermes-outline-btn hermes-btn-sm" onClick={onOpenEvidence}>
-              去补证据
-            </button>
-          ) : null}
-          {decisions.length > 0 && onOpenDecisions ? (
-            <button type="button" className="hermes-primary-btn hermes-btn-sm" onClick={onOpenDecisions}>
-              去做决策
-            </button>
-          ) : null}
-        </div>
-      </div>
+      <div className="kx-rp-layout">
+        <div className="kx-rp-main">
+          <section className={`kx-rp-verdict is-${tone}`} aria-label="当前结论">
+            <p>
+              <b>当前结论：</b>
+              {report.summary || "报告未提供摘要。"}
+            </p>
+            {report.verificationStatus === "BLOCKED_BY_QA" ? (
+              <p className="kx-rp-note">这份报告暂不能用于推进正式决策。先处理独立 QA 指出的阻断项。</p>
+            ) : null}
+          </section>
 
-      <div className="hermes-report-metrics" aria-label="管理报告关键事项">
-        <button type="button" onClick={onOpenEvidence} disabled={!onOpenEvidence}>
-          <span>未闭合项</span>
-          <strong>{unknowns.length}</strong>
-          <small>UNKNOWN / 缺口</small>
-        </button>
-        <div>
-          <span>显式风险</span>
-          <strong>{risks.length}</strong>
-          <small>需要控制或验证</small>
-        </div>
-        <button type="button" onClick={onOpenDecisions} disabled={!onOpenDecisions}>
-          <span>需负责人决策</span>
-          <strong>{decisions.length}</strong>
-          <small>不会由 AI 自动批准</small>
-        </button>
-        <div>
-          <span>有效结论</span>
-          <strong>{conclusions.length}</strong>
-          <small>绑定证据与核验</small>
-        </div>
-      </div>
-
-      <div className="hermes-report-priority-grid">
-        <section className="hermes-report-block is-decision">
-          <div className="hermes-report-block-head">
-            <div>
-              <span className="eyebrow">HUMAN DECISION</span>
-              <h3>需要你决定</h3>
+          <section className="kx-rp-card" aria-labelledby="kx-rp-evidence">
+            <div className="kx-rp-card-h">
+              <h3 id="kx-rp-evidence">关键依据</h3>
+              <Count n={conclusions.length} />
             </div>
-            <Badge tone={decisions.length > 0 ? "warn" : "neutral"}>
-              {decisions.length}
-            </Badge>
-          </div>
-          <BulletList items={decisions} emptyText="当前没有待负责人决策项。" />
-        </section>
+            {conclusions.length === 0 ? (
+              <p className="kx-rp-muted kx-rp-pad">尚无 claim 满足进入管理结论的条件。</p>
+            ) : (
+              <table className="kx-rp-table">
+                <thead>
+                  <tr>
+                    <th scope="col">结论</th>
+                    <th scope="col">类型</th>
+                    <th scope="col">证据</th>
+                    <th scope="col">新鲜度 / 来源</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {conclusions.map((conclusion, index) => (
+                    <tr key={index}>
+                      <td className="kx-rp-claim">{conclusion.claim}</td>
+                      <td>
+                        {conclusion.claimKind ? <Tag>{labelEvidenceClaimKind(conclusion.claimKind)}</Tag> : null}
+                      </td>
+                      <td>
+                        <Tag tone={evidenceLevelTone(conclusion.evidenceLevel)}>
+                          证据 {labelEvidenceLevel(conclusion.evidenceLevel || "UNKNOWN")}
+                        </Tag>
+                      </td>
+                      <td className="kx-rp-src">
+                        {[
+                          conclusion.freshness,
+                          conclusion.evidenceRef,
+                          conclusion.verificationRefs?.length
+                            ? `${conclusion.verificationRefs.length} 条核验`
+                            : "未核验",
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
 
-        <section className="hermes-report-block is-gap">
-          <div className="hermes-report-block-head">
-            <div>
-              <span className="eyebrow">UNKNOWN</span>
-              <h3>还不能下结论</h3>
-            </div>
-            <Badge tone={unknowns.length > 0 ? "warn" : "neutral"}>
-              {unknowns.length}
-            </Badge>
+          <div className="kx-rp-two">
+            <section className="kx-rp-sec" aria-labelledby="kx-rp-risk">
+              <h3 id="kx-rp-risk">
+                最大风险 <Count n={risks.length} bad />
+              </h3>
+              <DotList items={risks} tone="bad" emptyText="未识别到显式风险。" />
+            </section>
+            <section className="kx-rp-sec" aria-labelledby="kx-rp-unknown">
+              <h3 id="kx-rp-unknown">
+                UNKNOWN · 还不能下结论 <Count n={unknowns.length} bad />
+              </h3>
+              <DotList items={unknowns} tone="warn" emptyText="当前报告没有显式未闭合项。" />
+            </section>
           </div>
-          <BulletList
-            items={unknowns}
-            tone="warn"
-            emptyText="当前报告没有显式未闭合项。"
-          />
-        </section>
-      </div>
 
-      {risks.length > 0 ? (
-        <section className="hermes-report-block is-risk">
-          <div className="hermes-report-block-head">
-            <div>
-              <span className="eyebrow">RISK</span>
-              <h3>最大风险与关键风险</h3>
-            </div>
-            <Badge tone="danger">{risks.length}</Badge>
-          </div>
-          <BulletList items={risks} tone="danger" emptyText="未识别到显式风险。" />
-        </section>
-      ) : null}
-
-      <section className="hermes-report-block">
-        <div className="hermes-report-block-head">
-          <div>
-            <span className="eyebrow">RECOMMENDATION</span>
-            <h3>下一步</h3>
-          </div>
-          <Badge tone="neutral">{actions.length}</Badge>
-        </div>
-        <BulletList items={actions} emptyText="报告未给出额外建议动作。" />
-      </section>
-
-      <section className="hermes-report-block">
-        <div className="hermes-report-block-head">
-          <div>
-            <span className="eyebrow">EVIDENCE-BACKED CLAIMS</span>
-            <h3>关键依据</h3>
-          </div>
-          <Badge tone="neutral">{conclusions.length}</Badge>
-        </div>
-        {conclusions.length === 0 ? (
-          <p className="hermes-row-meta">尚无 claim 满足进入管理结论的条件。</p>
-        ) : (
-          <div className="hermes-report-claims">
-            {conclusions.map((conclusion, index) => (
-              <article key={index}>
-                <div>
-                  <strong>{conclusion.claim}</strong>
-                  <Badge tone={evidenceLevelTone(conclusion.evidenceLevel)}>
-                    证据 {labelEvidenceLevel(conclusion.evidenceLevel || "UNKNOWN")}
-                  </Badge>
+          <div className="kx-rp-appendix">
+            <h3>附录</h3>
+            {assumptions.length > 0 ? (
+              <details className="kx-rp-det">
+                <summary>报告假设 · {assumptions.length}</summary>
+                <div className="kx-rp-det-b">
+                  <DotList items={assumptions} tone="" emptyText="无假设项。" />
                 </div>
-                <p>
-                  {[
-                    conclusion.claimKind ? labelEvidenceClaimKind(conclusion.claimKind) : null,
-                    conclusion.freshness,
-                    conclusion.evidenceRef,
-                    conclusion.verificationRefs?.length
-                      ? `${conclusion.verificationRefs.length} 条核验`
-                      : "未核验",
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
+              </details>
+            ) : null}
 
-      {assumptions.length > 0 ? (
-        <details className="hermes-details">
-          <summary>查看报告假设（{assumptions.length}）</summary>
-          <div style={{ marginTop: 10 }}>
-            <BulletList items={assumptions} emptyText="无假设项。" />
-          </div>
-        </details>
-      ) : null}
-
-      <details className="hermes-details">
-        <summary>查看专业数字员工意见（{notes.length}）</summary>
-        <div style={{ marginTop: 10 }}>
-          {notes.length === 0 ? (
-            <p className="hermes-row-meta">无专业数字员工意见记录。</p>
-          ) : (
-            <div className="hermes-report-agent-notes">
-              {notes.map((note) => (
-                <article key={note.agentCode}>
-                  <div>
-                    <strong>{note.agentName || note.agentCode}</strong>
-                    <Badge status={note.status}>{note.status ? labelAgentTaskStatus(note.status) : "未知"}</Badge>
-                  </div>
-                  <p>{note.summary || note.errorReason || "（无摘要）"}</p>
-                </article>
-              ))}
-            </div>
-          )}
-        </div>
-      </details>
-
-      <details className="hermes-details">
-        <summary>查看报告溯源</summary>
-        <div style={{ marginTop: 10 }}>
-          {provenance ? (
-            <>
-              <div className="hermes-inline" style={{ flexWrap: "wrap", gap: 6 }}>
-                <span className="hermes-chip">证据来源 {provenance.sourceRefs.length}</span>
-                <span className="hermes-chip">执行记录 {provenance.agentRunRefs.length}</span>
-                <span className="hermes-chip">模型调用 {provenance.modelRunRefs.length}</span>
-                <span className="hermes-chip">知识债 {provenance.knowledgeDebtRefs.length}</span>
-                {provenance.researchSnapshotRef ? (
-                  <span className="hermes-chip">{provenance.researchSnapshotRef}</span>
-                ) : null}
+            <details className="kx-rp-det">
+              <summary>专业数字员工意见 · {notes.length}</summary>
+              <div className="kx-rp-det-b">
+                {notes.length === 0 ? (
+                  <p className="kx-rp-muted">无专业数字员工意见记录。</p>
+                ) : (
+                  <ul className="kx-rp-list">
+                    {notes.map((note) => (
+                      <li key={note.agentCode} className="kx-rp-noteitem">
+                        <span className="kx-rp-noteh">
+                          <b>{note.agentName || note.agentCode}</b>
+                          <Tag tone={agentStatusTone(note.status)}>
+                            {note.status ? labelAgentTaskStatus(note.status) : "未知"}
+                          </Tag>
+                        </span>
+                        <span>{note.summary || note.errorReason || "（无摘要）"}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-              {provenance.sourceRefs.length > 0 ? (
-                <p className="hermes-row-meta" style={{ marginTop: 8 }}>
-                  证据：
-                  {provenance.sourceRefs
-                    .slice(0, EXECUTIVE_REPORT_PROVENANCE_PREVIEW_LIMIT)
-                    .join("、")}
-                  {provenance.sourceRefs.length > EXECUTIVE_REPORT_PROVENANCE_PREVIEW_LIMIT
-                    ? ` …等 ${provenance.sourceRefs.length} 条`
-                    : ""}
-                </p>
-              ) : null}
-            </>
-          ) : (
-            <p className="hermes-row-meta">报告未携带溯源信息。</p>
-          )}
+            </details>
+
+            <details className="kx-rp-det">
+              <summary>报告溯源</summary>
+              <div className="kx-rp-det-b">
+                {provenance ? (
+                  <>
+                    <div className="kx-rp-tags">
+                      <Tag>证据来源 {provenance.sourceRefs.length}</Tag>
+                      <Tag>执行记录 {provenance.agentRunRefs.length}</Tag>
+                      <Tag>模型调用 {provenance.modelRunRefs.length}</Tag>
+                      <Tag>知识债 {provenance.knowledgeDebtRefs.length}</Tag>
+                      {provenance.researchSnapshotRef ? <Tag>{provenance.researchSnapshotRef}</Tag> : null}
+                    </div>
+                    {provenance.sourceRefs.length > 0 ? (
+                      <p className="kx-rp-note">
+                        证据：
+                        {provenance.sourceRefs.slice(0, EXECUTIVE_REPORT_PROVENANCE_PREVIEW_LIMIT).join("、")}
+                        {provenance.sourceRefs.length > EXECUTIVE_REPORT_PROVENANCE_PREVIEW_LIMIT
+                          ? ` …等 ${provenance.sourceRefs.length} 条`
+                          : ""}
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="kx-rp-muted">报告未携带溯源信息。</p>
+                )}
+              </div>
+            </details>
+          </div>
         </div>
-      </details>
+
+        <aside className="kx-rp-dock" aria-labelledby="kx-rp-decide">
+          <h3 id="kx-rp-decide">
+            需要你决定 <Count n={decisions.length} />
+          </h3>
+          {decisions.length ? (
+            <ol>
+              {decisions.map((item, index) => (
+                <li key={index}>{item}</li>
+              ))}
+            </ol>
+          ) : (
+            <p className="kx-rp-muted">当前没有待负责人决策项。</p>
+          )}
+          <div className="kx-rp-rule" />
+          <h3 className="is-sub">
+            下一步 <Count n={actions.length} />
+          </h3>
+          {actions.length ? (
+            <ol>
+              {actions.map((item, index) => (
+                <li key={index}>{item}</li>
+              ))}
+            </ol>
+          ) : (
+            <p className="kx-rp-muted">报告未给出额外建议动作。</p>
+          )}
+          {(decisions.length > 0 && onOpenDecisions) || (unknowns.length > 0 && onOpenEvidence) ? (
+            <div className="kx-rp-actions">
+              {decisions.length > 0 && onOpenDecisions ? (
+                <button type="button" className="hermes-primary-btn hermes-btn-sm" onClick={onOpenDecisions}>
+                  去做决策
+                </button>
+              ) : null}
+              {unknowns.length > 0 && onOpenEvidence ? (
+                <button type="button" className="hermes-outline-btn hermes-btn-sm" onClick={onOpenEvidence}>
+                  去补证据
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          <p className="kx-rp-note">决策只由负责人做出，不会由 AI 自动批准。</p>
+        </aside>
+      </div>
     </section>
   );
 }

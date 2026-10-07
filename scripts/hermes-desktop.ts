@@ -9,6 +9,12 @@ import type {
   DesktopRuntimeResult,
   DesktopTaskEnvelope,
 } from "../src/modules/desktop-runtime/contracts";
+import {
+  desktopOutcomeFor,
+  isDangerousShellCommand,
+  overwriteConfirmationResult,
+} from "../src/modules/desktop-runtime/contracts";
+import { moveEntry, writeTextFile } from "../src/modules/desktop-runtime/local-fs";
 
 const execFileAsync = promisify(execFile);
 const HOME = os.homedir();
@@ -71,16 +77,7 @@ function assertAllowedPath(value: string): string {
 
 function assertSafeShell(command: string) {
   if (ALLOW_DANGEROUS) return;
-  const blocked = [
-    /\bsudo\b/i,
-    /\brm\s+-[^\n]*r[^\n]*f\b/i,
-    /\bdiskutil\s+(?:erase|partition|secureErase)/i,
-    /\bmkfs\b/i,
-    /\bshutdown\b/i,
-    /\breboot\b/i,
-    /:\(\)\s*\{\s*:\|:&\s*\};:/,
-  ];
-  if (blocked.some((rule) => rule.test(command))) {
+  if (isDangerousShellCommand(command)) {
     throw new Error(
       "Command matched the desktop dangerous-command guard. " +
         "Set HERMES_DESKTOP_ALLOW_DANGEROUS=1 only when you explicitly want unrestricted shell execution."
@@ -275,12 +272,18 @@ async function executeAction(
 
     case "fs.write_text": {
       const target = assertAllowedPath(action.path);
-      await fs.mkdir(path.dirname(target), { recursive: true });
-      if (action.append) await fs.appendFile(target, action.content, "utf8");
-      else await fs.writeFile(target, action.content, "utf8");
+      const written = await writeTextFile(target, action.content, {
+        append: action.append,
+        overwrite: action.overwrite,
+      });
+      if (written.status === "EXISTS") {
+        return overwriteConfirmationResult(action, written.existing);
+      }
+      const verb =
+        written.status === "APPENDED" ? "追加" : written.status === "OVERWRITTEN" ? "覆盖写入" : "写入";
       return {
         ok: true,
-        summary: "已" + (action.append ? "追加" : "写入") + "文件 " + target + "。",
+        summary: "已" + verb + "文件 " + target + "。",
         artifacts: [{ kind: "file", path: target }],
       };
     }
@@ -298,11 +301,13 @@ async function executeAction(
     case "fs.move": {
       const from = assertAllowedPath(action.from);
       const to = assertAllowedPath(action.to);
-      await fs.mkdir(path.dirname(to), { recursive: true });
-      await fs.rename(from, to);
+      const moved = await moveEntry(from, to, { overwrite: action.overwrite });
+      if (moved.status === "EXISTS") {
+        return overwriteConfirmationResult(action, moved.existing);
+      }
       return {
         ok: true,
-        summary: "已移动 " + from + " → " + to + "。",
+        summary: "已" + (moved.status === "OVERWRITTEN" ? "覆盖移动 " : "移动 ") + from + " → " + to + "。",
         artifacts: [{ kind: "file", path: to }],
       };
     }
@@ -504,11 +509,7 @@ async function handleTask(task: DesktopTaskEnvelope) {
     };
   }
 
-  const outcome = result.ok
-    ? "SUCCEEDED"
-    : /默认关闭|没有找到 Codex CLI|requires macOS/.test(result.summary)
-      ? "WAITING_HUMAN"
-      : "FAILED";
+  const outcome = desktopOutcomeFor(result);
 
   await finish(task.taskId, claim.runId, outcome, result);
   console.log(

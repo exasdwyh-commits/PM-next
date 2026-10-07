@@ -5,8 +5,9 @@ import prisma from "../src/shared/db";
 import { assertTestDatabaseSafety } from "./test-safety";
 import { sendDepartmentAssistantMessage } from "../src/modules/assistant-runtime/service";
 import { bootstrapDefaultWorkforce } from "../src/modules/workforce/service";
-import { executorLoopOnce, reconcileLoopOnce } from "../src/modules/worker/loops";
-import { getUsage } from "../src/modules/billing";
+import { executorLoopOnce, reconcileLoopOnce } from "../src/modules/supervisor/worker-runtime";
+import { beatWorker, markWorkerStopped } from "../src/modules/worker/heartbeat";
+import { getUsage } from "../src/modules/usage";
 import {
   actOnBrief,
   getBrief,
@@ -45,6 +46,7 @@ async function main() {
   await prisma.organizationMember.create({ data: { organizationId: org.id, userId: owner.id, role: OrgRole.ORG_ADMIN } });
   const session = { userId: owner.id, organizationId: org.id, userEmail: owner.email, userName: owner.name };
   await bootstrapDefaultWorkforce(session);
+  await beatWorker({ loops: ["executor"], startedAt: new Date() }, true);
   await prisma.kernMemory.create({
     data: { organizationId: org.id, userId: owner.id, kind: KernMemoryKind.PREFERENCE, content: "新项目预算一般控制在 30 万以内" },
   });
@@ -92,8 +94,8 @@ async function main() {
     assert.doesNotMatch(b.brief.plan!.goal, /渠道/, "'let the team decide' is not a constraint");
     assert.equal(b.brief.memoriesUsed.length, 1);
     assert.equal(b.estimate?.steps, 9);
-    assert.equal(b.estimate?.quota?.used, 0);
-    assert.equal(b.estimate?.quota?.afterLaunch, 1);
+    assert.equal(b.estimate?.usage?.used, 0);
+    assert.equal(b.estimate?.usage?.afterLaunch, 1);
     b = await actOnBrief(session, mid, { action: "edit-plan", edits: [{ op: "remove", key: "gtm" }] });
     assert.ok(!b.brief.plan!.nodes.some((n) => n.key === "gtm"));
     await expectReject(actOnBrief(session, mid, { action: "edit-plan", edits: [{ op: "remove", key: "qa" }] }), /STRUCTURAL/, "QA is structural");
@@ -138,7 +140,7 @@ async function main() {
     assert.equal(ds.outcome?.status, "COMPLETED", JSON.stringify(ds.outcome));
     assert.equal(realCalls, callsBefore, "demo never calls the model");
     assert.equal(await prisma.modelRun.count({ where: { organizationId: org.id } }), 0, "no ModelRun rows");
-    assert.equal((await getUsage(org.id)).used.missions, 1, "demo does not consume mission quota");
+    assert.equal((await getUsage(org.id)).used.missions, 1, "demo is not counted in usage");
     const ev = await listMissionEvents(session, demo.brief.missionTaskId!);
     assert.ok(ev.every((e) => e.demo), "every demo event is flagged");
     assert.ok(ev.filter((e) => e.type === "node.delta" && e.payload.streamed === true).length > 5, "chunked replay");
@@ -157,6 +159,7 @@ async function main() {
     console.log("\n✅ Kern brief + demo regression passed");
   } finally {
     setMissionModelInvokerForTest(null);
+    await markWorkerStopped();
     await prisma.$disconnect();
   }
 }

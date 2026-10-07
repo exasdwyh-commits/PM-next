@@ -6,6 +6,8 @@
  * side effect or the target is genuinely ambiguous.
  */
 
+import type { HumanGateId } from "@/modules/governance/protected-actions";
+
 export type KernAutonomyDecision = "AUTO" | "ASK" | "DENY";
 export type KernReversibility = "REVERSIBLE" | "COMPENSATABLE" | "IRREVERSIBLE";
 
@@ -20,6 +22,11 @@ export interface KernCapabilityRisk {
   productionRelease: boolean;
   formalBusinessGate: boolean;
   destructive: boolean;
+  /**
+   * 该能力触及的受保护动作（governance/protected-actions.ts 的 gate）。
+   * 任何一项都强制 ASK，原因记为 `GATE:<id>`。可选，缺省等于不触及。
+   */
+  gates?: readonly HumanGateId[];
 }
 
 export interface KernAutonomyAssessment {
@@ -46,6 +53,7 @@ export function assessKernCapabilityRisk(
   if (input.formalBusinessGate) reasons.push("FORMAL_BUSINESS_GATE");
   if (input.destructive) reasons.push("DESTRUCTIVE");
   if (input.reversibility === "IRREVERSIBLE") reasons.push("IRREVERSIBLE");
+  for (const gate of input.gates ?? []) reasons.push(`GATE:${gate}`);
 
   if (reasons.length > 0) {
     return { decision: "ASK", reasons };

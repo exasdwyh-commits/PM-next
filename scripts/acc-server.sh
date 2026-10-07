@@ -69,16 +69,65 @@ bash scripts/prepare-test-database.sh
 ROOT="$(pwd -P)"   # 物理路径（macOS 上 /tmp 是指向 /private/tmp 的符号链接；lsof 回报物理路径，须对齐）
 PORTS="$API_PORT $UI_PORT"
 
+# ---------------- 平台探测：Windows Git Bash 无 lsof / 无 /proc ----------------
+# Linux/CI 一律走 lsof（下方各处 lsof 分支保持原语义，不受影响）；
+# Windows 上回退到 PowerShell 的 Get-NetTCPConnection 做端口探测，
+# cwd 探测（/proc、lsof）做不到时**明说降级**再继续，绝不静默假装校验过。
+HAVE_LSOF=0; command -v lsof >/dev/null 2>&1 && HAVE_LSOF=1
+HAVE_PS_WIN=0
+if [[ $HAVE_LSOF -eq 0 ]] && command -v powershell.exe >/dev/null 2>&1; then HAVE_PS_WIN=1; fi
+if [[ $HAVE_LSOF -eq 0 && $HAVE_PS_WIN -eq 0 ]]; then
+  echo "⚠️  本机既无 lsof 也无 powershell.exe：端口占用检查降级为「探测不到即视为空闲」。"
+fi
+
+# port_listening <port>：该端口是否有监听者。
+port_listening() {
+  local pt="$1"
+  if [[ $HAVE_LSOF -eq 1 ]]; then
+    lsof -nP -iTCP:"$pt" -sTCP:LISTEN >/dev/null 2>&1
+  elif [[ $HAVE_PS_WIN -eq 1 ]]; then
+    powershell.exe -NoProfile -NonInteractive -Command "if (Get-NetTCPConnection -LocalPort $pt -State Listen -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }" >/dev/null 2>&1
+  else
+    return 1
+  fi
+}
+
+# kill_pid <pid>：Git Bash 的 kill 对原生 Windows 进程不一定生效，失败回退 taskkill。
+kill_pid() {
+  local p="$1"
+  kill "$p" 2>/dev/null && return 0
+  if command -v taskkill >/dev/null 2>&1; then
+    taskkill //PID "$p" //T //F >/dev/null 2>&1 || true
+  fi
+  return 0
+}
+
+# pid_alive <pid>：进程是否存活。kill -0 为主（Linux/CI 原样）；
+# Windows 上 disown 后的原生 node 进程 kill -0 可能查不到，回退 PowerShell Get-Process。
+pid_alive() {
+  local p="$1"
+  kill -0 "$p" 2>/dev/null && return 0
+  if command -v powershell.exe >/dev/null 2>&1; then
+    powershell.exe -NoProfile -NonInteractive -Command "if (Get-Process -Id $p -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }" >/dev/null 2>&1
+    return $?
+  fi
+  return 1
+}
+
 # ---------------- 端口占用检查：不静默换端口、不杀占用者 ----------------
 occupied=""
 for pt in $PORTS; do
-  lsof -nP -iTCP:"$pt" -sTCP:LISTEN >/dev/null 2>&1 && occupied="$occupied $pt"
+  port_listening "$pt" && occupied="$occupied $pt"
 done
 if [[ -n "${occupied// /}" ]]; then
   echo "❌ 拒绝在这些被占用的端口上跑测试（不会静默换端口、也不会杀占用者）：$occupied"
   for pt in $occupied; do
     echo "   —— $pt 上的占用者："
-    lsof -nP -iTCP:"$pt" -sTCP:LISTEN | sed -n '2,$p' | sed 's/^/      /'
+    if [[ $HAVE_LSOF -eq 1 ]]; then
+      lsof -nP -iTCP:"$pt" -sTCP:LISTEN | sed -n '2,$p' | sed 's/^/      /'
+    elif [[ $HAVE_PS_WIN -eq 1 ]]; then
+      powershell.exe -NoProfile -NonInteractive -Command "Get-NetTCPConnection -LocalPort $pt -State Listen -ErrorAction SilentlyContinue | ForEach-Object { '      PID=' + \$_.OwningProcess + ' NAME=' + (Get-Process -Id \$_.OwningProcess -ErrorAction SilentlyContinue).ProcessName }" 2>/dev/null
+    fi
   done
   echo "   处理：① 释放这些端口后重跑；或 ② 显式指定空闲端口："
   echo "         scripts/acc-server.sh --port <p_api> <p_ui> ${TESTS[0]}"
@@ -186,15 +235,17 @@ cleanup() {
   # 只回收「本仓库 cwd」的监听，绝不误杀别人的服务
   local pt lpid lcwd
   for pt in $PORTS; do
-    lpid="$(lsof -nP -iTCP:"$pt" -sTCP:LISTEN -t 2>/dev/null | head -1)"
-    [[ -z "$lpid" ]] && continue
-    lcwd="$(lsof -a -p "$lpid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)"
-    [[ "$lcwd" == "$ROOT" ]] || continue
-    kill "$lpid" 2>/dev/null
+    if [[ $HAVE_LSOF -eq 1 ]]; then
+      lpid="$(lsof -nP -iTCP:"$pt" -sTCP:LISTEN -t 2>/dev/null | head -1)"
+      [[ -z "$lpid" ]] && continue
+      lcwd="$(lsof -a -p "$lpid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)"
+      [[ "$lcwd" == "$ROOT" ]] || continue
+      kill "$lpid" 2>/dev/null
+    fi
   done
   if [[ ${#STARTED_PIDS[@]} -gt 0 ]]; then
     local p
-    for p in "${STARTED_PIDS[@]}"; do kill "$p" 2>/dev/null; done
+    for p in "${STARTED_PIDS[@]}"; do kill_pid "$p"; done
   fi
   sleep 1
 }
@@ -207,11 +258,18 @@ for pt in $PORTS; do
   disown
 done
 
+nohup env NODE_OPTIONS= NODE_ENV=production DEV_MOCK_AUTH=false DATABASE_URL="$TEST_DATABASE_URL" \
+  PM_WORKER_LOCK_DIR="/tmp/kern-acc-worker-$$" ./node_modules/.bin/tsx scripts/pm-worker.ts --loops=conversation --quiet \
+  > /tmp/kern-acc-worker.log 2>&1 &
+STARTED_PIDS+=("$!")
+disown
+
 # ---------------- 就绪探活 + 服务器归属校验 ----------------
+
 # 归属校验口径（确定性方案；文件头「坑 5」）：
 #   ① 端口在启动前是空闲的（上面已强制；被占则直接退出）；
 #   ② 端口上**监听进程的 cwd 必须 == 本仓库根（物理路径）** —— 证明它服务的是本仓库的构建产物
-#      （$DIST_DIR，见上方「独立构建目录」）。
+#      （$DIST_DIR,见上方「独立构建目录」）。
 #   ①② 同时成立 ⇒ 这台服务器 = 本次构建产出的那台。
 #   为什么不直接比 BUILD_ID：`/api/health` 匿名只回 `{"status":...}`（不暴露构建标识，见
 #     src/app/api/health/route.ts）；而「端口启动前空闲 + 监听进程 cwd==本仓库」已能确定性地
@@ -249,16 +307,22 @@ for pt in $PORTS; do
   # 安全性不降低：端口在启动前已经强制为空 + HTTP 200 + 本次启动 PID 仍存活 + cwd 为本仓库，
   # 四项同时成立即可证明这是本轮服务。若启动 PID 已退出（daemonize/fork），才回退 lsof。
   launcher_cwd=""
-  if kill -0 "$ourpid" 2>/dev/null; then
+  if pid_alive "$ourpid"; then
     if [[ -e "/proc/$ourpid/cwd" ]]; then
       launcher_cwd="$(readlink "/proc/$ourpid/cwd" 2>/dev/null || true)"
     fi
     if [[ -z "$launcher_cwd" ]] && command -v lsof >/dev/null 2>&1; then
       launcher_cwd="$(lsof -a -p "$ourpid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)"
     fi
-    if [[ "$launcher_cwd" != "$ROOT" ]]; then
-      echo "❌ 拒绝跑测试：本次启动进程 pid=$ourpid 的 cwd=「${launcher_cwd:-UNKNOWN}」≠ 本仓库「$ROOT」。"
-      exit 4
+    if [[ -n "$launcher_cwd" ]]; then
+      if [[ "$launcher_cwd" != "$ROOT" ]]; then
+        echo "❌ 拒绝跑测试：本次启动进程 pid=$ourpid 的 cwd=「$launcher_cwd」≠ 本仓库「$ROOT」。"
+        exit 4
+      fi
+    else
+      # Windows（Git Bash）：无 /proc 且无 lsof，探测不到 cwd。归属依据降级为
+      # 「端口启动前空闲 + 本次启动 PID 存活 + HTTP 200」，并把降级打印出来——绝不静默假装校验过。
+      echo "⚠️  无法探测启动进程 cwd（本机无 /proc 与 lsof）：以「端口启动前空闲 + launcher PID 存活 + HTTP 200」作为归属依据继续；Linux/CI 仍走 cwd 硬校验。"
     fi
 
     lpid=""
@@ -266,9 +330,9 @@ for pt in $PORTS; do
       lpid="$(lsof -nP -iTCP:"$pt" -sTCP:LISTEN -t 2>/dev/null | head -1)"
     fi
     if [[ -n "$lpid" ]] && is_descendant "$lpid" "$ourpid"; then
-      echo "✅ 127.0.0.1:$pt 就绪且归属校验通过（launcher=$ourpid · listener=$lpid · cwd=$launcher_cwd · BUILD_ID=$LOCAL_BUILD_ID）"
+      echo "✅ 127.0.0.1:$pt 就绪且归属校验通过（launcher=$ourpid · listener=$lpid · cwd=${launcher_cwd:-未探测} · BUILD_ID=$LOCAL_BUILD_ID)"
     else
-      echo "✅ 127.0.0.1:$pt 就绪且归属校验通过（launcher=$ourpid · cwd=$launcher_cwd · BUILD_ID=$LOCAL_BUILD_ID · listener=${lpid:-未由 lsof 解析}）"
+      echo "✅ 127.0.0.1:$pt 就绪且归属校验通过（launcher=$ourpid · cwd=${launcher_cwd:-未探测} · BUILD_ID=$LOCAL_BUILD_ID · listener=${lpid:-未由 lsof 解析}）"
     fi
     continue
   fi
@@ -288,7 +352,7 @@ for pt in $PORTS; do
     echo "❌ 拒绝跑测试：$pt 上服务器的 cwd=「$lcwd」≠ 本仓库「$ROOT」——这不是本次启动的服务器。"
     exit 4
   fi
-  echo "✅ 127.0.0.1:$pt 就绪且归属校验通过（daemonized listener=$lpid · cwd=$lcwd · BUILD_ID=$LOCAL_BUILD_ID）"
+  echo "✅ 127.0.0.1:$pt 就绪且归属校验通过（daemonized listener=$lpid · cwd=$lcwd · BUILD_ID=$LOCAL_BUILD_ID)"
 done
 
 # ---------------- 跑套件（显式把 BASE_URL/UI_BASE_URL 指向本轮端口，杜绝打到别人的服务） ----------------

@@ -135,7 +135,10 @@ function scanMarkdownFiles(dir: string, baseDir: string = dir): string[] {
     if (entry.isDirectory()) {
       results.push(...scanMarkdownFiles(fullPath, baseDir));
     } else if (entry.isFile() && (entry.name.endsWith(".md") || entry.name.endsWith(".markdown"))) {
-      const rel = path.relative(baseDir, fullPath);
+      // 统一存 POSIX 分隔符：Windows 上 path.relative 给出反斜杠，按「30-science/ingredients/」前缀
+      // 检索的原料卡会全部落空（挑战报告的科学证据维度被静默清空）。旧的反斜杠记录在下次同步时按
+      // 「磁盘上已不存在」软删并以新路径重建，无需迁移。
+      const rel = path.relative(baseDir, fullPath).split(path.sep).join("/");
       results.push(rel);
     }
   }

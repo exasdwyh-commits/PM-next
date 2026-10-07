@@ -10,6 +10,7 @@ import {
   INVOICE_PRESETS,
 } from "@/modules/cost-engine/presets";
 import type { Channel, CostInput, CostResult, ExpressType, InvoiceType } from "@/modules/cost-engine/types";
+import { buildCostInput } from "./cost-form";
 
 /**
  * 成本与供应 · 经济性计算器（产品详情「成本与供应」页签）
@@ -108,6 +109,9 @@ export default function CostCalculator({
   productId,
   savedScenarios,
   onSaveScenario,
+  scenariosLoading = false,
+  scenariosError,
+  onRetryScenarios,
 }: {
   targetCost: number | null;
   currency: string | null;
@@ -115,6 +119,9 @@ export default function CostCalculator({
   workItemId?: string;
   productId?: string;
   savedScenarios?: SavedScenario[];
+  scenariosLoading?: boolean;
+  scenariosError?: string | null;
+  onRetryScenarios?: () => void;
   onSaveScenario?: (scenario: {
     scenarioName: string;
     costInput: CostInput;
@@ -142,13 +149,17 @@ export default function CostCalculator({
     targetMarginRate: "",
   });
   const [result, setResult] = React.useState<CostResult | null>(null);
+  const [calculatedInput, setCalculatedInput] = React.useState<CostInput | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const supportedCurrency = !currency || currency === "CNY";
 
   // ── TASK-012: 情景保存状态 ──
   const [scenarioName, setScenarioName] = React.useState("");
   const [scenarioSourceStatus, setScenarioSourceStatus] = React.useState<"DRAFT" | "ACTIVE" | "ARCHIVED">("DRAFT");
   const [saving, setSaving] = React.useState(false);
   const [saveMsg, setSaveMsg] = React.useState<string | null>(null);
+  const [saveFailed, setSaveFailed] = React.useState(false);
+  const savingRef = React.useRef(false);
 
   // ── TASK-012: 情景对比状态 ──
   const [compareMode, setCompareMode] = React.useState(false);
@@ -157,6 +168,9 @@ export default function CostCalculator({
   const setField = (key: string, value: string) => {
     setForm((f) => ({ ...f, [key]: value }));
     setResult(null);
+    setCalculatedInput(null);
+    setError(null);
+    setSaveMsg(null);
   };
 
   // 切换渠道时按预设回填渠道费率（用户随后可手动覆盖）
@@ -170,36 +184,27 @@ export default function CostCalculator({
       marketingRate: String(preset.marketingRate),
     }));
     setResult(null);
+    setCalculatedInput(null);
+    setError(null);
+    setSaveMsg(null);
   };
 
   // ── TASK-012: 保存情景 ──
   const handleSaveScenario = async () => {
-    if (!result || !onSaveScenario) return;
+    if (!result || !calculatedInput || !onSaveScenario || savingRef.current || !supportedCurrency) return;
     if (!scenarioName.trim()) {
       setSaveMsg("请填写情景名称");
+      setSaveFailed(true);
       return;
     }
     setSaving(true);
+    savingRef.current = true;
     setSaveMsg(null);
+    setSaveFailed(false);
     try {
       await onSaveScenario({
         scenarioName: scenarioName.trim(),
-        costInput: {
-          materialCost: Number(form.materialCost),
-          packagingCost: Number(form.packagingCost),
-          manufacturingCost: Number(form.manufacturingCost),
-          certificationCost: Number(form.certificationCost),
-          monthlyFixed: Number(form.monthlyFixed),
-          retailPrice: Number(form.retailPrice),
-          channel: form.channel as Channel,
-          invoiceType: form.invoiceType as InvoiceType,
-          commissionRate: Number(form.commissionRate),
-          platformFeeRate: Number(form.platformFeeRate),
-          marketingRate: Number(form.marketingRate),
-          expressType: form.expressType as ExpressType,
-          marketReferencePrice: form.marketReferencePrice ? Number(form.marketReferencePrice) : undefined,
-          targetMarginRate: form.targetMarginRate ? Number(form.targetMarginRate) : undefined,
-        },
+        costInput: calculatedInput,
         sourceStatus: scenarioSourceStatus,
         unit: "件",
         currency: currency || "CNY",
@@ -207,9 +212,11 @@ export default function CostCalculator({
       });
       setSaveMsg("已保存");
       setScenarioName("");
-    } catch {
-      setSaveMsg("保存失败");
+    } catch (err) {
+      setSaveFailed(true);
+      setSaveMsg(err instanceof Error ? err.message : "保存失败，请重试。");
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
@@ -219,6 +226,10 @@ export default function CostCalculator({
   // 拿不到 costInput 时必须说清楚没载入 —— 只弹一句「已加载」而表单还是上一次的输入，
   // 会让接下来算出的每个数字都被归到错的情景名下。
   const loadScenario = (scenario: SavedScenario) => {
+    if (!supportedCurrency || scenario.currency !== "CNY") {
+      setError("成本引擎目前仅支持人民币（CNY）口径，不能将其他币种按人民币复算。");
+      return;
+    }
     const input = scenario.costInput;
     if (!input) {
       setError(null);
@@ -230,8 +241,12 @@ export default function CostCalculator({
     const str = (v: number | undefined | null): string =>
       v === undefined || v === null || Number.isNaN(v) ? "" : String(v);
     const channel = (input.channel ?? form.channel) as Channel;
+    if (!CHANNEL_PRESETS[channel] || !INVOICE_PRESETS[(input.invoiceType ?? form.invoiceType) as InvoiceType] || !EXPRESS_PRESETS[(input.expressType ?? form.expressType) as ExpressType]) {
+      setError("该情景的渠道、发票或快递类型无效，无法复算。");
+      return;
+    }
     const preset = CHANNEL_PRESETS[channel] ?? CHANNEL_PRESETS.XINXUAN;
-    setForm({
+    const restoredForm = {
       materialCost: str(input.materialCost),
       packagingCost: str(input.packagingCost),
       manufacturingCost: str(input.manufacturingCost),
@@ -246,8 +261,11 @@ export default function CostCalculator({
       marketingRate: str(input.marketingRate ?? preset.marketingRate),
       marketReferencePrice: str(input.marketReferencePrice),
       targetMarginRate: str(input.targetMarginRate),
-    });
+    };
+    setForm(restoredForm);
     setError(null);
+    setCalculatedInput(null);
+    setSaveFailed(false);
     // 复算用回填后的输入，不用 state（setForm 这一轮还没生效）。
     const required: Array<keyof CostInput> = [
       "materialCost",
@@ -267,8 +285,16 @@ export default function CostCalculator({
       );
       return;
     }
-    setResult(calcCost(applyDefaults({ ...(input as CostInput), channel })));
-    setSaveMsg(`已载入「${scenario.scenarioName}」的输入并复算。`);
+    try {
+      buildCostInput(restoredForm);
+      const restoredInput = applyDefaults({ ...(input as CostInput), channel });
+      setResult(calcCost(restoredInput));
+      setCalculatedInput(restoredInput);
+      setSaveMsg(`已载入「${scenario.scenarioName}」的输入并复算。`);
+    } catch (err) {
+      setResult(null);
+      setError(err instanceof Error ? err.message : "该情景的输入无效，无法复算。");
+    }
   };
 
   // ── TASK-012: 对比模式切换 ──
@@ -288,46 +314,22 @@ export default function CostCalculator({
 
   const compute = () => {
     setError(null);
-    const num = (k: string): number | null => {
-      const raw = form[k];
-      if (raw === undefined || raw.trim() === "") return null;
-      const v = Number(raw);
-      return Number.isFinite(v) ? v : null;
-    };
-
-    for (const f of REQUIRED_FIELDS) {
-      const v = num(f.key as string);
-      if (v === null) {
-        setError(`请填写「${f.label}」。`);
-        return;
-      }
+    setSaveMsg(null);
+    try {
+      if (!supportedCurrency) throw new Error("成本引擎目前仅支持人民币（CNY）口径，请先确认产品币种。");
+      const input = buildCostInput(form);
+      setResult(calcCost(input));
+      setCalculatedInput(input);
+    } catch (err) {
+      setResult(null);
+      setCalculatedInput(null);
+      setError(err instanceof Error ? err.message : "成本输入无效。");
     }
-
-    const input: CostInput = {
-      materialCost: num("materialCost")!,
-      packagingCost: num("packagingCost")!,
-      manufacturingCost: num("manufacturingCost")!,
-      certificationCost: num("certificationCost")!,
-      monthlyFixed: num("monthlyFixed")!,
-      retailPrice: num("retailPrice")!,
-      channel: form.channel as Channel,
-      invoiceType: form.invoiceType as InvoiceType,
-      commissionRate: num("commissionRate") ?? CHANNEL_PRESETS[form.channel as Channel].commissionRate,
-      platformFeeRate: num("platformFeeRate") ?? CHANNEL_PRESETS[form.channel as Channel].platformFeeRate,
-      marketingRate: num("marketingRate") ?? CHANNEL_PRESETS[form.channel as Channel].marketingRate,
-      expressType: form.expressType as ExpressType,
-    };
-    const mrp = num("marketReferencePrice");
-    if (mrp !== null) input.marketReferencePrice = mrp;
-    const tmr = num("targetMarginRate");
-    if (tmr !== null) input.targetMarginRate = tmr;
-
-    setResult(calcCost(applyDefaults(input)));
   };
 
   // 预算对照用 BOM 成本（L1–L4，产品本身成本）；targetCost 为「产品成本上限」口径，
   // 已由竞品价扣除渠道佣金/售后反推得到，故不与含渠道费的单件总成本（L1–L5）比较。
-  const hasTarget = targetCost !== null && targetCost !== undefined;
+  const hasTarget = targetCost !== null && targetCost !== undefined && Number.isFinite(Number(targetCost));
   const targetNum = hasTarget ? Number(targetCost) : null;
   const overBudget = result && targetNum !== null ? result.totalBomCost > targetNum : null;
 
@@ -338,8 +340,8 @@ export default function CostCalculator({
         <div className="hermes-theme-head">
           <h2 className="hermes-theme-title">成本结论</h2>
           {result && (
-            <Badge tone={overBudget ? "danger" : "ok"}>
-              {overBudget ? "超出产品成本上限" : "在产品成本上限内"}
+            <Badge tone={!hasTarget ? "neutral" : overBudget ? "danger" : "ok"}>
+              {!hasTarget ? "产品成本上限未设置" : overBudget ? "超出产品成本上限" : "在产品成本上限内"}
             </Badge>
           )}
         </div>
@@ -393,6 +395,7 @@ export default function CostCalculator({
               <input
                 className="hermes-input"
                 type="number"
+                min={f.key === "retailPrice" ? "0.01" : "0"}
                 inputMode="decimal"
                 step={f.step}
                 value={form[f.key as string] ?? ""}
@@ -507,18 +510,19 @@ export default function CostCalculator({
         </div>
 
         {error && (
-          <div className="hermes-banner is-danger" style={{ marginTop: 12 }}>
+          <div className="hermes-banner is-danger" role="alert" style={{ marginTop: 12 }}>
             {error}
           </div>
         )}
 
         <div className="hermes-inline" style={{ marginTop: 14 }}>
-          <button className="hermes-primary-btn hermes-btn-sm" onClick={compute}>
+          <button className="hermes-primary-btn hermes-btn-sm" onClick={compute} disabled={!supportedCurrency}>
             <Icon name="play" size={13} />
             计算经济性
           </button>
           <span className="hermes-note">所有数值由确定性引擎算出，不调用模型。</span>
         </div>
+        {!supportedCurrency && <p className="hermes-banner is-danger" role="alert">当前产品币种为 {currency}；成本引擎仅支持人民币（CNY）口径，暂不能计算或保存。</p>}
 
         {/* ── TASK-012: 保存情景 ── */}
         {result && onSaveScenario && (
@@ -527,12 +531,14 @@ export default function CostCalculator({
               className="hermes-input"
               type="text"
               placeholder="情景名称（如 基础情景 / 保守情景）"
+              aria-label="情景名称"
               value={scenarioName}
               onChange={(e) => setScenarioName(e.target.value)}
               style={{ width: 220 }}
             />
             <select
               className="hermes-select"
+              aria-label="情景状态"
               value={scenarioSourceStatus}
               onChange={(e) => setScenarioSourceStatus(e.target.value as "DRAFT" | "ACTIVE" | "ARCHIVED")}
             >
@@ -547,9 +553,12 @@ export default function CostCalculator({
             >
               {saving ? "保存中…" : "保存情景"}
             </button>
-            {saveMsg && <span className="hermes-note">{saveMsg}</span>}
+            {saveMsg && <span className={cx("hermes-note", saveFailed && "is-alert")} role={saveFailed ? "alert" : "status"}>{saveMsg}</span>}
           </div>
         )}
+        {saveMsg && !result && <p className="hermes-note" role="status">{saveMsg}</p>}
+        {scenariosLoading && <p className="hermes-note" role="status">正在读取已保存情景…</p>}
+        {scenariosError && <div className="hermes-banner is-danger" role="alert">{scenariosError} <button type="button" className="hermes-ghost-btn" onClick={onRetryScenarios}>重试读取</button></div>}
 
         {/* ── TASK-012: 已保存情景列表 + 对比 ── */}
         {savedScenarios && savedScenarios.length > 0 && (
@@ -557,7 +566,7 @@ export default function CostCalculator({
             <div className="hermes-inline" style={{ marginBottom: 8, gap: 8 }}>
               <span className="hermes-note" style={{ fontWeight: 600 }}>已保存情景</span>
               <button
-                className="hermes-btn hermes-btn-sm"
+                className="hermes-outline-btn hermes-btn-sm"
                 onClick={toggleCompareMode}
               >
                 {compareMode ? "退出对比" : "对比情景"}
@@ -572,10 +581,21 @@ export default function CostCalculator({
                     compareMode && selectedScenarios.includes(s.artifactId) && "is-selected"
                   )}
                   style={{
-                    cursor: compareMode ? "pointer" : "default",
+                    cursor: "pointer",
                     border: compareMode && selectedScenarios.includes(s.artifactId)
                       ? "1px solid var(--hermes-primary)"
                       : undefined,
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${compareMode ? "选择对比" : "载入情景"}：${s.scenarioName}`}
+                  aria-pressed={compareMode ? selectedScenarios.includes(s.artifactId) : undefined}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      if (compareMode) toggleScenarioSelection(s.artifactId);
+                      else loadScenario(s);
+                    }
                   }}
                   onClick={() => {
                     if (compareMode) {

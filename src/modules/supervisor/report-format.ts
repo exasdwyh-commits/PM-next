@@ -6,6 +6,18 @@
 
 export type ReportStep = { key: string; label: string; agent: string; status: string; output: string | null };
 
+export interface ReportSource {
+  sourceId: string;
+  eventId: string;
+  title: string;
+  url: string;
+  fetchedAt: string;
+  sourceKind: "SEARCH_RESULT" | "FETCHED_PAGE";
+  contentHash: string;
+  snapshot: string;
+  truncated: boolean;
+}
+
 export type MissionReport = {
   missionTaskId: string;
   title: string;
@@ -19,6 +31,7 @@ export type MissionReport = {
   decision: string | null;
   recommendation: string | null;
   steps: ReportStep[];
+  researchSources?: ReportSource[];
   meta: {
     tasksCreated: number;
     maxTasks: number;
@@ -27,6 +40,15 @@ export type MissionReport = {
     humanGates: string[];
   };
 };
+
+/** Stable source ids are translated only against this report's captured sources. */
+export function resolveSourceMarkers(text: string, sources: ReportSource[]): string {
+  const indices = new Map(sources.map((s, i) => [s.sourceId, i + 1]));
+  return text.replace(/\[source:([^\]\s]+)\]/g, (_match, id: string) => {
+    const n = indices.get(id);
+    return n ? `[${n}]` : "（来源未记录）";
+  });
+}
 
 /** First line of the goal — the brief appends "已确认的约束" below it. */
 export function goalHeadline(goal: string): string {
@@ -56,7 +78,15 @@ const NO_DECISION = /^(目前)?(不需要|无需|暂无|没有)/;
 export function extractDecision(conclusion: string | null | undefined): string | null {
   if (!conclusion) return null;
   const lines = conclusion.replace(/\r/g, "").split("\n");
-  const at = lines.findIndex((l) => /需要你(来)?决定/.test(l));
+  const call = lines.findIndex((l) => /^>\s*\[!DECISION\]/.test(l));
+  if (call >= 0) {
+    const body = [lines[call].replace(/^>\s*\[!DECISION\]\s*/, "")];
+    for (const l of lines.slice(call + 1)) { if (!/^>/.test(l)) break; body.push(l.replace(/^>\s?/, "")); }
+    const t = body.join("\n").trim().replace(/\*\*/g, "");
+    if (t && !NO_DECISION.test(t)) return t;
+  }
+  const at = lines.findIndex((l) => /需要你(来)?决定/.test(l) &&
+    !/(?:不|无需|无须|不用|没有必要)\s*(?:再)?\s*需要你(?:来)?决定/.test(l));
   if (at < 0) return null;
   const head = lines[at];
   const m = /需要你(?:来)?决定(?:的事项|的事)?/.exec(head)!;
@@ -130,11 +160,22 @@ export function missionReportMarkdown(r: MissionReport): string {
     out.push("");
   }
   if (r.decision) out.push("## 需要你决定", "", r.decision, "");
-  out.push("## 结论", "", r.conclusion?.trim() ? demoteHeadings(r.conclusion.trim(), 3) : "（这次没有形成综合结论）", "");
+  out.push("## 结论", "", r.conclusion?.trim() ? demoteHeadings(resolveSourceMarkers(r.conclusion.trim(), r.researchSources ?? []), 3) : "（这次没有形成综合结论）", "");
   out.push("## 各步骤产出", "");
   for (const s of r.steps) {
     out.push(`### ${s.label}（${s.agent} · ${STATUS_LABEL[s.status] ?? s.status}）`, "");
-    out.push(s.output?.trim() ? demoteHeadings(s.output.trim(), 4) : "（暂无产出）", "");
+    out.push(s.output?.trim() ? demoteHeadings(resolveSourceMarkers(s.output.trim(), r.researchSources ?? []), 4) : "（暂无产出）", "");
+  }
+  if (!r.demo && r.researchSources?.length) {
+    out.push("## 来源记录（外部未验证）", "", "已联网获取资料，尚未独立核验；检索摘要不等于已读取正文。", "");
+    for (const [i, source] of r.researchSources.entries()) {
+      out.push(`### [${i + 1}] ${source.title.replace(/[\r\n]/g, " ")}`, "",
+        `- 网址：${source.url}`, `- 状态：${source.sourceKind === "FETCHED_PAGE" ? "已抓取正文" : "检索摘要"}`,
+        `- 获取时间：${source.fetchedAt}`, `- 来源标识：${source.sourceId}`,
+        `- 事件记录：${source.eventId}`, `- 内容指纹：${source.contentHash}`,
+        `- 已截断：${source.truncated ? "是" : "否"}`, "",
+        ...source.snapshot.split("\n").map((line) => `> ${line}`), "");
+    }
   }
   out.push("## 关于这次任务", "");
   out.push(`- 消耗：${r.meta.tasksCreated} 个步骤任务（上限 ${r.meta.maxTasks}）${r.demo ? "，演示运行不计额度" : ""}`);
@@ -211,19 +252,50 @@ export function markdownToHtml(md: string): string {
   return html.join("\n");
 }
 
+/**
+ * 导出件（独立 HTML / 打印成 PDF）的调色板。
+ *
+ * 为什么此处允许字面色值：导出页是**脱离应用运行的独立文档**——用户可能离线打开或
+ * 直接打印，拿不到 theme/quiet-enterprise.css 的令牌层，因此它必须自带色值。
+ * 约束：色值全部集中在本常量内，文件其余部分不得再出现任何字面色值；
+ * `tests/ui-quiet-enterprise.ts` 的 G2 守卫按这个口径校验本文件。
+ */
+const PRINT_PALETTE = {
+  ink: "#1d1d24",
+  rule: "#e6e6ee",
+  muted: "#6b6b78",
+  cell: "#dcdce6",
+  wash: "#f4f4f8",
+  demoLine: "#d9822b",
+  demoInk: "#a45a0f",
+} as const;
+
 /** Standalone printable page; opens the print dialog so the user can save as PDF. */
 export function missionReportHtml(r: MissionReport, markdown: string): string {
   return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>${esc(r.title)}</title>
 <style>
-body{font:15px/1.7 -apple-system,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;color:#1d1d24;max-width:760px;margin:40px auto;padding:0 24px}
-h1{font-size:24px;margin:0 0 8px}h2{font-size:18px;margin:28px 0 8px;padding-bottom:4px;border-bottom:1px solid #e6e6ee}h3,h4{font-size:15px;margin:18px 0 6px}
-blockquote{margin:0;color:#6b6b78;font-size:13px}table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13px}
-th,td{border:1px solid #dcdce6;padding:6px 8px;text-align:left;vertical-align:top}th{background:#f4f4f8}
-code{background:#f4f4f8;padding:0 4px;border-radius:4px}.demo{border:1px dashed #d9822b;color:#a45a0f;padding:8px 12px;border-radius:8px;margin:12px 0}
+body{font:15px/1.7 -apple-system,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;color:${PRINT_PALETTE.ink};max-width:760px;margin:40px auto;padding:0 24px}
+h1{font-size:24px;margin:0 0 8px}h2{font-size:18px;margin:28px 0 8px;padding-bottom:4px;border-bottom:1px solid ${PRINT_PALETTE.rule}}h3,h4{font-size:15px;margin:18px 0 6px}
+blockquote{margin:0;color:${PRINT_PALETTE.muted};font-size:13px}table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13px}
+th,td{border:1px solid ${PRINT_PALETTE.cell};padding:6px 8px;text-align:left;vertical-align:top}th{background:${PRINT_PALETTE.wash}}
+code{background:${PRINT_PALETTE.wash};padding:0 4px;border-radius:4px}.demo{border:1px dashed ${PRINT_PALETTE.demoLine};color:${PRINT_PALETTE.demoInk};padding:8px 12px;border-radius:8px;margin:12px 0}
 @media print{body{margin:0}a{color:inherit}}
 </style></head><body>
 ${r.demo ? '<div class="demo">演示模式 · 示例数据，不代表真实调研结论</div>' : ""}
 ${markdownToHtml(markdown)}
 <script>window.addEventListener("load",function(){setTimeout(function(){window.print()},300)})</script>
 </body></html>`;
+}
+
+/**
+ * The mission id when this message citation marks a completed mission
+ * conclusion (rendered via the ResponseEnvelope), else null. Messages written
+ * before the explicit `conclusion` flag are recognised by their title.
+ */
+export function isMissionConclusionCitation(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const c = raw as Record<string, unknown>;
+  if (c.kind !== "kern-mission" || typeof c.ref !== "string") return null;
+  if (c.conclusion === true) return c.ref;
+  return typeof c.title === "string" && c.title === "Kern 工作结果 · 已完成" ? c.ref : null;
 }

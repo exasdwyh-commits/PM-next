@@ -197,7 +197,6 @@ export default function KnowledgeClient({ overview: initialOverview, workItems, 
   return (
     <div className="hermes-stack">
       <PageHeading
-        eyebrow="COMPANY KNOWLEDGE BASE"
         title="公司知识"
         subtitle="集中检索公司制度、业务事实、Obsidian 文档切片与已验收项目成果。"
         actions={
@@ -274,14 +273,13 @@ export default function KnowledgeClient({ overview: initialOverview, workItems, 
       {/* 页签 1: 实时知识检索面板 */}
       {activeTab === "browse" && (
         <Panel
-          eyebrow="INTELLIGENT RETRIEVAL"
           title="资料与文档检索"
           sub="支持自然语言及中文关键词匹配，检索包含制度政策、渠道规范与产品资料的引用段落。"
         >
           <form onSubmit={handleSearch} className="flex gap-2 mb-4">
             <input
               type="text"
-              className="flex-1 bg-stone-900/80 border border-stone-700 rounded px-3 py-2 text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-teal-500"
+              className="kern-field flex-1"
               placeholder="输入搜索词，如：核心业务、品牌定位、禁用项、渠道政策..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}

@@ -1,0 +1,1488 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Kern Runtime Architecture",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "layout": {
+    "mode": "grid",
+    "cols": 8,
+    "gapX": 56,
+    "gapY": 42,
+    "cellW": 150,
+    "cellH": 78
+  },
+  "components": [
+    {
+      "id": "chat-ui",
+      "type": "frontend",
+      "label": "Kern Chat",
+      "sublabel": "Conversation-first user surface.",
+      "row": 0,
+      "col": 0,
+      "sources": [
+        {
+          "path": "src/app/muse/components/ask-card.tsx",
+          "label": "src/app/muse/components/ask-card.tsx"
+        },
+        {
+          "path": "src/app/muse/components/brief.tsx",
+          "label": "src/app/muse/components/brief.tsx"
+        },
+        {
+          "path": "src/app/muse/components/conclusion-decisions.tsx",
+          "label": "src/app/muse/components/conclusion-decisions.tsx"
+        }
+      ]
+    },
+    {
+      "id": "workbench",
+      "type": "frontend",
+      "label": "Management Workbench",
+      "sublabel": "Products, projects, tasks, evidence and audit management.",
+      "row": 1,
+      "col": 0,
+      "sources": [
+        {
+          "path": "src/app/advisor/advisor-client.tsx",
+          "label": "src/app/advisor/advisor-client.tsx"
+        },
+        {
+          "path": "src/app/advisor/page.tsx",
+          "label": "src/app/advisor/page.tsx"
+        },
+        {
+          "path": "src/app/consultation/consultation-client.tsx",
+          "label": "src/app/consultation/consultation-client.tsx"
+        }
+      ]
+    },
+    {
+      "id": "conversation-api",
+      "type": "backend",
+      "label": "Conversation API",
+      "sublabel": "Single HTTP entry for Kern conversations.",
+      "row": 0,
+      "col": 1,
+      "sources": [
+        {
+          "path": "src/app/api/conversations/[id]/messages/route.ts",
+          "label": "src/app/api/conversations/[id]/messages/route.ts"
+        },
+        {
+          "path": "src/app/api/conversations/[id]/route.ts",
+          "label": "src/app/api/conversations/[id]/route.ts"
+        },
+        {
+          "path": "src/app/api/conversations/[id]/runtime-config/route.ts",
+          "label": "src/app/api/conversations/[id]/runtime-config/route.ts"
+        }
+      ]
+    },
+    {
+      "id": "platform-api",
+      "type": "backend",
+      "label": "Platform API",
+      "sublabel": "Remaining HTTP surface for products, missions, evidence and admin.",
+      "row": 1,
+      "col": 1,
+      "sources": [
+        {
+          "path": "src/app/api/advisor/challenge/route.ts",
+          "label": "src/app/api/advisor/challenge/route.ts"
+        },
+        {
+          "path": "src/app/api/agent-runs/[runId]/cancel/route.ts",
+          "label": "src/app/api/agent-runs/[runId]/cancel/route.ts"
+        },
+        {
+          "path": "src/app/api/agent-runs/[runId]/route.ts",
+          "label": "src/app/api/agent-runs/[runId]/route.ts"
+        }
+      ]
+    },
+    {
+      "id": "kern-router",
+      "type": "backend",
+      "label": "Kern Router",
+      "sublabel": "Deterministic intent grammar plus governed planner fallback.",
+      "row": 0,
+      "col": 3,
+      "sources": [
+        {
+          "path": "src/modules/assistant-runtime/intent-grammar.ts",
+          "label": "src/modules/assistant-runtime/intent-grammar.ts"
+        },
+        {
+          "path": "src/modules/assistant-runtime/planner.ts",
+          "label": "src/modules/assistant-runtime/planner.ts"
+        },
+        {
+          "path": "src/modules/assistant-runtime/router.ts",
+          "label": "src/modules/assistant-runtime/router.ts"
+        }
+      ]
+    },
+    {
+      "id": "capability-registry",
+      "type": "backend",
+      "label": "Capability Registry",
+      "sublabel": "Native Kern capabilities for work, knowledge, writes, R&D and desktop execution.",
+      "row": 1,
+      "col": 3,
+      "sources": [
+        {
+          "path": "src/modules/assistant-runtime/capabilities/catalog.ts",
+          "label": "src/modules/assistant-runtime/capabilities/catalog.ts"
+        },
+        {
+          "path": "src/modules/assistant-runtime/capabilities/challenge.ts",
+          "label": "src/modules/assistant-runtime/capabilities/challenge.ts"
+        },
+        {
+          "path": "src/modules/assistant-runtime/capabilities/contracts.ts",
+          "label": "src/modules/assistant-runtime/capabilities/contracts.ts"
+        }
+      ]
+    },
+    {
+      "id": "assistant-runtime",
+      "type": "backend",
+      "label": "Kern Assistant Runtime",
+      "sublabel": "Conversation lifecycle, context, autonomy and result composition.",
+      "row": 0,
+      "col": 2,
+      "sources": [
+        {
+          "path": "src/modules/assistant-runtime/autonomy.ts",
+          "label": "src/modules/assistant-runtime/autonomy.ts"
+        },
+        {
+          "path": "src/modules/assistant-runtime/collaboration-planner.ts",
+          "label": "src/modules/assistant-runtime/collaboration-planner.ts"
+        },
+        {
+          "path": "src/modules/assistant-runtime/context-builder.ts",
+          "label": "src/modules/assistant-runtime/context-builder.ts"
+        }
+      ]
+    },
+    {
+      "id": "advisor-support",
+      "type": "backend",
+      "label": "Advisor Compatibility Libraries",
+      "sublabel": "Proposal, challenge, LLM and compatibility facade libraries; not a runtime owner.",
+      "row": 0,
+      "col": 4,
+      "sources": [
+        {
+          "path": "src/modules/advisor/challenge.test.ts",
+          "label": "src/modules/advisor/challenge.test.ts"
+        },
+        {
+          "path": "src/modules/advisor/challenge.ts",
+          "label": "src/modules/advisor/challenge.ts"
+        },
+        {
+          "path": "src/modules/advisor/context.ts",
+          "label": "src/modules/advisor/context.ts"
+        }
+      ]
+    },
+    {
+      "id": "model-gateway",
+      "type": "cloud",
+      "label": "Model Gateway",
+      "sublabel": "Model policy, routing, provider execution and usage metering.",
+      "row": 1,
+      "col": 4,
+      "sources": [
+        {
+          "path": "src/modules/model-control/presets.ts",
+          "label": "src/modules/model-control/presets.ts"
+        },
+        {
+          "path": "src/modules/model-control/service.ts",
+          "label": "src/modules/model-control/service.ts"
+        },
+        {
+          "path": "src/modules/model-gateway/gateway.ts",
+          "label": "src/modules/model-gateway/gateway.ts"
+        }
+      ]
+    },
+    {
+      "id": "supervisor",
+      "type": "backend",
+      "label": "Mission Supervisor",
+      "sublabel": "Mission planning, node execution, controls and receipts.",
+      "row": 2,
+      "col": 4,
+      "sources": [
+        {
+          "path": "src/modules/supervisor/attention.ts",
+          "label": "src/modules/supervisor/attention.ts"
+        },
+        {
+          "path": "src/modules/supervisor/brief.ts",
+          "label": "src/modules/supervisor/brief.ts"
+        },
+        {
+          "path": "src/modules/supervisor/claims.ts",
+          "label": "src/modules/supervisor/claims.ts"
+        }
+      ]
+    },
+    {
+      "id": "work-engine",
+      "type": "backend",
+      "label": "Work Engine",
+      "sublabel": "Longer-running Product R&D, workforce and product development execution.",
+      "row": 0,
+      "col": 5,
+      "sources": [
+        {
+          "path": "src/modules/product-development/analysis.ts",
+          "label": "src/modules/product-development/analysis.ts"
+        },
+        {
+          "path": "src/modules/product-development/channel-routes-service.ts",
+          "label": "src/modules/product-development/channel-routes-service.ts"
+        },
+        {
+          "path": "src/modules/product-development/channel-spec.ts",
+          "label": "src/modules/product-development/channel-spec.ts"
+        }
+      ]
+    },
+    {
+      "id": "desktop-runtime",
+      "type": "external",
+      "label": "Desktop Runtime",
+      "sublabel": "Local computer execution and receipts.",
+      "row": 1,
+      "col": 5,
+      "sources": [
+        {
+          "path": "src/modules/desktop-runtime/confirmation.ts",
+          "label": "src/modules/desktop-runtime/confirmation.ts"
+        },
+        {
+          "path": "src/modules/desktop-runtime/contracts.ts",
+          "label": "src/modules/desktop-runtime/contracts.ts"
+        },
+        {
+          "path": "src/modules/desktop-runtime/index.ts",
+          "label": "src/modules/desktop-runtime/index.ts"
+        }
+      ]
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Worker Runtime",
+      "sublabel": "Leases, heartbeats, retries and recovery for queued execution.",
+      "row": 2,
+      "col": 5,
+      "sources": [
+        {
+          "path": "src/modules/worker/backoff.ts",
+          "label": "src/modules/worker/backoff.ts"
+        },
+        {
+          "path": "src/modules/worker/claim.ts",
+          "label": "src/modules/worker/claim.ts"
+        },
+        {
+          "path": "src/modules/worker/execution-control.ts",
+          "label": "src/modules/worker/execution-control.ts"
+        }
+      ]
+    },
+    {
+      "id": "research",
+      "type": "backend",
+      "label": "Research",
+      "sublabel": "Web research, source capture and lineage.",
+      "row": 3,
+      "col": 5,
+      "sources": [
+        {
+          "path": "src/modules/research/evidence-claims.ts",
+          "label": "src/modules/research/evidence-claims.ts"
+        },
+        {
+          "path": "src/modules/research/market-research.ts",
+          "label": "src/modules/research/market-research.ts"
+        },
+        {
+          "path": "src/modules/research/opportunity-analysis.ts",
+          "label": "src/modules/research/opportunity-analysis.ts"
+        }
+      ]
+    },
+    {
+      "id": "cost-engine",
+      "type": "backend",
+      "label": "Cost Engine",
+      "sublabel": "Cost, budget and scenario calculation.",
+      "row": 4,
+      "col": 5,
+      "sources": [
+        {
+          "path": "src/modules/cost-engine/budget-variance.ts",
+          "label": "src/modules/cost-engine/budget-variance.ts"
+        },
+        {
+          "path": "src/modules/cost-engine/channel.ts",
+          "label": "src/modules/cost-engine/channel.ts"
+        },
+        {
+          "path": "src/modules/cost-engine/cost-total.ts",
+          "label": "src/modules/cost-engine/cost-total.ts"
+        }
+      ]
+    },
+    {
+      "id": "decision-intelligence",
+      "type": "backend",
+      "label": "Decision Intelligence",
+      "sublabel": "Decision runs, options and outcome intelligence.",
+      "row": 5,
+      "col": 5,
+      "sources": [
+        {
+          "path": "src/modules/decision-intelligence/defaults.ts",
+          "label": "src/modules/decision-intelligence/defaults.ts"
+        },
+        {
+          "path": "src/modules/decision-intelligence/index.ts",
+          "label": "src/modules/decision-intelligence/index.ts"
+        },
+        {
+          "path": "src/modules/decision-intelligence/kernel.ts",
+          "label": "src/modules/decision-intelligence/kernel.ts"
+        }
+      ]
+    },
+    {
+      "id": "governance",
+      "type": "security",
+      "label": "Governance",
+      "sublabel": "Protected approvals, ToolBroker and capability boundaries.",
+      "row": 0,
+      "col": 6,
+      "sources": [
+        {
+          "path": "src/modules/governance/action-hash.ts",
+          "label": "src/modules/governance/action-hash.ts"
+        },
+        {
+          "path": "src/modules/governance/approval-service.ts",
+          "label": "src/modules/governance/approval-service.ts"
+        },
+        {
+          "path": "src/modules/governance/capability-policy.ts",
+          "label": "src/modules/governance/capability-policy.ts"
+        }
+      ]
+    },
+    {
+      "id": "evidence",
+      "type": "backend",
+      "label": "Evidence",
+      "sublabel": "Source capture, verification and claim lineage.",
+      "row": 1,
+      "col": 6,
+      "sources": [
+        {
+          "path": "src/modules/evidence/evidence-view.ts",
+          "label": "src/modules/evidence/evidence-view.ts"
+        },
+        {
+          "path": "src/modules/evidence/index.ts",
+          "label": "src/modules/evidence/index.ts"
+        },
+        {
+          "path": "src/modules/evidence/source-fetch-executor.ts",
+          "label": "src/modules/evidence/source-fetch-executor.ts"
+        }
+      ]
+    },
+    {
+      "id": "domain-data",
+      "type": "backend",
+      "label": "Domain Data Modules",
+      "sublabel": "Product, project, work, decision and signal domain records.",
+      "row": 2,
+      "col": 6,
+      "sources": [
+        {
+          "path": "src/modules/decisions/artifact-ref.ts",
+          "label": "src/modules/decisions/artifact-ref.ts"
+        },
+        {
+          "path": "src/modules/decisions/index.ts",
+          "label": "src/modules/decisions/index.ts"
+        },
+        {
+          "path": "src/modules/decisions/scope-hash.ts",
+          "label": "src/modules/decisions/scope-hash.ts"
+        }
+      ]
+    },
+    {
+      "id": "platform-services",
+      "type": "backend",
+      "label": "Platform Services",
+      "sublabel": "Tenancy, identity, scheduling, notifications and supporting services.",
+      "row": 3,
+      "col": 6,
+      "sources": [
+        {
+          "path": "src/modules/automation-trace/index.ts",
+          "label": "src/modules/automation-trace/index.ts"
+        },
+        {
+          "path": "src/modules/automation-trace/service.ts",
+          "label": "src/modules/automation-trace/service.ts"
+        },
+        {
+          "path": "src/modules/autopilot/index.ts",
+          "label": "src/modules/autopilot/index.ts"
+        }
+      ]
+    },
+    {
+      "id": "persistence",
+      "type": "database",
+      "label": "Persistence",
+      "sublabel": "PostgreSQL schema and persisted runs, work and receipts.",
+      "row": 0,
+      "col": 7,
+      "sources": [
+        {
+          "path": "src/shared/db.ts",
+          "label": "src/shared/db.ts"
+        },
+        {
+          "path": "prisma/schema.prisma",
+          "label": "prisma/schema.prisma"
+        }
+      ]
+    },
+    {
+      "id": "shared-kernel",
+      "type": "backend",
+      "label": "Shared Kernel",
+      "sublabel": "Cross-cutting helpers, UI primitives, contracts and reply formats.",
+      "row": 1,
+      "col": 7,
+      "sources": [
+        {
+          "path": "src/components/app-shell.tsx",
+          "label": "src/components/app-shell.tsx"
+        },
+        {
+          "path": "src/components/automation-trace.tsx",
+          "label": "src/components/automation-trace.tsx"
+        },
+        {
+          "path": "src/components/challenge-report-card.tsx",
+          "label": "src/components/challenge-report-card.tsx"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "import-advisor-support-assistant-runtime",
+      "from": "advisor-support",
+      "to": "assistant-runtime",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-advisor-support-capability-registry",
+      "from": "advisor-support",
+      "to": "capability-registry",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-advisor-support-cost-engine",
+      "from": "advisor-support",
+      "to": "cost-engine",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-advisor-support-domain-data",
+      "from": "advisor-support",
+      "to": "domain-data",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-advisor-support-kern-router",
+      "from": "advisor-support",
+      "to": "kern-router",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-advisor-support-model-gateway",
+      "from": "advisor-support",
+      "to": "model-gateway",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-advisor-support-persistence",
+      "from": "advisor-support",
+      "to": "persistence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-advisor-support-platform-services",
+      "from": "advisor-support",
+      "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-advisor-support-research",
+      "from": "advisor-support",
+      "to": "research",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-advisor-support-shared-kernel",
+      "from": "advisor-support",
+      "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-advisor-support-work-engine",
+      "from": "advisor-support",
+      "to": "work-engine",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-assistant-runtime-advisor-support",
+      "from": "assistant-runtime",
+      "to": "advisor-support",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-assistant-runtime-capability-registry",
+      "from": "assistant-runtime",
+      "to": "capability-registry",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-assistant-runtime-decision-intelligence",
+      "from": "assistant-runtime",
+      "to": "decision-intelligence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-assistant-runtime-governance",
+      "from": "assistant-runtime",
+      "to": "governance",
+      "label": "代码依赖",
+      "variant": "security"
+    },
+    {
+      "id": "import-assistant-runtime-kern-router",
+      "from": "assistant-runtime",
+      "to": "kern-router",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-assistant-runtime-model-gateway",
+      "from": "assistant-runtime",
+      "to": "model-gateway",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-assistant-runtime-persistence",
+      "from": "assistant-runtime",
+      "to": "persistence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-assistant-runtime-platform-services",
+      "from": "assistant-runtime",
+      "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-assistant-runtime-shared-kernel",
+      "from": "assistant-runtime",
+      "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-assistant-runtime-supervisor",
+      "from": "assistant-runtime",
+      "to": "supervisor",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-assistant-runtime-work-engine",
+      "from": "assistant-runtime",
+      "to": "work-engine",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-assistant-runtime-worker",
+      "from": "assistant-runtime",
+      "to": "worker",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-capability-registry-advisor-support",
+      "from": "capability-registry",
+      "to": "advisor-support",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-capability-registry-desktop-runtime",
+      "from": "capability-registry",
+      "to": "desktop-runtime",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-capability-registry-domain-data",
+      "from": "capability-registry",
+      "to": "domain-data",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-capability-registry-kern-router",
+      "from": "capability-registry",
+      "to": "kern-router",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-capability-registry-persistence",
+      "from": "capability-registry",
+      "to": "persistence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-capability-registry-platform-services",
+      "from": "capability-registry",
+      "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-capability-registry-research",
+      "from": "capability-registry",
+      "to": "research",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-capability-registry-shared-kernel",
+      "from": "capability-registry",
+      "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-capability-registry-supervisor",
+      "from": "capability-registry",
+      "to": "supervisor",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-capability-registry-work-engine",
+      "from": "capability-registry",
+      "to": "work-engine",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-chat-ui-assistant-runtime",
+      "from": "chat-ui",
+      "to": "assistant-runtime",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-chat-ui-governance",
+      "from": "chat-ui",
+      "to": "governance",
+      "label": "代码依赖",
+      "variant": "security"
+    },
+    {
+      "id": "import-chat-ui-platform-services",
+      "from": "chat-ui",
+      "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-chat-ui-shared-kernel",
+      "from": "chat-ui",
+      "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-chat-ui-supervisor",
+      "from": "chat-ui",
+      "to": "supervisor",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-conversation-api-assistant-runtime",
+      "from": "conversation-api",
+      "to": "assistant-runtime",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-conversation-api-platform-services",
+      "from": "conversation-api",
+      "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-conversation-api-shared-kernel",
+      "from": "conversation-api",
+      "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-cost-engine-domain-data",
+      "from": "cost-engine",
+      "to": "domain-data",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-cost-engine-platform-services",
+      "from": "cost-engine",
+      "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-decision-intelligence-persistence",
+      "from": "decision-intelligence",
+      "to": "persistence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-decision-intelligence-platform-services",
+      "from": "decision-intelligence",
+      "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-decision-intelligence-shared-kernel",
+      "from": "decision-intelligence",
+      "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-desktop-runtime-governance",
+      "from": "desktop-runtime",
+      "to": "governance",
+      "label": "代码依赖",
+      "variant": "security"
+    },
+    {
+      "id": "import-desktop-runtime-persistence",
+      "from": "desktop-runtime",
+      "to": "persistence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-desktop-runtime-platform-services",
+      "from": "desktop-runtime",
+      "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-desktop-runtime-shared-kernel",
+      "from": "desktop-runtime",
+      "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-desktop-runtime-work-engine",
+      "from": "desktop-runtime",
+      "to": "work-engine",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-domain-data-cost-engine",
+      "from": "domain-data",
+      "to": "cost-engine",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-domain-data-evidence",
+      "from": "domain-data",
+      "to": "evidence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-domain-data-model-gateway",
+      "from": "domain-data",
+      "to": "model-gateway",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-domain-data-persistence",
+      "from": "domain-data",
+      "to": "persistence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-domain-data-platform-services",
+      "from": "domain-data",
+      "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-domain-data-research",
+      "from": "domain-data",
+      "to": "research",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-domain-data-shared-kernel",
+      "from": "domain-data",
+      "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-domain-data-work-engine",
+      "from": "domain-data",
+      "to": "work-engine",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-evidence-governance",
+      "from": "evidence",
+      "to": "governance",
+      "label": "代码依赖",
+      "variant": "security"
+    },
+    {
+      "id": "import-evidence-persistence",
+      "from": "evidence",
+      "to": "persistence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-evidence-platform-services",
+      "from": "evidence",
+      "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-evidence-shared-kernel",
+      "from": "evidence",
+      "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-governance-desktop-runtime",
+      "from": "governance",
+      "to": "desktop-runtime",
+      "label": "代码依赖",
+      "variant": "security"
+    },
+    {
+      "id": "import-governance-persistence",
+      "from": "governance",
+      "to": "persistence",
+      "label": "代码依赖",
+      "variant": "security"
+    },
+    {
+      "id": "import-governance-platform-services",
+      "from": "governance",
+      "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "security"
+    },
+    {
+      "id": "import-kern-router-capability-registry",
+      "from": "kern-router",
+      "to": "capability-registry",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-kern-router-desktop-runtime",
+      "from": "kern-router",
+      "to": "desktop-runtime",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-kern-router-model-gateway",
+      "from": "kern-router",
+      "to": "model-gateway",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-kern-router-platform-services",
+      "from": "kern-router",
+      "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-kern-router-work-engine",
+      "from": "kern-router",
+      "to": "work-engine",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-model-gateway-persistence",
+      "from": "model-gateway",
+      "to": "persistence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-model-gateway-platform-services",
+      "from": "model-gateway",
+      "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-model-gateway-shared-kernel",
+      "from": "model-gateway",
+      "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-persistence-shared-kernel",
+      "from": "persistence",
+      "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-api-advisor-support",
+      "from": "platform-api",
+      "to": "advisor-support",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-api-capability-registry",
+      "from": "platform-api",
+      "to": "capability-registry",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-api-cost-engine",
+      "from": "platform-api",
+      "to": "cost-engine",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-api-desktop-runtime",
+      "from": "platform-api",
+      "to": "desktop-runtime",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-api-domain-data",
+      "from": "platform-api",
+      "to": "domain-data",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-api-evidence",
+      "from": "platform-api",
+      "to": "evidence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-api-model-gateway",
+      "from": "platform-api",
+      "to": "model-gateway",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-api-persistence",
+      "from": "platform-api",
+      "to": "persistence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-api-platform-services",
+      "from": "platform-api",
+      "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-api-research",
+      "from": "platform-api",
+      "to": "research",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-api-shared-kernel",
+      "from": "platform-api",
+      "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-api-supervisor",
+      "from": "platform-api",
+      "to": "supervisor",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-api-work-engine",
+      "from": "platform-api",
+      "to": "work-engine",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-api-worker",
+      "from": "platform-api",
+      "to": "worker",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-services-advisor-support",
+      "from": "platform-services",
+      "to": "advisor-support",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-services-assistant-runtime",
+      "from": "platform-services",
+      "to": "assistant-runtime",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-services-decision-intelligence",
+      "from": "platform-services",
+      "to": "decision-intelligence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-services-desktop-runtime",
+      "from": "platform-services",
+      "to": "desktop-runtime",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-services-domain-data",
+      "from": "platform-services",
+      "to": "domain-data",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-services-governance",
+      "from": "platform-services",
+      "to": "governance",
+      "label": "代码依赖",
+      "variant": "security"
+    },
+    {
+      "id": "import-platform-services-model-gateway",
+      "from": "platform-services",
+      "to": "model-gateway",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-services-persistence",
+      "from": "platform-services",
+      "to": "persistence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-services-shared-kernel",
+      "from": "platform-services",
+      "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-services-supervisor",
+      "from": "platform-services",
+      "to": "supervisor",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-services-work-engine",
+      "from": "platform-services",
+      "to": "work-engine",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-services-worker",
+      "from": "platform-services",
+      "to": "worker",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-research-persistence",
+      "from": "research",
+      "to": "persistence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-research-platform-services",
+      "from": "research",
+      "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-research-shared-kernel",
+      "from": "research",
+      "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-shared-kernel-model-gateway",
+      "from": "shared-kernel",
+      "to": "model-gateway",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-shared-kernel-platform-services",
+      "from": "shared-kernel",
+      "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-shared-kernel-supervisor",
+      "from": "shared-kernel",
+      "to": "supervisor",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-supervisor-advisor-support",
+      "from": "supervisor",
+      "to": "advisor-support",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-supervisor-assistant-runtime",
+      "from": "supervisor",
+      "to": "assistant-runtime",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-supervisor-capability-registry",
+      "from": "supervisor",
+      "to": "capability-registry",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-supervisor-domain-data",
+      "from": "supervisor",
+      "to": "domain-data",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-supervisor-governance",
+      "from": "supervisor",
+      "to": "governance",
+      "label": "代码依赖",
+      "variant": "security"
+    },
+    {
+      "id": "import-supervisor-model-gateway",
+      "from": "supervisor",
+      "to": "model-gateway",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-supervisor-persistence",
+      "from": "supervisor",
+      "to": "persistence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-supervisor-platform-services",
+      "from": "supervisor",
+      "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-supervisor-research",
+      "from": "supervisor",
+      "to": "research",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-supervisor-shared-kernel",
+      "from": "supervisor",
+      "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-supervisor-work-engine",
+      "from": "supervisor",
+      "to": "work-engine",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-supervisor-worker",
+      "from": "supervisor",
+      "to": "worker",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-work-engine-advisor-support",
+      "from": "work-engine",
+      "to": "advisor-support",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-work-engine-domain-data",
+      "from": "work-engine",
+      "to": "domain-data",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-work-engine-evidence",
+      "from": "work-engine",
+      "to": "evidence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-work-engine-model-gateway",
+      "from": "work-engine",
+      "to": "model-gateway",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-work-engine-persistence",
+      "from": "work-engine",
+      "to": "persistence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-work-engine-platform-services",
+      "from": "work-engine",
+      "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-work-engine-research",
+      "from": "work-engine",
+      "to": "research",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-work-engine-shared-kernel",
+      "from": "work-engine",
+      "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-work-engine-worker",
+      "from": "work-engine",
+      "to": "worker",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-workbench-cost-engine",
+      "from": "workbench",
+      "to": "cost-engine",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-workbench-domain-data",
+      "from": "workbench",
+      "to": "domain-data",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-workbench-evidence",
+      "from": "workbench",
+      "to": "evidence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-workbench-model-gateway",
+      "from": "workbench",
+      "to": "model-gateway",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-workbench-persistence",
+      "from": "workbench",
+      "to": "persistence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-workbench-platform-services",
+      "from": "workbench",
+      "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-workbench-research",
+      "from": "workbench",
+      "to": "research",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-workbench-shared-kernel",
+      "from": "workbench",
+      "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-workbench-work-engine",
+      "from": "workbench",
+      "to": "work-engine",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-worker-model-gateway",
+      "from": "worker",
+      "to": "model-gateway",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-worker-persistence",
+      "from": "worker",
+      "to": "persistence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-worker-platform-services",
+      "from": "worker",
+      "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-worker-shared-kernel",
+      "from": "worker",
+      "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    }
+  ]
+}

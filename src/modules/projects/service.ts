@@ -8,6 +8,7 @@ import { computeScopeHash } from "../decisions/scope-hash";
 import { resolveAuthoritativeArtifactRefs } from "../decisions/artifact-ref";
 import { pickResolvedClaims, computeEvidenceGaps } from "../research/evidence-claims";
 import { PROJECT_DETAIL_SELECT, APPROVAL_META_SELECT } from "./project-view";
+import { assertObjectInput, assertOptionalBoolean, assertOptionalText, requiredText } from "@/shared/input-validation";
 
 export interface CreateProjectParams {
   title: string;
@@ -20,8 +21,15 @@ export interface CreateProjectParams {
 }
 
 export async function createProject(session: SessionContext, params: CreateProjectParams) {
-  if (!params.title || !params.target) {
-    throw new UnprocessableEntityError("Project title and target are required");
+  assertObjectInput(params);
+  const title = requiredText(params.title, "title");
+  const target = requiredText(params.target, "target");
+  if (!Object.values(ProjectMode).includes(params.mode)) {
+    throw new UnprocessableEntityError("mode 必须为有效的项目模式", { mode: ["必须为有效的项目模式"] });
+  }
+  assertOptionalBoolean(params.isDemo, "isDemo");
+  for (const field of ["decisionMakerId", "productVersionId", "constraints"] as const) {
+    assertOptionalText(params[field], field);
   }
 
   // R08 validation: FIXED_PRODUCT requires a confirmed product version belonging to the same organization
@@ -57,8 +65,8 @@ export async function createProject(session: SessionContext, params: CreateProje
     const p = await tx.project.create({
       data: {
         organizationId: session.organizationId,
-        title: params.title.trim(),
-        target: params.target.trim(),
+        title,
+        target,
         mode: params.mode,
         isDemo: params.isDemo ?? false, // R07: formal isDemo flag
         stage: initialStage,
@@ -231,6 +239,16 @@ export async function updateProject(
     throw new ForbiddenError("Only project owner can update project requirements");
   }
 
+  assertObjectInput(updates);
+  // An undefined revision disappears from Prisma's where filter and would bypass R06.
+  if (!Number.isInteger(updates.expectedRevision) || updates.expectedRevision < 1) {
+    throw new UnprocessableEntityError("expectedRevision 必填，且必须为不小于 1 的整数", {
+      expectedRevision: ["必填，且必须为不小于 1 的整数"],
+    });
+  }
+  const target = updates.target === undefined ? undefined : requiredText(updates.target, "target");
+  assertOptionalText(updates.constraints, "constraints");
+
   // R06: Concurrency optimistic lock directly in atomic update statement
   return await prisma.$transaction(async (tx) => {
     const updateResult = await tx.project.updateMany({
@@ -239,7 +257,7 @@ export async function updateProject(
         revision: updates.expectedRevision,
       },
       data: {
-        target: updates.target !== undefined ? updates.target.trim() : undefined,
+        target,
         constraints: updates.constraints !== undefined ? updates.constraints : undefined,
         revision: { increment: 1 },
       },

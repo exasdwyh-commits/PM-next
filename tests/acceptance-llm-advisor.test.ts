@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { waitForAcceptedMessage } from "./helpers/accepted-message";
 /**
  * Advisor LLM 润色链路端到端验收（P4：接口抽象 + 配置开关）
  *
@@ -208,11 +210,11 @@ async function main() {
   const ownerLogin = await login(ownerA.email, PASSWORD);
   ok(ownerLogin.status === 200 && !!ownerLogin.token, `0.1 负责人登录成功（HTTP ${ownerLogin.status}）`);
 
-  const send = (content: string) =>
-    api("POST", `/api/conversations/${conversation.id}/messages`, {
+  const send = async (content: string) => waitForAcceptedMessage(
+    await api("POST", `/api/conversations/${conversation.id}/messages`, {
       token: ownerLogin.token,
-      body: { content },
-    });
+      body: { content, clientMessageId: randomUUID() },
+    }), () => api("GET", `/api/conversations/${conversation.id}/messages`, { token: ownerLogin.token }));
 
   const lastRun = async () => {
     const run = await prisma.agentRun.findFirst({
@@ -232,8 +234,8 @@ async function main() {
   let llmEnabledOnServer = false;
   {
     const res = await send("查一下公司知识库里有哪些渠道政策");
-    ok(res.status === 201, `1.1 消息发送成功（HTTP ${res.status}）`);
-    if (res.status !== 201) {
+    ok(res.status === 202, `1.1 消息发送成功（HTTP ${res.status}）`);
+    if (res.status !== 202) {
       throw new Error(`场景 1 消息发送失败：${JSON.stringify(res.json)?.slice(0, 200)}`);
     }
     const run = await lastRun();
@@ -279,7 +281,7 @@ async function main() {
   await setMockMode("ok");
   {
     const res = await send("查一下公司知识库里关于禁用成分的规定");
-    ok(res.status === 201, `2.1 消息发送成功（HTTP ${res.status}）`);
+    ok(res.status === 202, `2.1 消息发送成功（HTTP ${res.status}）`);
     const run = await lastRun();
     ok(run.runMode === "LLM", `2.2 runMode=LLM（实际 ${run.runMode}）`);
     ok(run.promptTemplateVersion === "advisor-llm-system/v2", `2.3 promptTemplateVersion=advisor-llm-system/v2（实际 ${run.promptTemplateVersion}）`);
@@ -309,7 +311,7 @@ async function main() {
     // 此会话此前已有数轮对话（场景 1/2 产生的 USER/ASSISTANT 消息）。
     // mock 端点会回显收到的历史轮数：user ≥ 3（首轮对照 + 场景2两条 + 本轮），assistant ≥ 2。
     const res = await send("刚才查到的禁用成分，具体是哪几项？针对我们这个产品还有哪些不能说的宣称？");
-    ok(res.status === 201, `7.1 追问消息发送成功（HTTP ${res.status}）`);
+    ok(res.status === 202, `7.1 追问消息发送成功（HTTP ${res.status}）`);
     const run = await lastRun();
     const content: string = res.json?.message?.content || "";
 
@@ -337,7 +339,7 @@ async function main() {
   await setMockMode("fail");
   {
     const res = await send("查一下公司知识库里的品牌定位资料");
-    ok(res.status === 201, `3.1 消息发送成功（HTTP ${res.status}）`);
+    ok(res.status === 202, `3.1 消息发送成功（HTTP ${res.status}）`);
     const run = await lastRun();
     const content: string = res.json?.message?.content || "";
     ok(content.includes("【相关公司事实】") || content.includes("【相关知识文档切片引用】") || content.includes("未检索到"),
@@ -353,7 +355,7 @@ async function main() {
   await setMockMode("slow");
   {
     const res = await send("查一下公司知识库里的渠道规范");
-    ok(res.status === 201, `4.1 消息发送成功（HTTP ${res.status}，耗时约 1s+）`);
+    ok(res.status === 202, `4.1 消息发送成功（HTTP ${res.status}，耗时约 1s+）`);
     const run = await lastRun();
     const content: string = res.json?.message?.content || "";
     ok(!content.includes("【LLM 润色】"), "4.2 未采用慢响应的模型输出（回落）");
@@ -364,7 +366,7 @@ async function main() {
   await setMockMode("nousage");
   {
     const res = await send("查一下公司知识库里的禁用项规则");
-    ok(res.status === 201, `5.1 消息发送成功（HTTP ${res.status}）`);
+    ok(res.status === 202, `5.1 消息发送成功（HTTP ${res.status}）`);
     const run = await lastRun();
     const content: string = res.json?.message?.content || "";
     ok(content.includes("【LLM 润色】"), "5.2 模型正常回复（无 usage 不影响润色）");

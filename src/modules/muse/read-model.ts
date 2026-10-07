@@ -9,7 +9,7 @@ import { listProposals } from "@/modules/advisor/proposals";
 import { getDesktopOverview } from "@/modules/desktop-runtime";
 import prisma from "@/shared/db";
 import { buildAttentionBrief, type AttentionSignal } from "@/modules/supervisor/attention";
-import { readMissionSnapshot } from "@/modules/supervisor/service";
+import { computePendingAsks, readMissionSnapshot } from "@/modules/supervisor/service";
 import { isKernModelReady } from "@/modules/supervisor/generic-executor";
 import { readKernGraphCitation } from "@/modules/visual-intelligence/contracts";
 import type { KernGraphV1 } from "@/modules/visual-intelligence/contracts";
@@ -21,8 +21,16 @@ import type {
   Employee,
   EvidenceRef,
   Message,
+  MessageBlock,
   StudioModel,
-} from "@/app/muse/types";
+} from "./types";
+
+import { isMissionConclusionCitation } from "@/modules/supervisor/report-format";
+
+function conclusionBlock(text: string, citations: unknown[]): MessageBlock {
+  const ref = citations.map(isMissionConclusionCitation).find((id): id is string => !!id);
+  return ref ? { kind: "conclusion", ref, text } : { kind: "text", text };
+}
 
 const ACTIVE_TASK_STATUSES: AgentTaskStatus[] = [
   AgentTaskStatus.QUEUED,
@@ -104,7 +112,7 @@ function messageView(row: {
     at: row.createdAt.toISOString(),
     state: "success",
     blocks: [
-      { kind: "text", text: row.content },
+      conclusionBlock(row.content, citations),
       ...graphs.map((graph) => ({ kind: "graph" as const, graph })),
       ...(hasBrief ? [{ kind: "brief" as const, ref: row.id }] : []),
       ...missionIds.map((ref) => ({ kind: "mission" as const, ref })),
@@ -145,6 +153,12 @@ function proposalDecision(
 }
 
 
+/** KX-34：每日简报复用同一套注意力判断（不分叉逻辑）。 */
+export async function loadAttentionForUser(session: SessionContext) {
+  const proposals = await listProposals(session, { status: "PENDING_CONFIRMATION", take: 50 });
+  return loadAttention(session, proposals);
+}
+
 async function loadAttention(
   session: SessionContext,
   proposals: Awaited<ReturnType<typeof listProposals>>
@@ -160,6 +174,21 @@ async function loadAttention(
     select: { id: true, goal: true, contextSnapshot: true },
   });
   const signals: AttentionSignal[] = [];
+  // KX-51b/53：各任务未回答的提问数（一个任务聚合成一条「需要你」）。
+  const askRows = missions.length
+    ? await prisma.kernMissionEvent.findMany({
+        where: { organizationId: session.organizationId, missionTaskId: { in: missions.map((m) => m.id) }, type: { in: ["node.ask", "node.answered"] } },
+        orderBy: { seq: "asc" },
+        select: { missionTaskId: true, type: true, nodeKey: true, payload: true, createdAt: true },
+        take: 1000,
+      })
+    : [];
+  const openQuestions = (rootTaskId: string) =>
+    computePendingAsks(
+      askRows
+        .filter((r) => r.missionTaskId === rootTaskId)
+        .map((r) => ({ type: r.type, nodeKey: r.nodeKey, payload: (r.payload ?? {}) as Record<string, unknown>, createdAt: r.createdAt.toISOString() }))
+    ).length;
   for (const row of missions) {
     const snap = readMissionSnapshot(row.contextSnapshot);
     if (!snap) continue;
@@ -185,6 +214,7 @@ async function loadAttention(
       finishedAt: snap.outcome?.finishedAt ?? null,
       conversationId: snap.conversationId,
       seenByUser: seen,
+      openQuestions: snap.outcome?.status === "CANCELLED" ? 0 : openQuestions(row.id),
     });
   }
   for (const row of proposals) {
@@ -195,6 +225,19 @@ async function loadAttention(
       actionType: String((row as { actionType?: unknown }).actionType ?? ""),
       createdAt: new Date().toISOString(),
       conversationId: row.conversationId ?? null,
+    });
+  }
+  // KX-35：等你确认的本机命令（WAITING_HUMAN + desktopConfirmation.PENDING）。
+  const desktopWaiting = await getDesktopOverview(session, { limit: 20 }).catch(() => null);
+  for (const t of desktopWaiting?.tasks ?? []) {
+    if (!t.confirmation || !t.action) continue;
+    signals.push({
+      kind: "DESKTOP_CONFIRM",
+      id: t.taskId,
+      label: t.action.label,
+      detail: t.action.detail,
+      reason: t.confirmation.reason,
+      conversationId: t.conversationId,
     });
   }
   const soon = new Date(Date.now() + 3 * 86_400_000);
@@ -464,24 +507,26 @@ export async function buildKernViewModel(
       decisions: proposals.map(proposalDecision),
       conversations: conversationSummaries,
       attention,
+      // 首屏示例（KX-21）：提示文案决定走哪条路径。新品目标或命中 ≥ 2 个专家会起「任务」（有计划与契约卡）；
+      // 所以文案里避开「决策 / 拍板 / 待办 / 本周 / 项目 / 复核 / 本机」等会被关键词路由截胡的词（见 assistant-runtime/router.ts）。
       suggestions: [
         {
           id: "s-new-product",
-          title: "我想开发一个新的产品",
-          why: "Kern 组织研究、验证、营销和红队，给你一个可信结论",
+          title: "评估一个新品方向",
+          why: "市场、合规、成本逐项研究，红队证伪，给你一个带依据的结论",
           prompt: "我想开发一个新的产品，方向是：",
         },
         {
-          id: "s-products",
-          title: "汇总产品进展",
-          why: "找出阻塞和下一步",
-          prompt: "汇总正在推进的产品、阻塞和下一步。",
+          id: "s-competitors",
+          title: "做一份竞品调研",
+          why: "对比定位、价格带和渠道，每个判断标来源，查不到的写明未知",
+          prompt: "帮我做一份竞品调研：比较定位、价格带、渠道和差异化，每个判断标注来源，查不到的写明未知。调研对象是：",
         },
         {
-          id: "s-work",
-          title: "交代一项工作",
-          why: "研究、拆解、委派或调用本机执行",
-          prompt: "我有一件新的工作要推进：",
+          id: "s-compliance",
+          title: "排查一个方向的合规风险",
+          why: "宣称边界、资质备案、渠道限制，列出可能阻断上市的硬约束",
+          prompt: "帮我排查一个方向的合规风险：宣称边界、资质备案和渠道限制，列出可能阻断上市的硬约束。方向是：",
         },
       ],
     },

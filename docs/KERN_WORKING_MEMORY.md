@@ -1,5 +1,7 @@
 # Kern 工作记忆（给未来的自己 / 接手者）
 
+> 当前 Mac 本地交付包的修复与验收状态见 `KERN_LOCAL_STATUS_2026-10-05.md`。下文保留历史开发环境与分支记录；判断本地包能力时以当前代码和本地验收为准。
+
 > 目的：上下文会被压缩，这份文档是**唯一可信的进度汇总**。每完成一个阶段就更新。
 > 事实优先级：代码 / DB / API / CI > 本文档 > 其他历史文档。
 
@@ -38,6 +40,10 @@
 | #36 | — | ❌ 关闭未合并：与 #33/#34 重复实现 generic executor / attention（没看开放 PR 就开工的教训） |
 | #37 | integration/kern-v2-final → release | #33+#34+#35 集成；release 与 main 快进到 `193ae32c`，tag `v0.1.0-rc1-kern-v2` |
 | #38 | → main（`d179f8f7`） | 记忆条数额度真正执行（事务 + 组织级 advisory lock）；对话里超额如实告知；文档改为实际状态。**该修复不在 `v0.1.0-rc1-kern-v2` tag 里**；下次封版打 `v0.1.0-rc2`，不移动旧 tag |
+| #40 | feat/kern-display-layer → main（`c314fea`） | Display Layer ①：KernMissionEvent 事件表、用户控制、SSE 流 |
+| — | feat/kern-display-ui → main（`bbcc0e2`） | Display Layer ②：对话实时进度卡 + 工作区抽屉（过程 / 产出） |
+| #42 | feat/kern-display-output → main（`a8008ba`） | Display Layer ③：任务简报（澄清卡 + 计划卡）、演示模式 |
+| — | feat/kern-display-artifacts → main（`138059d`） | Display Layer ④：产出与带走（Proposal）、MD / PDF 导出 |
 
 补充说明：
 - 同一 `source` 的记忆更新不占新额度；用户说两次“记住…”（source=null）仍会产生两条，以后做语义去重。
@@ -61,16 +67,16 @@
   - tsc 用 `--max-old-space-size=1800`。
 - 预览：
   - 用 `next start -H 0.0.0.0 -p 3100`，DATABASE_URL 指向 kern_dev。
-  - 账号：zhang_pm@hermes.test / kern-dev-2026。
+  - 账号：zhang_pm@hermes.test（口令取本机 `.env` 的 `SEED_PASSWORD`；**口令不写进文档或代码**，需要时用 `tsx scripts/_set-dev-password.ts <newPassword>` 重设）。
 - 需要服务端的验收测试要设置：`ACC_BUILD_NODE_OPTIONS=--max-old-space-size=1536 ACC_BUILD_FLAGS=--no-lint`。
   - 另外需要 `.env`（gitignored，从 kern-env.sh 生成）。
 - 开发环境**没有模型**：所有 mission 都会以“模型服务不可用”停下。
 - 注意：上面是**原开发沙箱**的备忘。其他会话的沙箱可能没有 `kern-env.sh` / bundle（例如 Postgres 需自行 `apt-get install postgresql`，按 CI 的环境变量建 `hermes_test` + `hermes_dev_guard`；build 需 `--max-old-space-size=3072`）。
 
 ## 5. 待办
-- 当前阶段：**对话内全面展示（Display Layer）**。
+- 当前阶段：**对话内全面展示（Display Layer）已全部合入 `main`**（2026-09-27 核对：`main` = `origin/main` = `138059d`）。下一阶段见 `docs/KERN_NEXT_PHASE_PLAN.md` 的 P0-B。
   - 规格见 `docs/KERN_DISPLAY_SPEC.md`，grill 3 轮已完成，需求 v1 已定。
-  - PR ①（事件 + 控制 + SSE，分支 `feat/kern-display-layer`）已开 PR，待用户 review：
+  - PR ①（事件 + 控制 + SSE，分支 `feat/kern-display-layer`，落地提交 `c314fea`）**已合入 main**。其落地内容与仍然有效的现状：
     - `KernMissionEvent` 表（每个 mission 的 seq 严格递增，advisory lock + 唯一约束）；`src/modules/supervisor/events.ts`；
     - `controls.ts`：暂停 / 继续 / 取消 / 跳过 / 重跑 / 改计划 / 补充信息（owner-only）；新增结局 `CANCELLED`；
     - 路由：`POST /api/missions/[id]/control`、`GET …/events?after=`、`GET …/stream`（SSE，DB 轮询 1s，支持 Last-Event-ID）；
@@ -79,8 +85,48 @@
     - 跳过进行中的步骤：排队中的子任务会被取消，已在跑的会跑完但结果被忽略（可能多花一次模型调用）；
     - `snapshot.log` 仍保留写入，UI 在 PR ② 切到事件流后再考虑移除。
   - PR ① = #40。PR ②（分支 `feat/kern-display-ui`，叠在 #40 上）：对话进度卡（实时一句话、进度条、暂停/继续、查看过程/产出）+ 工作区抽屉（「过程」按成员分道、摘要/完整切换、重跑/跳过/移出、插一句、加步骤、QA 与红队、全部事件；「产出」结论、各步骤产出、为什么是这些成员/为什么需要你决定/消耗）。纯函数 `src/app/muse/mission-timeline.ts` 有单测。
-  - 已知：Prose 不渲染 markdown 表格（显示原文），PR ③ 产出物里处理。
-  - 下一步：PR ③ 演示回放、报告/对比表/图表/决策卡、一键带走（Proposal）、MD/PDF 导出。
+  - Prose **已支持** Markdown 表格（`src/app/muse/components/prose.tsx` 的 table 分支 + `report-format.ts` 的 `tableCells`）；原「不渲染表格」的记录已失效。
+  - PR ③（`a8008ba`，= #42）与 PR ④（`138059d`）同样已合入：简报 + 演示模式、产出与带走、MD/PDF 导出。**Display Layer 已收尾**。
+
+
+### 已完成：Display Layer（PR #40–#43，全部 CI 绿，待 review 合并）
+规格见 `docs/KERN_DISPLAY_SPEC.md`（grill 3 轮，需求 v1 已定）。四个堆叠 PR：
+
+| PR | 分支 | 内容 |
+|---|---|---|
+| #40 | `feat/kern-display-layer` → main | `KernMissionEvent` 表（seq 严格递增，advisory lock + 唯一约束）、`events.ts`、`controls.ts`（暂停/继续/取消/跳过/重跑/改计划/补充信息，owner-only，新增结局 `CANCELLED`）、`POST /control`、`GET /events?after=`、`GET /stream`（SSE，DB 轮询 1s，支持 Last-Event-ID） |
+| #41 | `feat/kern-display-ui` → #40 | 对话实时进度卡 + 工作区抽屉（「过程」按成员分道、摘要/完整、重跑/跳过、插一句、加步骤；「产出」结论与消耗）。纯函数 `mission-timeline.ts` 有单测 |
+| #42 | `feat/kern-display-output` → #41 | 澄清卡 + 计划卡（`brief.ts`）+ 演示模式（`demo.ts`） |
+| #43 | `feat/kern-display-artifacts` → #42 | 决策卡、一键带走 Proposal（`takeaway.ts`）、MD/PDF 导出 |
+
+已知限制（诚实记录）：
+- 模型网关**不是流式**：`node.delta` 一次性发完整文本（`streamed:false`），打字效果由演示回放器做；
+- `node.cite` 类型已预留，研究节点接入（P0-B）后才会真正产生；
+- 跳过进行中的步骤：排队中子任务被取消，已在跑的会跑完但结果被忽略（可能多花一次模型调用）；
+- `snapshot.log` 仍保留写入，未来切干净再移除；
+- 工作区只有「过程 / 产出」两个页签，元信息并入产出底部，未做成第三个页签；
+- 图表没有专门组件（已由 Response Layer 的 `chart` 块补上）。
+
+### 当前阶段：Response Layer（回复呈现框架）
+分支 `feat/kern-response-format`，叠在 #43 上。规格 `docs/KERN_RESPONSE_SPEC.md`。
+
+解决的问题：Display Layer 让人**看得见过程**，但"Kern 说出来的内容长什么样"没有规范，模型直接吐 Markdown，排版和质量都不可控。
+
+- **契约** `src/modules/response-format/types.ts`：`ResponseEnvelope` + 14 种 Block（含 `progress` 流式块、`clarify` 澄清块）。模型不再产出 HTML/Markdown 长文，排版由前端唯一决定 → 对话卡 / 工作区 / 导出 PDF 长得一致。
+- **harness** `validate.ts`：14 条规则，同构（Node 测试与浏览器渲染器共用一份，避免两套真相）。error 级不渲染直接回退重跑，warn 级渲染标黄。重点规则：R3 事实必须带来源角标且角标不能悬空、R4 决策卡三段齐全、R9 AI 套话黑名单、R10 UNKNOWN 必须写清缺什么源、R13 信封类型与必备块对应。
+- **渲染器** `src/app/muse/response/response-view.tsx` + `response.css`：14 种块的 TSX 实现，`parseInline` 不走 `dangerouslySetInnerHTML`；harness 失败时显示诚实失败态而不是渲染不合规内容。
+- **适配器** `from-mission.ts`：`MissionReport → ResponseEnvelope`。**宁可降级不许编造**——三段拿不全就不生成决策卡、信封降级为 ANSWER；没有真实来源就不生成 evidence 块也不输出 fact 要点，挂诚实 callout。这样 harness 是真守门而不是被适配器绕过。
+- **CI**：`npm run test:response-format`（24 用例全绿），已挂进 `test:delivery-contracts` 与 `kern-supervisor-ci.yml`。
+- 预览页 `kern-response-framework/`（不在仓库，由 `build-conversation.py` 从仓库 `response.css` 直接构建，保证预览与产品同源）。
+
+未接线：`ResponseView` 还没有替换 `muse` 现有的 prose 渲染路径，需要 supervisor 在写结论消息时同时产出 envelope。这是下一步。
+
+### 环境踩坑（新沙箱复现用）
+- 全新沙箱没有 `kern-env.sh` / bundle：需 `apt-get install postgresql`，自建 `kern_dev` + `hermes_test`。
+- `node_modules` 与 apt 包都不进快照，每次恢复都要 `npm ci` + `npx playwright install --with-deps chromium`。
+- 2GB 内存下 `next build` 会 OOM，改用 `next dev`；dev server + worker + Chromium 三者同时跑仍可能被杀，截图时先停 worker。
+- **演示模式在全新库上会 422**：`Kern PM agent is not active; run workforce bootstrap first`。`prisma/seed.ts` 不 bootstrap workforce，必须先 `POST /api/workforce/bootstrap`。这与"没有模型也能把整条链路演示完整"的承诺有缺口，建议补进 seed 或让演示模式自动 bootstrap。
+
 - Display Layer 实现时要预留给后续阶段的接口：
   - `node.cite` 事件带 `sourceCaptureId` / URL / fetchedAt，引用能从研究节点一直传到结论卡与导出（为 citation lineage 预留）；
   - 快照里已加 `demo` 标记，事件表也有 `demo` 列；演示 mission **不能**用 `kern-mission/v1` schema（billing 按它计任务数），或在计费查询里显式排除 `demo=true`；
@@ -98,7 +144,20 @@
   - 多渠道推送；
   - 可观测性。
 
-## Display Layer PR ③ 第一部分（feat/kern-display-output，基于 feat/kern-display-ui）
+## 6. 当前开放分支（2026-09-27，均基于 `main`，**尚未推送**）
+
+| 分支 | 提交 | 内容 | 状态 |
+|---|---|---|---|
+| `feat/tenant-pack` | `be3acb2` | 租户配置包 P1/P2 + 计划验收文档 | 待 PR，见 `docs/KERN_TENANT_PACK_PLAN.md` |
+| `fix/kern-write-path-pool-exhaustion` | `4a722b7` | 写入路径连接池耗尽修复（进程内 key 级互斥） | 待 PR，清除了 `v0.1.0-rc2` 的阻塞 |
+| `chore/remove-hardcoded-dev-credentials` | `5dc30ae` | 清除脚本中硬编码的开发口令 | 待 PR |
+| `chore/qe-design-token-debt` | `579e80c` | Quiet Enterprise 令牌债：守卫覆盖修正 + 令牌层合一 | 待 PR，回归锁 6 项未过 → 1 项 |
+| `docs/working-memory-refresh` | 本提交 | 本文件与交付记录对齐实际 | 待 PR |
+
+> 旧开发口令仍存在于 git 历史与 `origin/main`，**必须轮换** `zhang_pm@hermes.test` 与
+> `li_vp@hermes.test`：`tsx scripts/_set-dev-password.ts <newPassword>`。
+
+## 附：Display Layer PR ③ 第一部分（feat/kern-display-output，基于 feat/kern-display-ui）
 - 新增：任务简报（supervisor/brief.ts）——新产品先出澄清卡（2–3 题，可点选项；记忆命中显示「我记得」可改），确认后出计划卡（步骤/成员/为什么/预估额度，可删步），再「开始」或「演示运行」。
 - 演示模式（supervisor/demo.ts）：同一套 UI，明确标注，不写业务数据、不计入任务额度。
 - assistant-runtime：launch 决策改为先生成简报，不再直接开跑；额度满时提示可演示运行。
@@ -114,3 +173,26 @@
 - UI：产出页顶部「需要你决定」卡 + 「带走」栏（提案回执、导出 MD/PDF、演示说明）；Prose 支持表格。
 - 验证：tsc、eslint、kern-report 单测、test:kern-takeaway（T1–T7）及既有 kern 套件全过；next build；截图 shots/p4-*。
 - 下一步：P0-D 每次模型调用前查额度，跳过/取消后不再调用模型。
+
+## 受保护动作清单 guard（feat/kern-protected-actions，基于 main，未推送）
+- 来源：`docs/KERN_AGENT_FIELD_REPORT_MUSE_2026-09-27.md` §4 建议 3；建议 2 的两项已分别在 `feat/tenant-pack`（SOUL 注入）与 `feat/kern-honest-events` 完成。
+- 唯一事实源 `src/modules/governance/protected-actions.ts`：9 个 gate（新增凭证、个人肖像），autonomy 维度 / ToolBroker 能力 / 本机工具全部映射；plan、goal-plan、mission-timeline 改为引用。
+- guard：`tests/kern-protected-actions.test.ts` PA1–PA11（接入 `test:kern-autonomy`）；本机危险命令判断移入 `isDangerousShellCommand` 并修复 `rm -fr` 绕过。
+- 已知缺口：本机受保护工具服务端不经 gate；persona 未提凭证 / 肖像（等 persona v3 合入再补）。详见 `docs/mcp-protected-actions-audit.md` §6。
+- 验证：tsc、eslint、delivery-contracts、kern-supervisor S1–S8、kern-takeaway 全过。待 PR。
+- 第二个提交：执行端覆盖保护（`desktop-runtime/local-fs.ts`）。写入 / 移动的目标已存在 → `WAITING_HUMAN`，原文件不动，回执给出「本机覆盖写入 / 追加到 / 覆盖移动」确认指令，解析器支持这三种显式说法；`DESKTOP_TOOL_RISK.serverGate` 改为 `enforcement`（SERVER / EXECUTOR / NONE）。测试 LF1–LF8（接入 `test:desktop-runtime`）、PA12。仍待决定：`shell.run` / `agent.delegate` 是否确认。
+
+## 回复格式框架 PR ⑤（feat/kern-reply-format，基于 feat/kern-display-artifacts / #43）
+- 规范 + Harness + 渲染三层，详见 docs/KERN_REPLY_FORMAT.md。
+- persona 版本升到 2026-09-27-v3（附加格式规范）；对话引擎模型输出入库前 normalizeReply，结果写入 toolCall.resultJson.replyFormat；任务节点产出同样规范化；综合结论改为 `##` 分节。
+- 渲染器重写：嵌套列表、任务清单、表格对齐/数字列、代码块复制、5 种提示框、事实标签；修复共享正则导致的死循环（已加回归测试）。
+- 验证：tsc、eslint、kern-reply-format/prose/report 单测、kern DB 套件全过；next build；桌面/手机/暗色截图 shots/r-*, z3-*。
+- 下一步：P0-D 每次模型调用前查额度，跳过/取消后不再调用模型。
+
+## 回复分层集成 PR ⑥（feat/kern-response-unify，叠在 ⑤ 上，包含 #44）
+- 分层：日常对话 = Markdown 回复层（KERN_REPLY_FORMAT.md）；任务结论 = ResponseEnvelope（KERN_RESPONSE_SPEC.md）。
+- 一个行内渲染器：ProseBlock 与所有块的行内文字走 prose.tsx；`[n]` 角标经 SourceRefContext 跳转来源。
+- 一套文本规则：response-format/text-rules.ts（套话黑名单 / 客套开头 / emoji），对话 lint 与信封 R9/R12/R15/R16 共用。
+- CSS：#44 的 token 从 :root 收进 .kr-response（原来会覆盖全站 --line/--paper/--ok/--warn），在 .muse 内映射到 --m-*。
+- 接线：完成的结论消息 citation 带 `conclusion: true`；GET /api/missions/[id]/response 读时生成信封 + harness 结果；对话与「产出」用 ResponseView，校验不过回退 Markdown。
+- 下一步：P0-D（每次模型调用前查额度）→ 流式 → 引用。

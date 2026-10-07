@@ -2,6 +2,7 @@ import type {
   KernCollaborationPlanShadow,
   KernModelTier,
 } from "./collaboration-planner";
+import { HUMAN_GATE_IDS } from "@/modules/governance/protected-actions";
 
 export type KernGoalPlanTaskKind =
   | "PRIMARY"
@@ -231,15 +232,7 @@ export function buildKernGoalPlanShadow(input: {
     collaborationMode: collaboration.mode,
     successCriteria,
     tasks,
-    humanGates: [
-      "PAYMENT_OR_FINANCIAL_COMMITMENT",
-      "EXTERNAL_PUBLISH_OR_SEND",
-      "IRREVERSIBLE_DELETE_OR_OVERWRITE",
-      "SENSITIVE_PERMISSION_CHANGE",
-      "FORMAL_BUSINESS_GATE",
-      "LEGAL_OR_CONTRACT_COMMITMENT",
-      "STRATEGIC_VALUE_TRADEOFF",
-    ],
+    humanGates: [...HUMAN_GATE_IDS],
     executionPolicy: {
       autoCreateAgentTasks: false,
       specialistAutoDispatch: "READINESS_GATED",

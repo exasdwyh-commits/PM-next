@@ -5,7 +5,7 @@ import prisma from "../src/shared/db";
 import { assertTestDatabaseSafety } from "./test-safety";
 import { sendDepartmentAssistantMessage } from "../src/modules/assistant-runtime/service";
 import { bootstrapDefaultWorkforce } from "../src/modules/workforce/service";
-import { executorLoopOnce, reconcileLoopOnce } from "../src/modules/worker/loops";
+import { executorLoopOnce, reconcileLoopOnce } from "../src/modules/supervisor/worker-runtime";
 import { applyProposal } from "../src/modules/advisor/proposals";
 import {
   actOnBrief,

@@ -9,7 +9,7 @@
  * 拆分原因：把 HTTP 依赖塞进纯逻辑测试会破坏后者的可跑性（无服务即可跑）。
  *
  * 运行（经既有启动器，自带端口占用与服务器归属校验）：
- *   bash scripts/acc-server.sh --port 3182 3183 tests/acceptance-gate-boundaries.test.ts
+ *   npm run test:gate-boundaries-http（= bash scripts/acc-server.sh --port 3222 3223 tests/acceptance-gate-boundaries.test.ts）
  *
  * 夹具自建自清理，仅清理本套组织，不做无范围清库；全部为带 RUN_TAG 的合成夹具。
  */
@@ -21,7 +21,7 @@ import { computeRequestHash } from "../src/shared/idempotency";
 import { computeScopeHash } from "../src/modules/decisions/scope-hash";
 import crypto from "crypto";
 
-const BASE = process.env.BASE_URL || "http://127.0.0.1:3182";
+const BASE = process.env.BASE_URL || "http://127.0.0.1:3222";
 const RUN_TAG = `gb${Date.now()}`;
 const PASSWORD = `Gb-Accept-${crypto.randomBytes(6).toString("hex")}!`;
 const G1 = "RESEARCH_SAMPLING_GATE";

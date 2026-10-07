@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   buildProjectArchitectureGraph,
   extractStaticImports,
+  listUnmappedSourceFiles,
   toArchifyArchitectureSpec,
   type ProjectSourceFile,
 } from "../src/modules/visual-intelligence/project-map-builder";
@@ -63,9 +64,30 @@ for (const required of [
   "desktop-runtime",
   "governance",
   "persistence",
+  "platform-api",
+  "supervisor",
+  "worker",
+  "research",
+  "cost-engine",
+  "decision-intelligence",
+  "evidence",
+  "domain-data",
+  "platform-services",
+  "shared-kernel",
 ]) {
   assert.ok(nodeIds.has(required), `missing project-map node: ${required}`);
 }
+
+const unmapped = listUnmappedSourceFiles(files);
+const unmappedRatio = files.length ? unmapped.length / files.length : 0;
+assert.ok(
+  unmappedRatio <= 0.02,
+  [
+    `project map coverage regressed: ${unmapped.length}/${files.length} source files fall outside every declared area (${(unmappedRatio * 100).toFixed(1)}%).`,
+    "Add the new module to AREAS in src/modules/visual-intelligence/project-map-builder.ts.",
+    ...unmapped.slice(0, 20),
+  ].join("\n")
+);
 
 const edgeKeys = new Set(graph.edges.map((edge) => `${edge.from}->${edge.to}`));
 assert.ok(
@@ -96,6 +118,26 @@ assert.ok(
   edgeKeys.has("capability-registry->advisor-support"),
   "legacy Advisor code may remain only as supporting libraries behind native capabilities"
 );
+assert.ok(
+  edgeKeys.has("capability-registry->supervisor"),
+  "capability registry must delegate missions to the Mission Supervisor"
+);
+assert.ok(
+  edgeKeys.has("supervisor->worker"),
+  "Mission Supervisor must hand execution to the Worker Runtime"
+);
+assert.ok(
+  edgeKeys.has("supervisor->governance"),
+  "Mission Supervisor must pass protected work through Governance"
+);
+assert.ok(
+  edgeKeys.has("evidence->governance"),
+  "evidence verification must stay connected to Governance"
+);
+assert.ok(
+  edgeKeys.has("platform-api->supervisor"),
+  "platform API must reach the Mission Supervisor"
+);
 
 const archify = toArchifyArchitectureSpec(graph);
 assert.equal(archify.schema_version, 1);
@@ -109,5 +151,8 @@ assert.ok(
 );
 
 console.log(
-  `✅ Kern Project Map: ${graph.nodes.length} areas / ${graph.edges.length} verified dependency edges / Archify adapter ready`
+  [
+    `✅ Kern Project Map: ${graph.nodes.length} areas / ${graph.edges.length} verified dependency edges / Archify adapter ready`,
+    `Coverage: ${files.length - unmapped.length}/${files.length} source files mapped (${((1 - unmappedRatio) * 100).toFixed(1)}%)`,
+  ].join("\n")
 );

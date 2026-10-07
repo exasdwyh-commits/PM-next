@@ -1,3 +1,5 @@
+import { ExecutionStoppedError } from "@/modules/worker/claim";
+import { lockRunExecutionTx, type ConversationExecution } from "@/modules/worker/run-claim";
 import { RunMode } from "@prisma/client";
 import { recallForPrompt } from "@/modules/memory";
 import prisma from "@/shared/db";
@@ -6,7 +8,6 @@ import type { SessionContext } from "@/modules/identity/session";
 import {
   ADVISOR_LLM_SYSTEM_PROMPT_VERSION,
   buildAdvisorLLMMessages,
-  createAdvisorLLMClient,
   isAdvisorLLMEnabled,
   type AdvisorLLMMessage,
 } from "@/modules/advisor/llm";
@@ -24,11 +25,14 @@ import { claimRun } from "@/modules/advisor/runs";
 import { tryResolveGatewayPolicyForAgentCode } from "@/modules/model-control/service";
 import {
   executePersistedModelGateway,
+  executeLegacyAdvisorModel,
   hasEnabledPolicyCandidate,
   type ModelPolicy,
   type ModelProfile,
 } from "@/modules/model-gateway";
 import { buildDepartmentAssistantSystemPrompt } from "./persona";
+import { loadTenantSoul } from "@/modules/tenant/soul";
+import { KERN_REPLY_FORMAT_VERSION, normalizeReply, type NormalizedReply } from "./reply-format";
 import { applyExplicitChatProposal } from "./proposal-executor";
 import { getKernConversation } from "./conversations";
 import {
@@ -48,19 +52,28 @@ export async function executeKernConversationTurn(
   session: SessionContext,
   conversationId: string,
   content: string,
-  options?: { runId?: string }
+  options?: { runId?: string; execution?: ConversationExecution }
 ) {
-  const text = content?.trim();
+  if (typeof content !== "string") {
+    throw new UnprocessableEntityError("消息内容必须是非空文本");
+  }
+  const text = content.trim();
   if (!text) throw new UnprocessableEntityError("消息内容不能为空");
 
+  await options?.execution?.assertActive();
   const conversation = await getKernConversation(session, conversationId);
+  const acceptedRun = options?.execution ? await prisma.agentRun.findUniqueOrThrow({ where: { id: options.runId } }) : null;
+  const intake = acceptedRun?.contextSnapshot as { runtimeConfig?: unknown } | null;
+  const futureRuns = acceptedRun ? await prisma.agentRun.findMany({ where: { conversationId, clientMessageId: { not: null }, OR: [{ createdAt: { gt: acceptedRun.createdAt } }, { createdAt: acceptedRun.createdAt, id: { gt: acceptedRun.id } }] }, select: { id: true } }) : [];
+  const unpublished = await prisma.agentRun.findMany({ where: { conversationId, clientMessageId: { not: null }, status: { in: ["QUEUED", "RUNNING", "CANCELLED"] }, outputMessageId: { not: null } }, select: { outputMessageId: true } });
+  const historyFilter = { conversationId, id: { notIn: unpublished.map(r => r.outputMessageId!) }, role: { in: ["USER", "ASSISTANT"] as ("USER" | "ASSISTANT")[] }, ...(acceptedRun ? { NOT: [{ id: options!.execution!.inputMessageId }, { runId: { in: futureRuns.map(r => r.id) } }] } : {}) };
   const runtimeSelection = await resolveKernConversationRuntimeSelection(
     session,
-    conversation.runtimeConfig
+    intake?.runtimeConfig === undefined ? conversation.runtimeConfig : intake.runtimeConfig
   );
 
   const plannerHistoryRows = await prisma.message.findMany({
-    where: { conversationId, role: { in: ["USER", "ASSISTANT"] } },
+    where: historyFilter,
     orderBy: { createdAt: "desc" },
     take: 6,
     select: { role: true, content: true },
@@ -71,6 +84,7 @@ export async function executeKernConversationTurn(
     text,
     productBound: Boolean(conversation.productId),
     history: plannerHistoryRows.reverse(),
+    signal: options?.execution?.signal, beforeAttempt: options?.execution?.assertActive, agentRunId: options?.runId,
   });
   const intent = intentRouting.intent;
   const modelRoute = modelRouteForIntent(intent);
@@ -148,11 +162,14 @@ export async function executeKernConversationTurn(
 
   let run;
   if (options?.runId) {
-    await claimRun({ session, runId: options.runId });
+    if (!options.execution) await claimRun({ session, runId: options.runId });
+    else await options.execution.assertActive();
     run = await prisma.agentRun.findUnique({ where: { id: options.runId } });
     if (!run) throw new NotFoundError("AgentRun not found");
 
-    run = await prisma.agentRun.update({
+    run = await prisma.$transaction(async tx => {
+      if (options.execution) await lockRunExecutionTx(tx, options.execution.guard);
+      return tx.agentRun.update({
       where: { id: options.runId },
       data: {
         conversationId,
@@ -193,6 +210,7 @@ export async function executeKernConversationTurn(
           },
         },
       },
+    });
     });
   } else {
     run = await prisma.agentRun.create({
@@ -252,9 +270,10 @@ export async function executeKernConversationTurn(
 
   let historyTurns = 0;
   let conversationHistory: { role: string; content: string }[] = [];
+  let replyFormat: NormalizedReply | null = null;
   try {
     const historyRows = await prisma.message.findMany({
-      where: { conversationId, role: { in: ["USER", "ASSISTANT"] } },
+      where: historyFilter,
       orderBy: { createdAt: "asc" },
       select: { role: true, content: true },
     });
@@ -267,7 +286,7 @@ export async function executeKernConversationTurn(
     conversationHistory = [];
   }
 
-  await prisma.message.create({
+  if (!options?.execution) await prisma.message.create({
     data: { conversationId, role: "USER", content: text, runId: run.id },
   });
 
@@ -292,7 +311,9 @@ export async function executeKernConversationTurn(
     | "DETERMINISTIC_TOOL" = "DETERMINISTIC_TOOL";
 
   try {
+    await options?.execution?.assertActive();
     result = await executeKernCapability(session, intent, ctx);
+    await options?.execution?.assertActive();
     result = await applyExplicitChatProposal(session, {
       intent,
       runId: run.id,
@@ -306,7 +327,8 @@ export async function executeKernConversationTurn(
       toolResultText: result.text,
     });
     const basePersona = buildDepartmentAssistantSystemPrompt(
-      modelRoute.taskClass
+      modelRoute.taskClass,
+      loadTenantSoul()
     );
     const selectionPrompt = buildKernConversationSelectionPrompt(runtimeSelection);
     const memoryPrompt = await recallForPrompt(session, text).catch(() => "");
@@ -327,6 +349,7 @@ export async function executeKernConversationTurn(
           policy: gatewayPolicy,
           profiles: gatewayProfiles,
           request: {
+            signal: options?.execution?.signal, beforeAttempt: options?.execution?.assertActive,
             taskClass: modelRoute.taskClass,
             messages: llmMessages,
             metadata: {
@@ -344,7 +367,8 @@ export async function executeKernConversationTurn(
 
         modelRunId = gatewayExecution.modelRunId;
         const gatewayResult = gatewayExecution.result;
-        result = { ...result, text: gatewayResult.text };
+        replyFormat = normalizeReply(gatewayResult.text);
+        result = { ...result, text: replyFormat.text };
         modelOutputUsed = true;
         llmModelId = gatewayResult.resolvedModelId;
         actualProvider = gatewayResult.provider;
@@ -356,6 +380,8 @@ export async function executeKernConversationTurn(
             }
           : null;
       } catch (modelError: unknown) {
+        if (modelError instanceof ExecutionStoppedError) throw modelError;
+        options?.execution?.signal.throwIfAborted();
         errorReason =
           "Model Gateway 调用失败已回落工具原文：" +
           (modelError instanceof Error
@@ -363,30 +389,32 @@ export async function executeKernConversationTurn(
             : String(modelError));
       }
     } else if (legacyEnabled) {
-      const llmClient = createAdvisorLLMClient();
-      llmAttempted = Boolean(llmClient);
-      executionBackend = llmClient
-        ? "LEGACY_ADVISOR_LLM"
-        : "DETERMINISTIC_TOOL";
-      if (llmClient) {
-        actualProvider =
-          process.env.ADVISOR_MODEL_PROVIDER?.trim() || "openai-compatible";
-        try {
-          const llmResult = await llmClient.chat(llmMessages);
-          result = { ...result, text: llmResult.text };
-          modelOutputUsed = true;
-          llmUsage = llmResult.usage;
-          llmModelId = llmResult.modelId;
-        } catch (llmError: unknown) {
-          errorReason =
-            "LLM 润色失败已回落工具原文：" +
-            (llmError instanceof Error
-              ? llmError.message
-              : String(llmError));
-        }
+      llmAttempted = true;
+      executionBackend = "LEGACY_ADVISOR_LLM";
+      try {
+        const llmResult = await executeLegacyAdvisorModel({
+          organizationId: session.organizationId, agentRunId: run.id,
+          taskClass: modelRoute.taskClass, messages: llmMessages,
+          signal: options?.execution?.signal, beforeAttempt: options?.execution?.assertActive,
+          source: "kern.conversation.legacy",
+        });
+        modelRunId = llmResult.modelRunId;
+        actualProvider = llmResult.provider;
+        replyFormat = normalizeReply(llmResult.text);
+        result = { ...result, text: replyFormat.text };
+        modelOutputUsed = true;
+        llmUsage = llmResult.usage;
+        llmModelId = llmResult.modelId;
+      } catch (llmError: unknown) {
+        if (llmError instanceof ExecutionStoppedError) throw llmError;
+        options?.execution?.signal.throwIfAborted();
+        errorReason = "LLM 润色失败已回落工具原文：" +
+          (llmError instanceof Error ? llmError.message : String(llmError));
       }
     }
   } catch (error: unknown) {
+    if (error instanceof ExecutionStoppedError) throw error;
+    options?.execution?.signal.throwIfAborted();
     failed = true;
     errorReason = error instanceof Error ? error.message : "工具执行失败";
     result = {
@@ -399,7 +427,9 @@ export async function executeKernConversationTurn(
   const finishedAt = new Date();
   const durationMs = finishedAt.getTime() - startedAt.getTime();
 
-  await prisma.toolCall.create({
+  const assistantMsg = await prisma.$transaction(async tx => {
+    if (options?.execution) await lockRunExecutionTx(tx, options.execution.guard);
+  await tx.toolCall.create({
     data: {
       runId: run.id,
       toolKey: result.toolKey,
@@ -407,6 +437,9 @@ export async function executeKernConversationTurn(
       resultJson: {
         text: result.text,
         ...(result.proposal ? { proposal: result.proposal } : {}),
+        ...(replyFormat
+          ? { replyFormat: { version: KERN_REPLY_FORMAT_VERSION, fixed: replyFormat.fixed, issues: replyFormat.issues } }
+          : {}),
       } as any,
       status: failed ? "FAILED" : "SUCCEEDED",
       errorReason,
@@ -417,7 +450,7 @@ export async function executeKernConversationTurn(
   });
 
   if (result.proposal?.proposalId) {
-    await prisma.actionProposal.update({
+    await tx.actionProposal.update({
       where: { id: result.proposal.proposalId },
       data: { runId: run.id },
     });
@@ -442,7 +475,7 @@ export async function executeKernConversationTurn(
       ]
     : result.citations;
 
-  const assistantMsg = await prisma.message.create({
+  const assistantMsg = await tx.message.create({
     data: {
       conversationId,
       role: "ASSISTANT",
@@ -479,10 +512,10 @@ export async function executeKernConversationTurn(
           policyKey: gatewayPolicy?.id || null,
         };
 
-  await prisma.agentRun.update({
+  await tx.agentRun.update({
     where: { id: run.id },
     data: {
-      status: failed ? "FAILED" : "SUCCEEDED",
+      status: options?.execution ? "RUNNING" : failed ? "FAILED" : "SUCCEEDED",
       runMode: llmAttempted ? RunMode.LLM : RunMode.TEST_STUB,
       provider: actualProvider,
       modelId: llmModelId,
@@ -495,7 +528,7 @@ export async function executeKernConversationTurn(
     },
   });
 
-  await prisma.conversation.update({
+  await tx.conversation.update({
     where: { id: conversationId },
     data: {
       updatedAt: finishedAt,
@@ -505,8 +538,12 @@ export async function executeKernConversationTurn(
     },
   });
 
+    return assistantMsg;
+  });
+
   return {
     runId: run.id,
+    failed,
     intent,
     message: assistantMsg,
     proposal: result.proposal ?? null,

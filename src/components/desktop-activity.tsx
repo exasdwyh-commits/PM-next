@@ -38,7 +38,7 @@ export interface DesktopTaskItem {
   goal: string;
   status: string;
   phase: DesktopTaskPhase;
-  action: { tool: string; kind: string; detail: string } | null;
+  action: { tool: string; label: string; detail: string } | null;
   createdAt: string;
   updatedAt: string;
   conversationId: string | null;
@@ -178,7 +178,7 @@ function DesktopTaskRow({ task }: { task: DesktopTaskItem }) {
     <div className={`hermes-desktop-task is-${task.phase.toLowerCase()}`}>
       <div className="hermes-desktop-task-head">
         <Badge tone={PHASE_TONE[task.phase]}>{PHASE_LABEL[task.phase]}</Badge>
-        {task.action ? <span className="hermes-desktop-task-kind">{task.action.kind}</span> : null}
+        {task.action ? <span className="hermes-desktop-task-kind">{task.action.label}</span> : null}
         <span className="hermes-desktop-task-time">{fmtDateTime(task.updatedAt)}</span>
       </div>
 
@@ -263,7 +263,7 @@ export function DesktopConversationStrip({
             有 {overview.waitingRuntimeCount} 项本机任务在排队，但现在不会执行。
           </strong>
           <span>{overview.presence.hint ?? "需要先让 Mac 端连上 Kern。"}</span>
-          <details className="hermes-details hermes-desktop-dev-help"><summary>开发环境连接方式</summary><code>npm run desktop</code></details>
+          <details className="hermes-details"><summary>开发环境连接方式</summary><code>npm run desktop</code></details>
         </div>
       ) : null}
 
@@ -320,7 +320,7 @@ export function DesktopActivityBody({
               : overview.presence.label}
           </strong>
           <span>{overview.presence.hint ?? ""}</span>
-          <details className="hermes-details hermes-desktop-dev-help"><summary>开发环境连接方式</summary><code>npm run desktop</code></details>
+          <details className="hermes-details"><summary>开发环境连接方式</summary><code>npm run desktop</code></details>
         </div>
       ) : null}
 

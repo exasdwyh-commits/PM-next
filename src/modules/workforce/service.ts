@@ -11,6 +11,8 @@ import {
   SquadMemberType,
 } from "@prisma/client";
 import prisma from "@/shared/db";
+import { lockExecutorGuardTx, ExecutionStoppedError, type ExecutorCommit } from "@/modules/worker/claim";
+import { hasWorkerHandlers, workerHandlers } from "@/modules/worker/registry";
 import {
   ConflictError,
   ForbiddenError,
@@ -275,7 +277,7 @@ async function assertCanInvokeAgent(
   throw new NotFoundError("Agent not found");
 }
 
-export async function bootstrapDefaultWorkforce(session: SessionContext) {
+export async function bootstrapDefaultWorkforce(session: SessionContext, options: { missingOnly?: boolean } = {}) {
   await assertWorkforceAdmin(session);
 
   return prisma.$transaction(async (tx) => {
@@ -295,7 +297,7 @@ export async function bootstrapDefaultWorkforce(session: SessionContext) {
           accessMode: AgentAccessMode.ORGANIZATION,
           isSystem: true,
         },
-        update: {
+        update: options.missingOnly ? {} : {
           name: spec.name,
           roleKey: spec.roleKey,
           description: spec.description,
@@ -323,7 +325,7 @@ export async function bootstrapDefaultWorkforce(session: SessionContext) {
           ...spec,
           createdById: session.userId,
         },
-        update: {
+        update: options.missingOnly ? {} : {
           name: spec.name,
           description: spec.description,
           instructions: spec.instructions,
@@ -346,7 +348,7 @@ export async function bootstrapDefaultWorkforce(session: SessionContext) {
             skillId: skill.id,
             assignedById: session.userId,
           },
-          update: { enabled: true },
+          update: options.missingOnly ? {} : { enabled: true },
         });
       }
     }
@@ -371,7 +373,7 @@ export async function bootstrapDefaultWorkforce(session: SessionContext) {
         leaderAgentId: leader.id,
         createdById: session.userId,
       },
-      update: {
+      update: options.missingOnly ? {} : {
         leaderAgentId: leader.id,
         name: "Kern Product Squad",
       },
@@ -1004,9 +1006,11 @@ export async function finishAgentTask(
     outcome: AgentTaskOutcome;
     reason?: string | null;
     resultSummary?: string | null;
+    executor?: ExecutorCommit;
   }
 ) {
   const result = await prisma.$transaction(async (tx) => {
+    if (input.executor) await lockExecutorGuardTx(tx, { taskId, organizationId: session.organizationId, token: input.executor.token, runId: input.runId });
     await tx.$queryRawUnsafe(
       'SELECT "id" FROM "AgentTask" WHERE "id" = $1 AND "organizationId" = $2 FOR UPDATE',
       taskId,
@@ -1046,6 +1050,21 @@ export async function finishAgentTask(
       throw new UnprocessableEntityError("runId does not belong to this agent task");
     }
 
+    if (run.status !== "RUNNING") throw new ExecutionStoppedError("这次执行已经结束，不能提交旧结果");
+    if (input.executor) {
+      const snapshot = objectJson(task.contextSnapshot);
+      if (input.executor.result) snapshot.executorResult = input.executor.result;
+      if (input.executor.state) snapshot.executorState = input.executor.state;
+      if (input.executor.releaseLease) delete snapshot.executorLease;
+      await tx.agentTask.update({ where: { id: task.id }, data: { contextSnapshot: snapshot as Prisma.InputJsonValue } });
+      if (task.workItemId && input.executor.dataGaps?.length) {
+        const work = await tx.workItem.findUniqueOrThrow({ where: { id: task.workItemId }, select: { projectId: true } });
+        for (const gap of input.executor.dataGaps) await tx.dataGap.upsert({
+          where: { projectId_fieldKey: { projectId: work.projectId, fieldKey: gap.fieldKey } },
+          create: { projectId: work.projectId, ...gap }, update: { fieldName: gap.fieldName, description: gap.description },
+        });
+      }
+    }
     const resultSummary = input.resultSummary?.trim() || null;
     if (
       task.parentTaskId &&
@@ -1079,12 +1098,13 @@ export async function finishAgentTask(
     const updatedTask = await tx.agentTask.update({
       where: { id: task.id },
       data: {
-        status: taskStatus,
-        blockedReason:
+        status: input.executor?.retryAt ? AgentTaskStatus.QUEUED : taskStatus,
+        ...(input.executor?.retryAt ? { availableAt: input.executor.retryAt } : {}),
+        blockedReason: input.executor?.retryAt ? input.reason?.trim() || null :
           input.outcome === "BLOCKED" || input.outcome === "WAITING_HUMAN"
             ? input.reason?.trim() || null
             : null,
-        completedAt:
+        completedAt: input.executor?.retryAt ? null :
           input.outcome === "SUCCEEDED" || input.outcome === "FAILED" ? now : null,
       },
     });
@@ -1117,7 +1137,7 @@ export async function finishAgentTask(
       action: "AGENT_TASK_FINISHED",
       objectType: "AgentTask",
       objectId: task.id,
-      summary: task.agent.name + " 任务状态 → " + taskStatus,
+      summary: task.agent.name + " 任务状态 → " + updatedTask.status,
       details: {
         runId: run.id,
         outcome: input.outcome,
@@ -1144,7 +1164,9 @@ export async function finishAgentTask(
         where: { childTaskId: task.id },
         data: {
           status:
-            input.outcome === "SUCCEEDED"
+            input.executor?.retryAt
+              ? DelegationStatus.ACCEPTED
+              : input.outcome === "SUCCEEDED"
               ? DelegationStatus.COMPLETED
               : input.outcome === "FAILED"
                 ? DelegationStatus.FAILED
@@ -1159,6 +1181,7 @@ export async function finishAgentTask(
         task.parentTask &&
         !productRndParentTaskId &&
         !kernMissionParentTaskId &&
+        !input.executor?.retryAt &&
         (input.outcome === "SUCCEEDED" || input.outcome === "FAILED")
       ) {
         const event = await enqueueBusinessEventInTx(tx, {
@@ -1221,6 +1244,12 @@ export async function finishAgentTask(
       async (error: unknown) => {
         const message =
           error instanceof Error ? error.message : String(error);
+        // KX-05：记录失败次数与时间，worker 巡检按退避自动重试。
+        const { nextAdvanceFailure } = await import("@/modules/product-rnd/advance-retry");
+        const current = await prisma.agentTask.findFirst({
+          where: { id: parentTaskId, organizationId: session.organizationId },
+          select: { blockedReason: true },
+        });
         await prisma.agentTask.updateMany({
           where: {
             id: parentTaskId,
@@ -1228,7 +1257,7 @@ export async function finishAgentTask(
             status: AgentTaskStatus.RUNNING,
           },
           data: {
-            blockedReason: ("AUTO_ADVANCE_FAILED: " + message).slice(0, 1000),
+            blockedReason: nextAdvanceFailure(current?.blockedReason, message),
           },
         });
       }
@@ -1237,14 +1266,17 @@ export async function finishAgentTask(
 
   if (result.kernMissionParentTaskId) {
     const missionTaskId = result.kernMissionParentTaskId;
-    const { advanceKernMission } = await import("@/modules/supervisor/service");
-    // Non-fatal: the worker's mission sweep re-advances RUNNING missions.
-    await advanceKernMission(session, missionTaskId).catch((error: unknown) => {
-      console.error(
-        `[kern-supervisor] advance after child failed mission=${missionTaskId}:`,
-        error instanceof Error ? error.message : error
-      );
-    });
+    // 经 worker 注册表推进（L3 不再直接 import L2 supervisor）。没注册处理器（例如纯 API 进程）就交给
+    // worker 的任务巡检：它会把 RUNNING 的任务重新推进，所以这里失败或缺席都不致命。
+    const advance = hasWorkerHandlers() ? workerHandlers().missions?.advance : undefined;
+    if (advance) {
+      await advance(session, missionTaskId).catch((error: unknown) => {
+        console.error(
+          `[kern-supervisor] advance after child failed mission=${missionTaskId}:`,
+          error instanceof Error ? error.message : error
+        );
+      });
+    }
   }
 
   return { task: result.task, run: result.run };

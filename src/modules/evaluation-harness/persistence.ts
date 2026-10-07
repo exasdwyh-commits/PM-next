@@ -38,6 +38,11 @@ import type {
   FrozenDecisionIdentity,
   VerifiedProductOutcome,
 } from "./types";
+import {
+  labelBacktestAlignment,
+  labelExperienceLessonStatus,
+  labelProductValidationOutcome,
+} from "@/shared/status-labels";
 
 function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalize);
@@ -408,7 +413,7 @@ export async function recordVerifiedProductOutcome(
       action: "PRODUCT_OUTCOME_VERIFIED",
       objectType: "ProductOutcome",
       objectId: outcome.id,
-      summary: `${observationKey} 真实结果：${input.outcome} / ${backtest.alignment}`,
+      summary: `${observationKey} 真实结果：${labelProductValidationOutcome(input.outcome)} / ${labelBacktestAlignment(backtest.alignment)}`,
       details: {
         frozenPredictionId,
         observationKey,
@@ -597,7 +602,7 @@ export async function reviewExperienceLesson(
       action: "EXPERIENCE_LESSON_REVIEWED",
       objectType: "ExperienceLesson",
       objectId: lesson.id,
-      summary: `经验候选审核：${status}`,
+      summary: `经验候选审核：${labelExperienceLessonStatus(status)}`,
       details: {
         decision: input.decision,
         reason,

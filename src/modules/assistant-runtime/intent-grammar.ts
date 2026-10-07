@@ -15,6 +15,7 @@ export const PRODUCT_RND_REPORT =
 export function parseWorkItemTask(text: string): { title: string } | null {
   const match = TASK_VERB.exec(text);
   if (!match) return null;
+  if (/(?:不要|别|不必|无需|禁止|不允许)\s*(?:再|自动|帮我)?\s*$/.test(text.slice(0, match.index))) return null;
   const rawTitle = text
     .slice(match.index + match[0].length)
     .trim()

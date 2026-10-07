@@ -5,6 +5,7 @@ import React from "react";
  * 供侧边栏、按钮与页面共用，保持与既有 hermes 壳层同一视觉语言。
  */
 const PATHS: Record<string, React.ReactNode> = {
+  menu: <path d="M4 6h16M4 12h16M4 18h16" />,
   grid: (
     <>
       <rect x="3" y="3" width="7" height="7" rx="1" />

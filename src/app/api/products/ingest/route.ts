@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/modules/identity/session";
 import { createDevelopmentProduct } from "@/modules/products/service";
 import { handleApiError } from "@/shared/api-handler";
+import { readJsonObjectBody } from "@/shared/request-body";
 
 /**
  * 产品入库（蓝图 §4.2）
@@ -11,8 +12,20 @@ import { handleApiError } from "@/shared/api-handler";
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(req);
-    const body = await req.json();
-    const result = await createDevelopmentProduct(session, body);
+    const body = await readJsonObjectBody(req);
+    const result = await createDevelopmentProduct(session, {
+      name: body.name,
+      coreIdea: body.coreIdea,
+      targetAudience: body.targetAudience,
+      coreSellingPoints: body.coreSellingPoints,
+      targetChannels: body.targetChannels,
+      priceExpectation: body.priceExpectation,
+      targetCost: body.targetCost,
+      formSpec: body.formSpec,
+      forbiddenItems: body.forbiddenItems,
+      targetLaunchDate: body.targetLaunchDate,
+      sourceKind: body.sourceKind,
+    });
     return NextResponse.json(
       {
         productId: result.product.id,

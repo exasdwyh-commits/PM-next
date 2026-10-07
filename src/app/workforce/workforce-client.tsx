@@ -230,13 +230,15 @@ export default function WorkforceClient({
       user={{ name: session.userName, meta: session.userEmail }}
       runtime={runtime}
       topbarLeft={
+        /* 2026-10-04：原先此处 <strong>自动化中心</strong> 与下方
+           <HeroBand mark="自动化中心"> 同屏重复两次。顶栏改放分区上下文，
+           页面主标题由 HeroBand 独占。 */
         <div className="hermes-topbar-title">
-          <span className="eyebrow">KERN · AUTONOMOUS WORKFORCE</span>
-          <strong>自动化中心</strong>
+          <span className="hermes-topbar-scope">运行</span>
         </div>
       }
-      topbarRight={
-        overview.agents.length === 0 && canBootstrap ? (
+      topbarRight={<>
+        {overview.agents.length === 0 && canBootstrap ? (
           <button
             type="button"
             className="hermes-primary-btn"
@@ -246,19 +248,30 @@ export default function WorkforceClient({
             <Icon name="users" size={16} />
             {bootstrapping ? "初始化中…" : "初始化 Kern 团队"}
           </button>
-        ) : null
-      }
+        ) : null}
+      </>}
     >
       <HeroBand
-        eyebrow="等待你处理 · 正在执行 · 最近完成"
+        eyebrow={
+          /* 2026-10-04：原先是「等待你处理 · 正在执行 · 最近完成」，与紧随其后
+             的 5 张 KPI 卡逐项重复（数字员工 / 正在执行 / 排队任务 / 等待你拍板）。
+             改为只交代本页的**数据时效**——用户需要知道数字是不是新的，
+             这是 KPI 卡不会告诉他的。 */
+          `${activeAgents} 名活跃 · ${desktopOverview?.presence.label ?? "本机状态未知"}`
+        }
         mark="自动化中心"
         tagline={heroTagline}
         intro="先看需要你拍板的事，再看正在跑的任务。改变业务事实要经过治理链，需要你判断时会明确停下来等你，不会自己替你决定。"
         quote={
+          /* 2026-10-04：原先此处是装饰性英文标语「Governed Autonomy /
+             Human Final Say」。交付记录（配套文档 §5）已把同类装饰英文眉题
+             从工作台 10 处删除，automation 页是漏网的一处。
+             标语位改放**真实运行事实**——活跃员工数与待你拍板数，
+             比英文口号有用，且不会与下方 KPI 卡重复叙事。 */
           <>
-            Governed Autonomy
+            活跃 {activeAgents} / {overview.agents.length} 名
             <br />
-            Human Final Say
+            {waitingHuman > 0 ? `${waitingHuman} 项等你拍板` : "无需你介入"}
           </>
         }
       />

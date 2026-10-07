@@ -1,0 +1,134 @@
+{
+  "v": 1,
+  "kind": "CONCLUSION",
+  "demo": true,
+  "confidence": "MEDIUM",
+  "lede": "推荐做「高蛋白海苔脆」，窗口期约 6–9 个月",
+  "blocks": [
+    {
+      "type": "keypoints",
+      "title": "结论要点",
+      "items": [
+        { "kind": "fact", "text": "同价位竞品蛋白含量为 8g 与 9g/100g，本方案可做到 **12.5g** [1]" },
+        { "kind": "fact", "text": "头部 3 家占线上 **52%** 份额，价格带 ¥8–15/份 [1]" },
+        { "kind": "inference", "text": "「低糖 + 高蛋白」搜索量同比 **+38%**，需二手数据核实 [2]" },
+        { "kind": "inference", "text": "抖音与小红书贡献新品 60% 以上首发声量，适合做冷启动主阵地" },
+        { "kind": "unknown", "text": "线下便利店复购率目前无可用数据" }
+      ]
+    },
+    {
+      "type": "prose",
+      "full": true,
+      "title": "为什么是现在",
+      "body": [
+        "控糖人群从减脂圈层外溢到普通白领，但货架上的高蛋白零食仍以蛋白棒为主，**口感是公认痛点**。海苔脆的酥脆口感天然规避了蛋白棒的粉感问题，这是一个尚未被占据的组合。",
+        "> 窗口期判断：头部品牌跟进同类 SKU 通常需要 3–6 个月，叠加工艺验证时间，我们大约有 6–9 个月的先发期。"
+      ]
+    },
+    {
+      "type": "chart",
+      "full": true,
+      "title": "竞争位置",
+      "label": "同价位产品蛋白含量对比",
+      "unit": "g / 100g",
+      "series": [
+        { "label": "本方案", "value": 12.5, "display": "12.5g", "hi": true },
+        { "label": "竞品 Y", "value": 9, "display": "9.0g" },
+        { "label": "竞品 X", "value": 8, "display": "8.0g" },
+        { "label": "品类均值", "value": 6.2, "display": "6.2g" }
+      ],
+      "source": "来源 [1] 线上旗舰店营养成分表，抓取于 2026-09-26"
+    },
+    {
+      "type": "table",
+      "full": true,
+      "title": "单位经济性",
+      "caption": "目标零售价 ¥12 下的成本结构（BOM 为询价前假设）",
+      "cols": [{ "label": "项目" }, { "label": "假设值", "num": true }, { "label": "占售价", "num": true }, { "label": "备注" }],
+      "rows": [
+        { "cells": ["目标零售价", "¥12.00", "100%", "对标竞品价格带中位"] },
+        { "cells": ["BOM 成本", "¥4.10", "34.2%", "需 3 家代工询价验证"] },
+        { "cells": ["包装与物流", "¥1.30", "10.8%", "按 2 万包批量估"] },
+        { "cells": ["目标毛利", "¥6.60", "55.0%", "达到品类健康线"], "pick": true }
+      ]
+    },
+    {
+      "type": "qa",
+      "full": true,
+      "title": "QA 与红队",
+      "trail": [
+        { "verdict": "rej", "who": "独立 QA 复核", "round": 1, "message": "机会判断缺少竞品对照：差异化结论没有给出同价位竞品的蛋白含量对照。" },
+        { "verdict": "fix", "who": "产品 Agent", "round": 2, "message": "补入竞品 X / Y 的营养成分表数据与品类均值，重绘对比图。" },
+        { "verdict": "pass", "who": "独立 QA 复核", "round": 2, "message": "证据边界清楚，事实与推断已分离，可交付。" }
+      ]
+    },
+    {
+      "type": "checklist",
+      "full": true,
+      "title": "最小验证计划",
+      "items": [
+        { "hypothesis": "口味能被目标人群接受", "method": "盲测 n=60", "gate": "偏好 ≥ 65%", "duration": "2 周", "budget": "¥8k" },
+        { "hypothesis": "有人愿意为它付钱", "method": "小红书种草", "gate": "CTR ≥ 3%", "duration": "3 周", "budget": "¥20k" },
+        { "hypothesis": "能稳定生产出来", "method": "小批试产", "gate": "良率 ≥ 92%", "duration": "4 周", "budget": "¥30k" }
+      ]
+    },
+    {
+      "type": "timeline",
+      "full": true,
+      "title": "上市排期",
+      "items": [
+        { "when": "第 1–4 周", "phase": "验证", "deliverable": "盲测与种草双双达标，否则回到配方" },
+        { "when": "第 5–8 周", "phase": "试产", "deliverable": "小批 2 万包，锁定代工与良率" },
+        { "when": "第 9–12 周", "phase": "上市", "deliverable": "天猫旗舰店开售，100 位 KOC 试吃铺量" }
+      ]
+    },
+    {
+      "type": "decision",
+      "title": "决策卡",
+      "headline": "投入 ¥58k 做 4 周验证",
+      "confidence": "MEDIUM",
+      "recommend": ["差异化可量化：同价位蛋白含量领先约 40%", "合规路径清楚，无需新增资质", "验证成本仅占首年预算的一小部分"],
+      "against": ["BOM 尚未询价，¥4.1 是假设值而非报价", "线下渠道数据完全缺失，判断只覆盖线上"],
+      "risks": ["头部品牌 3 个月内跟进同类 SKU 的概率高", "海苔原料季节波动 ±25%，毛利可能跌破 45%", "高蛋白口感差是品类通病，盲测存在失败可能"]
+    },
+    {
+      "type": "unknown",
+      "full": true,
+      "items": [
+        { "question": "线下便利店复购率是多少？", "needs": "尼尔森或便利店系统的二手零售数据" },
+        { "question": "BOM ¥4.1 是否成立？", "needs": "3 家代工厂的正式报价单" }
+      ]
+    },
+    {
+      "type": "callout",
+      "full": true,
+      "tone": "warn",
+      "title": "这次没有联网研究",
+      "body": "所有外部数字来自演示脚本。接入 ResearchRun 之后，本块会替换为真实 SourceCapture 引用。"
+    },
+    {
+      "type": "evidence",
+      "items": [
+        { "n": 1, "title": "竞品 X / Y 线上旗舰店营养成分表", "trust": "demo", "fetchedAt": "2026-09-26 18:31", "url": "demo://kern/sample/competitor-nutrition" },
+        { "n": 2, "title": "低糖高蛋白零食搜索趋势（示例）", "trust": "demo", "fetchedAt": "2026-09-26 18:31", "url": "demo://kern/sample/search-trend" }
+      ]
+    }
+  ],
+  "ask": {
+    "question": "是否投入约 ¥58k 做为期 4 周的验证？",
+    "why_you": "涉及预算支出，且验证失败意味着方向要重来——这属于只有你能拍板的取舍。",
+    "options": [
+      { "label": "批准全部 ¥58k", "consequence": "三条验证并行，第 4 周出结论" },
+      { "label": "先只做 ¥8k 盲测", "consequence": "口感过关再决定后续投入，慢 2 周" },
+      { "label": "先不做", "consequence": "机会窗口可能在 6–9 个月内关闭" }
+    ]
+  },
+  "meta": {
+    "model": "kern-demo（示例数据）",
+    "elapsedMs": 48210,
+    "steps": 9,
+    "quota": null,
+    "memoriesUsed": ["只做跨境电商", "预算上限 5 万"],
+    "sources": 2
+  }
+}

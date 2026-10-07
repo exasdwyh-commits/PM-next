@@ -1,0 +1,143 @@
+/* Kern 前端组件库（kx）样式。入口：`@/components/kx`，说明见 docs/mcp-kx-ui.md。
+   颜色 / 圆角 / 阴影 / 字号全部取自 theme/kern-design.css；动效只用 globals.css 的 --m-* 令牌（§5）。 */
+
+/* ── 小件：状态标签 / 圆点 / 计数 ── */
+.kx-tag { display: inline-flex; align-items: center; gap: 6px; min-height: 20px; padding: 0 8px; border: 1px solid transparent; border-radius: 999px; background: var(--k-sunk); color: var(--k-ink-2); font-size: 11.5px; font-weight: 600; }
+.kx-tag::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--k-ink-4); }
+.kx-tag.is-ok { background: var(--k-ok-soft); border-color: var(--k-ok-line); }
+.kx-tag.is-ok::before { background: var(--k-ok); }
+.kx-tag.is-warn { background: var(--k-warn-soft); border-color: var(--k-warn-line); }
+.kx-tag.is-warn::before { background: var(--k-warn); }
+.kx-tag.is-bad { background: var(--k-bad-soft); border-color: var(--k-bad-line); }
+.kx-tag.is-bad::before { background: var(--k-bad); }
+.kx-tag.is-brand { background: var(--k-brand-soft); border-color: var(--k-brand-line); color: var(--k-brand-ink); }
+.kx-tag.is-brand::before { background: var(--k-brand); }
+.kx-dot { flex: none; width: 8px; height: 8px; margin-top: 8px; border-radius: 50%; background: var(--k-ink-4); }
+.kx-dot.is-ok { background: var(--k-ok); }
+.kx-dot.is-warn { background: var(--k-warn); }
+.kx-dot.is-bad { background: var(--k-bad); }
+.kx-dot.is-brand { background: var(--k-brand); }
+.kx-count { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--k-sunk); color: var(--k-ink-2); font-size: 11.5px; font-weight: 650; }
+.kx-count.is-bad { background: var(--k-bad-soft); color: var(--k-ink); }
+
+/* ── 空态行 ── */
+.kx-empty { display: flex; align-items: flex-start; gap: 10px; padding: 4px 16px 10px; color: var(--k-ink-2); font-size: var(--k-t-sm); line-height: 1.6; }
+.kx-empty .kx-dot { margin-top: 7px; }
+
+/* ── 用量条 ── */
+.kx-meter { display: grid; gap: 6px; }
+.kx-meter-h { display: flex; justify-content: space-between; gap: 8px; font-size: var(--k-t-sm); }
+.kx-meter-bar { height: 6px; overflow: hidden; border-radius: 99px; background: var(--k-sunk); }
+.kx-meter-bar i { display: block; height: 100%; background: var(--k-brand); transform-origin: left center; transition: transform var(--m-d-morph) var(--m-ease-morph); }
+.kx-meter-bar i[data-hot] { background: var(--k-bad); }
+
+/* ── 右侧抽屉 ── */
+.kx-drawer { position: fixed; inset: 0; z-index: 60; display: flex; justify-content: flex-end; background: rgba(10, 12, 18, .34); animation: kx-fade var(--m-d-base) var(--m-ease-out); }
+.kx-drawer-pn { display: flex; flex-direction: column; width: min(560px, 100%); height: 100%; border-left: 1px solid var(--k-line); background: var(--k-surface); box-shadow: var(--k-sh-3); animation: kx-slide-in var(--m-d-morph) var(--m-ease-morph); }
+.kx-drawer-h { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--k-line); }
+.kx-drawer-h h2 { flex: 1; margin: 0; font-size: 15px; font-weight: 650; }
+.kx-drawer-close { min-width: 36px; min-height: 36px; justify-content: center; }
+.kx-drawer-b { display: grid; flex: 1; gap: 14px; align-content: start; overflow: auto; padding: 14px 16px 20px; }
+
+/* ── 公共页页脚（KX-25） ── */
+.kx-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; padding: 14px 0 0; border-top: 1px solid var(--k-line); color: var(--k-ink-2); font-size: var(--k-t-xs); line-height: 1.6; }
+.kx-footer-brand { display: inline-flex; align-items: center; gap: 8px; color: var(--k-ink); font-weight: 650; }
+.kx-footer-mark { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 5px; background: var(--k-brand); color: #fff; font-size: 11px; font-weight: 700; }
+.kx-footer-sp { flex: 1; }
+
+/* ── App 侧栏底部状态区（KX-25） ── */
+.kx-sidestat { display: grid; min-width: 0; }
+.kx-sidestat-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; color: var(--on-dark-3); font-size: 12px; }
+.kx-sidestat-meta a { color: var(--on-dark-3); text-decoration: none; }
+.kx-sidestat-meta a:hover { color: var(--on-dark); text-decoration: underline; }
+.kx-sidestat-meta i, .kx-sidestat-meta em { font-style: normal; }
+
+/* ── 故事轨（KX-23）：一个物体从一站走到下一站，当前站的圆点「长成」带文字的 pill ── */
+.kx-rail { display: flex; align-items: center; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.kx-rail li { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--k-ink-3); font-size: var(--k-t-xs); }
+.kx-rail li + li::before { content: ""; width: 14px; height: 1px; background: var(--k-line); transform-origin: left center; transition: background-color var(--m-d-base) var(--m-ease-out); }
+.kx-rail li.is-done + li::before, .kx-rail li.is-done::before { background: var(--k-brand); }
+.kx-rail-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--k-line); transition: background-color var(--m-d-base) var(--m-ease-out), transform var(--m-d-base) var(--m-ease-out); }
+.kx-rail li.is-done .kx-rail-dot { background: var(--k-brand); }
+.kx-rail li.is-done { color: var(--k-ink-2); }
+.kx-rail li.is-now { color: var(--k-ink); font-weight: 620; }
+.kx-rail li.is-now .kx-rail-dot { background: var(--k-brand); transform: scale(1.25); }
+.kx-rail li.is-now.is-warn .kx-rail-dot { background: var(--k-warn); }
+.kx-rail li.is-now.is-bad .kx-rail-dot { background: var(--k-bad); }
+.kx-rail li:not(.is-now) .kx-rail-t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* 站点前进（P3「转场承载意义」，2026-10-04 补齐）
+   此前当前站的标签只是「从读屏专用裁剪态变成可见」——没有过渡，于是「前进」这个
+   动作在视觉上是瞬时的，而原则 P3 要求「前进这个动作本身就是信息」。
+   圆点放大（scale 1.25）与连线变色原本就有，缺的正是文字这一拍：
+   标签从下方 4px 升起并淡入，与 kx-notch / kx-beats 共用同一个 kx-rise 关键帧，
+   保持全站「文字变化时从下方升起」的一致手感。
+   只动 transform + opacity，符合 MC3/MC4；无循环，符合 MC5。 */
+.kx-rail li.is-now .kx-rail-t { animation: kx-rise var(--m-d-base) var(--m-ease-out); }
+/* 圆点到达时补一次轻微放大脉冲，让「到了这一站」有一个落点。
+   用 transform 而非 width/height，避免触发布局（MC3/MC4）。 */
+.kx-rail li.is-now .kx-rail-dot { animation: kx-arrive var(--m-d-morph) var(--m-ease-out); }
+
+/* ── 故事条：轨 + 动态岛同一行，窄时换行 ── */
+.kx-story { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 8px 0; }
+
+/* ── 动态岛（KX-24 Notch）：此刻在做什么；尺寸变化只发生在 [data-morph] 上 ── */
+.kx-notch { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-height: 30px; padding: 4px 12px 4px 5px; overflow: hidden; border-radius: 999px; background: var(--k-ink); color: var(--k-surface); font-size: var(--k-t-xs); box-shadow: var(--k-sh-2); }
+.kx-notch-mark { display: inline-grid; flex: none; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--k-brand); color: #fff; font-size: 11px; font-weight: 700; }
+.kx-notch-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kx-notch-t.is-enter { animation: kx-rise var(--m-d-base) var(--m-ease-out); }
+.kx-notch-live { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--k-ok); animation: kx-live 1.6s var(--m-ease-press) infinite; }
+.kx-notch.is-warn .kx-notch-live { background: var(--k-warn); animation: none; }
+.kx-notch.is-done .kx-notch-live, .kx-notch.is-idle .kx-notch-live { display: none; }
+
+/* ── 执行日志（KX-24 Terminal）：只显示真实事件 ── */
+.kx-term { margin: 0; padding: 10px 12px; overflow: hidden; border: 1px solid var(--k-line); border-radius: 10px; background: var(--k-sunk); color: var(--k-ink-2); font: 12px/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.kx-term-h { display: flex; gap: 6px; margin-bottom: 4px; color: var(--k-ink-3); }
+.kx-term ol { margin: 0; padding: 0; list-style: none; }
+.kx-term li { display: flex; gap: 8px; min-width: 0; }
+.kx-term li.is-enter { animation: kx-rise var(--m-d-base) var(--m-ease-out); }
+.kx-term time { flex: none; color: var(--k-ink-3); }
+.kx-term li span { min-width: 0; overflow-wrap: anywhere; }
+.kx-term li.is-bad span { color: var(--k-bad-ink, var(--k-ink)); }
+
+/* ── Bento（KX-24） ── */
+.kx-bento { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.kx-bento-i { display: grid; gap: 4px; padding: 14px 16px; min-height: 74px; align-content: center; text-align: left; cursor: pointer; border: 1px solid var(--k-line); border-radius: 12px; background: var(--k-surface); color: var(--k-ink); font: inherit; grid-column: span 2; transition: var(--m-tr-ui); }
+.kx-bento-i:hover, .kx-bento-i:focus-visible { border-color: var(--k-brand-line); background: var(--k-brand-wash); transform: translateY(-1px); }
+.kx-bento-i[data-span="wide"] { grid-column: span 4; min-height: 88px; }
+.kx-bento-i b { font-size: var(--k-t-sm); font-weight: 620; }
+.kx-bento-i small { color: var(--k-ink-2); font-size: var(--k-t-xs); line-height: 1.55; }
+
+/* ── 诚实节拍：假设 / 证伪 / 收回，看得见 ── */
+.kx-beats { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.kx-beats li { display: flex; align-items: flex-start; gap: 8px; font-size: var(--k-t-xs); line-height: 1.6; color: var(--k-ink-2); }
+.kx-beats li.is-enter { animation: kx-rise var(--m-d-base) var(--m-ease-out); }
+.kx-beats .kx-tag { flex: none; }
+
+@keyframes kx-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes kx-slide-in { from { transform: translateX(24px); opacity: .6; } to { transform: none; opacity: 1; } }
+@keyframes kx-rise { from { transform: translateY(4px); opacity: 0; } to { transform: none; opacity: 1; } }
+/* 到达落点：站点前进时圆点先过冲再回弹一次（KX-23 §4「当前站圆点长成带文字的 pill」的「长成」那一拍） */
+@keyframes kx-arrive { 0% { transform: scale(.9); } 55% { transform: scale(1.45); } 100% { transform: scale(1.25); } }
+@keyframes kx-live { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .kx-drawer,:root:not([data-motion="full"]) .kx-drawer-pn,:root:not([data-motion="full"]) .kx-notch-t.is-enter,:root:not([data-motion="full"]) .kx-term li.is-enter,:root:not([data-motion="full"]) .kx-beats li.is-enter,:root:not([data-motion="full"]) .kx-rail li.is-now .kx-rail-t,:root:not([data-motion="full"]) .kx-rail li.is-now .kx-rail-dot { animation: none; }
+  :root:not([data-motion="full"]) .kx-notch-live { animation: none; }
+  :root:not([data-motion="full"]) .kx-meter-bar i,:root:not([data-motion="full"]) .kx-rail-dot,:root:not([data-motion="full"]) .kx-rail li + li::before { transition: none; }
+}
+
+@media (max-width: 960px) {
+  /* 侧栏收窄成条后，状态区的链接会被隐藏（globals.css 800px 断点），这里先撤掉，避免出现够不着的小链接 */
+  .kx-sidestat-meta { display: none; }
+}
+
+@media (max-width: 720px) {
+  .kx-bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kx-bento-i, .kx-bento-i[data-span="wide"] { grid-column: span 2; min-height: 44px; }
+  .kx-drawer-pn { width: 100%; }
+  .kx-drawer-close { min-width: 44px; min-height: 44px; }
+  .kx-footer a, .kx-footer button { min-height: 44px; display: inline-flex; align-items: center; }
+}
+
+/* KX-28：抽屉退出期间不接收点击（退出动画见 Drawer）。 */
+.kx-drawer[data-closing] { pointer-events: none; }

@@ -6,3 +6,6 @@ export * from "./health";
 
 export * from "./provider-runtime";
 export * from "./runtime";
+
+export * from "./legacy";
+export * from "./legacy-config";

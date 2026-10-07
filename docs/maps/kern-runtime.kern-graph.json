@@ -1,0 +1,3936 @@
+{
+  "version": "kern-graph/v1",
+  "id": "kern-runtime-map",
+  "title": "Kern Runtime Architecture",
+  "summary": "基于仓库文件与静态 import 关系生成；未观察到的运行时关系不会被猜测为 VERIFIED。",
+  "view": "SYSTEM",
+  "subject": {
+    "kind": "repository",
+    "label": "exasdwyh-commits/PM-next",
+    "ref": "WORKTREE"
+  },
+  "generator": "DETERMINISTIC",
+  "nodes": [
+    {
+      "id": "chat-ui",
+      "type": "CHAT_UI",
+      "label": "Kern Chat",
+      "detail": "Conversation-first user surface.",
+      "layer": 0,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 30,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/app/muse/components/ask-card.tsx",
+          "title": "src/app/muse/components/ask-card.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/muse/components/brief.tsx",
+          "title": "src/app/muse/components/brief.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/muse/components/conclusion-decisions.tsx",
+          "title": "src/app/muse/components/conclusion-decisions.tsx",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "workbench",
+      "type": "WORKBENCH",
+      "label": "Management Workbench",
+      "detail": "Products, projects, tasks, evidence and audit management.",
+      "layer": 0,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 47,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/app/advisor/advisor-client.tsx",
+          "title": "src/app/advisor/advisor-client.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/advisor/page.tsx",
+          "title": "src/app/advisor/page.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/consultation/consultation-client.tsx",
+          "title": "src/app/consultation/consultation-client.tsx",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "conversation-api",
+      "type": "API",
+      "label": "Conversation API",
+      "detail": "Single HTTP entry for Kern conversations.",
+      "layer": 1,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 4,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/conversations/[id]/messages/route.ts",
+          "title": "src/app/api/conversations/[id]/messages/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/api/conversations/[id]/route.ts",
+          "title": "src/app/api/conversations/[id]/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/api/conversations/[id]/runtime-config/route.ts",
+          "title": "src/app/api/conversations/[id]/runtime-config/route.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "platform-api",
+      "type": "API",
+      "label": "Platform API",
+      "detail": "Remaining HTTP surface for products, missions, evidence and admin.",
+      "layer": 1,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 90,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/advisor/challenge/route.ts",
+          "title": "src/app/api/advisor/challenge/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/api/agent-runs/[runId]/cancel/route.ts",
+          "title": "src/app/api/agent-runs/[runId]/cancel/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/api/agent-runs/[runId]/route.ts",
+          "title": "src/app/api/agent-runs/[runId]/route.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "kern-router",
+      "type": "ROUTER",
+      "label": "Kern Router",
+      "detail": "Deterministic intent grammar plus governed planner fallback.",
+      "layer": 3,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 3,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/intent-grammar.ts",
+          "title": "src/modules/assistant-runtime/intent-grammar.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/planner.ts",
+          "title": "src/modules/assistant-runtime/planner.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/router.ts",
+          "title": "src/modules/assistant-runtime/router.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "capability-registry",
+      "type": "CAPABILITY_REGISTRY",
+      "label": "Capability Registry",
+      "detail": "Native Kern capabilities for work, knowledge, writes, R&D and desktop execution.",
+      "layer": 3,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 12,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/catalog.ts",
+          "title": "src/modules/assistant-runtime/capabilities/catalog.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/challenge.ts",
+          "title": "src/modules/assistant-runtime/capabilities/challenge.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/contracts.ts",
+          "title": "src/modules/assistant-runtime/capabilities/contracts.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "assistant-runtime",
+      "type": "ASSISTANT_RUNTIME",
+      "label": "Kern Assistant Runtime",
+      "detail": "Conversation lifecycle, context, autonomy and result composition.",
+      "layer": 2,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 19,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/autonomy.ts",
+          "title": "src/modules/assistant-runtime/autonomy.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/collaboration-planner.ts",
+          "title": "src/modules/assistant-runtime/collaboration-planner.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/context-builder.ts",
+          "title": "src/modules/assistant-runtime/context-builder.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "advisor-support",
+      "type": "COMPAT_SUPPORT",
+      "label": "Advisor Compatibility Libraries",
+      "detail": "Proposal, challenge, LLM and compatibility facade libraries; not a runtime owner.",
+      "layer": 4,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 9,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/advisor/challenge.test.ts",
+          "title": "src/modules/advisor/challenge.test.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/advisor/challenge.ts",
+          "title": "src/modules/advisor/challenge.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/advisor/context.ts",
+          "title": "src/modules/advisor/context.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "model-gateway",
+      "type": "MODEL_GATEWAY",
+      "label": "Model Gateway",
+      "detail": "Model policy, routing, provider execution and usage metering.",
+      "layer": 4,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 13,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/model-control/presets.ts",
+          "title": "src/modules/model-control/presets.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/model-control/service.ts",
+          "title": "src/modules/model-control/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/model-gateway/gateway.ts",
+          "title": "src/modules/model-gateway/gateway.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "supervisor",
+      "type": "SUPERVISOR",
+      "label": "Mission Supervisor",
+      "detail": "Mission planning, node execution, controls and receipts.",
+      "layer": 4,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 27,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/supervisor/attention.ts",
+          "title": "src/modules/supervisor/attention.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/supervisor/brief.ts",
+          "title": "src/modules/supervisor/brief.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/supervisor/claims.ts",
+          "title": "src/modules/supervisor/claims.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "work-engine",
+      "type": "WORK_ENGINE",
+      "label": "Work Engine",
+      "detail": "Longer-running Product R&D, workforce and product development execution.",
+      "layer": 5,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 17,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/product-development/analysis.ts",
+          "title": "src/modules/product-development/analysis.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/product-development/channel-routes-service.ts",
+          "title": "src/modules/product-development/channel-routes-service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/product-development/channel-spec.ts",
+          "title": "src/modules/product-development/channel-spec.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "desktop-runtime",
+      "type": "DESKTOP_RUNTIME",
+      "label": "Desktop Runtime",
+      "detail": "Local computer execution and receipts.",
+      "layer": 5,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 6,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/desktop-runtime/confirmation.ts",
+          "title": "src/modules/desktop-runtime/confirmation.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/desktop-runtime/contracts.ts",
+          "title": "src/modules/desktop-runtime/contracts.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/desktop-runtime/index.ts",
+          "title": "src/modules/desktop-runtime/index.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "worker",
+      "type": "WORKER",
+      "label": "Worker Runtime",
+      "detail": "Leases, heartbeats, retries and recovery for queued execution.",
+      "layer": 5,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 14,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/worker/backoff.ts",
+          "title": "src/modules/worker/backoff.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/worker/claim.ts",
+          "title": "src/modules/worker/claim.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/worker/execution-control.ts",
+          "title": "src/modules/worker/execution-control.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "research",
+      "type": "RESEARCH",
+      "label": "Research",
+      "detail": "Web research, source capture and lineage.",
+      "layer": 5,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 8,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/research/evidence-claims.ts",
+          "title": "src/modules/research/evidence-claims.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/research/market-research.ts",
+          "title": "src/modules/research/market-research.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/research/opportunity-analysis.ts",
+          "title": "src/modules/research/opportunity-analysis.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "cost-engine",
+      "type": "COST_ENGINE",
+      "label": "Cost Engine",
+      "detail": "Cost, budget and scenario calculation.",
+      "layer": 5,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 13,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/cost-engine/budget-variance.ts",
+          "title": "src/modules/cost-engine/budget-variance.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/cost-engine/channel.ts",
+          "title": "src/modules/cost-engine/channel.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/cost-engine/cost-total.ts",
+          "title": "src/modules/cost-engine/cost-total.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "decision-intelligence",
+      "type": "DECISION_INTELLIGENCE",
+      "label": "Decision Intelligence",
+      "detail": "Decision runs, options and outcome intelligence.",
+      "layer": 5,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 11,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/decision-intelligence/defaults.ts",
+          "title": "src/modules/decision-intelligence/defaults.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/decision-intelligence/index.ts",
+          "title": "src/modules/decision-intelligence/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/decision-intelligence/kernel.ts",
+          "title": "src/modules/decision-intelligence/kernel.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "governance",
+      "type": "GOVERNANCE",
+      "label": "Governance",
+      "detail": "Protected approvals, ToolBroker and capability boundaries.",
+      "layer": 6,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 6,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/governance/action-hash.ts",
+          "title": "src/modules/governance/action-hash.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/governance/approval-service.ts",
+          "title": "src/modules/governance/approval-service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/governance/capability-policy.ts",
+          "title": "src/modules/governance/capability-policy.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "evidence",
+      "type": "EVIDENCE",
+      "label": "Evidence",
+      "detail": "Source capture, verification and claim lineage.",
+      "layer": 6,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 8,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/evidence/evidence-view.ts",
+          "title": "src/modules/evidence/evidence-view.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/evidence/index.ts",
+          "title": "src/modules/evidence/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/evidence/source-fetch-executor.ts",
+          "title": "src/modules/evidence/source-fetch-executor.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "domain-data",
+      "type": "DOMAIN",
+      "label": "Domain Data Modules",
+      "detail": "Product, project, work, decision and signal domain records.",
+      "layer": 6,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 31,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/decisions/artifact-ref.ts",
+          "title": "src/modules/decisions/artifact-ref.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/decisions/index.ts",
+          "title": "src/modules/decisions/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/decisions/scope-hash.ts",
+          "title": "src/modules/decisions/scope-hash.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "platform-services",
+      "type": "PLATFORM",
+      "label": "Platform Services",
+      "detail": "Tenancy, identity, scheduling, notifications and supporting services.",
+      "layer": 6,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 49,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/automation-trace/index.ts",
+          "title": "src/modules/automation-trace/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/automation-trace/service.ts",
+          "title": "src/modules/automation-trace/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/autopilot/index.ts",
+          "title": "src/modules/autopilot/index.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "persistence",
+      "type": "PERSISTENCE",
+      "label": "Persistence",
+      "detail": "PostgreSQL schema and persisted runs, work and receipts.",
+      "layer": 7,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 2,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/shared/db.ts",
+          "title": "src/shared/db.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "prisma/schema.prisma",
+          "title": "prisma/schema.prisma",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "shared-kernel",
+      "type": "SHARED_KERNEL",
+      "label": "Shared Kernel",
+      "detail": "Cross-cutting helpers, UI primitives, contracts and reply formats.",
+      "layer": 7,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 61,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/components/app-shell.tsx",
+          "title": "src/components/app-shell.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/components/automation-trace.tsx",
+          "title": "src/components/automation-trace.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/components/challenge-report-card.tsx",
+          "title": "src/components/challenge-report-card.tsx",
+          "kind": "repository-source"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "import-advisor-support-assistant-runtime",
+      "from": "advisor-support",
+      "to": "assistant-runtime",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/advisor/service.ts",
+          "title": "src/modules/advisor/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/conversations.ts",
+          "title": "src/modules/assistant-runtime/conversations.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/conversation-engine.ts",
+          "title": "src/modules/assistant-runtime/conversation-engine.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-advisor-support-capability-registry",
+      "from": "advisor-support",
+      "to": "capability-registry",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/advisor/service.ts",
+          "title": "src/modules/advisor/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/index.ts",
+          "title": "src/modules/assistant-runtime/capabilities/index.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-advisor-support-cost-engine",
+      "from": "advisor-support",
+      "to": "cost-engine",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/advisor/context.ts",
+          "title": "src/modules/advisor/context.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/cost-engine/scenarios.ts",
+          "title": "src/modules/cost-engine/scenarios.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-advisor-support-domain-data",
+      "from": "advisor-support",
+      "to": "domain-data",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/advisor/context.ts",
+          "title": "src/modules/advisor/context.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/knowledge/brief-snapshot.ts",
+          "title": "src/modules/knowledge/brief-snapshot.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/knowledge/search.ts",
+          "title": "src/modules/knowledge/search.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-advisor-support-kern-router",
+      "from": "advisor-support",
+      "to": "kern-router",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/advisor/service.ts",
+          "title": "src/modules/advisor/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/router.ts",
+          "title": "src/modules/assistant-runtime/router.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-advisor-support-model-gateway",
+      "from": "advisor-support",
+      "to": "model-gateway",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/advisor/llm.ts",
+          "title": "src/modules/advisor/llm.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/model-gateway/legacy-config.ts",
+          "title": "src/modules/model-gateway/legacy-config.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-advisor-support-persistence",
+      "from": "advisor-support",
+      "to": "persistence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/advisor/context.ts",
+          "title": "src/modules/advisor/context.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/db.ts",
+          "title": "src/shared/db.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/advisor/proposals.ts",
+          "title": "src/modules/advisor/proposals.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-advisor-support-platform-services",
+      "from": "advisor-support",
+      "to": "platform-services",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/advisor/challenge.ts",
+          "title": "src/modules/advisor/challenge.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/tenant/index.ts",
+          "title": "src/modules/tenant/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/advisor/context.ts",
+          "title": "src/modules/advisor/context.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-advisor-support-research",
+      "from": "advisor-support",
+      "to": "research",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/advisor/challenge.test.ts",
+          "title": "src/modules/advisor/challenge.test.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/research/scientific-evidence.ts",
+          "title": "src/modules/research/scientific-evidence.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/advisor/challenge.ts",
+          "title": "src/modules/advisor/challenge.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-advisor-support-shared-kernel",
+      "from": "advisor-support",
+      "to": "shared-kernel",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/advisor/proposals.ts",
+          "title": "src/modules/advisor/proposals.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/errors.ts",
+          "title": "src/shared/errors.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/advisor/runs.ts",
+          "title": "src/modules/advisor/runs.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-advisor-support-work-engine",
+      "from": "advisor-support",
+      "to": "work-engine",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/advisor/proposals.ts",
+          "title": "src/modules/advisor/proposals.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/product-development/revision.ts",
+          "title": "src/modules/product-development/revision.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/product-development/analysis.ts",
+          "title": "src/modules/product-development/analysis.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-assistant-runtime-advisor-support",
+      "from": "assistant-runtime",
+      "to": "advisor-support",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/conversation-engine.ts",
+          "title": "src/modules/assistant-runtime/conversation-engine.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/advisor/llm.ts",
+          "title": "src/modules/advisor/llm.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/advisor/runs.ts",
+          "title": "src/modules/advisor/runs.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-assistant-runtime-capability-registry",
+      "from": "assistant-runtime",
+      "to": "capability-registry",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/conversation-config.ts",
+          "title": "src/modules/assistant-runtime/conversation-config.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/catalog.ts",
+          "title": "src/modules/assistant-runtime/capabilities/catalog.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/conversation-engine.ts",
+          "title": "src/modules/assistant-runtime/conversation-engine.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-assistant-runtime-decision-intelligence",
+      "from": "assistant-runtime",
+      "to": "decision-intelligence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/reflex.ts",
+          "title": "src/modules/assistant-runtime/reflex.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/decision-intelligence/index.ts",
+          "title": "src/modules/decision-intelligence/index.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-assistant-runtime-governance",
+      "from": "assistant-runtime",
+      "to": "governance",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/autonomy.ts",
+          "title": "src/modules/assistant-runtime/autonomy.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/governance/protected-actions.ts",
+          "title": "src/modules/governance/protected-actions.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/goal-plan.ts",
+          "title": "src/modules/assistant-runtime/goal-plan.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-assistant-runtime-kern-router",
+      "from": "assistant-runtime",
+      "to": "kern-router",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/conversation-engine.ts",
+          "title": "src/modules/assistant-runtime/conversation-engine.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/router.ts",
+          "title": "src/modules/assistant-runtime/router.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/index.ts",
+          "title": "src/modules/assistant-runtime/index.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-assistant-runtime-model-gateway",
+      "from": "assistant-runtime",
+      "to": "model-gateway",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/conversation-config.ts",
+          "title": "src/modules/assistant-runtime/conversation-config.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/model-gateway/provider-runtime.ts",
+          "title": "src/modules/model-gateway/provider-runtime.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/conversation-engine.ts",
+          "title": "src/modules/assistant-runtime/conversation-engine.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-assistant-runtime-persistence",
+      "from": "assistant-runtime",
+      "to": "persistence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/context-builder.ts",
+          "title": "src/modules/assistant-runtime/context-builder.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/db.ts",
+          "title": "src/shared/db.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/conversation-config.ts",
+          "title": "src/modules/assistant-runtime/conversation-config.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-assistant-runtime-platform-services",
+      "from": "assistant-runtime",
+      "to": "platform-services",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/context-builder.ts",
+          "title": "src/modules/assistant-runtime/context-builder.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/identity/session.ts",
+          "title": "src/modules/identity/session.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/conversation-config.ts",
+          "title": "src/modules/assistant-runtime/conversation-config.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-assistant-runtime-shared-kernel",
+      "from": "assistant-runtime",
+      "to": "shared-kernel",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/context-builder.ts",
+          "title": "src/modules/assistant-runtime/context-builder.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/errors.ts",
+          "title": "src/shared/errors.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/conversation-config.ts",
+          "title": "src/modules/assistant-runtime/conversation-config.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-assistant-runtime-supervisor",
+      "from": "assistant-runtime",
+      "to": "supervisor",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/service.ts",
+          "title": "src/modules/assistant-runtime/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/supervisor/index.ts",
+          "title": "src/modules/supervisor/index.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-assistant-runtime-work-engine",
+      "from": "assistant-runtime",
+      "to": "work-engine",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/specialist-dispatch.ts",
+          "title": "src/modules/assistant-runtime/specialist-dispatch.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/workforce/service.ts",
+          "title": "src/modules/workforce/service.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-assistant-runtime-worker",
+      "from": "assistant-runtime",
+      "to": "worker",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/conversation-engine.ts",
+          "title": "src/modules/assistant-runtime/conversation-engine.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/worker/claim.ts",
+          "title": "src/modules/worker/claim.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/worker/run-claim.ts",
+          "title": "src/modules/worker/run-claim.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-capability-registry-advisor-support",
+      "from": "capability-registry",
+      "to": "advisor-support",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/challenge.ts",
+          "title": "src/modules/assistant-runtime/capabilities/challenge.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/advisor/challenge.ts",
+          "title": "src/modules/advisor/challenge.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/product-write.ts",
+          "title": "src/modules/assistant-runtime/capabilities/product-write.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-capability-registry-desktop-runtime",
+      "from": "capability-registry",
+      "to": "desktop-runtime",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/desktop.ts",
+          "title": "src/modules/assistant-runtime/capabilities/desktop.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/desktop-runtime/index.ts",
+          "title": "src/modules/desktop-runtime/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/directory-loader.ts",
+          "title": "src/modules/assistant-runtime/capabilities/directory-loader.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-capability-registry-domain-data",
+      "from": "capability-registry",
+      "to": "domain-data",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/directory-loader.ts",
+          "title": "src/modules/assistant-runtime/capabilities/directory-loader.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/knowledge/service.ts",
+          "title": "src/modules/knowledge/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/knowledge.ts",
+          "title": "src/modules/assistant-runtime/capabilities/knowledge.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-capability-registry-kern-router",
+      "from": "capability-registry",
+      "to": "kern-router",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/product-write.ts",
+          "title": "src/modules/assistant-runtime/capabilities/product-write.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/intent-grammar.ts",
+          "title": "src/modules/assistant-runtime/intent-grammar.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-capability-registry-persistence",
+      "from": "capability-registry",
+      "to": "persistence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/challenge.ts",
+          "title": "src/modules/assistant-runtime/capabilities/challenge.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/db.ts",
+          "title": "src/shared/db.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/product-rnd.ts",
+          "title": "src/modules/assistant-runtime/capabilities/product-rnd.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-capability-registry-platform-services",
+      "from": "capability-registry",
+      "to": "platform-services",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/challenge.ts",
+          "title": "src/modules/assistant-runtime/capabilities/challenge.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/identity/session.ts",
+          "title": "src/modules/identity/session.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/contracts.ts",
+          "title": "src/modules/assistant-runtime/capabilities/contracts.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-capability-registry-research",
+      "from": "capability-registry",
+      "to": "research",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/challenge.ts",
+          "title": "src/modules/assistant-runtime/capabilities/challenge.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/research/scientific-evidence.ts",
+          "title": "src/modules/research/scientific-evidence.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-capability-registry-shared-kernel",
+      "from": "capability-registry",
+      "to": "shared-kernel",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/desktop.ts",
+          "title": "src/modules/assistant-runtime/capabilities/desktop.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/errors.ts",
+          "title": "src/shared/errors.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/directory-loader.ts",
+          "title": "src/modules/assistant-runtime/capabilities/directory-loader.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-capability-registry-supervisor",
+      "from": "capability-registry",
+      "to": "supervisor",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/directory-loader.ts",
+          "title": "src/modules/assistant-runtime/capabilities/directory-loader.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/supervisor/tools.ts",
+          "title": "src/modules/supervisor/tools.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/supervisor/web-search.ts",
+          "title": "src/modules/supervisor/web-search.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-capability-registry-work-engine",
+      "from": "capability-registry",
+      "to": "work-engine",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/product-rnd.ts",
+          "title": "src/modules/assistant-runtime/capabilities/product-rnd.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/product-rnd/index.ts",
+          "title": "src/modules/product-rnd/index.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-chat-ui-assistant-runtime",
+      "from": "chat-ui",
+      "to": "assistant-runtime",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/muse/components/prose.tsx",
+          "title": "src/app/muse/components/prose.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/reply-format.ts",
+          "title": "src/modules/assistant-runtime/reply-format.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-chat-ui-governance",
+      "from": "chat-ui",
+      "to": "governance",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/muse/mission-timeline.ts",
+          "title": "src/app/muse/mission-timeline.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/governance/protected-actions.ts",
+          "title": "src/modules/governance/protected-actions.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-chat-ui-platform-services",
+      "from": "chat-ui",
+      "to": "platform-services",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/muse/components/graph.tsx",
+          "title": "src/app/muse/components/graph.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/visual-intelligence/contracts.ts",
+          "title": "src/modules/visual-intelligence/contracts.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/muse/muse-client.tsx",
+          "title": "src/app/muse/muse-client.tsx",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-chat-ui-shared-kernel",
+      "from": "chat-ui",
+      "to": "shared-kernel",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/muse/components/controls.tsx",
+          "title": "src/app/muse/components/controls.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/components/motion/react.ts",
+          "title": "src/components/motion/react.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/muse/components/conversation-rename.tsx",
+          "title": "src/app/muse/components/conversation-rename.tsx",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-chat-ui-supervisor",
+      "from": "chat-ui",
+      "to": "supervisor",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/muse/components/mission-workspace.tsx",
+          "title": "src/app/muse/components/mission-workspace.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/supervisor/report-format.ts",
+          "title": "src/modules/supervisor/report-format.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/muse/components/prose.tsx",
+          "title": "src/app/muse/components/prose.tsx",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-conversation-api-assistant-runtime",
+      "from": "conversation-api",
+      "to": "assistant-runtime",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/conversations/[id]/messages/route.ts",
+          "title": "src/app/api/conversations/[id]/messages/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/index.ts",
+          "title": "src/modules/assistant-runtime/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/api/conversations/[id]/route.ts",
+          "title": "src/app/api/conversations/[id]/route.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-conversation-api-platform-services",
+      "from": "conversation-api",
+      "to": "platform-services",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/conversations/[id]/messages/route.ts",
+          "title": "src/app/api/conversations/[id]/messages/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/identity/session.ts",
+          "title": "src/modules/identity/session.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/api/conversations/[id]/route.ts",
+          "title": "src/app/api/conversations/[id]/route.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-conversation-api-shared-kernel",
+      "from": "conversation-api",
+      "to": "shared-kernel",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/conversations/[id]/messages/route.ts",
+          "title": "src/app/api/conversations/[id]/messages/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/api-handler.ts",
+          "title": "src/shared/api-handler.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/request-body.ts",
+          "title": "src/shared/request-body.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-cost-engine-domain-data",
+      "from": "cost-engine",
+      "to": "domain-data",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/cost-engine/scenarios.ts",
+          "title": "src/modules/cost-engine/scenarios.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/work/structured-artifacts.ts",
+          "title": "src/modules/work/structured-artifacts.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/work/artifact-schema.ts",
+          "title": "src/modules/work/artifact-schema.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-cost-engine-platform-services",
+      "from": "cost-engine",
+      "to": "platform-services",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/cost-engine/presets.ts",
+          "title": "src/modules/cost-engine/presets.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/tenant/index.ts",
+          "title": "src/modules/tenant/index.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-decision-intelligence-persistence",
+      "from": "decision-intelligence",
+      "to": "persistence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/decision-intelligence/persistence.ts",
+          "title": "src/modules/decision-intelligence/persistence.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/db.ts",
+          "title": "src/shared/db.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-decision-intelligence-platform-services",
+      "from": "decision-intelligence",
+      "to": "platform-services",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/decision-intelligence/persistence.ts",
+          "title": "src/modules/decision-intelligence/persistence.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/identity/session.ts",
+          "title": "src/modules/identity/session.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-decision-intelligence-shared-kernel",
+      "from": "decision-intelligence",
+      "to": "shared-kernel",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/decision-intelligence/persistence.ts",
+          "title": "src/modules/decision-intelligence/persistence.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/audit.ts",
+          "title": "src/shared/audit.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-desktop-runtime-governance",
+      "from": "desktop-runtime",
+      "to": "governance",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/desktop-runtime/service.ts",
+          "title": "src/modules/desktop-runtime/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/governance/approval-service.ts",
+          "title": "src/modules/governance/approval-service.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-desktop-runtime-persistence",
+      "from": "desktop-runtime",
+      "to": "persistence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/desktop-runtime/service.ts",
+          "title": "src/modules/desktop-runtime/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/db.ts",
+          "title": "src/shared/db.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-desktop-runtime-platform-services",
+      "from": "desktop-runtime",
+      "to": "platform-services",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/desktop-runtime/service.ts",
+          "title": "src/modules/desktop-runtime/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/identity/session.ts",
+          "title": "src/modules/identity/session.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-desktop-runtime-shared-kernel",
+      "from": "desktop-runtime",
+      "to": "shared-kernel",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/desktop-runtime/service.ts",
+          "title": "src/modules/desktop-runtime/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/errors.ts",
+          "title": "src/shared/errors.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-desktop-runtime-work-engine",
+      "from": "desktop-runtime",
+      "to": "work-engine",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/desktop-runtime/service.ts",
+          "title": "src/modules/desktop-runtime/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/workforce/service.ts",
+          "title": "src/modules/workforce/service.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-domain-data-cost-engine",
+      "from": "domain-data",
+      "to": "cost-engine",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/products/product-suggestion.ts",
+          "title": "src/modules/products/product-suggestion.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/cost-engine/index.ts",
+          "title": "src/modules/cost-engine/index.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-domain-data-evidence",
+      "from": "domain-data",
+      "to": "evidence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/projects/project-view.ts",
+          "title": "src/modules/projects/project-view.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/evidence/evidence-view.ts",
+          "title": "src/modules/evidence/evidence-view.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-domain-data-model-gateway",
+      "from": "domain-data",
+      "to": "model-gateway",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/workspace/setup.ts",
+          "title": "src/modules/workspace/setup.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/model-control/service.ts",
+          "title": "src/modules/model-control/service.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-domain-data-persistence",
+      "from": "domain-data",
+      "to": "persistence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/decisions/service.ts",
+          "title": "src/modules/decisions/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/db.ts",
+          "title": "src/shared/db.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/knowledge/brief-snapshot.ts",
+          "title": "src/modules/knowledge/brief-snapshot.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-domain-data-platform-services",
+      "from": "domain-data",
+      "to": "platform-services",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/decisions/service.ts",
+          "title": "src/modules/decisions/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/identity/session.ts",
+          "title": "src/modules/identity/session.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/launch/gate.ts",
+          "title": "src/modules/launch/gate.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-domain-data-research",
+      "from": "domain-data",
+      "to": "research",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/products/product-suggestion.ts",
+          "title": "src/modules/products/product-suggestion.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/research/requirement-parser.ts",
+          "title": "src/modules/research/requirement-parser.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/research/market-research.ts",
+          "title": "src/modules/research/market-research.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-domain-data-shared-kernel",
+      "from": "domain-data",
+      "to": "shared-kernel",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/decisions/scope-hash.ts",
+          "title": "src/modules/decisions/scope-hash.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/errors.ts",
+          "title": "src/shared/errors.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/decisions/service.ts",
+          "title": "src/modules/decisions/service.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-domain-data-work-engine",
+      "from": "domain-data",
+      "to": "work-engine",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/workspace/setup.ts",
+          "title": "src/modules/workspace/setup.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/workforce/service.ts",
+          "title": "src/modules/workforce/service.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-evidence-governance",
+      "from": "evidence",
+      "to": "governance",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/evidence/source-fetch-executor.ts",
+          "title": "src/modules/evidence/source-fetch-executor.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/governance/index.ts",
+          "title": "src/modules/governance/index.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-evidence-persistence",
+      "from": "evidence",
+      "to": "persistence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/evidence/source-fetch-executor.ts",
+          "title": "src/modules/evidence/source-fetch-executor.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/db.ts",
+          "title": "src/shared/db.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/evidence/verification-service.ts",
+          "title": "src/modules/evidence/verification-service.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-evidence-platform-services",
+      "from": "evidence",
+      "to": "platform-services",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/evidence/verification-service.ts",
+          "title": "src/modules/evidence/verification-service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/identity/session.ts",
+          "title": "src/modules/identity/session.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-evidence-shared-kernel",
+      "from": "evidence",
+      "to": "shared-kernel",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/evidence/source-fetch-executor.ts",
+          "title": "src/modules/evidence/source-fetch-executor.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/errors.ts",
+          "title": "src/shared/errors.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/evidence/verification-service.ts",
+          "title": "src/modules/evidence/verification-service.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-governance-desktop-runtime",
+      "from": "governance",
+      "to": "desktop-runtime",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/governance/protected-actions.ts",
+          "title": "src/modules/governance/protected-actions.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/desktop-runtime/contracts.ts",
+          "title": "src/modules/desktop-runtime/contracts.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-governance-persistence",
+      "from": "governance",
+      "to": "persistence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/governance/approval-service.ts",
+          "title": "src/modules/governance/approval-service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/db.ts",
+          "title": "src/shared/db.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-governance-platform-services",
+      "from": "governance",
+      "to": "platform-services",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/governance/approval-service.ts",
+          "title": "src/modules/governance/approval-service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/identity/session.ts",
+          "title": "src/modules/identity/session.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-kern-router-capability-registry",
+      "from": "kern-router",
+      "to": "capability-registry",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/router.ts",
+          "title": "src/modules/assistant-runtime/router.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/contracts.ts",
+          "title": "src/modules/assistant-runtime/capabilities/contracts.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-kern-router-desktop-runtime",
+      "from": "kern-router",
+      "to": "desktop-runtime",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/router.ts",
+          "title": "src/modules/assistant-runtime/router.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/desktop-runtime/index.ts",
+          "title": "src/modules/desktop-runtime/index.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-kern-router-model-gateway",
+      "from": "kern-router",
+      "to": "model-gateway",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/planner.ts",
+          "title": "src/modules/assistant-runtime/planner.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/model-gateway/index.ts",
+          "title": "src/modules/model-gateway/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/router.ts",
+          "title": "src/modules/assistant-runtime/router.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-kern-router-platform-services",
+      "from": "kern-router",
+      "to": "platform-services",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/router.ts",
+          "title": "src/modules/assistant-runtime/router.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/identity/session.ts",
+          "title": "src/modules/identity/session.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-kern-router-work-engine",
+      "from": "kern-router",
+      "to": "work-engine",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/intent-grammar.ts",
+          "title": "src/modules/assistant-runtime/intent-grammar.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/product-development/revision.ts",
+          "title": "src/modules/product-development/revision.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-model-gateway-persistence",
+      "from": "model-gateway",
+      "to": "persistence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/model-control/service.ts",
+          "title": "src/modules/model-control/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/db.ts",
+          "title": "src/shared/db.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/model-gateway/runtime.ts",
+          "title": "src/modules/model-gateway/runtime.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-model-gateway-platform-services",
+      "from": "model-gateway",
+      "to": "platform-services",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/model-control/service.ts",
+          "title": "src/modules/model-control/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/identity/admin.ts",
+          "title": "src/modules/identity/admin.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/identity/session.ts",
+          "title": "src/modules/identity/session.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-model-gateway-shared-kernel",
+      "from": "model-gateway",
+      "to": "shared-kernel",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/model-control/service.ts",
+          "title": "src/modules/model-control/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/audit.ts",
+          "title": "src/shared/audit.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/errors.ts",
+          "title": "src/shared/errors.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-persistence-shared-kernel",
+      "from": "persistence",
+      "to": "shared-kernel",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/shared/db.ts",
+          "title": "src/shared/db.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/env.ts",
+          "title": "src/shared/env.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-api-advisor-support",
+      "from": "platform-api",
+      "to": "advisor-support",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/advisor/challenge/route.ts",
+          "title": "src/app/api/advisor/challenge/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/advisor/challenge.ts",
+          "title": "src/modules/advisor/challenge.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/api/agent-runs/[runId]/cancel/route.ts",
+          "title": "src/app/api/agent-runs/[runId]/cancel/route.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-api-capability-registry",
+      "from": "platform-api",
+      "to": "capability-registry",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/capabilities/route.ts",
+          "title": "src/app/api/capabilities/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/directory-loader.ts",
+          "title": "src/modules/assistant-runtime/capabilities/directory-loader.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/directory.ts",
+          "title": "src/modules/assistant-runtime/capabilities/directory.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-api-cost-engine",
+      "from": "platform-api",
+      "to": "cost-engine",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/products/[id]/cost-scenarios/route.ts",
+          "title": "src/app/api/products/[id]/cost-scenarios/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/cost-engine/scenarios.ts",
+          "title": "src/modules/cost-engine/scenarios.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-api-desktop-runtime",
+      "from": "platform-api",
+      "to": "desktop-runtime",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/desktop-runtime/overview/route.ts",
+          "title": "src/app/api/desktop-runtime/overview/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/desktop-runtime/index.ts",
+          "title": "src/modules/desktop-runtime/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/api/desktop-runtime/tasks/[id]/claim/route.ts",
+          "title": "src/app/api/desktop-runtime/tasks/[id]/claim/route.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-api-domain-data",
+      "from": "platform-api",
+      "to": "domain-data",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/decision-packets/[id]/decide/route.ts",
+          "title": "src/app/api/decision-packets/[id]/decide/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/decisions/service.ts",
+          "title": "src/modules/decisions/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/api/decision-packets/[id]/submit/route.ts",
+          "title": "src/app/api/decision-packets/[id]/submit/route.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-api-evidence",
+      "from": "platform-api",
+      "to": "evidence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/projects/[id]/attachments/route.ts",
+          "title": "src/app/api/projects/[id]/attachments/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/evidence/evidence-view.ts",
+          "title": "src/modules/evidence/evidence-view.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/api/projects/[id]/evidences/route.ts",
+          "title": "src/app/api/projects/[id]/evidences/route.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-api-model-gateway",
+      "from": "platform-api",
+      "to": "model-gateway",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/model-control/route.ts",
+          "title": "src/app/api/model-control/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/model-control/service.ts",
+          "title": "src/modules/model-control/service.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-api-persistence",
+      "from": "platform-api",
+      "to": "persistence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/attachments/[id]/route.ts",
+          "title": "src/app/api/attachments/[id]/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/db.ts",
+          "title": "src/shared/db.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/api/auth/session/route.ts",
+          "title": "src/app/api/auth/session/route.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-api-platform-services",
+      "from": "platform-api",
+      "to": "platform-services",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/advisor/challenge/route.ts",
+          "title": "src/app/api/advisor/challenge/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/identity/session.ts",
+          "title": "src/modules/identity/session.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/api/agent-runs/[runId]/cancel/route.ts",
+          "title": "src/app/api/agent-runs/[runId]/cancel/route.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-api-research",
+      "from": "platform-api",
+      "to": "research",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/advisor/challenge/route.ts",
+          "title": "src/app/api/advisor/challenge/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/research/scientific-evidence.ts",
+          "title": "src/modules/research/scientific-evidence.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/api/projects/[id]/evidence-gaps/route.ts",
+          "title": "src/app/api/projects/[id]/evidence-gaps/route.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-api-shared-kernel",
+      "from": "platform-api",
+      "to": "shared-kernel",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/advisor/challenge/route.ts",
+          "title": "src/app/api/advisor/challenge/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/api-handler.ts",
+          "title": "src/shared/api-handler.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/errors.ts",
+          "title": "src/shared/errors.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-api-supervisor",
+      "from": "platform-api",
+      "to": "supervisor",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/library/route.ts",
+          "title": "src/app/api/library/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/supervisor/index.ts",
+          "title": "src/modules/supervisor/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/api/missions/[id]/control/route.ts",
+          "title": "src/app/api/missions/[id]/control/route.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-api-work-engine",
+      "from": "platform-api",
+      "to": "work-engine",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/products/[id]/analyses/route.ts",
+          "title": "src/app/api/products/[id]/analyses/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/product-development/analysis.ts",
+          "title": "src/modules/product-development/analysis.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/api/products/[id]/channel-routes/route.ts",
+          "title": "src/app/api/products/[id]/channel-routes/route.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-api-worker",
+      "from": "platform-api",
+      "to": "worker",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/worker/health/route.ts",
+          "title": "src/app/api/worker/health/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/worker/heartbeat.ts",
+          "title": "src/modules/worker/heartbeat.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-services-advisor-support",
+      "from": "platform-services",
+      "to": "advisor-support",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/muse/read-model.ts",
+          "title": "src/modules/muse/read-model.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/advisor/proposals.ts",
+          "title": "src/modules/advisor/proposals.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-services-assistant-runtime",
+      "from": "platform-services",
+      "to": "assistant-runtime",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/muse/read-model.ts",
+          "title": "src/modules/muse/read-model.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/index.ts",
+          "title": "src/modules/assistant-runtime/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/visual-intelligence/council-graph.ts",
+          "title": "src/modules/visual-intelligence/council-graph.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-services-decision-intelligence",
+      "from": "platform-services",
+      "to": "decision-intelligence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/autopilot/service.ts",
+          "title": "src/modules/autopilot/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/decision-intelligence/index.ts",
+          "title": "src/modules/decision-intelligence/index.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-services-desktop-runtime",
+      "from": "platform-services",
+      "to": "desktop-runtime",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/muse/read-model.ts",
+          "title": "src/modules/muse/read-model.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/desktop-runtime/index.ts",
+          "title": "src/modules/desktop-runtime/index.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-services-domain-data",
+      "from": "platform-services",
+      "to": "domain-data",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/launch/service.ts",
+          "title": "src/modules/launch/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/decisions/service.ts",
+          "title": "src/modules/decisions/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/production/launch-basis.ts",
+          "title": "src/modules/production/launch-basis.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-services-governance",
+      "from": "platform-services",
+      "to": "governance",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/connectors/index.ts",
+          "title": "src/modules/connectors/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/governance/approval-service.ts",
+          "title": "src/modules/governance/approval-service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/connectors/runtime.ts",
+          "title": "src/modules/connectors/runtime.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-services-model-gateway",
+      "from": "platform-services",
+      "to": "model-gateway",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/memory/index.ts",
+          "title": "src/modules/memory/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/usage/index.ts",
+          "title": "src/modules/usage/index.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-services-persistence",
+      "from": "platform-services",
+      "to": "persistence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/automation-trace/service.ts",
+          "title": "src/modules/automation-trace/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/db.ts",
+          "title": "src/shared/db.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/autopilot/service.ts",
+          "title": "src/modules/autopilot/service.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-services-shared-kernel",
+      "from": "platform-services",
+      "to": "shared-kernel",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/autopilot/service.ts",
+          "title": "src/modules/autopilot/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/audit.ts",
+          "title": "src/shared/audit.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/errors.ts",
+          "title": "src/shared/errors.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-services-supervisor",
+      "from": "platform-services",
+      "to": "supervisor",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/muse/read-model.ts",
+          "title": "src/modules/muse/read-model.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/supervisor/attention.ts",
+          "title": "src/modules/supervisor/attention.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/supervisor/service.ts",
+          "title": "src/modules/supervisor/service.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-services-work-engine",
+      "from": "platform-services",
+      "to": "work-engine",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/autopilot/service.ts",
+          "title": "src/modules/autopilot/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/workforce/service.ts",
+          "title": "src/modules/workforce/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/evaluation-harness/calibration.ts",
+          "title": "src/modules/evaluation-harness/calibration.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-services-worker",
+      "from": "platform-services",
+      "to": "worker",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/connectors/runtime.ts",
+          "title": "src/modules/connectors/runtime.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/worker/claim.ts",
+          "title": "src/modules/worker/claim.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-research-persistence",
+      "from": "research",
+      "to": "persistence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/research/research-run.ts",
+          "title": "src/modules/research/research-run.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/db.ts",
+          "title": "src/shared/db.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-research-platform-services",
+      "from": "research",
+      "to": "platform-services",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/research/market-research.ts",
+          "title": "src/modules/research/market-research.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/tenant/index.ts",
+          "title": "src/modules/tenant/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/research/requirement-parser.ts",
+          "title": "src/modules/research/requirement-parser.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-research-shared-kernel",
+      "from": "research",
+      "to": "shared-kernel",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/research/opportunity-analysis.ts",
+          "title": "src/modules/research/opportunity-analysis.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/status-labels.ts",
+          "title": "src/shared/status-labels.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/research/research-run.ts",
+          "title": "src/modules/research/research-run.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-shared-kernel-model-gateway",
+      "from": "shared-kernel",
+      "to": "model-gateway",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/kern-contracts/mission-plan.ts",
+          "title": "src/modules/kern-contracts/mission-plan.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/model-gateway/index.ts",
+          "title": "src/modules/model-gateway/index.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-shared-kernel-platform-services",
+      "from": "shared-kernel",
+      "to": "platform-services",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/shared/session-view.ts",
+          "title": "src/shared/session-view.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/identity/session.ts",
+          "title": "src/modules/identity/session.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-shared-kernel-supervisor",
+      "from": "shared-kernel",
+      "to": "supervisor",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/response-format/from-mission.ts",
+          "title": "src/modules/response-format/from-mission.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/supervisor/report-format.ts",
+          "title": "src/modules/supervisor/report-format.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-supervisor-advisor-support",
+      "from": "supervisor",
+      "to": "advisor-support",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/supervisor/takeaway.ts",
+          "title": "src/modules/supervisor/takeaway.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/advisor/proposals.ts",
+          "title": "src/modules/advisor/proposals.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-supervisor-assistant-runtime",
+      "from": "supervisor",
+      "to": "assistant-runtime",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/supervisor/generic-executor.ts",
+          "title": "src/modules/supervisor/generic-executor.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/reply-format.ts",
+          "title": "src/modules/assistant-runtime/reply-format.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/supervisor/plan.ts",
+          "title": "src/modules/supervisor/plan.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-supervisor-capability-registry",
+      "from": "supervisor",
+      "to": "capability-registry",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/supervisor/brief.ts",
+          "title": "src/modules/supervisor/brief.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/directory.ts",
+          "title": "src/modules/assistant-runtime/capabilities/directory.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/directory-loader.ts",
+          "title": "src/modules/assistant-runtime/capabilities/directory-loader.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-supervisor-domain-data",
+      "from": "supervisor",
+      "to": "domain-data",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/supervisor/generic-executor.ts",
+          "title": "src/modules/supervisor/generic-executor.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/knowledge/search.ts",
+          "title": "src/modules/knowledge/search.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-supervisor-governance",
+      "from": "supervisor",
+      "to": "governance",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/supervisor/contract.ts",
+          "title": "src/modules/supervisor/contract.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/governance/protected-actions.ts",
+          "title": "src/modules/governance/protected-actions.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/supervisor/plan.ts",
+          "title": "src/modules/supervisor/plan.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-supervisor-model-gateway",
+      "from": "supervisor",
+      "to": "model-gateway",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/supervisor/brief.ts",
+          "title": "src/modules/supervisor/brief.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/usage/index.ts",
+          "title": "src/modules/usage/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/supervisor/generic-executor.ts",
+          "title": "src/modules/supervisor/generic-executor.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-supervisor-persistence",
+      "from": "supervisor",
+      "to": "persistence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/supervisor/brief.ts",
+          "title": "src/modules/supervisor/brief.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/db.ts",
+          "title": "src/shared/db.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/supervisor/controls.ts",
+          "title": "src/modules/supervisor/controls.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-supervisor-platform-services",
+      "from": "supervisor",
+      "to": "platform-services",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/supervisor/brief.ts",
+          "title": "src/modules/supervisor/brief.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/identity/session.ts",
+          "title": "src/modules/identity/session.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/playbooks/service.ts",
+          "title": "src/modules/playbooks/service.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-supervisor-research",
+      "from": "supervisor",
+      "to": "research",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/supervisor/worker-runtime.ts",
+          "title": "src/modules/supervisor/worker-runtime.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/research/research-run.ts",
+          "title": "src/modules/research/research-run.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-supervisor-shared-kernel",
+      "from": "supervisor",
+      "to": "shared-kernel",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/supervisor/brief.ts",
+          "title": "src/modules/supervisor/brief.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/errors.ts",
+          "title": "src/shared/errors.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/kern-contracts/index.ts",
+          "title": "src/modules/kern-contracts/index.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-supervisor-work-engine",
+      "from": "supervisor",
+      "to": "work-engine",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/supervisor/worker-runtime.ts",
+          "title": "src/modules/supervisor/worker-runtime.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/product-rnd/index.ts",
+          "title": "src/modules/product-rnd/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/product-rnd/executor-strategies.ts",
+          "title": "src/modules/product-rnd/executor-strategies.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-supervisor-worker",
+      "from": "supervisor",
+      "to": "worker",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/supervisor/events.ts",
+          "title": "src/modules/supervisor/events.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/worker/claim.ts",
+          "title": "src/modules/worker/claim.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/supervisor/generic-executor.ts",
+          "title": "src/modules/supervisor/generic-executor.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-work-engine-advisor-support",
+      "from": "work-engine",
+      "to": "advisor-support",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/product-development/analysis.ts",
+          "title": "src/modules/product-development/analysis.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/advisor/context.ts",
+          "title": "src/modules/advisor/context.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/product-development/professional-analysis.ts",
+          "title": "src/modules/product-development/professional-analysis.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-work-engine-domain-data",
+      "from": "work-engine",
+      "to": "domain-data",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/product-development/professional-analysis-schema.ts",
+          "title": "src/modules/product-development/professional-analysis-schema.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/work/artifact-schema.ts",
+          "title": "src/modules/work/artifact-schema.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/product-rnd/orchestrator.ts",
+          "title": "src/modules/product-rnd/orchestrator.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-work-engine-evidence",
+      "from": "work-engine",
+      "to": "evidence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/product-rnd/executor-strategies.ts",
+          "title": "src/modules/product-rnd/executor-strategies.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/evidence/source-trust.ts",
+          "title": "src/modules/evidence/source-trust.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-work-engine-model-gateway",
+      "from": "work-engine",
+      "to": "model-gateway",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/product-development/professional-analysis.ts",
+          "title": "src/modules/product-development/professional-analysis.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/model-gateway/index.ts",
+          "title": "src/modules/model-gateway/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/product-rnd/executor-strategies.ts",
+          "title": "src/modules/product-rnd/executor-strategies.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-work-engine-persistence",
+      "from": "work-engine",
+      "to": "persistence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/product-development/analysis.ts",
+          "title": "src/modules/product-development/analysis.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/db.ts",
+          "title": "src/shared/db.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/product-development/channel-routes-service.ts",
+          "title": "src/modules/product-development/channel-routes-service.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-work-engine-platform-services",
+      "from": "work-engine",
+      "to": "platform-services",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/product-development/analysis.ts",
+          "title": "src/modules/product-development/analysis.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/identity/session.ts",
+          "title": "src/modules/identity/session.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/identity/product-access.ts",
+          "title": "src/modules/identity/product-access.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-work-engine-research",
+      "from": "work-engine",
+      "to": "research",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/product-development/analysis.ts",
+          "title": "src/modules/product-development/analysis.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/research/evidence-claims.ts",
+          "title": "src/modules/research/evidence-claims.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/product-rnd/executor-strategies.ts",
+          "title": "src/modules/product-rnd/executor-strategies.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-work-engine-shared-kernel",
+      "from": "work-engine",
+      "to": "shared-kernel",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/product-development/analysis.ts",
+          "title": "src/modules/product-development/analysis.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/errors.ts",
+          "title": "src/shared/errors.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/audit.ts",
+          "title": "src/shared/audit.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-work-engine-worker",
+      "from": "work-engine",
+      "to": "worker",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/product-rnd/executor-strategies.ts",
+          "title": "src/modules/product-rnd/executor-strategies.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/worker/identity.ts",
+          "title": "src/modules/worker/identity.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/worker/executor.ts",
+          "title": "src/modules/worker/executor.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-workbench-cost-engine",
+      "from": "workbench",
+      "to": "cost-engine",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/products/[id]/cost-calculator.tsx",
+          "title": "src/app/products/[id]/cost-calculator.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/cost-engine/index.ts",
+          "title": "src/modules/cost-engine/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/cost-engine/presets.ts",
+          "title": "src/modules/cost-engine/presets.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-workbench-domain-data",
+      "from": "workbench",
+      "to": "domain-data",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/knowledge/page.tsx",
+          "title": "src/app/knowledge/page.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/knowledge/fact-visibility.ts",
+          "title": "src/modules/knowledge/fact-visibility.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/knowledge/service.ts",
+          "title": "src/modules/knowledge/service.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-workbench-evidence",
+      "from": "workbench",
+      "to": "evidence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/war-room/page.tsx",
+          "title": "src/app/war-room/page.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/evidence/evidence-view.ts",
+          "title": "src/modules/evidence/evidence-view.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-workbench-model-gateway",
+      "from": "workbench",
+      "to": "model-gateway",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/settings/page.tsx",
+          "title": "src/app/settings/page.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/model-control/service.ts",
+          "title": "src/modules/model-control/service.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/model-gateway/index.ts",
+          "title": "src/modules/model-gateway/index.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-workbench-persistence",
+      "from": "workbench",
+      "to": "persistence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/consultation/page.tsx",
+          "title": "src/app/consultation/page.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/db.ts",
+          "title": "src/shared/db.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/dashboard/page.tsx",
+          "title": "src/app/dashboard/page.tsx",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-workbench-platform-services",
+      "from": "workbench",
+      "to": "platform-services",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/consultation/page.tsx",
+          "title": "src/app/consultation/page.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/identity/session.ts",
+          "title": "src/modules/identity/session.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/dashboard/page.tsx",
+          "title": "src/app/dashboard/page.tsx",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-workbench-research",
+      "from": "workbench",
+      "to": "research",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/projects/[id]/page.tsx",
+          "title": "src/app/projects/[id]/page.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/research/evidence-claims.ts",
+          "title": "src/modules/research/evidence-claims.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/research/requirement-parser.ts",
+          "title": "src/modules/research/requirement-parser.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-workbench-shared-kernel",
+      "from": "workbench",
+      "to": "shared-kernel",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/advisor/advisor-client.tsx",
+          "title": "src/app/advisor/advisor-client.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/components/collapsible-list.tsx",
+          "title": "src/components/collapsible-list.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/components/app-shell.tsx",
+          "title": "src/components/app-shell.tsx",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-workbench-work-engine",
+      "from": "workbench",
+      "to": "work-engine",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/manage/page.tsx",
+          "title": "src/app/manage/page.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/workforce/activity-brief.ts",
+          "title": "src/modules/workforce/activity-brief.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/workforce/page.tsx",
+          "title": "src/app/workforce/page.tsx",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-worker-model-gateway",
+      "from": "worker",
+      "to": "model-gateway",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/worker/executor.ts",
+          "title": "src/modules/worker/executor.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/model-gateway/runtime.ts",
+          "title": "src/modules/model-gateway/runtime.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/usage/index.ts",
+          "title": "src/modules/usage/index.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-worker-persistence",
+      "from": "worker",
+      "to": "persistence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/worker/claim.ts",
+          "title": "src/modules/worker/claim.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/db.ts",
+          "title": "src/shared/db.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/worker/executor.ts",
+          "title": "src/modules/worker/executor.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-worker-platform-services",
+      "from": "worker",
+      "to": "platform-services",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/worker/executor.ts",
+          "title": "src/modules/worker/executor.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/identity/session.ts",
+          "title": "src/modules/identity/session.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/worker/identity.ts",
+          "title": "src/modules/worker/identity.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-worker-shared-kernel",
+      "from": "worker",
+      "to": "shared-kernel",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/worker/identity.ts",
+          "title": "src/modules/worker/identity.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/errors.ts",
+          "title": "src/shared/errors.ts",
+          "kind": "repository-source"
+        }
+      ]
+    }
+  ],
+  "notices": [
+    "VERIFIED 仅表示该模块或依赖可从输入的 repository source/index 中直接观察。",
+    "动态加载、环境注入和外部服务若未出现在 source index 中，会保持在图外而不是被猜测。"
+  ]
+}

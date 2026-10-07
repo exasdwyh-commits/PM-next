@@ -127,7 +127,7 @@ if port_in_use; then
     exit 4
   fi
 else
-  echo "· 启动 next dev -p $PORT（日志 $DEV_LOG）"
+  echo "· 启动 next dev -p $PORT(日志 $DEV_LOG)"
   : > "$DEV_LOG"
   NODE_OPTIONS= ./node_modules/.bin/next dev -p "$PORT" >>"$DEV_LOG" 2>&1 &
   DEV_PID=$!

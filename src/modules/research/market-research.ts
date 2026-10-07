@@ -1,3 +1,4 @@
+import { getTenantPack } from "@/modules/tenant";
 /**
  * 真实资料与机会/竞品研究服务 (F07, F14, F15)
  *
@@ -76,12 +77,12 @@ export function synthesizeMarketResearch(
   resolvedClaims: ResolvedFieldValue[] = []
 ): MarketResearchReport {
   // 1. 过滤可用剂型，严禁包含 forbiddenForms
-  const defaultForms = ["速溶茶粉", "茶包", "条包", "粉剂", "压片糖果"];
+  const defaultForms = getTenantPack().lexicon.marketDefaultForms;
   const safeForms = defaultForms.filter((f) => !constraints.forbiddenForms.includes(f));
   const primaryForm = constraints.preferredForms.length > 0
     ? constraints.preferredForms[0]
-    : (safeForms[0] || "速溶茶粉");
-  const secondaryForm = safeForms.find((f) => f !== primaryForm) || "茶包";
+    : (safeForms[0] || defaultForms[0]);
+  const secondaryForm = safeForms.find((f) => f !== primaryForm) || defaultForms[1];
 
   // 2. 基准价格设定
   const basePrice = constraints.targetPrice ||

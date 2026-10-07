@@ -2,9 +2,14 @@ import { chromium } from "playwright";
 import path from "path";
 import fs from "fs";
 
+const DEV_PASSWORD = process.env.DEV_LOGIN_PASSWORD ?? process.env.SEED_PASSWORD;
+if (!DEV_PASSWORD) {
+  throw new Error("缺少开发口令：请设置 DEV_LOGIN_PASSWORD 或 SEED_PASSWORD 环境变量（口令不写进仓库）");
+}
+
 /** 凭据可用环境变量覆盖，便于在种子口令不同的开发库上复跑 */
 const EMAIL = process.env.JOURNEY_EMAIL || "li_vp@hermes.test";
-const PASSWORD = process.env.JOURNEY_PASSWORD || "admin123";
+const PASSWORD = process.env.JOURNEY_PASSWORD || DEV_PASSWORD;
 /** dev 模式冷编译可能超过 5s，等待窗口放宽 */
 const WAIT = 20000;
 

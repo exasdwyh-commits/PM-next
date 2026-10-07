@@ -1,0 +1,103 @@
+/* Uses the existing Kern palette and typography; the canvas is local to a mission. */
+.m-flow { border: 1px solid var(--m-hairline); border-radius: 14px; background: var(--m-surface); overflow: hidden; min-width: 0; flex-shrink: 0; height: max-content; min-height: max-content; }
+.m-flow-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--m-hairline); }
+.m-flow-heading { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.m-flow-heading > svg { width: 16px; height: 16px; color: var(--m-accent-ink); }
+.m-flow-heading strong { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.m-flow-heading small { color: var(--m-ink-3); font-size: 11px; white-space: nowrap; }
+.m-flow-tools { display: flex; align-items: center; gap: 2px; }
+.m-flow-tools button, .m-flow-inspector header button { border: 0; background: transparent; color: var(--m-ink-3); width: 28px; height: 28px; display: grid; place-items: center; border-radius: 6px; cursor: pointer; padding: 0; }
+.m-flow-tools button:hover, .m-flow-inspector header button:hover { background: var(--m-surface-sunk); color: var(--m-ink); }
+.m-flow-tools button:disabled { opacity: .35; cursor: default; }
+.m-flow button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 3px; }
+.m-flow-scale { min-width: 36px; text-align: center; font-size: 10px; color: var(--m-ink-3); font-variant-numeric: tabular-nums; }
+.m-flow-context { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px; font-size: 11px; color: var(--m-ink-3); background: var(--m-surface-2); }
+.m-flow-context button { border: 0; padding: 0; font: inherit; background: transparent; color: var(--m-accent-ink); cursor: pointer; }
+.m-flow-context small { font-size: 10px; }
+.m-flow-viewport { position: relative; height: 366px; overflow: hidden; cursor: grab; touch-action: pan-y; background-color: var(--m-surface-2); background-image: radial-gradient(circle, var(--m-hairline-2) .7px, transparent .7px); background-size: 20px 20px; }
+.m-flow-viewport:active { cursor: grabbing; }
+.m-flow-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.m-flow-wires { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+.m-flow-wire { fill: none; stroke: var(--m-hairline-2); stroke-width: 1.5; transition: stroke .3s ease; animation: m-flow-draw .42s ease-out backwards; }
+.m-flow-origin-wire { fill: none; stroke: var(--m-accent-line); stroke-width: 1.5; stroke-dasharray: .025 .035; opacity: .65; animation: m-flow-appear .3s ease backwards; }
+.m-flow-goal { position: absolute; box-sizing: border-box; padding: 15px; display: flex; flex-direction: column; gap: 10px; border-radius: 12px; background: var(--m-accent-wash); border: 1px solid var(--m-accent-line); }
+.m-flow-goal > span { display: flex; align-items: center; gap: 6px; color: var(--m-accent-ink); font-size: 10px; }
+.m-flow-goal svg { width: 14px; height: 14px; }
+.m-flow-goal strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; font-size: 13px; line-height: 19px; font-weight: 550; color: var(--m-ink); overflow-wrap: anywhere; }
+.m-flow-wires g[data-selected] .m-flow-wire { stroke: var(--m-accent-line); stroke-width: 2; }
+.m-flow-wires g[data-done] .m-flow-wire { stroke: color-mix(in srgb, var(--m-ok) 42%, var(--m-hairline)); }
+.m-flow-wires g[data-flowing] .m-flow-wire { stroke: var(--m-accent-line); stroke-width: 2; }
+.m-flow-current { fill: none; stroke: var(--m-accent); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 5 15; animation: m-flow-travel 1.1s linear infinite; }
+.m-flow-node { position: absolute; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; gap: 7px; padding: 13px 14px 10px; appearance: none; text-align: left; background: var(--m-surface); border: 1px solid var(--m-hairline-2); border-radius: 12px; box-shadow: 0 3px 8px color-mix(in srgb, var(--m-ink) 4%, transparent); color: var(--m-ink); font: inherit; cursor: pointer; transition: border-color .3s ease, box-shadow .3s ease, background .3s ease; animation: m-flow-appear .34s .16s ease backwards; }
+.m-flow-node[data-planned] { background: var(--m-surface-2); border-style: dashed; box-shadow: none; }
+.m-flow-node:hover, .m-flow-node[data-selected] { border-color: var(--m-accent); box-shadow: 0 0 0 3px var(--m-accent-wash), 0 4px 12px color-mix(in srgb, var(--m-ink) 5%, transparent); }
+.m-flow-node[data-flow-state="active"] { border-color: var(--m-accent); animation: m-flow-appear .34s .16s ease backwards, m-flow-breathe 2.8s .5s ease-in-out infinite; }
+.m-flow-node[data-flow-state="done"] { border-color: color-mix(in srgb, var(--m-ok) 32%, var(--m-hairline)); }
+.m-flow-node[data-flow-state="blocked"], .m-flow-node[data-flow-state="paused"] { border-color: color-mix(in srgb, var(--m-warn) 48%, var(--m-hairline)); }
+.m-flow-node[data-flow-state="failed"] { border-color: var(--m-bad); }
+.m-flow-node-top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.m-flow-symbol { display: grid; place-items: center; width: 28px; height: 28px; flex-shrink: 0; border: 1px solid var(--m-hairline); border-radius: 8px; color: var(--m-ink-3); background: var(--m-surface-2); animation: m-flow-appear .28s ease backwards; }
+.m-flow-symbol svg { width: 16px; height: 16px; }
+.m-flow-node[data-flow-state="active"] .m-flow-symbol { background: var(--m-accent-wash); color: var(--m-accent-ink); border-color: var(--m-accent-line); }
+.m-flow-node[data-flow-state="done"] .m-flow-symbol { background: var(--m-ok-wash); color: var(--m-ok); border-color: transparent; }
+.m-flow-node[data-flow-state="blocked"] .m-flow-symbol, .m-flow-node[data-flow-state="paused"] .m-flow-symbol { color: var(--m-warn); background: var(--m-warn-wash); }
+.m-flow-node[data-flow-state="failed"] .m-flow-symbol { color: var(--m-bad); background: var(--m-bad-wash); }
+.m-flow-node-copy { min-width: 0; display: grid; gap: 3px; }
+.m-flow-node-copy strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 13px; line-height: 19px; font-weight: 550; overflow: hidden; overflow-wrap: anywhere; }
+.m-flow-node-copy small { font-size: 10px; line-height: 14px; color: var(--m-ink-3); white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+.m-flow-node-preview { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; color: var(--m-ink-3); font-size: 11px; line-height: 17px; animation: m-flow-appear .3s ease backwards; }
+.m-flow-node[data-flow-state="done"] .m-flow-node-preview { color: var(--m-ink-2); }
+.m-flow-node:has(.m-flow-evidence-note) .m-flow-node-preview { -webkit-line-clamp: 1; }
+.m-flow-evidence-note { color: var(--m-warn); font-size: 10px; line-height: 14px; }
+.m-flow-source-count { position: absolute; right: 12px; bottom: 11px; display: flex; align-items: center; gap: 4px; font-size: 9px; color: var(--m-ink-3); }
+.m-flow-source-count svg { width: 10px; height: 10px; }
+.m-flow-node:has(.m-flow-source-count) .m-flow-node-state { padding-right: 64px; }
+.m-flow-node-state { display: flex; align-items: center; gap: 5px; font-size: 10px; line-height: 15px; color: var(--m-ink-3); white-space: nowrap; }
+.m-flow-node-state > i { width: 4px; height: 4px; border-radius: 50%; background: var(--m-ink-4); flex-shrink: 0; }
+.m-flow-node-state em { font-style: normal; margin-left: auto; font-size: 9px; }
+.m-flow-node[data-flow-state="active"] .m-flow-node-state { color: var(--m-accent-ink); }
+.m-flow-node[data-flow-state="active"] .m-flow-node-state > i { background: var(--m-accent); }
+.m-flow-node[data-flow-state="done"] .m-flow-node-state > i { background: var(--m-ok); }
+.m-flow-node[data-flow-state="blocked"] .m-flow-node-state, .m-flow-node[data-flow-state="paused"] .m-flow-node-state { color: var(--m-warn); }
+.m-flow-node[data-flow-state="failed"] .m-flow-node-state { color: var(--m-bad); }
+.m-flow-port { position: absolute; top: calc(50% - 4px); width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--m-hairline-2); background: var(--m-surface); }
+.m-flow-port.is-input { left: -5px; }.m-flow-port.is-output { right: -5px; }
+.m-flow-node[data-flow-state="active"] .m-flow-port { border-color: var(--m-accent); }
+.m-flow-foot { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-top: 1px solid var(--m-hairline); color: var(--m-ink-2); font-size: 11px; line-height: 1.6; min-width: 0; }
+.m-flow-foot > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.m-flow-foot small { color: var(--m-ink-3); font-size: 10px; white-space: nowrap; }
+.m-flow-foot > span:nth-child(2) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-flow-minimap { position: absolute; right: 12px; bottom: 12px; width: 110px; height: 54px; padding: 5px; border: 1px solid var(--m-hairline-2); border-radius: 7px; background: var(--m-surface); box-shadow: 0 2px 7px color-mix(in srgb, var(--m-ink) 5%, transparent); cursor: crosshair; }
+.m-flow-minimap svg { display: block; width: 100%; height: 100%; overflow: hidden; }
+.m-flow-minimap rect { fill: var(--m-hairline-2); }
+.m-flow-minimap rect[data-flow-state="active"], .m-flow-minimap .m-flow-map-goal { fill: var(--m-accent-line); }
+.m-flow-minimap rect[data-flow-state="done"] { fill: color-mix(in srgb, var(--m-ok) 50%, var(--m-surface)); }
+.m-flow-minimap rect[data-flow-state="blocked"], .m-flow-minimap rect[data-flow-state="failed"] { fill: var(--m-warn); }
+.m-flow-minimap .m-flow-map-window { fill: var(--m-accent-wash); stroke: var(--m-accent); stroke-width: 6; }
+.m-flow-live { width: 6px; height: 6px; background: var(--m-ink-4); border-radius: 50%; flex-shrink: 0; }
+.m-flow[data-motion="running"] .m-flow-live { background: var(--m-accent); box-shadow: 0 0 0 3px var(--m-accent-wash); }
+.m-flow[data-motion="still"] .m-flow-current { animation: none; }
+.m-flow[data-motion="still"] .m-flow-node[data-flow-state="active"] { animation: m-flow-appear .35s ease backwards; }
+.m-flow-inspector { padding: 14px 16px; border-top: 1px solid var(--m-hairline); animation: m-flow-appear .2s ease backwards; }
+.m-flow-inspector header { display: flex; align-items: center; gap: 10px; }
+.m-flow-inspector header strong { font-size: 13px; }.m-flow-inspector header span { color: var(--m-ink-3); font-size: 11px; }
+.m-flow-inspector header button { margin-left: auto; }
+.m-flow-inspector p { margin: 7px 0; font-size: 12px; line-height: 1.75; color: var(--m-ink-2); overflow-wrap: anywhere; }
+.m-flow-inspector > small { color: var(--m-ink-3); font-size: 11px; }
+.m-flow-result { margin-top: 10px; max-height: 220px; overflow: auto; border-top: 1px solid var(--m-hairline); padding-top: 8px; }
+.m-flow-result .m-prose { font-size: 12px; }
+.m-flow-sources { padding-top: 12px; font-size: 11px; }
+.m-flow-sources > strong { color: var(--m-ink-3); font-weight: 500; }
+.m-flow-sources ul { list-style: none; display: grid; gap: 7px; margin: 8px 0 0; padding: 0; max-height: 160px; overflow: auto; }
+.m-flow-sources li { display: flex; align-items: flex-start; gap: 6px; overflow-wrap: anywhere; }
+.m-flow-sources li svg { width: 13px; height: 13px; margin-top: 2px; flex-shrink: 0; color: var(--m-ink-3); }
+.m-flow-sources a { color: var(--m-accent-ink); text-decoration: none; }
+.m-flow-sources a:hover { text-decoration: underline; }
+.m-flow-warning { margin: 0; padding: 8px 14px; color: var(--m-warn) !important; font-size: 12px; }
+.m-flow-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--m-ink-3); font-size: 12px; pointer-events: none; }
+@keyframes m-flow-travel { to { stroke-dashoffset: -40; } }
+@keyframes m-flow-draw { from { stroke-dasharray: 1; stroke-dashoffset: 1; } to { stroke-dasharray: 1; stroke-dashoffset: 0; } }
+@keyframes m-flow-breathe { 0%, 100% { box-shadow: 0 0 0 2px var(--m-accent-wash), 0 3px 8px color-mix(in srgb, var(--m-ink) 4%, transparent); } 50% { box-shadow: 0 0 0 5px var(--m-accent-wash), 0 4px 18px color-mix(in srgb, var(--m-accent) 12%, transparent); } }
+@keyframes m-flow-appear { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 640px) { .m-flow-head { flex-wrap: wrap; padding: 10px 12px; gap: 5px; }.m-flow-heading { flex: 1 1 130px; }.m-flow-heading small { display: none; }.m-flow-viewport { height: 330px; }.m-flow-tools button { width: 30px; height: 30px; }.m-flow-context { padding: 9px 12px; font-size: 10px; }.m-flow-inspector header { flex-wrap: wrap; }.m-flow-inspector header button { flex-shrink: 0; }.m-flow-minimap { width: 90px; height: 46px; } }
+@media (prefers-reduced-motion: reduce) { :root:not([data-motion="full"]) .m-flow *, :root:not([data-motion="full"]) .m-flow *::before, :root:not([data-motion="full"]) .m-flow *::after { animation: none !important; transition: none !important; } }

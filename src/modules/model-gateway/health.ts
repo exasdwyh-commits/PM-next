@@ -9,13 +9,17 @@ export const DEFAULT_MODEL_FAILURE_POLICY: ModelFailurePolicy = {
   cooldownMs: 60_000,
   rateLimitCooldownMs: 60_000,
   authCooldownMs: 15 * 60_000,
+  rateLimitRetries: 2,
+  rateLimitMaxWaitMs: 20_000,
 };
 
 export class ModelProviderError extends Error {
   constructor(
     message: string,
     public readonly kind: ModelFailureKind,
-    public readonly status?: number
+    public readonly status?: number,
+    /** 服务端通过 Retry-After 给出的建议等待时间（毫秒）。 */
+    public readonly retryAfterMs?: number
   ) {
     super(message);
     this.name = "ModelProviderError";
@@ -95,6 +99,18 @@ function normalizePolicy(
     (!Number.isFinite(value.authCooldownMs) || value.authCooldownMs < 0)
   ) {
     throw new Error("Model authCooldownMs must be a non-negative number");
+  }
+  if (
+    value.rateLimitRetries !== undefined &&
+    (!Number.isInteger(value.rateLimitRetries) || value.rateLimitRetries < 0)
+  ) {
+    throw new Error("Model rateLimitRetries must be a non-negative integer");
+  }
+  if (
+    value.rateLimitMaxWaitMs !== undefined &&
+    (!Number.isFinite(value.rateLimitMaxWaitMs) || value.rateLimitMaxWaitMs < 0)
+  ) {
+    throw new Error("Model rateLimitMaxWaitMs must be a non-negative number");
   }
   return value;
 }

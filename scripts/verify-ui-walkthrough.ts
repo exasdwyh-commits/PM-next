@@ -35,9 +35,14 @@ import { chromium, type Page, type BrowserContext } from "playwright";
 import path from "path";
 import fs from "fs";
 
+const DEV_PASSWORD = process.env.DEV_LOGIN_PASSWORD ?? process.env.SEED_PASSWORD;
+if (!DEV_PASSWORD) {
+  throw new Error("缺少开发口令：请设置 DEV_LOGIN_PASSWORD 或 SEED_PASSWORD 环境变量（口令不写进仓库）");
+}
+
 const BASE = process.env.WALK_BASE || "http://localhost:3100";
 const EMAIL = process.env.WALK_EMAIL || "li_vp@hermes.test";
-const PASSWORD = process.env.WALK_PASSWORD || "admin123";
+const PASSWORD = process.env.WALK_PASSWORD || DEV_PASSWORD;
 const OUT = process.env.WALK_OUT || "/tmp/hermes-ui-walk";
 const SHOTS = path.join(OUT, "screens");
 const NAV_TIMEOUT = 60000;

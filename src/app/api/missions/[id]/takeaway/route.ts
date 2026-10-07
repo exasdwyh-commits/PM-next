@@ -8,6 +8,7 @@ import { getServerSession } from "@/modules/identity/session";
 import { proposeMissionTakeaway, takeawayOptions } from "@/modules/supervisor";
 import { UnprocessableEntityError } from "@/shared/errors";
 import { handleApiError } from "@/shared/api-handler";
+import { readJsonObjectBody } from "@/shared/request-body";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await getServerSession(req);
     const { id } = await params;
-    const body = (await req.json().catch(() => ({}))) as { target?: unknown };
+    const body = (await readJsonObjectBody(req)) as { target?: unknown };
     if (body.target !== "product" && body.target !== "work-item") throw new UnprocessableEntityError("target 必须是 product 或 work-item");
     return NextResponse.json(await proposeMissionTakeaway(session, { missionTaskId: id, target: body.target }));
   } catch (error) {

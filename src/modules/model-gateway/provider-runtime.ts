@@ -88,8 +88,9 @@ export function isProviderRuntimeConfigured(provider: string): boolean {
   return resolveOpenAICompatibleProviderRuntime(provider) !== null;
 }
 
-function sanitizeErrorMessage(message: string): string {
-  return message
+function sanitizeErrorMessage(message: string, apiKey?: string | null): string {
+  const redacted = apiKey ? message.split(apiKey).join("[REDACTED]") : message;
+  return redacted
     .replace(/Bearer\s+[\w\-._~+/]+=*/gi, "Bearer [REDACTED]")
     .replace(/api[_-]?key[=:\s]+[\w\-._~+/]+=*/gi, "api_key=[REDACTED]")
     .replace(/sk-[\w\-._~+/]+=*/gi, "sk-[REDACTED]")
@@ -97,8 +98,17 @@ function sanitizeErrorMessage(message: string): string {
     .slice(0, 500);
 }
 
-function failureFromHttp(status: number, body: string): ModelProviderError {
-  const safe = sanitizeErrorMessage(body);
+/** Retry-After 可以是秒数或 HTTP 日期；解析不了就返回 undefined。 */
+export function parseRetryAfterMs(value: string | null, nowMs = Date.now()): number | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (/^\d+(\.\d+)?$/.test(trimmed)) return Math.round(Number(trimmed) * 1000);
+  const at = Date.parse(trimmed);
+  return Number.isNaN(at) ? undefined : Math.max(0, at - nowMs);
+}
+
+function failureFromHttp(status: number, body: string, retryAfter: string | null = null, apiKey?: string | null): ModelProviderError {
+  const safe = sanitizeErrorMessage(body, apiKey);
   const suffix = safe ? `：${safe}` : "";
 
   if (/content[_\s-]?policy|safety|moderation/i.test(body)) {
@@ -119,7 +129,8 @@ function failureFromHttp(status: number, body: string): ModelProviderError {
     return new ModelProviderError(
       `Provider rate limited request (HTTP 429)${suffix}`,
       "RATE_LIMIT",
-      status
+      status,
+      parseRetryAfterMs(retryAfter)
     );
   }
   if (status === 408 || status === 504) {
@@ -143,15 +154,19 @@ function failureFromHttp(status: number, body: string): ModelProviderError {
   );
 }
 
+function validTokenCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
 function parseUsage(raw: unknown): ModelProviderResult["usage"] {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const row = raw as Record<string, unknown>;
   const inputTokens =
-    typeof row.prompt_tokens === "number" ? row.prompt_tokens : undefined;
+    validTokenCount(row.prompt_tokens) ? row.prompt_tokens : undefined;
   const outputTokens =
-    typeof row.completion_tokens === "number" ? row.completion_tokens : undefined;
+    validTokenCount(row.completion_tokens) ? row.completion_tokens : undefined;
   const totalTokens =
-    typeof row.total_tokens === "number" ? row.total_tokens : undefined;
+    validTokenCount(row.total_tokens) ? row.total_tokens : undefined;
 
   if (
     inputTokens === undefined &&
@@ -166,9 +181,15 @@ function parseUsage(raw: unknown): ModelProviderResult["usage"] {
 async function executeOpenAICompatible(
   runtime: OpenAICompatibleProviderRuntime,
   profile: ModelProfile,
-  request: ModelGatewayRequest
+  request: ModelGatewayRequest,
+  beforeTransport?: () => Promise<void>
 ): Promise<ModelProviderResult> {
+  request.signal?.throwIfAborted();
+  await beforeTransport?.();
+  request.signal?.throwIfAborted();
   const controller = new AbortController();
+  const abort = () => controller.abort(request.signal?.reason);
+  request.signal?.addEventListener("abort", abort, { once: true });
   const timer = setTimeout(() => controller.abort(), runtime.timeoutMs);
 
   try {
@@ -189,7 +210,7 @@ async function executeOpenAICompatible(
 
     if (!response.ok) {
       const body = await response.text().catch(() => "");
-      throw failureFromHttp(response.status, body);
+      throw failureFromHttp(response.status, body, response.headers.get("retry-after"), runtime.apiKey);
     }
 
     const contentLength = response.headers.get("content-length");
@@ -214,8 +235,9 @@ async function executeOpenAICompatible(
 
     if (typeof text !== "string" || !text.trim()) {
       throw new ModelProviderError(
+        // 推理模型把 max_tokens 耗在思考上时 content 为空：属可重试/可 fallback，而非配置错误（KX-65）
         "Provider response missing non-empty choices[0].message.content",
-        "CONFIG"
+        "TRANSIENT"
       );
     }
     if (text.length > 50_000) {
@@ -234,38 +256,42 @@ async function executeOpenAICompatible(
       },
     };
   } catch (error: unknown) {
+    request.signal?.throwIfAborted();
     if (error instanceof ModelProviderError) throw error;
     if (error instanceof Error && error.name === "AbortError") {
       throw new ModelProviderError(
-        `Provider request timed out after ${runtime.timeoutMs}ms`,
+        `模型请求超时（timeout，${runtime.timeoutMs}ms）`,
         "TIMEOUT"
       );
     }
     throw new ModelProviderError(
       `Provider network failure: ${sanitizeErrorMessage(
-        error instanceof Error ? error.message : String(error)
+        error instanceof Error ? error.message : String(error), runtime.apiKey
       )}`,
       "TRANSIENT"
     );
   } finally {
     clearTimeout(timer);
+    request.signal?.removeEventListener("abort", abort);
   }
 }
 
 export function createOpenAICompatibleProviderPlugin(
-  provider: string
+  provider: string,
+  options?: { runtime?: OpenAICompatibleProviderRuntime; beforeTransport?: () => Promise<void> }
 ): ModelProviderPlugin {
   return {
     provider,
     async execute(profile, request) {
-      const runtime = resolveOpenAICompatibleProviderRuntime(provider);
+      const runtime = options?.runtime ?? resolveOpenAICompatibleProviderRuntime(provider);
+      if (runtime && runtime.provider !== provider) throw new Error("Provider runtime mismatch");
       if (!runtime) {
         throw new ModelProviderError(
           `Provider ${provider} has no server-side runtime configuration`,
           "CONFIG"
         );
       }
-      return executeOpenAICompatible(runtime, profile, request);
+      return executeOpenAICompatible(runtime, profile, request, options?.beforeTransport);
     },
   };
 }

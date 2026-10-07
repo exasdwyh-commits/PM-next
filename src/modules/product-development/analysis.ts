@@ -483,6 +483,7 @@ export async function analyzeProductVersion(session: SessionContext, params: Ana
         context,
         productId: product.id,
         productVersionId: version.id,
+        agentRunId: agentRun.id,
         signal: AbortSignal.timeout(120000),
       });
 

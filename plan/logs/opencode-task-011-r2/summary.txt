@@ -1,0 +1,17 @@
+PASS  2s  01-typecheck
+PASS  1s  02-architecture
+PASS  24s  03-worker-fairness
+PASS  2s  04-worker-review-probes
+PASS  13s  05-worker-failure-cleanup
+PASS  13s  06-worker-heartbeat
+PASS  0s  07-worker
+PASS  2s  08-kern-message-execution
+PASS  1s  09-kern-execution-control
+PASS  1s  10-kern-worker-recovery
+PASS  0s  11-execution-abort
+PASS  0s  12-model-cancellation
+PASS  1s  13-model-call-quota
+PASS  0s  14-provider-attempt-quota
+PASS  1s  15-model-execution-facts
+PASS  2s  16-kern-supervisor
+PASS  32s  17-llm-e2e

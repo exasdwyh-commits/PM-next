@@ -244,15 +244,20 @@ export default function ChannelRoutesPanel({ productId }: { productId: string })
     }))
   );
 
-  const load = React.useCallback(async () => {
+  const busyRef = React.useRef(false);
+  const loadRequest = React.useRef(0);
+  const load = React.useCallback(async (signal?: AbortSignal) => {
+    const request = ++loadRequest.current;
     setLoading(true);
+    setError(null);
     try {
-      const response = await fetch(`/api/products/${productId}/channel-routes`);
+      const response = await fetch(`/api/products/${productId}/channel-routes`, { signal });
       const body = await response.json().catch(() => null);
       if (!response.ok) {
         throw new Error(body?.error || body?.message || "渠道路线读取失败");
       }
       const next = body as Workspace;
+      if (signal?.aborted || request !== loadRequest.current) return;
       setWorkspace(next);
       setRouteForm((current) => ({
         ...current,
@@ -261,14 +266,16 @@ export default function ChannelRoutesPanel({ productId }: { productId: string })
       }));
       setAssessmentRouteId((current) => current || next.routes[0]?.id || "");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "渠道路线读取失败");
+      if (!signal?.aborted && request === loadRequest.current) setError(err instanceof Error ? err.message : "渠道路线读取失败");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted && request === loadRequest.current) setLoading(false);
     }
   }, [productId]);
 
   React.useEffect(() => {
-    load();
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => { controller.abort(); loadRequest.current += 1; };
   }, [load]);
 
   async function run(
@@ -276,6 +283,8 @@ export default function ChannelRoutesPanel({ productId }: { productId: string })
     success: string,
     after?: () => void
   ) {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     setMessage(null);
     setError(null);
@@ -287,6 +296,7 @@ export default function ChannelRoutesPanel({ productId }: { productId: string })
     } catch (err) {
       setError(err instanceof Error ? err.message : "操作失败");
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }
@@ -302,7 +312,7 @@ export default function ChannelRoutesPanel({ productId }: { productId: string })
   }
 
   if (!workspace) {
-    return <div className="hermes-banner is-danger">{error || "渠道路线不可用"}</div>;
+    return <div className="hermes-banner is-danger" role="alert">{error || "渠道路线不可用"} <button type="button" className="hermes-ghost-btn" onClick={() => void load()}>重试读取</button></div>;
   }
 
   const currency = workspace.currentVersion.currency || "CNY";
@@ -328,8 +338,8 @@ export default function ChannelRoutesPanel({ productId }: { productId: string })
         </p>
       </section>
 
-      {message ? <div className="hermes-banner is-ok">{message}</div> : null}
-      {error ? <div className="hermes-banner is-danger">{error}</div> : null}
+      {message ? <div className="hermes-banner is-ok" role="status">{message}</div> : null}
+      {error ? <div className="hermes-banner is-danger" role="alert">{error} <button type="button" className="hermes-ghost-btn" disabled={busy || loading} onClick={() => void load()}>重试读取</button></div> : null}
 
       <section className="hermes-theme-section">
         <div className="hermes-theme-head">

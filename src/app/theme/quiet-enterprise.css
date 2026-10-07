@@ -8,74 +8,85 @@
    （见文件末尾 [data-palette="paper"] 覆盖块）。
    ========================================================================== */
 
+@import "./kern-design.css";  /* 色值事实源已上移到 Kern Design Foundation；本层只做映射 */
+
 :root {
   /* —— 面 surface —— */
-  --bg:            #F6F9FD;  /* 冷灰底（替代 paper #eeece5） */
-  --surface:       #FFFFFF;
-  --surface-2:     #F9FBFE;
-  --surface-soft:  #F5F8FD;  /* hover / 次级行 */
-  --surface-glass: rgba(255, 255, 255, .92); /* 顶栏毛玻璃 / 高不透面 */
-  --surface-wash:  rgba(255, 255, 255, .55); /* 半透卡片底 */
-  --surface-faint: rgba(255, 255, 255, .34); /* 更弱行底 */
+  --bg:          var(--k-canvas);  /* 冷灰底（替代 paper #eeece5） */
+  --surface:     var(--k-surface);
+  --surface-2:   var(--k-surface-2);
+  --surface-soft: var(--k-sunk);  /* hover / 次级行 */
+  --surface-glass: var(--k-glass-2);   /* 顶栏毛玻璃 / 高不透面 */
+  --surface-wash:  var(--k-glass);     /* 半透卡片底 */
+  --surface-faint: var(--k-glass-sunk); /* 更弱行底 */
 
   /* —— 墨 ink（文字四级） —— */
-  --ink:        #0D1B3E;
-  --ink-2:      #44536D;
-  --ink-muted:  #65738D;
-  --ink-faint:  #93A0B5;
+  --ink:         var(--k-ink);
+  --ink-2:       var(--k-ink-2);
+  --ink-muted:   var(--k-ink-3);
+  --ink-faint:   var(--k-ink-4);
 
   /* —— 线 line —— */
-  --line:        #E5EBF3;
-  --line-soft:   rgba(36, 66, 74, .08);
-  --line-strong: #D6E0ED;
-  --line-field:  #C7D4E4;
+  --line:        var(--k-line);
+  --line-soft:   var(--k-line-soft);
+  --line-strong: var(--k-line-2);
+  --line-field:  var(--k-line-2);
 
   /* —— 强调 accent（替代全部 teal/cyan） —— */
-  --accent:       #2F6DF6;
-  --accent-hover: #245CD8;
-  --accent-bg:    #EAF2FF;
-  --accent-ring:  #9DB8F3;
-  --accent-line:  rgba(47, 109, 246, .34);
-  --accent-wash:  rgba(47, 109, 246, .08);
-  --navy:         #0B1B3B;
+  --accent:      var(--k-brand);
+  --accent-hover: var(--k-brand-hover);
+  --accent-bg:   var(--k-brand-soft);
+  --accent-ring: var(--k-brand-line);
+  --accent-line: var(--k-brand-ring);
+  --accent-wash: var(--k-brand-wash);
+  --navy:        var(--k-ink);
 
   /* —— 状态语义 ok / warn / block / neutral —— */
-  --ok:       #22A06B;  --ok-ink:    #18794E;  --ok-bg:    #EAF8F2;  --ok-line:    #BFE5D4;
-  --warn:     #F59E42;  --warn-ink:  #8C5A10;  --warn-bg:  #FFF4E7;  --warn-line:  #F2D5A6;
-  --block:    #EF5C5C;  --block-ink: #B42318;  --block-bg: #FFF1F1;  --block-line: #F3C6C2;
-  --neutral-ink: #68768D; --neutral-bg: #F0F3F7; --neutral-line: #E1E6EE;
+  --ok:       var(--k-ok);  --ok-ink: var(--k-ok);  --ok-bg: var(--k-ok-soft);  --ok-line: var(--k-ok-line);
+  --warn:     var(--k-warn);  --warn-ink: var(--k-warn);  --warn-bg: var(--k-warn-soft);  --warn-line: var(--k-warn-line);
+  --block:    var(--k-bad);  --block-ink: var(--k-bad);  --block-bg: var(--k-bad-soft);  --block-line: var(--k-bad-line);
+  --neutral-ink: var(--k-ink-3); --neutral-bg: var(--k-sunk); --neutral-line: var(--k-line);
 
   /* —— 遮罩与阴影 —— */
-  --overlay:      rgba(9, 24, 51, .46);
-  --shadow-accent: rgba(47, 109, 246, .24);
+  --overlay:     var(--k-overlay);
+  --shadow-accent: var(--k-brand-ring);
   --shadow-block:  rgba(180, 35, 24, .12);   /* block 色的投影变体（danger 按钮 hover） */
 
-  /* —— 几何 —— */
-  --radius:      14px;
-  --radius-sm:   10px;
-  --radius-xs:   9px;
-  --shadow:      0 10px 30px rgba(34, 62, 103, .06);
-  --shadow-soft: 0 4px 16px rgba(34, 62, 103, .05);
+  /* —— 几何：圆角与阴影的唯一映射处 ——
+     2026-10-04：原先下方「Kern Unified Surface 覆盖层」里又写了一份
+     （且值不同：14px/10px vs 这里的 --k-r/--k-r-sm）。两处定义同一令牌，
+     后者静默覆盖前者，改基础层不生效。现只保留此处一份。 */
+  --radius:      var(--k-r);
+  --radius-sm:   var(--k-r-sm);
+  --radius-xs:   var(--k-r-xs);
+  --radius-lg:   var(--k-r-lg);
+  --radius-xl:   var(--k-r-xl);
+  --radius-pill: var(--k-r-pill);
+  --shadow:      var(--k-sh-2);
+  --shadow-soft: var(--k-sh-1);
   /* —— 深度阶梯（2026-09-19 rev3）——
      此前卡片几乎无可见边界（border 用了半透明白、shadow 只有 6% 不透明度），
      整页是平的，读起来像打印稿。这里给三级阴影：默认 hair、悬停 card、浮层 lift。 */
-  --shadow-hair: 0 1px 2px rgba(23, 43, 77, .05);
-  --shadow-card: 0 10px 26px -14px rgba(23, 43, 77, .22);
-  --shadow-lift: 0 20px 44px -20px rgba(23, 43, 77, .30);
-  --sidebar:     228px;
-  --sidebar-rail: 82px;
+  --shadow-hair: var(--k-sh-1);
+  --shadow-card: var(--k-sh-2);
+  --shadow-lift: var(--k-sh-3);
+  --shadow-pop:  var(--k-sh-pop);
+  /* 2026-10-04：取原「Unified Surface 覆盖层」里实际生效的值（240 / 64）上提为唯一定义，
+     此前此处 228 / 82 被后面的同名声明静默覆盖，改这里不生效。 */
+  --sidebar:     240px;
+  --sidebar-rail: 64px;
   --topbar:      68px;
 
   /* —— 深色侧栏上的前景色（rev4 · 前端专家铁律「绝不用纯白平铺背景」）——
      侧栏改用墨蓝底，其上的文字/图标/分隔线需要一套「在深色上」的前景色令牌。 */
-  --on-dark:      #FFFFFF;
+  --on-dark:      var(--k-on-brand);
   --on-dark-2:    rgba(255, 255, 255, .76);
   --on-dark-3:    rgba(255, 255, 255, .52);
   --on-dark-line: rgba(255, 255, 255, .14);
   --on-dark-hover: rgba(255, 255, 255, .09);
   /* 页面底氛围：两层极淡径向光晕，避免纯色平铺 */
-  --ambient-1: rgba(47, 109, 246, .10);
-  --ambient-2: rgba(34, 160, 107, .07);
+  --ambient-1:   var(--k-aura-1);
+  --ambient-2:   var(--k-aura-3);
 
   /* —— 排版：字体栈（2026-09-19 rev4 · 前端专家铁律「弃用 Inter，选用有辨识度的字体」）——
      ① 正文字体**移除 Inter**：Inter 是专家点名的「通用字体」，且中文环境下它只覆盖拉丁字形，
@@ -84,10 +95,8 @@
         零外部依赖（全部系统字体）；拉丁与数字回退 Georgia，与品牌 monogram/wordmark 同源。
         ⚠️ 教训：曾经「标题用 Georgia」是因为 Georgia 无中文字形而**意外**回退宋体，
         当时被当成 bug 修掉；现在把宋体作为**刻意的设计选择**写进字体栈。 */
-  --font-title: "Songti SC", "STSong", "Source Han Serif SC", "Noto Serif SC",
-                Georgia, "Times New Roman", serif;
-  --font-body:  "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
-                -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-title: var(--k-font-display);  /* 2026-09-27：与 Kern 对话层统一为无衬线；层级靠字重与字号 */
+  --font-body:  var(--k-font);
 
   /* —— 排版：字号阶梯（rev4 整体上调；正文基准 15px，接近专家要求的 16px 起）——
      2 倍以上的层级跳跃由页面标题（38px）/ 区块标题（22px）/ 正文（15px）共同构成。 */
@@ -164,4 +173,57 @@
   --on-dark-hover: rgba(255, 255, 255, .09);
   --ambient-1: rgba(7, 91, 114, .10);
   --ambient-2: rgba(12, 155, 120, .07);
+}
+
+/* ==========================================================================
+   Kern Unified Surface 新增令牌层（2026-10-04 收敛）
+   这一块原先写在 globals.css 末尾，等于把「唯一色值事实来源」劈成两处，
+   并导致 globals.css 里留下 14 个 hex / 15 个 rgba。此处整体迁入。
+
+   ⚠️ 2026-10-04 收敛：迁入时把首个 :root 已有的 ~30 个令牌又抄了一遍
+   （文件原话「值逐字未改」）。因为两份都指向同一批 --k-*，视觉上无差别，
+   但造成两个真实隐患：
+     ① 后声明静默胜出，改首个 :root 不生效；
+     ② paper 回退块夹在中间，声明顺序变得依赖「谁在最后」而非阅读顺序。
+   现只保留**首个 :root 没有的**新令牌；重复项已删除，计算结果不变。
+   ========================================================================== */
+:root {
+  /* —— 交互态：集中定义，组件只引用不自带（2026-10-04）——
+     此前只有 --nav-hover 一个，其余 hover/active 各组件就地 rgba，
+     同层级按钮在不同页面 hover 深浅不一致。
+     2026-10-05 收敛：--hover / --nav-hover / --active / --selected / --track
+     全仓库 var() 引用数均为 0（唯一真实消费是 globals.css 直接引 --k-hover
+     与 --focus），别名层不留无消费的转发，故删除；--focus 保留
+     （globals.css :focus-visible 基线在用，WCAG 2.4.7 必需）。 */
+
+  /* —— 焦点环：与品牌辉光解耦（2026-10-04）——
+     --accent-ring 曾同时充当品牌投影与键盘焦点环，导致焦点环偏弱（透明度 .20、扩散小）。
+     现由 --focus 独占焦点环语义；--accent-ring 保持纯品牌辉光。
+     同批加入的 --focus-soft / --ring-track 一并删除：实测焦点环用单层 2px 实色描边
+     已足够可辨（globals.css 的 :where(a,button,...) :focus-visible 基线），
+     再加外扩辉光与底衬属于装饰，与「克制」相悖。 */
+  --focus:      var(--k-focus);
+
+  /* —— 2026-10-04 收敛：此处原有 link / skeleton / chart / info 四组映射（共 18 个令牌），
+     已全部删除。它们从 gpui-kit 的语义模型抄来，而 gpui-kit 是原生桌面框架（有图表与
+     正文链接需求）；Kern 唯一的可视化 viz.tsx 气泡图用的是**状态色**（data-tone=ok|warn|block），
+     不是多序列图表；muse 的骨架屏已有 m-shimmer 配自己的 --m-surface-sunk/--m-canvas-2；
+     内容里也没有真正的 <a href>。这些令牌引用数均为 0，属于「给以后加点颜色留后门」，
+     与 DESIGN.md 的「克制：界面 90% 是中性色」「Avoid 无意义指标墙」相悖，故删除而非接线。
+     将来真出现多序列图表或正文链接时，按当时的设计决策重新引入，不预留。 */
+
+  /* —— 以下色值原先散落在 globals.css 规则里，本次收回令牌层，值逐字保留 —— */
+  --accent-2:      var(--k-brand-2);               /* 品牌渐变第二色：monogram / 头像 / 用量条 */
+  --accent-track:  var(--k-brand-soft);    /* 用量条轨道 */
+  --shadow-brand:  var(--k-brand-ring);    /* monogram 品牌投影 */
+  --sidebar-glass: var(--k-glass); /* 侧栏毛玻璃底 */
+  --line-cool:     var(--k-line);    /* 冷色细描边 */
+  --ink-soft:      var(--k-ink-3);               /* 次要文字 */
+  --hot:           var(--k-bad);               /* 用量超阈值 */
+  --code-bg:       var(--k-code-bg);       /* 内联 code 底 */
+  --code-bg-soft:  var(--k-code-bg);       /* 大段输出底 */
+
+  /* ⚠️ 近重复，本次刻意不合并（没有视觉验证手段时不做无据的视觉改动）：
+     --line-cool ≈ --line、--ink-soft ≈ --ink-muted、--accent-track ≈ --accent-bg。
+     合并属于设计决策，应由一次带截图比对的专项完成。 */
 }

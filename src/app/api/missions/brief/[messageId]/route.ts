@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/modules/identity/session";
 import { actOnBrief, getBrief, parseBriefAction } from "@/modules/supervisor";
 import { handleApiError } from "@/shared/api-handler";
+import { readJsonObjectBody } from "@/shared/request-body";
 
 type Ctx = { params: Promise<{ messageId: string }> };
 
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   try {
     const session = await getServerSession(req);
     const { messageId } = await params;
-    const action = parseBriefAction(await req.json().catch(() => null));
+    const action = parseBriefAction(await readJsonObjectBody(req));
     return NextResponse.json(await actOnBrief(session, messageId, action));
   } catch (error) {
     return handleApiError(error, req);

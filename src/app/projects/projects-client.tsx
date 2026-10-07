@@ -36,9 +36,18 @@ export default function ProjectsClient({
   runtime: { tone: "ok" | "warn" | "neutral"; label: string; detail: string; modelConfigured: boolean };
 }) {
   const [filter, setFilter] = React.useState<string>("ALL");
+  const [query, setQuery] = React.useState("");
 
-  const filtered = filter === "ALL" ? projects : projects.filter((p) => p.stage === filter);
-  const stages = ["ALL", ...new Set(projects.map((p) => p.stage))];
+  const stages = React.useMemo(() => ["ALL", ...new Set(projects.map((p) => p.stage))], [projects]);
+  const activeFilter = stages.includes(filter) ? filter : "ALL";
+  const filtered = React.useMemo(() => {
+    const search = query.trim().toLocaleLowerCase();
+    return projects.filter((project) =>
+      (activeFilter === "ALL" || project.stage === activeFilter) &&
+      (!search || [project.title, project.product?.name, project.product?.identityCode, project.owner.name, project.decisionMaker?.name]
+        .some((value) => value?.toLocaleLowerCase().includes(search)))
+    );
+  }, [projects, activeFilter, query]);
 
   return (
     <AppShell
@@ -47,7 +56,6 @@ export default function ProjectsClient({
       runtime={runtime}
       topbarLeft={
         <div className="hermes-topbar-title">
-          <span className="eyebrow">PROJECTS</span>
           <strong>项目管理</strong>
         </div>
       }
@@ -60,7 +68,6 @@ export default function ProjectsClient({
     >
       <div className="hermes-page-heading">
         <div>
-          <p className="eyebrow">产品执行</p>
           <h1>项目管理</h1>
           <p>这里展示产品关联项目的执行计划。日常可从「产品」进入，再继续研发、工作项、证据与决策。</p>
         </div>
@@ -68,7 +75,9 @@ export default function ProjectsClient({
           {stages.map((s) => (
             <button
               key={s}
-              className={cx("hermes-chip", filter === s && "is-active")}
+              type="button"
+              aria-pressed={activeFilter === s}
+              className={cx("hermes-chip", activeFilter === s && "is-active")}
               onClick={() => setFilter(s)}
             >
               {s === "ALL" ? "全部" : labelProjectStage(s)}
@@ -77,9 +86,16 @@ export default function ProjectsClient({
         </div>
       </div>
 
-      <Panel icon="grid" eyebrow="LIST" title="项目列表" titleSmall={`(${filtered.length})`}>
+      <div className="hermes-inline" style={{ marginBottom: 16 }}>
+        <label className="hermes-label" style={{ width: "min(100%, 360px)" }}>
+          <span>查找项目</span>
+          <input type="search" className="hermes-input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="项目、产品或负责人" />
+        </label>
+        {(query || activeFilter !== "ALL") && <button type="button" className="hermes-outline-btn hermes-btn-sm" onClick={() => { setQuery(""); setFilter("ALL"); }}>清除筛选</button>}
+      </div>
+      <Panel icon="grid" title="项目列表" titleSmall={`(${filtered.length})`}>
         {filtered.length === 0 ? (
-          <Empty>暂无项目。请从产品页启动研发或创建项目，建立后即可管理工作项、证据与决策。</Empty>
+          <Empty>{projects.length === 0 ? "暂无项目。请从产品页启动研发或创建项目，建立后即可管理工作项、证据与决策。" : "没有匹配的项目。请调整关键词或清除筛选。"}</Empty>
         ) : (
           <div className="hermes-list">
             {filtered.map((p) => (
@@ -98,9 +114,14 @@ export default function ProjectsClient({
                     {" · "}负责人: {p.owner.name}
                     {p.decisionMaker ? ` · 决策人: ${p.decisionMaker.name}` : ""}
                   </span>
-                  <span>
-                    {p._count.workItems} 工作项 · {p._count.evidences} 证据 · {p._count.decisionPackets} 决策
-                  </span>
+                  {(() => {
+                    const parts = [
+                      p._count.workItems > 0 ? `${p._count.workItems} 工作项` : "",
+                      p._count.evidences > 0 ? `${p._count.evidences} 证据` : "",
+                      p._count.decisionPackets > 0 ? `${p._count.decisionPackets} 决策` : "",
+                    ].filter(Boolean);
+                    return parts.length > 0 ? <span>{parts.join(" · ")}</span> : null;
+                  })()}
                   <span>{fmtDateTime(p.updatedAt)}</span>
                 </div>
               </Link>

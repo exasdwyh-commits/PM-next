@@ -88,7 +88,7 @@ echo
 
 for t in "${TESTS[@]}"; do
   if is_skipped "$t"; then
-    echo "⏭  $t（别名或本脚本自身，跳过）"
+    echo "⏭  $t(别名或本脚本自身，跳过）"
     SKIPPED=$((SKIPPED + 1))
     SKIP_LIST+=("$t")
     continue

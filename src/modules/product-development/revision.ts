@@ -1,3 +1,4 @@
+import { getTenantPack } from "@/modules/tenant";
 /**
  * 产品多轮优化闭环（蓝图 §4.4）
  *
@@ -118,14 +119,7 @@ export interface RevisionOption {
 }
 
 const PLACEHOLDERS: Record<ProductSpecField, string> = {
-  coreIdea: "例如：给上班族一个不靠糖分提神的下午加餐",
-  targetAudience: "例如：25-35 岁办公室人群，下午三四点能量低谷",
-  coreSellingPoints: "例如：慢碳配方 + 每份 6g 膳食纤维，不加蔗糖",
-  targetChannels: "例如：抖音自播 + 小红书种草",
-  priceExpectation: "例如：39.9 元 / 盒",
-  formSpec: "例如：60g 独立小袋 × 6",
-  forbiddenItems: "例如：不加蔗糖、不用人工色素",
-  targetCost: "例如：18（元/盒，仅数字）",
+  ...getTenantPack().tenant.ui.revisionPlaceholders,
 };
 
 /**

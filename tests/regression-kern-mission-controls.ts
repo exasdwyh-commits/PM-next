@@ -1,18 +1,20 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { AgentTaskStatus, OrgRole } from "@prisma/client";
+import { AgentTaskStatus, KernMemoryKind, OrgRole } from "@prisma/client";
 import prisma from "../src/shared/db";
+import { rememberForUser } from "../src/modules/memory";
 import { assertTestDatabaseSafety } from "./test-safety";
 import { bootstrapDefaultWorkforce } from "../src/modules/workforce/service";
-import { executorLoopOnce, reconcileLoopOnce } from "../src/modules/worker/loops";
+import { executorLoopOnce, reconcileLoopOnce } from "../src/modules/supervisor/worker-runtime";
 import {
+  appendMissionEvents,
   buildNewProductMissionPlan,
+  buildTaskContract,
   controlKernMission,
   getKernMissionStatus,
   launchKernMission,
   listMissionEvents,
-  setMissionModelInvokerForTest,
-} from "../src/modules/supervisor";
+  setMissionModelInvokerForTest, computeWeeklyReview, applyReviewProposal, parseProposalOp } from "../src/modules/supervisor";
 
 /**
  * Display Layer PR ① — mission event log + user interventions
@@ -57,7 +59,7 @@ async function main() {
     const key = /## 你的任务（([^）]+)）/.exec(user)?.[1] ?? "?";
     (prompts[key] ??= []).push(user);
     if (key === "qa") return { text: JSON.stringify({ verdict: "PASS", summary: "可以交付", issues: [] }), provenance: { provider: "stub", modelId: "stub-1", modelRunId: null } };
-    if (key === "synthesis") return { text: "结论：推荐方向 A。", provenance: { provider: "stub", modelId: "stub-1", modelRunId: null } };
+    if (key === "synthesis") return { text: "推荐做「方向 A」。\n## 结论与建议\n推荐方向 A。\n## 关键依据\n- 事实：市场在增长。\n## 待验证与下一步\n## 主要风险\n## 需要你决定的事\n目前不需要你决定", provenance: { provider: "stub", modelId: "stub-1", modelRunId: null } };
     return { text: `${agentCode} 对 ${key} 的结论。`, provenance: { provider: "stub", modelId: "stub-1", modelRunId: null } };
   });
 
@@ -65,10 +67,13 @@ async function main() {
     // ------------------------------------------------------------------
     const a = await makeOrg(tag, "A");
     const conv = await prisma.conversation.create({ data: { organizationId: a.org.id, ownerId: a.session.userId, title: "新产品" } });
+    const planA = buildNewProductMissionPlan("我想开发一个新产品");
     const { missionTaskId: m1 } = await launchKernMission(a.session, {
-      plan: buildNewProductMissionPlan("我想开发一个新产品"),
+      plan: planA,
       conversationId: conv.id,
       sourceRunId: "ctl-a-" + tag,
+      // KX-72：带契约开跑，完成时自动项被检查，之后可按条复核。
+      contract: buildTaskContract({ plan: planA, answers: [{ question: "主要卖给谁", answer: "城市年轻白领" }] }),
     });
 
     console.log("▶ C1 pause holds new dispatch; active steps still finish");
@@ -153,6 +158,69 @@ async function main() {
     assert.ok(ev2.some((e) => e.type === "node.rerun") && ev2.some((e) => e.type === "mission.finished"));
     console.log("  ✔ rerun reopened → completed again");
 
+    console.log("▶ C5b KX-72 contract: auto checks ran at completion; per-item review rejects → synthesis redone; then accepted");
+    assert.ok(st.contract, "status carries the contract");
+    const autos = st.contract!.acceptance.filter((c) => c.check === "auto");
+    assert.ok(autos.length >= 3 && autos.every((c) => c.status !== "PENDING"), "auto criteria were checked: " + JSON.stringify(autos));
+    assert.equal(st.contract!.acceptance.find((c) => c.id === "auto:critical-done")!.status, "PASS");
+    const human = st.contract!.acceptance.filter((c) => c.check === "human");
+    assert.ok(human.length > 0, "human criteria come from plan.successCriteria");
+    const beforeSynth = prompts.synthesis.length;
+    const reviewed = await controlKernMission(a.session, m1, {
+      action: "review",
+      verdicts: [{ id: human[0].id, pass: false, note: "没有给出价格区间" }],
+    });
+    assert.equal(reviewed.accepted, false);
+    assert.deepEqual(reviewed.rejected, [human[0].id]);
+    assert.ok(Array.isArray(reviewed.rerun) && (reviewed.rerun as string[]).includes("synthesis"), "synthesis is rerun");
+    st = await getKernMissionStatus(a.session, m1);
+    assert.equal(st.outcome, null, "mission reopened");
+    assert.equal(st.contract!.reviews.length, 1);
+    // KX-74：打回意见沉淀为「纠正」记忆，带任务主题词
+    const corr = await prisma.kernMemory.findFirst({ where: { userId: a.session.userId, source: `mission:${m1}:correction:${human[0].id}` } });
+    assert.ok(corr, "correction memory written");
+    assert.equal(corr!.kind, "CORRECTION");
+    assert.match(corr!.content, /价格区间/);
+    assert.ok(corr!.topics.length > 0, "topics tagged");
+    await expectReject(
+      controlKernMission(a.session, m1, { action: "review", verdicts: [] }),
+      /Conflict/,
+      "cannot review while running"
+    );
+    await drain(a.org.id);
+    st = await getKernMissionStatus(a.session, m1);
+    assert.equal(st.outcome?.status, "COMPLETED");
+    assert.equal(prompts.synthesis.length, beforeSynth + 1, "synthesis ran once more");
+    assert.match(prompts.synthesis.at(-1)!, /复核未通过[\s\S]*价格区间/);
+    const redone = st.contract!.acceptance.find((c) => c.id === human[0].id)!;
+    assert.equal(redone.status, "PENDING", "rejected item is back to pending after redo");
+    assert.equal(redone.note, "没有给出价格区间", "the rejection note is kept for the next review");
+    const accepted = await controlKernMission(a.session, m1, { action: "review", verdicts: [] });
+    assert.equal(accepted.accepted, true, JSON.stringify(accepted));
+    st = await getKernMissionStatus(a.session, m1);
+    assert.ok(st.contract!.acceptance.every((c) => c.status === "PASS"), JSON.stringify(st.contract!.acceptance));
+    assert.equal(st.contract!.reviews.length, 2);
+    const ev3 = await listMissionEvents(a.session, m1, 0);
+    assert.equal(ev3.filter((e) => e.type === "contract.reviewed").length, 2);
+    console.log("  ✔ review → rejected → redone → accepted; 2 contract.reviewed events");
+
+    console.log("▶ C5c KX-74 weekly review: repeated corrections → charter proposal; accept → pinned preference; bad op → 422");
+    await rememberForUser(a.session, { kind: KernMemoryKind.CORRECTION, content: "做「宠物饮水机」这类工作时：列出竞品价格", source: `test:${m1}:c2`, topics: corr!.topics });
+    const review = await computeWeeklyReview(a.session);
+    assert.ok(review.summary.runs >= 1 && review.summary.accepted >= 1, JSON.stringify(review.summary));
+    const charter = review.proposals.find((p) => p.kind === "charter");
+    assert.ok(charter, "charter proposal from 2 corrections on the same topic: " + JSON.stringify(review.proposals));
+    assert.equal(charter!.apply.op, "memory.remember");
+    const applied = await applyReviewProposal(a.session, charter!.apply);
+    assert.match(applied.applied, /章程/);
+    const pinned = await prisma.kernMemory.findFirst({ where: { userId: a.session.userId, kind: "PREFERENCE", pinned: true, content: (charter!.apply as { content: string }).content } });
+    assert.ok(pinned, "charter rule stored as pinned preference");
+    assert.equal((await computeWeeklyReview(a.session)).proposals.some((p) => p.id === charter!.id), false, "accepted proposal no longer offered");
+    assert.throws(() => parseProposalOp({ op: "memory.delete-all" }), /op 必须是/);
+    const stranger = await makeOrg(tag, "S");
+    await expectReject(applyReviewProposal(stranger.session, { op: "memory.forget", memoryId: corr!.id }), /不存在|已忘掉/, "cannot touch another user's memory");
+    console.log("  ✔ weekly review proposes, user approves, nothing changes without approval");
+
     console.log("▶ C6 owner-only: another member cannot see or control the mission");
     const other = await prisma.user.create({ data: { organizationId: a.org.id, email: `ctl-other-${tag}@hermes.test`, name: "Other" } });
     await prisma.organizationMember.create({ data: { organizationId: a.org.id, userId: other.id, role: OrgRole.ORG_ADMIN } });
@@ -196,6 +264,34 @@ async function main() {
     assert.equal(evB.at(-1)!.type, "mission.cancelled");
     assert.deepEqual(evB.map((e) => e.seq), evB.map((_, i) => i + 1));
     console.log("  ✔ cancelled, final");
+
+    console.log("▶ C9 a concurrent append burst keeps seq contiguous and drops nothing");
+    const beforeBurst = (await listMissionEvents(a.session, m1)).length;
+    const BURST = 60;
+    const landed = await Promise.all(
+      Array.from({ length: BURST }, (_, i) =>
+        appendMissionEvents({
+          organizationId: a.session.organizationId,
+          missionTaskId: m1,
+          events: [{ type: "node.delta", nodeKey: "market", payload: { burst: i } }],
+        })
+      )
+    );
+    // appendMissionEvents swallows failures and returns [], so a dropped append
+    // is a silent hole in the 「过程」 timeline rather than a visible error.
+    assert.equal(
+      landed.filter((seqs) => seqs.length === 1).length,
+      BURST,
+      "every concurrent append must land (a swallowed P2028 returns [])"
+    );
+    const evBurst = await listMissionEvents(a.session, m1);
+    assert.equal(evBurst.length, beforeBurst + BURST);
+    assert.deepEqual(
+      evBurst.map((e) => e.seq),
+      evBurst.map((_, i) => i + 1),
+      "seq stays 1..N without gaps or duplicates"
+    );
+    console.log(`  ✔ ${BURST} concurrent appends, seq 1..${evBurst.length} intact`);
 
     console.log("\n✅ Kern mission controls regression passed");
   } finally {

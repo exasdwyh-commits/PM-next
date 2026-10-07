@@ -2,7 +2,9 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/shared/db";
 import { ConflictError, NotFoundError, UnprocessableEntityError } from "@/shared/errors";
 import type { SessionContext } from "@/modules/identity/session";
-import { getUsage } from "@/modules/billing";
+import { getUsage } from "@/modules/usage";
+import { findPlaybookForGoal, markPlaybookUsed } from "@/modules/playbooks/service";
+import { instantiatePlan } from "@/modules/playbooks/match";
 import {
   applyPlanEdit,
   buildMissionPlanFromGoalPlan,
@@ -13,6 +15,12 @@ import {
   type MissionPlaybook,
 } from "./plan";
 import { launchKernMission } from "./service";
+import { buildTaskContract } from "./contract";
+import type { TaskContract } from "@/modules/kern-contracts";
+import { searchCapabilities } from "@/modules/assistant-runtime/capabilities/directory";
+import { loadCapabilityDirectory } from "@/modules/assistant-runtime/capabilities/directory-loader";
+import { requiredCompetitorQuestions, validCompetitorSubject, detectCompetitorResearch, competitorSubject, COMPETITOR_DEFAULT_SCOPE } from "./competitor-brief";
+import { getMissionReadiness } from "./readiness";
 
 /**
  * Mission Brief — the conversation step *before* a mission runs
@@ -43,6 +51,7 @@ export interface BriefQuestion {
   /** Pre-filled from memory: shown as “我记得：…”. */
   remembered: { memoryId: string; text: string } | null;
   answer: { optionId: string | null; text: string } | null;
+  required?: boolean;
 }
 
 export type BriefStage = "CLARIFY" | "PLAN" | "LAUNCHED" | "DISMISSED";
@@ -58,13 +67,24 @@ export interface MissionBrief {
   demo: boolean;
   memoriesUsed: { id: string; text: string }[];
   createdAt: string;
+  /**
+   * KX-36：套用了本人保存的做法。template 为模板化计划；defaultPlan 是不用做法时的
+   * 通用计划（GENERIC 需要，NEW_PRODUCT 可以现算，为 null）。
+   */
+  playbookRef?: { id: string; name: string; score: number; useCount: number; successCount: number; template: MissionPlan; defaultPlan: MissionPlan | null } | null;
+  /** KX-72：契约卡（PLAN 阶段生成，随计划编辑重算，开跑时写进任务）。 */
+  contract?: TaskContract | null;
+  /** Retain the generic plan while collecting required inputs. */
+  clarifiedPlan?: MissionPlan | null;
+  researchScope?: string;
 }
 
 export interface BriefEstimate {
   steps: number;
   members: number;
   modelCalls: { min: number; max: number };
-  quota: { used: number; limit: number | null; afterLaunch: number } | null;
+  /** 本月用量（演示为 null）；limit 仅在部署设置了安全上限时有值。 */
+  usage: { used: number; limit: number | null; afterLaunch: number } | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -114,10 +134,10 @@ const MEMORY_HINTS: Record<string, RegExp> = {
 /** Clarifying questions for a playbook, pre-filled from what Kern remembers. */
 export function buildClarifyQuestions(
   playbook: MissionPlaybook,
-  _goal: string,
+  goal: string,
   memories: { id: string; content: string }[]
 ): BriefQuestion[] {
-  if (playbook !== "NEW_PRODUCT") return [];
+  if (playbook !== "NEW_PRODUCT") return requiredCompetitorQuestions(goal);
   return [Q_AUDIENCE, Q_BUDGET, Q_CHANNEL]
     .map((q) => {
       const hit = memories.find((m) => MEMORY_HINTS[q.id]?.test(m.content));
@@ -140,15 +160,18 @@ export function answerText(q: BriefQuestion): string | null {
 }
 
 /** Build the plan from goal + answers; answers become explicit constraints. */
-export function buildBriefPlan(brief: Pick<MissionBrief, "goal" | "playbook" | "questions">, goalPlanFallback?: MissionPlan): MissionPlan {
+export function buildBriefPlan(brief: Pick<MissionBrief, "goal" | "playbook" | "questions" | "playbookRef" | "clarifiedPlan" | "researchScope">, goalPlanFallback?: MissionPlan): MissionPlan {
   const constraints = brief.questions
     .map((q) => [q.text.replace(/[？?]$/, ""), answerText(q)] as const)
     .filter(([, a]) => !!a)
     .map(([k, a]) => `${k}：${a}`);
-  const goal = constraints.length ? `${brief.goal}\n\n已确认的约束：\n${constraints.map((c) => `- ${c}`).join("\n")}` : brief.goal;
+  let goal = constraints.length ? `${brief.goal}\n\n已确认的约束：\n${constraints.map((c) => `- ${c}`).join("\n")}` : brief.goal;
+  if (detectCompetitorResearch(goal)) goal += `\n\n调研默认范围（用户明确约束优先）：${brief.researchScope ?? COMPETITOR_DEFAULT_SCOPE}`;
+  if (brief.playbookRef) return instantiatePlan(brief.playbookRef.template, goal);
   if (brief.playbook === "NEW_PRODUCT") return buildNewProductMissionPlan(goal);
-  if (!goalPlanFallback) throw new UnprocessableEntityError("No plan available for this goal");
-  return { ...goalPlanFallback, goal };
+  const fallback = goalPlanFallback ?? brief.clarifiedPlan;
+  if (!fallback) throw new UnprocessableEntityError("No plan available for this goal");
+  return { ...fallback, goal };
 }
 
 export function estimateBrief(plan: MissionPlan, usage: { used: number; limit: number | null } | null, demo = false): BriefEstimate {
@@ -159,8 +182,32 @@ export function estimateBrief(plan: MissionPlan, usage: { used: number; limit: n
     steps,
     members,
     modelCalls: demo ? { min: 0, max: 0 } : { min: steps, max: steps + (plan.budget.maxRevisionRounds ? producers + 1 : 0) },
-    quota: usage && !demo ? { used: usage.used, limit: usage.limit, afterLaunch: usage.used + 1 } : null,
+    usage: usage && !demo ? { used: usage.used, limit: usage.limit, afterLaunch: usage.used + 1 } : null,
   };
+}
+
+/** KX-72：由目标 + 已答问题 + 做法 + 能力目录命中生成契约卡。 */
+export function briefContract(brief: Pick<MissionBrief, "plan" | "questions" | "playbookRef" | "researchScope">, capabilities: string[] = []): TaskContract | null {
+  if (!brief.plan) return null;
+  const answers = brief.questions
+    .map((q) => ({ question: q.text.replace(/[？?]$/, ""), answer: answerText(q) }))
+    .filter((a): a is { question: string; answer: string } => !!a.answer);
+  if (detectCompetitorResearch(brief.plan.goal)) {
+    const subject = competitorSubject(brief.plan.goal);
+    if (subject && !answers.some(a => a.question === "要调研哪些品牌或产品")) answers.push({ question: "调研对象", answer: subject });
+    answers.push({ question: "默认范围（明确约束优先）", answer: brief.researchScope ?? COMPETITOR_DEFAULT_SCOPE });
+  }
+  return buildTaskContract({ plan: brief.plan, answers, playbookName: brief.playbookRef?.name ?? null, capabilities });
+}
+
+/** KX-71 接线：按目标在能力目录里检索，命中的可用条目写进契约卡「会用到的能力」。失败不影响出卡。 */
+async function suggestCapabilities(session: SessionContext, goal: string): Promise<string[]> {
+  try {
+    const directory = await loadCapabilityDirectory(session);
+    return searchCapabilities(directory.items.filter((i) => i.available), goal, 6).map((i) => i.label);
+  } catch {
+    return [];
+  }
 }
 
 export function readBrief(value: unknown): MissionBrief | null {
@@ -191,18 +238,24 @@ export async function createBriefForMessage(
     })
     .catch(() => [] as { id: string; content: string }[]);
   const questions = buildClarifyQuestions(input.playbook, input.goal, memories);
+  const saved = await findPlaybookForGoal(session, input.goal).catch(() => null);
+  const playbookRef: MissionBrief["playbookRef"] = saved ? { ...saved, defaultPlan: input.goalPlan ?? null } : null;
   const brief: MissionBrief = {
     schemaVersion: BRIEF_SCHEMA,
     stage: questions.length ? "CLARIFY" : "PLAN",
     goal: input.goal.trim().slice(0, 2000),
     playbook: input.playbook,
     questions,
-    plan: questions.length ? null : buildBriefPlan({ goal: input.goal, playbook: input.playbook, questions }, input.goalPlan),
+    plan: questions.length ? null : buildBriefPlan({ goal: input.goal, playbook: input.playbook, questions, playbookRef }, input.goalPlan),
     missionTaskId: null,
     demo: false,
     memoriesUsed: questions.filter((q) => q.remembered).map((q) => ({ id: q.remembered!.memoryId, text: q.remembered!.text })),
     createdAt: new Date().toISOString(),
+    playbookRef,
+    clarifiedPlan: input.goalPlan ?? null,
+    researchScope: detectCompetitorResearch(input.goal) ? COMPETITOR_DEFAULT_SCOPE : undefined,
   };
+  if (brief.plan) brief.contract = briefContract(brief, await suggestCapabilities(session, brief.goal));
   return brief;
 }
 
@@ -218,6 +271,24 @@ async function loadBriefMessage(session: SessionContext, messageId: string) {
   const idx = citations.findIndex((c) => !!c && typeof c === "object" && (c as Record<string, unknown>).kind === "kern-brief");
   const brief = idx >= 0 ? readBrief((citations[idx] as Record<string, unknown>).brief) : null;
   if (!brief) throw new NotFoundError("Brief not found");
+  if ((brief.stage === "PLAN" || brief.stage === "CLARIFY") && detectCompetitorResearch(brief.goal) && !brief.researchScope) {
+    brief.researchScope = COMPETITOR_DEFAULT_SCOPE;
+    if (brief.plan) {
+      if (!brief.plan.goal.includes("\n\n调研默认范围（用户明确约束优先）：")) brief.plan.goal += `\n\n调研默认范围（用户明确约束优先）：${COMPETITOR_DEFAULT_SCOPE}`;
+      brief.contract = briefContract(brief, brief.contract?.capabilities ?? []);
+    }
+  }
+  // Read-only upgrade of historical, unlaunched cards. The next action persists
+  // this shape; no work or user inputs are lost when returning to an old chat.
+  if (brief.playbook === "GENERIC" && brief.stage === "PLAN" && !brief.questions.some(q => q.id === "competitor-subject")) {
+    const required = requiredCompetitorQuestions(brief.goal);
+    if (required.length) {
+      brief.clarifiedPlan = brief.plan;
+      brief.questions = [...brief.questions, ...required];
+      brief.plan = null;
+      brief.stage = "CLARIFY";
+    }
+  }
   return { message, citations, idx, brief };
 }
 
@@ -231,6 +302,7 @@ async function withEstimate(session: SessionContext, brief: MissionBrief) {
   return {
     messageId: null as string | null,
     brief,
+    readiness: brief.stage === "PLAN" && brief.plan ? await getMissionReadiness(session, brief.plan) : null,
     estimate: brief.plan
       ? estimateBrief(brief.plan, usage ? { used: usage.used.missions, limit: usage.limits.missionsPerMonth } : null, brief.demo)
       : null,
@@ -242,8 +314,10 @@ export type BriefAction =
   | { action: "skip-questions" }
   | { action: "back" }
   | { action: "edit-plan"; edits: MissionPlanEdit[] }
+  | { action: "set-research-scope"; text: string }
   | { action: "launch"; demo?: boolean }
-  | { action: "dismiss" };
+  | { action: "dismiss" }
+  | { action: "drop-playbook" };
 
 export function parseBriefAction(body: unknown): BriefAction {
   const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
@@ -256,9 +330,13 @@ export function parseBriefAction(body: unknown): BriefAction {
     case "skip-questions":
     case "back":
     case "dismiss":
+    case "drop-playbook":
       return { action: b.action };
     case "edit-plan":
       if (Array.isArray(b.edits) && b.edits.length && b.edits.length <= 12) return { action: "edit-plan", edits: b.edits as MissionPlanEdit[] };
+      break;
+    case "set-research-scope":
+      if (typeof b.text === "string" && b.text.trim() && b.text.length <= 1000) return { action: b.action, text: b.text.trim() };
       break;
     case "launch":
       return { action: "launch", demo: b.demo === true };
@@ -287,6 +365,8 @@ export async function actOnBrief(session: SessionContext, messageId: string, act
           q.answer = optionId || text ? { optionId, text } : null;
         }
       }
+      const missing = brief.questions.filter(q => q.required && (!answerText(q) || (q.id === "competitor-subject" && !validCompetitorSubject(answerText(q)!))));
+      if (missing.length) throw new UnprocessableEntityError(`请先填写：${missing.map(q => q.text).join("、")}`);
       brief.stage = "PLAN";
       brief.plan = buildBriefPlan(brief);
       brief.memoriesUsed = brief.questions
@@ -309,8 +389,27 @@ export async function actOnBrief(session: SessionContext, messageId: string, act
     case "dismiss":
       brief.stage = "DISMISSED";
       break;
+    case "drop-playbook": {
+      if (!brief.playbookRef) throw new ConflictError("No saved playbook in use");
+      const fallback = brief.playbookRef.defaultPlan ?? undefined;
+      brief.playbookRef = null;
+      if (brief.stage === "PLAN") brief.plan = buildBriefPlan(brief, fallback);
+      break;
+    }
+    case "set-research-scope": {
+      if (brief.stage !== "PLAN" || !brief.plan || !detectCompetitorResearch(brief.goal)) throw new ConflictError("当前计划不支持调整调研范围");
+      const text = action.text.trim();
+      if (!text || text.length > 1000) throw new UnprocessableEntityError("请填写不超过 1000 字的调研范围");
+      brief.researchScope = text;
+      const baseGoal = brief.plan.goal.split("\n\n调研默认范围（用户明确约束优先）：")[0];
+      brief.plan = { ...brief.plan, goal: `${baseGoal}\n\n调研默认范围（用户明确约束优先）：${text}` };
+      break;
+    }
     case "launch": {
       if (brief.stage !== "PLAN" || !brief.plan) throw new ConflictError("Confirm the questions first");
+      const readiness = await getMissionReadiness(session, brief.plan);
+      const blockers = action.demo ? readiness.blockers.filter(b => ["INPUT", "TEAM", "WORKER"].includes(b.code)) : readiness.blockers;
+      if (blockers.length) throw new UnprocessableEntityError(blockers.map(b => b.message).join("；"));
       const conversationId = loaded.message.conversation.id;
       const launched = await launchKernMission(session, {
         plan: brief.plan,
@@ -319,12 +418,23 @@ export async function actOnBrief(session: SessionContext, messageId: string, act
         idempotencyKey: `kern-brief:${messageId}`,
         demo: action.demo === true,
         memoriesUsed: brief.memoriesUsed,
+        playbookRef: brief.playbookRef ? { id: brief.playbookRef.id, name: brief.playbookRef.name } : undefined,
+        contract: brief.contract ?? briefContract(brief),
       });
+      if (launched.created && brief.playbookRef && action.demo !== true) await markPlaybookUsed(brief.playbookRef.id).catch(() => undefined);
       brief.stage = "LAUNCHED";
       brief.demo = action.demo === true;
       brief.missionTaskId = launched.missionTaskId;
       break;
     }
+  }
+
+  // KX-72：计划变了契约卡跟着重算；开跑后不再动。
+  if (brief.stage === "PLAN" && brief.plan) {
+    const keep = brief.contract?.capabilities ?? (await suggestCapabilities(session, brief.goal));
+    brief.contract = briefContract(brief, keep);
+  } else if (brief.stage === "CLARIFY") {
+    brief.contract = null;
   }
 
   const citations = [...loaded.citations];

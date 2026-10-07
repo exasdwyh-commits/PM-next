@@ -1,0 +1,28 @@
+{
+  "changed": [
+    ".github/workflows/kern-supervisor-ci.yml",
+    "package.json",
+    "scripts/pm-worker.ts",
+    "src/app/muse/components/shell.tsx",
+    "src/app/workforce/workforce-client.tsx",
+    "src/modules/assistant-runtime/message-worker.ts",
+    "src/modules/supervisor/worker-runtime.ts",
+    "src/modules/worker/index.ts",
+    "src/modules/worker/loops.ts",
+    "src/modules/worker/registry.ts",
+    "tests/authz-matrix.ts"
+  ],
+  "removed": [],
+  "added": [
+    "src/app/workforce/studio/studio.css",
+    "src/app/workforce/studio/studio-client.tsx",
+    "src/app/workforce/studio/page.tsx",
+    "src/app/api/workforce/studio/route.ts",
+    "src/modules/workforce/studio.ts",
+    "src/modules/worker/fair-queue.ts",
+    "src/modules/worker/scheduler.ts",
+    "tests/regression-worker-fairness.ts",
+    "tests/regression-workforce-studio.ts",
+    "tests/regression-worker-review-probes.ts"
+  ]
+}

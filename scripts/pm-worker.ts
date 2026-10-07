@@ -14,7 +14,7 @@ import { loadEnvFiles } from "../src/shared/env";
 
 loadEnvFiles();
 
-const DEFAULT_LOOP_NAMES = ["executor", "research", "event", "reconcile"] as const;
+const DEFAULT_LOOP_NAMES = ["conversation", "executor", "research", "event", "reconcile", "schedule"] as const;
 type LoopName = (typeof DEFAULT_LOOP_NAMES)[number];
 
 interface CliOptions {
@@ -24,6 +24,9 @@ interface CliOptions {
   loops?: LoopName[];
   executorBatch?: number;
   maxTicks?: number;
+  organizationId?: string;
+  maxConcurrency?: number;
+  maxPerOrganizationConcurrency?: number;
 }
 
 function parseArgs(argv: string[]): CliOptions {
@@ -68,6 +71,19 @@ function parseArgs(argv: string[]): CliOptions {
       options.executorBatch = Number(arg.slice("--executor-batch=".length));
       continue;
     }
+    if (arg.startsWith("--max-concurrency=")) {
+      options.maxConcurrency = Number(arg.slice("--max-concurrency=".length));
+      continue;
+    }
+    if (arg.startsWith("--max-per-org-concurrency=")) {
+      options.maxPerOrganizationConcurrency = Number(arg.slice("--max-per-org-concurrency=".length));
+      continue;
+    }
+    if (arg.startsWith("--organization-id=")) {
+      options.organizationId = arg.slice("--organization-id=".length).trim();
+      if (!options.organizationId) throw new Error("组织编号不能为空");
+      continue;
+    }
     if (arg.startsWith("--max-ticks=")) {
       options.maxTicks = Number(arg.slice("--max-ticks=".length));
       continue;
@@ -80,16 +96,19 @@ function parseArgs(argv: string[]): CliOptions {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   // 动态导入：确保 loadEnvFiles() 先于任何读取 DATABASE_URL 的模块执行。
-  const { runPmWorker } = await import("../src/modules/worker");
+  const { runPmWorker } = await import("../src/modules/supervisor/worker-runtime");
 
-  const summary = await runPmWorker({
-    once: options.once,
-    quiet: options.quiet,
-    ignoreLock: options.ignoreLock,
-    loops: options.loops,
-    executorBatch: options.executorBatch,
-    maxTicks: options.maxTicks,
-  });
+    const summary = await runPmWorker({
+      once: options.once,
+      quiet: options.quiet,
+      ignoreLock: options.ignoreLock,
+      loops: options.loops,
+      executorBatch: options.executorBatch,
+      maxTicks: options.maxTicks,
+      organizationId: options.organizationId,
+      maxConcurrency: options.maxConcurrency,
+      maxPerOrganizationConcurrency: options.maxPerOrganizationConcurrency,
+    });
 
   if (options.once) {
     const totals = Object.entries(summary.results).map(([loop, result]) => ({
@@ -102,6 +121,10 @@ async function main() {
         .map((row) => `${row.loop}=${row.acted}${row.errors ? `(err ${row.errors})` : ""}`)
         .join(" ")}`
     );
+  } else if (summary.stoppedBy === "lock-held") {
+    // 退出码 75：守护进程据此慢速等待，而不是当作崩溃疯狂重启。
+    const { LOCK_HELD_EXIT_CODE } = await import("../src/modules/worker/supervisor-policy");
+    process.exitCode = LOCK_HELD_EXIT_CODE;
   } else {
     console.log(
       `[pm-worker] 退出（${summary.stoppedBy}，共 ${summary.ticks} 轮）`

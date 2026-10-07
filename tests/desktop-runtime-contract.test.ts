@@ -4,6 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import {
   isDesktopInstruction,
+  isDangerousShellCommand,
   parseDesktopInstruction,
 } from "../src/modules/desktop-runtime/contracts";
 
@@ -80,4 +81,41 @@ test("desktop runtime delivery wiring stays present", () => {
   assert.ok(runtime.includes('"codex"'));
   assert.ok(runtime.includes('"workspace-write"'));
   assert.ok(runtime.includes("HERMES_DESKTOP_ALLOWED_ROOTS"));
+  assert.ok(runtime.includes("isDangerousShellCommand"));
+});
+
+test("dangerous-command guard: rm 递归+强制在任意写法下都拦截", () => {
+  for (const command of [
+    "rm -rf /",
+    "rm -fr ~/Projects",
+    "rm -r -f build",
+    "rm -Rf dist",
+    "rm --recursive --force node_modules",
+    "rm -r build -f",
+    "npm run clean && rm -fr .next",
+    "find . -name '*.log' | xargs rm -rf",
+    "echo $(rm -fr tmp)",
+    "\\rm -rf tmp",
+    "/bin/rm -rf tmp",
+    "sudo ls",
+    "diskutil eraseDisk JHFS+ X disk2",
+    "mkfs.ext4 /dev/sdb1",
+    "shutdown -h now",
+  ]) {
+    assert.equal(isDangerousShellCommand(command), true, `应拦截：${command}`);
+  }
+});
+
+test("dangerous-command guard: 普通命令不误拦", () => {
+  for (const command of [
+    "npm test",
+    "git status",
+    "rm notes.txt",
+    "rm -r report.pdf",
+    "rm -f stale.lock",
+    "ls -rf",
+    "grep -rf patterns.txt src",
+  ]) {
+    assert.equal(isDangerousShellCommand(command), false, `不应拦截：${command}`);
+  }
 });

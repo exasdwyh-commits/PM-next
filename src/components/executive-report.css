@@ -1,0 +1,73 @@
+/* KX-22 执行报告（方案 C：决策面板 + 依据表）。颜色 / 圆角 / 阴影 / 字号全部取自 theme/kern-design.css。
+   类名统一 kx-rp-*（报告）；小件见 @/components/kx；transition 只用 var(--m-tr-ui)。 */
+.kx-rp { display: grid; gap: 14px; color: var(--k-ink); }
+
+.kx-rp-title { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
+.kx-rp-title h2 { margin: 0; font-size: var(--k-t-title); font-weight: 650; letter-spacing: -.015em; line-height: 1.35; }
+.kx-rp-meta { color: var(--k-ink-2); font-size: var(--k-t-xs); }
+
+/* 布局：主区 + 右侧常驻决策面板 */
+.kx-rp-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+.kx-rp-main { display: grid; gap: 14px; min-width: 0; }
+
+/* 结论 */
+.kx-rp-verdict { display: grid; gap: 6px; padding: 14px 16px; border: 1px solid var(--k-line); border-radius: 14px; background: var(--k-surface); box-shadow: var(--k-sh-1); }
+.kx-rp-verdict.is-ok { border-color: var(--k-ok-line); }
+.kx-rp-verdict.is-warn { border-color: var(--k-warn-line); }
+.kx-rp-verdict.is-bad { border-color: var(--k-bad-line); }
+.kx-rp-verdict p { margin: 0; font-size: 14.5px; line-height: 1.7; }
+
+/* 关键依据表 */
+.kx-rp-card { min-width: 0; border: 1px solid var(--k-line); border-radius: 14px; background: var(--k-surface); box-shadow: var(--k-sh-1); }
+.kx-rp-card-h { display: flex; align-items: center; gap: 8px; padding: 12px 16px 8px; }
+.kx-rp-card-h h3, .kx-rp-sec h3, .kx-rp-dock h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14.5px; font-weight: 650; }
+.kx-rp-pad { padding: 0 16px 14px; }
+.kx-rp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.kx-rp-table th { padding: 8px 16px; border-bottom: 1px solid var(--k-line); color: var(--k-ink-2); font-size: var(--k-t-xs); font-weight: 600; text-align: left; }
+.kx-rp-table td { padding: 9px 16px; border-top: 1px solid var(--k-line-soft); vertical-align: top; line-height: 1.6; }
+.kx-rp-table tbody tr:first-child td { border-top: 0; }
+.kx-rp-claim { font-weight: 560; }
+.kx-rp-src { color: var(--k-ink-2); font-size: var(--k-t-xs); }
+
+/* 风险 / UNKNOWN 并排 */
+.kx-rp-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.kx-rp-sec { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.kx-rp-list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--k-line); border-radius: 12px; background: var(--k-surface); }
+.kx-rp-list li { display: flex; align-items: flex-start; gap: 10px; padding: 9px 14px; border-top: 1px solid var(--k-line-soft); font-size: 13.5px; line-height: 1.6; }
+.kx-rp-list li:first-child { border-top: 0; }
+.kx-rp-list li.kx-rp-noteitem { display: grid; gap: 4px; }
+.kx-rp-noteh { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.kx-rp-muted { margin: 0; color: var(--k-ink-2); font-size: 13px; }
+.kx-rp-note { margin: 0; color: var(--k-ink-2); font-size: var(--k-t-xs); line-height: 1.6; }
+
+/* 决策面板 */
+.kx-rp-dock { position: sticky; top: 12px; display: grid; gap: 10px; padding: 14px; border: 1px solid var(--k-brand-line); border-radius: 14px; background: var(--k-surface); box-shadow: var(--k-sh-2); }
+.kx-rp-dock h3.is-sub { font-size: var(--k-t-sm); }
+.kx-rp-dock ol { display: grid; gap: 6px; margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.6; }
+.kx-rp-rule { height: 1px; background: var(--k-line); }
+.kx-rp-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* 附录：折叠 */
+.kx-rp-appendix { display: grid; gap: 8px; }
+.kx-rp-appendix h3 { margin: 0; color: var(--k-ink-2); font-size: var(--k-t-sm); font-weight: 650; }
+.kx-rp-det { border: 1px solid var(--k-line); border-radius: 12px; background: var(--k-surface); }
+.kx-rp-det summary { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; font-size: var(--k-t-sm); font-weight: 560; cursor: pointer; list-style: none; }
+.kx-rp-det summary::-webkit-details-marker { display: none; }
+.kx-rp-det summary::after { content: "+"; margin-left: auto; color: var(--k-ink-3); }
+.kx-rp-det[open] summary::after { content: "−"; }
+.kx-rp-det-b { display: grid; gap: 8px; padding: 0 14px 12px; }
+.kx-rp-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+@media (max-width: 1100px) {
+  .kx-rp-layout { grid-template-columns: minmax(0, 1fr); }
+  .kx-rp-dock { position: static; }
+}
+@media (max-width: 720px) {
+  .kx-rp-two { grid-template-columns: minmax(0, 1fr); }
+  .kx-rp-table thead { display: none; }
+  .kx-rp-table tr { display: grid; gap: 4px; padding: 10px 16px; border-top: 1px solid var(--k-line-soft); }
+  .kx-rp-table tbody tr:first-child { border-top: 0; }
+  .kx-rp-table td { padding: 0; border: 0; }
+  .kx-rp-det summary { min-height: 44px; }
+  .kx-rp-actions button { min-height: 44px; }
+}

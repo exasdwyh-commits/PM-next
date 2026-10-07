@@ -55,6 +55,13 @@ export interface ModelFailurePolicy {
   rateLimitCooldownMs?: number;
   /** Auth failures usually need operator intervention; default is longer. */
   authCooldownMs?: number;
+  /**
+   * KX-66：RATE_LIMIT 且策略内已没有其他可用候选时，在同一模型上等待后重试的次数
+   * （默认 2；0 = 不重试，直接进入冷却）。有其他候选时仍然立即 fallback。
+   */
+  rateLimitRetries?: number;
+  /** KX-66：单次 execute 内为 RATE_LIMIT 重试累计等待的上限（默认 20 秒）。 */
+  rateLimitMaxWaitMs?: number;
 }
 
 export interface ModelHealthSnapshot {
@@ -118,6 +125,8 @@ export interface ModelGatewayMessage {
 }
 
 export interface ModelGatewayRequest {
+  signal?: AbortSignal;
+  beforeAttempt?: () => Promise<void>;
   taskClass: ModelTaskClass;
   messages: ModelGatewayMessage[];
   requiredCapabilities?: ModelCapability[];
@@ -162,6 +171,8 @@ export interface ModelExecutionAttempt {
   error?: string;
   failureKind?: ModelFailureKind;
   fallbackAllowed?: boolean;
+  /** KX-66：这次失败后在同一模型上等待了多久再重试（仅 RATE_LIMIT 重试时出现）。 */
+  retryDelayMs?: number;
 }
 
 export interface ModelGatewayResult extends ModelProviderResult {

@@ -69,18 +69,10 @@ export function useReasonDialog(): [(opts: ReasonOptions) => Promise<string | nu
     return () => clearTimeout(t);
   }, [opts]);
 
-  // Esc 取消（挂在 document 上，保证焦点不在 textarea 时也能取消）
-  React.useEffect(() => {
-    if (!opts) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        finish(null);
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [opts, finish]);
+  React.useEffect(() => () => {
+    resolverRef.current?.(null);
+    resolverRef.current = null;
+  }, []);
 
   const trimmed = value.trim();
   const canConfirm = trimmed.length > 0;

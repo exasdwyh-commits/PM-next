@@ -6,6 +6,7 @@ import { labelRunMode, labelWorkItemStatus } from "@/shared/status-labels";
 import { SessionContext, requireProjectRole } from "../identity/session";
 import { isStructuredArtifactType, isKnownArtifactSchemaVersion } from "./artifact-schema";
 import { pickBusinessInput, writeStructuredArtifact, WriteStructuredArtifactParams } from "./structured-artifacts";
+import { assertObjectInput, assertOptionalText, requiredText } from "@/shared/input-validation";
 
 
 /**
@@ -80,8 +81,15 @@ export async function createWorkItemInTx(
   projectId: string,
   params: CreateWorkItemParams
 ) {
-  if (!params.title || !params.target || !params.deliverableReq) {
-    throw new UnprocessableEntityError("Title, target and deliverable requirements are required");
+  assertObjectInput(params);
+  const title = requiredText(params.title, "title");
+  const target = requiredText(params.target, "target");
+  const deliverableReq = requiredText(params.deliverableReq, "deliverableReq");
+  if (params.executorType !== undefined && !Object.values(WorkExecutorType).includes(params.executorType)) {
+    throw new UnprocessableEntityError("executorType 必须为有效的执行方式");
+  }
+  if (params.dependencies !== undefined && (!Array.isArray(params.dependencies) || params.dependencies.some((id) => typeof id !== "string" || !id.trim()))) {
+    throw new UnprocessableEntityError("dependencies 必须为工作项 ID 数组");
   }
 
   const project = await tx.project.findUnique({ where: { id: projectId } });
@@ -107,9 +115,9 @@ export async function createWorkItemInTx(
   const item = await tx.workItem.create({
     data: {
       projectId,
-      title: params.title.trim(),
-      target: params.target.trim(),
-      deliverableReq: params.deliverableReq.trim(),
+      title,
+      target,
+      deliverableReq,
       executorType: params.executorType ?? WorkExecutorType.HUMAN,
       dependencies: depIds.length > 0 ? depIds : undefined,
       inputRevision: project.revision,
@@ -191,6 +199,8 @@ export async function submitWork(
     throw new ForbiddenError("Only project owner or authorized task assignee can submit deliverables (R09)");
   }
 
+  assertObjectInput(params);
+
   // D-008：入参校验。inputRevision 是成果的版本锚点（A09/R09 全靠它判断迟到），
   // 缺失时 Prisma 会抛 PrismaClientValidationError → 500，而生产环境响应体被
   // 消毒成「An internal server error occurred」，调用方无从得知自己少了哪个字段。
@@ -206,6 +216,24 @@ export async function submitWork(
       `runMode 非法：${String(params.runMode)}（允许值：${Object.values(RunMode).join(" / ")}）`,
       { runMode: [`允许值：${Object.values(RunMode).join(" / ")}`] }
     );
+  }
+  if (params.status !== undefined && !Object.values(RunReceiptStatus).includes(params.status)) {
+    throw new UnprocessableEntityError("status 必须为有效的运行回执状态");
+  }
+  assertOptionalText(params.errorMessage, "errorMessage");
+  if (params.artifacts !== undefined) {
+    if (!Array.isArray(params.artifacts)) {
+      throw new UnprocessableEntityError("artifacts 必须为成果数组", { artifacts: ["必须为成果数组"] });
+    }
+    for (const [index, artifact] of params.artifacts.entries()) {
+      assertObjectInput(artifact);
+      requiredText(artifact.type, `artifacts.${index}.type`);
+      requiredText(artifact.title, `artifacts.${index}.title`);
+      if (typeof artifact.content !== "string") {
+        throw new UnprocessableEntityError(`artifacts.${index}.content 必须为文本`);
+      }
+      assertOptionalText(artifact.schemaVersion, `artifacts.${index}.schemaVersion`);
+    }
   }
 
   // R09: Input revision validity check: cannot submit against non-existent future revisions
@@ -418,10 +446,11 @@ export async function reviewWork(
 
   // Only project owner can review (A04)
   await requireProjectRole(session, workItem.projectId, [Role.OWNER]);
-
-  if (!params.reason || params.reason.trim() === "") {
-    throw new UnprocessableEntityError("Review reason is required");
+  assertObjectInput(params);
+  if (typeof params.accepted !== "boolean") {
+    throw new UnprocessableEntityError("accepted 必填，且必须为布尔值", { accepted: ["必填，且必须为布尔值"] });
   }
+  const reason = requiredText(params.reason, "reason");
 
   return await prisma.$transaction(async (tx) => {
     // R09: Identify current submission batch
@@ -444,7 +473,7 @@ export async function reviewWork(
       where: { id: currentSubmission.id },
       data: {
         status: newOutcome,
-        reviewReason: params.reason.trim(),
+        reviewReason: reason,
         reviewedAt: new Date(),
         reviewedById: session.userId,
       },

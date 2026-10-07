@@ -25,6 +25,8 @@ export type AttentionSignal =
       finishedAt: string | null;
       conversationId: string | null;
       seenByUser: boolean;
+      /** KX-51b：未回答的步骤提问数（任务已先按默认假设推进）。 */
+      openQuestions?: number;
     }
   | {
       kind: "PROPOSAL";
@@ -50,6 +52,15 @@ export type AttentionSignal =
       agentName: string;
       reason: string | null;
       createdAt: string;
+    }
+  | {
+      /** KX-35：本机命令等你「允许一次 / 不允许」 */
+      kind: "DESKTOP_CONFIRM";
+      id: string;
+      label: string;
+      detail: string;
+      reason: string;
+      conversationId: string | null;
     };
 
 export interface AttentionItem {
@@ -60,6 +71,8 @@ export interface AttentionItem {
   href: string | null;
   conversationId: string | null;
   sortKey: number;
+  /** KX-35：可在列表里直接确认的本机动作 */
+  confirm?: { taskId: string; label: string; detail: string; reason: string };
 }
 
 const PROTECTED_ACTIONS = /(DELETE|PUBLISH|SEND|PAY|BUDGET|RELEASE|GATE|CONTRACT|PERMISSION)/i;
@@ -85,6 +98,17 @@ export function classifyAttention(signal: AttentionSignal): AttentionItem {
           href: null,
           conversationId: signal.conversationId,
           sortKey: 0,
+        };
+      }
+      if ((signal.status === "RUNNING" || signal.status === "COMPLETED") && (signal.openQuestions ?? 0) > 0) {
+        return {
+          id: `mission:${signal.id}`,
+          level: "SURFACE",
+          title: signal.goal,
+          why: `有 ${signal.openQuestions} 个问题想确认（已先按假设推进，回答后会修正）`,
+          href: null,
+          conversationId: signal.conversationId,
+          sortKey: 85,
         };
       }
       if (signal.status === "RUNNING" && signal.paused) {
@@ -163,6 +187,17 @@ export function classifyAttention(signal: AttentionSignal): AttentionItem {
         sortKey: signal.blocked || overdue ? 95 : 75,
       };
     }
+    case "DESKTOP_CONFIRM":
+      return {
+        id: `desktop:${signal.id}`,
+        level: "INTERRUPT",
+        title: `等你确认：${signal.label}`,
+        why: signal.reason,
+        href: null,
+        conversationId: signal.conversationId,
+        sortKey: 98,
+        confirm: { taskId: signal.id, label: signal.label, detail: signal.detail, reason: signal.reason },
+      };
     case "TASK_WAITING_HUMAN":
       return {
         id: `task:${signal.id}`,
@@ -187,5 +222,13 @@ export function buildAttentionBrief(signals: AttentionSignal[], limit = 6) {
   const completedRecently = signals.filter(
     (s) => s.kind === "MISSION" && s.status === "COMPLETED" && s.finishedAt && Date.now() - new Date(s.finishedAt).getTime() < 86_400_000
   ).length;
-  return { needsYou, inProgress, handledQuietly, completedRecently };
+  // KX-64：最近 24 小时完成的任务明细（系统通知用）；completedRecently 仍是数量，保持兼容。
+  const recentDone = signals
+    .flatMap((s) =>
+      s.kind === "MISSION" && s.status === "COMPLETED" && s.finishedAt && Date.now() - new Date(s.finishedAt).getTime() < 86_400_000
+        ? [{ id: s.id, title: s.goal, finishedAt: s.finishedAt, conversationId: s.conversationId }]
+        : []
+    )
+    .slice(0, limit);
+  return { needsYou, inProgress, handledQuietly, completedRecently, recentDone };
 }

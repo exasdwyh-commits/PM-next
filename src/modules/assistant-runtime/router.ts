@@ -30,37 +30,57 @@ export interface IntentRoutingDecision {
   plannerError: string | null;
 }
 
+/** R-03：贴进来的长文本（纪要 / 周报 / 方案）是「内容」，不是一句查询。 */
+export const PASTED_CONTENT_MIN_CHARS = 160;
+export function isPastedContent(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length >= PASTED_CONTENT_MIN_CHARS) return true;
+  const lines = trimmed.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length >= 3) return true;
+  return (trimmed.match(/(^|\n)\s*(?:[-*•]|\d+[.、)])\s*\S/g) ?? []).length >= 2;
+}
+
+/** 长文本只看开头一句（用户通常把「要我做什么」写在最前面），关键词查询不再扫全文。 */
+function instructionHead(text: string): string {
+  const firstLine = text.trim().split(/\r?\n/)[0] ?? "";
+  return firstLine.split(/[。！？!?；;]/)[0].slice(0, 80);
+}
+
 export function routeIntent(
   text: string,
   productBound: boolean
 ): KernCapabilityIntent {
-  const t = text.toLowerCase();
+  const pasted = isPastedContent(text);
+  // 先理解再分流：长文本用开头一句判断「明确指令」；状态查询类关键词对长文本一律不生效。
+  const probe = pasted ? instructionHead(text) : text;
+  const t = probe.toLowerCase();
 
   if (/挑战我的判断|证伪|最脆弱|哪里会失败|反方|复核/.test(t)) {
     return "CHALLENGE_THESIS";
   }
-  if (/提议|草案|待确认|待我确认/.test(t)) {
-    return "PENDING_PROPOSALS";
-  }
-  if (PRODUCT_RND_REPORT.test(text)) return "PRODUCT_RND_REPORT";
-  if (PRODUCT_RND_STATUS.test(text)) return "PRODUCT_RND_STATUS";
-  if (/决策|拍板|决定|审批/.test(t)) return "PENDING_DECISIONS";
-
-  if (TASK_VERB.test(text) && parseWorkItemTask(text)) {
+  if (TASK_VERB.test(probe) && parseWorkItemTask(probe)) {
     return "PROPOSE_CREATE_WORK_ITEM";
   }
-  if (productBound && CHANGE_VERB.test(text) && matchField(text)) {
-    return "PROPOSE_FIELD_CHANGE";
-  }
-  if (isDesktopInstruction(text)) return "DESKTOP_EXECUTION";
-  if (PRODUCT_RND_START.test(text)) return "START_PRODUCT_RND";
-
+  if (isDesktopInstruction(probe)) return "DESKTOP_EXECUTION";
+  if (PRODUCT_RND_START.test(probe)) return "START_PRODUCT_RND";
+  if (PRODUCT_RND_REPORT.test(probe)) return "PRODUCT_RND_REPORT";
   if (
     !productBound &&
-    (NEW_PRODUCT_VERB.test(text) ||
+    (NEW_PRODUCT_VERB.test(probe) ||
       Object.keys(parseIntakeLabels(text)).length > 0)
   ) {
     return "NEW_PRODUCT_INTAKE";
+  }
+  // 贴进来的内容：不猜，交给规划器 / 任务决策去理解全文。
+  if (pasted) return "UNSUPPORTED";
+
+  if (/提议|草案|待确认|待我确认/.test(t)) {
+    return "PENDING_PROPOSALS";
+  }
+  if (PRODUCT_RND_STATUS.test(text)) return "PRODUCT_RND_STATUS";
+  if (/决策|拍板|决定|审批/.test(t)) return "PENDING_DECISIONS";
+  if (productBound && CHANGE_VERB.test(text) && matchField(text)) {
+    return "PROPOSE_FIELD_CHANGE";
   }
 
   if (
@@ -78,6 +98,9 @@ export function routeIntent(
 export async function resolveKernIntent(
   session: SessionContext,
   input: {
+    signal?: AbortSignal;
+    beforeAttempt?: () => Promise<void>;
+    agentRunId?: string;
     conversationId: string;
     text: string;
     productBound: boolean;
@@ -120,9 +143,11 @@ export async function resolveKernIntent(
 
     const planned = await executePersistedModelGateway({
       organizationId: session.organizationId,
+      agentRunId: input.agentRunId,
       policy: plannerPlan.policy,
       profiles: plannerPlan.profiles,
       request: {
+        signal: input.signal, beforeAttempt: input.beforeAttempt,
         taskClass: "ASSISTANT_PLANNING",
         messages: buildKernPlannerMessages({
           text: input.text,
@@ -158,6 +183,8 @@ export async function resolveKernIntent(
       plannerError: null,
     };
   } catch (error: unknown) {
+    input.signal?.throwIfAborted();
+    await input.beforeAttempt?.();
     return {
       intent: "UNSUPPORTED",
       source: "DETERMINISTIC_FALLBACK",

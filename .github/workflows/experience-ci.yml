@@ -21,6 +21,9 @@ on:
       - "tests/kern-runtime-architecture.test.ts"
       - "tests/kern-goal-plan.test.ts"
       - "tests/kern-conversation-controls.test.ts"
+      - "tests/prepare-test-database.test.ts"
+      - "scripts/prepare-test-database*"
+      - "scripts/lib/**"
       - "package.json"
       - ".github/workflows/experience-ci.yml"
   push:
@@ -43,6 +46,9 @@ on:
       - "tests/kern-project-map.ts"
       - "tests/kern-runtime-architecture.test.ts"
       - "tests/kern-conversation-controls.test.ts"
+      - "tests/prepare-test-database.test.ts"
+      - "scripts/prepare-test-database*"
+      - "scripts/lib/**"
       - "package.json"
       - ".github/workflows/experience-ci.yml"
 
@@ -106,6 +112,8 @@ jobs:
         run: npm run test:visual-intelligence
       - name: Verify Kern conversation autonomy policy
         run: npm run test:kern-autonomy
+      - name: Verify source guards (timezone, status labels, honest events, local CLI, test DB structure gate)
+        run: npm run test:source-guards
       - name: Verify Kern source-backed project map
         run: npm run test:kern-project-map
       - name: Verify Kern runtime architecture contract

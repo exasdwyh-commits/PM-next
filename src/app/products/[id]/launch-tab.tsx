@@ -50,27 +50,35 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
   const [lNote, setLNote] = React.useState("");
   const [lEvidence, setLEvidence] = React.useState("");
 
-  const load = React.useCallback(async () => {
+  const busyRef = React.useRef(false);
+  const loadRequest = React.useRef(0);
+  const load = React.useCallback(async (signal?: AbortSignal) => {
+    const request = ++loadRequest.current;
     setLoading(true);
     setErr(null);
     try {
-      const res = await fetch(`/api/products/${productId}/launch`);
+      const res = await fetch(`/api/products/${productId}/launch`, { signal });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "读取上市计划失败");
+      if (signal?.aborted || request !== loadRequest.current) return;
       setCtx(json);
-      if (json.plan && !cOwner) setCOwner(json.plan.ownerId ?? "");
+      if (json.plan) setCOwner((current) => current || json.plan.ownerId || "");
     } catch (e: any) {
-      setErr(e.message || "读取失败");
+      if (!signal?.aborted && request === loadRequest.current) setErr(e.message || "读取失败");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted && request === loadRequest.current) setLoading(false);
     }
-  }, [productId, cOwner]);
+  }, [productId]);
 
   React.useEffect(() => {
-    load();
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => { controller.abort(); loadRequest.current += 1; };
   }, [load]);
 
   const call = async (url: string, method: string, body?: any) => {
+    if (busyRef.current) return null;
+    busyRef.current = true;
     setBusy(true);
     setErr(null);
     setMsg(null);
@@ -89,6 +97,7 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
       setErr(e.message || "操作失败");
       return null;
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   };
@@ -96,12 +105,13 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
   const plan = ctx?.plan ?? null;
   const gate = ctx?.gate ?? null;
   const canEdit = !!ctx?.canEdit;
+  const hasOwners = (ctx?.ownerCandidates?.length ?? 0) > 0;
   const authorization = ctx?.authorization ?? null;
   const g3Packet = ctx?.g3Packet ?? null;
   const canRequestG3 = !!ctx?.canRequestG3;
   const canDecideG3 = !!ctx?.canDecideG3;
 
-  if (loading) {
+  if (loading && !ctx) {
     return (
       <Panel eyebrow="LAUNCH" title="上市计划">
         <Thinking label="正在读取上市计划…" />
@@ -109,10 +119,11 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
     );
   }
 
-  if (err && !plan) {
+  if (err && !ctx) {
     return (
       <Panel eyebrow="LAUNCH" title="上市计划">
-        <div className="hermes-banner is-danger">{err}</div>
+        <div className="hermes-banner is-danger" role="alert">{err}</div>
+        <button type="button" className="hermes-outline-btn" onClick={() => void load()}>重试读取</button>
       </Panel>
     );
   }
@@ -134,7 +145,7 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
             <button
               className="hermes-primary-btn"
               onClick={() => setCreateOpen(true)}
-              disabled={!canEdit}
+              disabled={!canEdit || !hasOwners || busy}
               title={canEdit ? undefined : "只有该产品所属项目的负责人或决策人可以修改上市计划"}
             >
               <Icon name="signal" size={15} />
@@ -146,6 +157,7 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
               当前账号在该产品所属项目中没有负责人/决策人角色，只能查看。
             </p>
           )}
+          {canEdit && !hasOwners && <p className="hermes-note" style={{ marginTop: 8 }}>暂无可选负责人。请先为产品关联项目并设置负责人，再建立上市计划。</p>}
         </Panel>
 
         {createOpen && (
@@ -153,19 +165,19 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
             eyebrow="NEW LAUNCH PLAN"
             title="建立上市计划"
             sub="负责人与目标日期为必填；里程碑可先填一条，之后随时增补"
-            onClose={() => setCreateOpen(false)}
+            onClose={() => { if (!busyRef.current) setCreateOpen(false); }}
             wide
           >
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
                 const r = await call(`/api/products/${productId}/launch`, "POST", {
-                  title: cTitle || undefined,
+                  title: cTitle.trim() || undefined,
                   ownerId: cOwner,
                   targetDate: cDate || null,
                   milestones: cMilestones
                     .filter((m) => m.title.trim())
-                    .map((m) => ({ title: m.title, kind: m.kind, dueDate: m.dueDate || null })),
+                    .map((m) => ({ title: m.title.trim(), kind: m.kind, dueDate: m.dueDate || null })),
                 });
                 if (r) {
                   setCreateOpen(false);
@@ -213,8 +225,8 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
 
               <div className="hermes-section-label">初始里程碑（依赖项）</div>
               {cMilestones.map((m, i) => (
-                <div key={i} className="hermes-inline" style={{ gap: 8, alignItems: "flex-end" }}>
-                  <label className="hermes-label" style={{ flex: 1 }}>
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 160px), 1fr))", gap: 8, alignItems: "end" }}>
+                  <label className="hermes-label" style={{ minWidth: 0 }}>
                     标题
                     <input
                       className="hermes-input"
@@ -224,7 +236,7 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
                       }
                     />
                   </label>
-                  <label className="hermes-label" style={{ width: 120 }}>
+                  <label className="hermes-label" style={{ minWidth: 0 }}>
                     类型
                     <select
                       className="hermes-select hermes-input"
@@ -240,7 +252,7 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
                       ))}
                     </select>
                   </label>
-                  <label className="hermes-label" style={{ width: 150 }}>
+                  <label className="hermes-label" style={{ minWidth: 0 }}>
                     截止日
                     <input
                       className="hermes-input"
@@ -264,7 +276,7 @@ export default function LaunchTab({ productId, onChanged }: { productId: string;
               {err && <div className="hermes-banner is-danger">{err}</div>}
 
               <div className="hermes-modal-actions">
-                <button type="button" className="hermes-outline-btn" onClick={() => setCreateOpen(false)}>
+                <button type="button" className="hermes-outline-btn" disabled={busy} onClick={() => setCreateOpen(false)}>
                   取消
                 </button>
                 <button type="submit" className="hermes-primary-btn" disabled={busy}>

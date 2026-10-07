@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
 import Icon from "./icons";
 import LogoutButton from "./logout-button";
+import { SidebarStatus } from "./kx";
+import { APP_VERSION } from "@/shared/app-version";
 import { NavProgress, NavProgressLink } from "./nav-progress";
+import { MobileNavigation } from "./mobile-navigation";
 
 /**
  * PM-next 专业管理后台 shell。
@@ -161,10 +164,8 @@ export default function AppShell({
 
         <div className="hermes-sidebar-bottom">
           <div className={`hermes-status-dot is-${status.tone}`} />
-          <div>
-            <strong>{status.label}</strong>
-            <span>{status.detail}</span>
-          </div>
+          {/* KX-25：状态区 = 系统状态 + 用量 / 账户入口 + 版本；窄屏侧栏只剩圆点 */}
+          <SidebarStatus label={status.label} detail={status.detail} version={APP_VERSION} />
         </div>
 
         <div className="hermes-profile">
@@ -180,11 +181,16 @@ export default function AppShell({
       <section className="hermes-content">
         <NavProgress />
         <div className="hermes-topbar">
+          <div className="hermes-topbar-context">
+            <MobileNavigation>
+              {[KERN_ITEM, ...NAV_ITEMS, AUTOMATION_ITEM, SETTINGS_ITEM].map(it => renderItem(it))}
+            </MobileNavigation>
           {topbarLeft ?? (
             <div className="hermes-topbar-title">
                             <strong>{current?.label || "工作台"}</strong>
             </div>
           )}
+          </div>
           <div className="hermes-top-actions">
             {topbarRight}
             <span className="top-divider" />

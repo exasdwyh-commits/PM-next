@@ -14,7 +14,8 @@ import prisma from "@/shared/db";
 import type { SessionContext } from "@/modules/identity/session";
 import { ConflictError, UnprocessableEntityError } from "@/shared/errors";
 import { createProposal } from "@/modules/advisor/proposals";
-import { agentLabel, nodeLabel } from "@/app/muse/mission-timeline";
+import { agentLabel, nodeLabel } from "./labels";
+import { collectMissionSources, loadMissionSourceEvents, uniqueMissionSources } from "./research-sources";
 import { getKernMissionStatus } from "./service";
 import {
   answerFor,
@@ -52,6 +53,7 @@ export async function loadMissionReport(session: SessionContext, missionTaskId: 
     createdAt: status.createdAt,
     constraints: parseConstraints(status.goal),
     conclusion,
+    researchSources: status.demo ? [] : uniqueMissionSources(collectMissionSources(await loadMissionSourceEvents(session.organizationId, missionTaskId))),
     decision: extractDecision(conclusion),
     recommendation: extractRecommendation(conclusion),
     steps: status.nodes

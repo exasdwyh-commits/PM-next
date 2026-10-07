@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/shared/db";
 import type { SessionContext } from "@/modules/identity/session";
 import { NotFoundError, UnprocessableEntityError } from "@/shared/errors";
+import { assertObjectInput } from "@/shared/input-validation";
 import { isProviderRuntimeConfigured } from "@/modules/model-gateway/provider-runtime";
 import {
   KERN_CAPABILITY_CATALOG,
@@ -84,6 +85,28 @@ export async function validateKernConversationRuntimeConfig(
   session: SessionContext,
   value: unknown
 ): Promise<KernConversationRuntimeConfig> {
+  // Normalization tolerates stored legacy data. User writes must fail before
+  // normalization can discard a malformed selection and reset it to AUTO.
+  assertObjectInput(value);
+  if (value.version !== undefined && value.version !== "kern-conversation-config/v1") {
+    throw new UnprocessableEntityError("会话配置版本不受支持");
+  }
+  if (value.modelProfileKey !== undefined && value.modelProfileKey !== null && typeof value.modelProfileKey !== "string") {
+    throw new UnprocessableEntityError("模型选择必须为文本或 null");
+  }
+  for (const key of ["advisorCodes", "skillKeys", "capabilityKeys"] as const) {
+    const selection = value[key];
+    if (selection !== undefined && selection !== null && (!Array.isArray(selection) || selection.some((item) => typeof item !== "string" || !item.trim()))) {
+      throw new UnprocessableEntityError(`${key} 必须为非空文本数组或 null`, {
+        [key]: ["必须为非空文本数组或 null"],
+      });
+    }
+  }
+  const capabilities = value.capabilityKeys as string[] | null | undefined;
+  const allowed = new Set<string>(KERN_CAPABILITY_CATALOG.map((item) => item.key));
+  if (capabilities?.some((key) => !allowed.has(key.trim()))) {
+    throw new UnprocessableEntityError("功能选择包含不支持的能力");
+  }
   const config = normalizeKernConversationRuntimeConfig(value);
 
   const [profile, advisors, skills] = await Promise.all([

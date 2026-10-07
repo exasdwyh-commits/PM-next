@@ -1,3 +1,4 @@
+import { getTenantPack } from "@/modules/tenant"
 /**
  * 渠道预设与默认值
  *
@@ -301,19 +302,10 @@ export const CHANNEL_PRESETS: Record<Channel, ChannelPreset> = {
 
 /**
  * 按品类预设的目标利润率 %
- * - 保健品：35%（高毛利品类）
- * - 食品：25%（低毛利走量）
- * - 礼盒：40%（礼品溢价）
- * - 默认：30%
+ * 数值来自当前租户配置包 packs/<id>/domain/categories.json。
  */
 export const CATEGORY_TARGET_MARGIN: Record<string, number> = {
-  '保健品': 35,
-  '保健食品': 35,
-  '食品': 25,
-  '功能性食品': 30,
-  '营养食品': 30,
-  '礼盒': 40,
-  '默认': 30,
+  ...getTenantPack().categories.targetMargin,
 }
 
 /**

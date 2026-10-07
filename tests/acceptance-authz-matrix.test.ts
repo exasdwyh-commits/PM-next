@@ -62,9 +62,27 @@ const MARK = CROSS_TENANT_MARKER;
  *   +1 方法（GET）。同为「用户自作用域只读」。
  * 2026-09-26（Kern personal agent）：+4 路由（conversations/{id}/runtime-config 补登记、
  *   /api/missions/{id}、/api/memory、/api/memory/{id}），+7 方法。均为用户自作用域。
+ * 2026-09-28（KX-03 整合分支补登记）：+6 路由（missions/brief/{messageId}、missions/{id}/control、
+ *   events、export、stream、takeaway），+8 方法。均为发起人/会话所有人自作用域，其他人 404。
+ * 2026-09-28（KX-30 凭证保管层）：+2 路由（/api/vault、/api/vault/{id}），+3 方法（GET/POST/DELETE）。
+ *   用户自作用域；他人撤销一律 404。
+ * 2026-09-28（KX-31 连接器）：+2 路由（/api/connectors、/api/connectors/{id}），+4 方法（GET/POST/PATCH/DELETE）。
+ *   用户自作用域；POST 探测用内网地址，任何身份都被 SSRF 校验拦下（422），不会外连。
+ * 2026-09-28（KX-34 定时）：+2 路由（/api/schedules、/api/schedules/{id}），+4 方法（GET/POST/PATCH/DELETE）。
+ *   用户自作用域；POST 探测用无效 cron，任何身份 422。
+ * 2026-09-28（KX-34b Worker 常驻）：+1 路由（/api/worker/health），+1 方法（GET）。全局只读状态，不含租户数据。
+ * 2026-09-28（KX-36 做法）：+2 路由（/api/playbooks、/api/playbooks/{id}），+4 方法。仅本人条目。
+ * 2026-09-28（KX-35 本机命令确认）：+1 路由（/api/desktop-runtime/tasks/{id}/confirm），+1 方法（POST）。
+ *   门禁同 claim；矩阵夹具任务不在待确认，本人探测得 409，不会改动任务。
+ * 2026-09-29（KX-38 合并补登记）：+1 路由（/api/missions/{id}/response），+1 方法（GET）。
+ *   来自前端改版分支，合并时漏登记；仅发起人，他人 404。
+ * 2026-09-29（KX-62 产出库）：+1 路由（/api/library），+1 方法（GET）。只列本人已完成任务，跨租户不可见。
+ * 2026-09-29（KX-64 系统通知）：+1 路由（/api/attention），+1 方法（GET）。只含本人数据，跨租户不可见。
+ * 2026-09-29（KX-71 统一能力目录）：+1 路由（/api/capabilities），+1 方法（GET）。只含本人 / 本组织可见项。
+ * 2026-09-29（KX-74 每周复盘）：+1 路由（/api/reviews/weekly），+2 方法（GET / POST）。只读写本人数据。
  */
-const BASELINE_ROUTES = 71;
-const BASELINE_METHODS = 97;
+const BASELINE_ROUTES = 92;
+const BASELINE_METHODS = 128;
 
 let passed = 0;
 const failures: string[] = [];
@@ -118,8 +136,20 @@ async function api(
     body: body === undefined ? undefined : JSON.stringify(body),
     redirect: "manual",
   });
-  const text = await res.text();
+  const text = await readBody(res);
   return { status: res.status, text };
+}
+
+/**
+ * 流式响应（SSE）不会自然结束：拿到状态码后立即断开，否则 `res.text()` 会挂到服务端上限。
+ * 门禁结论只看状态码，与 body 无关。
+ */
+async function readBody(res: Response): Promise<string> {
+  if ((res.headers.get("content-type") ?? "").includes("text/event-stream")) {
+    await res.body?.cancel().catch(() => undefined);
+    return "";
+  }
+  return res.text();
 }
 
 /**
@@ -437,6 +467,53 @@ async function main() {
   const memoryA = await prisma.kernMemory.create({
     data: { organizationId: orgA.id, userId: ownerA.id, kind: "PREFERENCE", content: `${MARK} 矩阵探测偏好` },
   });
+  // 凭证夹具：密文是占位串（矩阵只测归属，不解密）。
+  const credentialA = await prisma.kernCredential.create({
+    data: { organizationId: orgA.id, userId: ownerA.id, target: "api.matrix.example", label: `${MARK} 矩阵凭证`, hint: "Authorization ••••", cipher: "v1.0.x.x.x", keyVersion: 0 },
+  });
+  const connectorA = await prisma.kernConnector.create({
+    data: {
+      organizationId: orgA.id,
+      userId: ownerA.id,
+      name: `${MARK} 矩阵连接器`,
+      slug: "matrix",
+      url: "https://mcp.matrix.example/mcp",
+      tools: [{ name: "list_probe", title: "list_probe", description: "", effect: "read", enabled: true, capability: "connector.read", inputSchema: null }],
+    },
+  });
+  // 任务简报挂在会话消息的 citations 上（kind = kern-brief），仅会话所有人可读写。
+  const scheduleA = await prisma.kernSchedule.create({
+    data: { organizationId: orgA.id, userId: ownerA.id, kind: "REMINDER", title: `${MARK} 矩阵提醒`, cron: "0 9 * * 1", payload: { text: "矩阵探测" }, nextRunAt: new Date(Date.now() + 7 * 86_400_000) },
+  });
+  const playbookA = await prisma.kernPlaybook.create({
+    data: { organizationId: orgA.id, userId: ownerA.id, name: `${MARK} 矩阵做法`, sourceGoal: "矩阵探测", sourceMissionTaskId: `${RUN_TAG}-pb`, plan: { goal: "{{goal}}", nodes: [] } },
+  });
+  const briefMsgA = await prisma.message.create({
+    data: {
+      conversationId: convA.id,
+      role: "ASSISTANT",
+      content: `${MARK} 任务简报`,
+      citations: [
+        {
+          kind: "kern-brief",
+          ref: "matrix",
+          title: "Kern 任务简报",
+          brief: {
+            schemaVersion: "kern-brief/v1",
+            stage: "CLARIFY",
+            goal: "矩阵探测简报",
+            playbook: "GENERIC",
+            questions: [],
+            plan: null,
+            missionTaskId: null,
+            demo: false,
+            memoriesUsed: [],
+            createdAt: new Date(0).toISOString(),
+          },
+        },
+      ],
+    },
+  });
 
   const uploadDir = path.join(process.cwd(), ".uploads");
   await fs.promises.mkdir(uploadDir, { recursive: true });
@@ -462,8 +539,13 @@ async function main() {
     [/^\/api\/work-items\//, workItemA.id],
     [/^\/api\/workforce\/tasks\//, agentTaskA.id],
     [/^\/api\/desktop-runtime\/tasks\//, desktopTaskA.id],
+    [/^\/api\/missions\/brief\//, briefMsgA.id],
     [/^\/api\/missions\//, missionA.id],
     [/^\/api\/memory\//, memoryA.id],
+    [/^\/api\/vault\//, credentialA.id],
+    [/^\/api\/connectors\//, connectorA.id],
+    [/^\/api\/schedules\//, scheduleA.id],
+    [/^\/api\/playbooks\//, playbookA.id],
   ];
   const expand = (template: string): string => {
     if (!template.includes("{")) return template;

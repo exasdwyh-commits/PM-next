@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { waitForAcceptedMessage } from "./helpers/accepted-message";
 /**
  * 科学证据引擎与顾问挑战验收（Evidence Intelligence / Challenge My Thesis）
  *
@@ -334,11 +336,11 @@ async function main() {
   // ---------- 3. 顾问对话：意图识别与持久化 ----------
   console.log("▶ 场景 3：顾问对话内的挑战意图与报告持久化");
 
-  const challengeMsg = await api("POST", `/api/conversations/${conversation.id}/messages`, {
+  const challengeMsg = await waitForAcceptedMessage(await api("POST", `/api/conversations/${conversation.id}/messages`, {
     token: ownerLogin.token,
-    body: { content: "挑战我的判断：这个产品假设哪里最脆弱？" },
-  });
-  ok(challengeMsg.status === 201, `3.1 挑战消息发送成功（HTTP ${challengeMsg.status}）`);
+    body: { content: "挑战我的判断：这个产品假设哪里最脆弱？", clientMessageId: randomUUID() },
+  }), () => api("GET", `/api/conversations/${conversation.id}/messages`, { token: ownerLogin.token }));
+  ok(challengeMsg.status === 202, `3.1 挑战消息发送成功（HTTP ${challengeMsg.status}）`);
 
   const runs = await prisma.agentRun.findMany({
     where: { conversationId: conversation.id },
@@ -357,6 +359,15 @@ async function main() {
     ? storedCitations.find((c) => c.kind === "challenge-report")
     : null;
   ok(!!reportCitation, "3.3 挑战报告已持久化到 Message.citations");
+  if (reportCitation && reportCitation.ref !== product.id) {
+    // 诊断：3.5/3.6 失败时直接给出实际落库形态，不必再靠猜。
+    console.log(
+      "  ⓘ 实际 citations 形态：",
+      JSON.stringify(
+        (storedCitations ?? []).map((c: any) => ({ kind: c?.kind, keys: Object.keys(c ?? {}), reportKeys: Object.keys(c?.report ?? {}) }))
+      )
+    );
+  }
   ok(
     !!reportCitation?.report?.overallRisk && !!reportCitation?.report?.recommendation,
     `3.4 持久化载荷含风险与建议（${reportCitation?.report?.overallRisk} / ${reportCitation?.report?.recommendation}）`

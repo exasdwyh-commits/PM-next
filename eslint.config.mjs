@@ -10,6 +10,7 @@ export default defineConfig([
   globalIgnores([
     ".next/**",
     ".next-verify/**",
+    ".next-acc/**",
     "node_modules/**",
     ".tmp-pg/**",
     ".uploads/**",

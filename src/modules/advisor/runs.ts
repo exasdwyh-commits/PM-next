@@ -212,16 +212,15 @@ export async function cancelInteractiveRun(
 
   const cancelledAt = new Date();
 
-  // 更新为 CANCELLED
-  await prisma.agentRun.update({
-    where: { id: runId },
+  // A concurrent completion wins over a late cancellation request.
+  const changed = await prisma.agentRun.updateMany({
+    where: { id: runId, organizationId: session.organizationId, userId: session.userId, status: { in: ["QUEUED", "RUNNING"] } },
     data: {
-      status: "CANCELLED",
-      finishedAt: cancelledAt,
-      errorReason: "用户取消",
-      costStatus: "unknown",
+      status: "CANCELLED", cancelRequestedAt: cancelledAt, finishedAt: cancelledAt,
+      executionToken: null, leaseOwner: null, errorReason: "用户取消", costStatus: "unknown",
     },
   });
+  if (!changed.count) throw new UnprocessableEntityError("运行已结束，不能再取消");
 
   return {
     runId,

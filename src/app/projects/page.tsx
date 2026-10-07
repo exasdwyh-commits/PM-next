@@ -26,7 +26,12 @@ export default async function ProjectsPage() {
       organizationId: session.organizationId,
       members: { some: { userId: session.userId } },
     },
-    include: {
+    select: {
+      id: true,
+      title: true,
+      stage: true,
+      createdAt: true,
+      updatedAt: true,
       owner: { select: { id: true, name: true } },
       decisionMaker: { select: { id: true, name: true } },
       product: { select: { id: true, name: true, identityCode: true } },

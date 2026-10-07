@@ -1,18 +1,24 @@
 "use client";
+import { getTenantPack } from "@/modules/tenant";
+const TENANT_UI = getTenantPack().tenant.ui;
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import AppShell from "@/components/app-shell";
 import { Panel, PageHeading, Badge, Empty, Modal } from "@/components/ui";
 import { StepTrack, GateLine, type StepItem, type GateNode } from "@/components/viz";
 import Icon from "@/components/icons";
-import { ProductRndPanel } from "@/components/product-rnd-panel";
+import { Notice } from "@/components/notice";
+import { useTabInk, useTabSwap } from "@/components/motion/tabs";
 import { useReasonDialog } from "@/components/reason-dialog";
 import { identityHeaders } from "@/shared/client-identity";
 import { fmtDateTime, fmtTime } from "@/shared/datetime";
+import type { RuntimeStatus } from "@/shared/runtime-status";
+import { PROJECT_WORKSPACE_TABS, prepareArtifactSubmission, preparePacketBudget, projectStagesForMode } from "./project-workspace";
 import {
   labelRunMode,
+  labelProjectMode,
   labelProjectStage,
   labelOpportunityType,
   labelOpportunityElement,
@@ -40,6 +46,24 @@ const STRUCTURED_SUBMISSION_TYPES = new Set([
   "BUSINESS_OBSERVATION",
 ]);
 
+const ProductRndPanel = dynamic(
+  () => import("@/components/product-rnd-panel").then((module) => module.ProductRndPanel),
+  { loading: () => <div className="hermes-note" role="status">正在加载研发工作区…</div> }
+);
+
+function ArtifactContent({ id, content }: { id: string; content: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const long = content.length > 600;
+  return (
+    <div>
+      <div id={`artifact-content-${id}`} style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+        {long && !expanded ? `${content.slice(0, 240)}…` : content}
+      </div>
+      {long && <button type="button" className="hermes-link" aria-expanded={expanded} aria-controls={`artifact-content-${id}`} onClick={() => setExpanded((value) => !value)}>{expanded ? "收起成果内容" : "展开完整成果"}</button>}
+    </div>
+  );
+}
+
 export default function ProjectDetailClient({
   initialProject,
   allUsers,
@@ -47,6 +71,7 @@ export default function ProjectDetailClient({
   gaps,
   initialEvidenceInsight,
   initialOpportunity,
+  runtime,
   mockAuth = false,
 }: {
   initialProject: any;
@@ -60,12 +85,22 @@ export default function ProjectDetailClient({
     gaps: { fieldKey: string; fieldName: string; description: string }[];
   } | null;
   initialOpportunity?: any;
+  runtime: RuntimeStatus;
 }) {
-  const router = useRouter();
   const [project, setProject] = useState(initialProject);
+  const [currentGaps, setCurrentGaps] = useState(gaps);
   const [activeUserId, setActiveUserId] = useState(currentSession?.userId || initialProject.ownerId);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"overview" | "rnd" | "tasks" | "evidence" | "decisions" | "records">("overview");
+  const [saving, setSaving] = useState(false);
+  const savingRef = React.useRef(false);
+  const messageTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshVersion = React.useRef(0);
+  // KX-28：工作区标签的选中底板滑动；切换内容时高度平滑、内容淡入、视野回到标签栏下方。
+  const workspaceTabsRef = React.useRef<HTMLDivElement>(null);
+  const workspacePanelRef = React.useRef<HTMLDivElement>(null);
+  useTabInk(workspaceTabsRef, activeWorkspaceTab);
+  useTabSwap(workspacePanelRef, activeWorkspaceTab, workspaceTabsRef);
   // 理由输入对话框（替代原生 prompt）
   const [askReason, reasonDialog] = useReasonDialog();
 
@@ -107,13 +142,13 @@ export default function ProjectDetailClient({
   const [feedbackContent, setFeedbackContent] = useState("");
 
   const [showPacketModal, setShowPacketModal] = useState(false);
-  const [packetBudget, setPacketBudget] = useState("50000");
-  const [packetScope, setPacketScope] = useState("仅限一期打样原料采购与初次实验室感官评测");
-  const [packetPlan, setPacketPlan] = useState("组织20人双盲口感评测与水分多酚指标测定");
+  const [packetBudget, setPacketBudget] = useState("");
+  const [packetScope, setPacketScope] = useState("");
+  const [packetPlan, setPacketPlan] = useState("");
 
-  const activeUser = allUsers.find((u) => u.id === activeUserId) || allUsers[0];
   const isOwner = activeUserId === project.ownerId;
   const isDecisionMaker = activeUserId === project.decisionMakerId;
+  const workItemById = React.useMemo(() => new Map<string, any>((project.workItems ?? []).map((item: any) => [item.id, item])), [project.workItems]);
   const productRndWorkItem = (project.workItems ?? []).find(
     (item: any) =>
       item.title === "产品研发综合评估" &&
@@ -121,36 +156,76 @@ export default function ProjectDetailClient({
   );
 
   const showMsg = (text: string, type: "success" | "error" = "success") => {
+    if (messageTimer.current) clearTimeout(messageTimer.current);
     setMessage({ text, type });
-    setTimeout(() => setMessage(null), 5000);
+    if (type === "success") messageTimer.current = setTimeout(() => setMessage(null), 5000);
   };
 
-  const reloadProject = async () => {
+  React.useEffect(() => () => {
+    if (messageTimer.current) clearTimeout(messageTimer.current);
+    refreshVersion.current += 1;
+  }, []);
+
+  React.useEffect(() => {
+    refreshVersion.current += 1;
+    setProject(initialProject);
+    setCurrentGaps(gaps);
+    setEvidenceInsight(initialEvidenceInsight ?? null);
+    setOpportunity(initialOpportunity ?? null);
+  }, [initialProject, gaps, initialEvidenceInsight, initialOpportunity]);
+
+  const runMutation = async (action: () => Promise<void>) => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    setMessage(null);
     try {
-      const res = await fetch(`/api/projects/${project.id}`, {
-        headers: identityHeaders(mockAuth, activeUserId),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setProject(data);
+      await action();
+    } catch (error) {
+      showMsg(error instanceof Error ? error.message : "操作失败，请稍后重试", "error");
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
+
+  const formError = message?.type === "error" ? (
+    <div className="hermes-banner is-danger" role="alert">{message.text}</div>
+  ) : null;
+
+  const reloadProject = async () => {
+    const version = ++refreshVersion.current;
+    try {
+      const headers = identityHeaders(mockAuth, activeUserId);
+      const [res, productionRes] = await Promise.all([
+        fetch(`/api/projects/${project.id}`, { headers }),
+        fetch(`/api/projects/${project.id}/production`, { headers }),
+      ]);
+      if (!res.ok) throw new Error("操作已保存，但项目最新数据加载失败，请刷新重试");
+      const [data, productionData] = await Promise.all([
+        res.json(), productionRes.ok ? productionRes.json() : Promise.resolve(null),
+      ]);
+      if (version !== refreshVersion.current) return;
+      setProject(data);
+      if (Array.isArray(data.gaps)) setCurrentGaps(data.gaps);
+      setProductionContext(productionData);
+    } catch (error) {
+      if (version === refreshVersion.current) {
+        showMsg(error instanceof Error ? error.message : "项目最新数据加载失败，请刷新重试", "error");
       }
-      const productionRes = await fetch(`/api/projects/${project.id}/production`, {
-        headers: identityHeaders(mockAuth, activeUserId),
-      });
-      if (productionRes.ok) setProductionContext(await productionRes.json());
-    } catch (e) {
-      console.error(e);
     }
   };
 
   React.useEffect(() => {
     let cancelled = false;
+    const version = refreshVersion.current;
     (async () => {
       try {
         const res = await fetch(`/api/projects/${project.id}/production`, {
           headers: identityHeaders(mockAuth, activeUserId),
         });
-        if (res.ok && !cancelled) setProductionContext(await res.json());
+        const data = res.ok ? await res.json() : null;
+        if (!cancelled && version === refreshVersion.current) setProductionContext(data);
       } catch (e) {
         console.error(e);
       }
@@ -192,13 +267,13 @@ export default function ProjectDetailClient({
         headers: identityHeaders(mockAuth, activeUserId, { "Content-Type": "application/json" }),
         body: body ? JSON.stringify(body) : undefined,
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error(data.message || "请求失败");
+        throw new Error(data?.message || "请求失败，请稍后重试");
       }
       return data;
-    } catch (err: any) {
-      showMsg(err.message, "error");
+    } catch (err) {
+      if (err instanceof TypeError) throw new Error("网络连接失败，请检查连接后重试");
       throw err;
     }
   };
@@ -206,11 +281,14 @@ export default function ProjectDetailClient({
   // 1. Create Work Item
   const handleCreateWorkItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
+    await runMutation(async () => {
+      if (!workTitle.trim() || !workTarget.trim() || !workDeliverable.trim()) {
+        throw new Error("请填写工作项名称、执行目标和交付物要求");
+      }
       await apiCall(`/api/projects/${project.id}/work-items`, "POST", {
-        title: workTitle,
-        target: workTarget,
-        deliverableReq: workDeliverable,
+        title: workTitle.trim(),
+        target: workTarget.trim(),
+        deliverableReq: workDeliverable.trim(),
         executorType: workExecutorType,
         dependencies: workDependencies,
       });
@@ -222,7 +300,7 @@ export default function ProjectDetailClient({
       setWorkDependencies([]);
       setWorkExecutorType("HUMAN");
       await reloadProject();
-    } catch (e) {}
+    });
   };
 
   const latestAcceptedArtifactId = (type: string): string | null => {
@@ -233,7 +311,7 @@ export default function ProjectDetailClient({
   };
 
   const structuredTemplate = (type: string): string => {
-    const base = { dataNature: "REAL", assumptions: [], missingInputs: [] };
+    const base = { dataNature: "DEMO", assumptions: [], missingInputs: [] };
     const plus90 = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const latestG2 = (project.decisionPackets ?? []).find(
       (p: any) => p.gate === "PRODUCTION_GATE" && p.status === "APPROVED"
@@ -323,16 +401,16 @@ export default function ProjectDetailClient({
 
   // 2. Submit Deliverables
   const handleSubmitDeliverables = async (workItemId: string) => {
-    try {
+    await runMutation(async () => {
       const structured = STRUCTURED_SUBMISSION_TYPES.has(subArtifactType);
+      const artifact = prepareArtifactSubmission(subArtifactTitle, subArtifactContent, structured);
       await apiCall(`/api/work-items/${workItemId}/submissions`, "POST", {
         inputRevision: project.revision,
         runMode: subRunMode,
         artifacts: [
           {
             type: subArtifactType,
-            title: subArtifactTitle || subArtifactType,
-            content: subArtifactContent || (structured ? structuredTemplate(subArtifactType) : "成果详情内容"),
+            ...artifact,
             ...(structured ? { schemaVersion: "1.0" } : {}),
           },
         ],
@@ -343,34 +421,38 @@ export default function ProjectDetailClient({
       setSubArtifactType("RESEARCH_REPORT");
       setSubArtifactContent("");
       await reloadProject();
-    } catch (e) {}
+    });
   };
 
   // 3. Review Work Item
   const handleReviewWorkItem = async (workItemId: string, accepted: boolean) => {
+    if (savingRef.current) return;
     const reason = await askReason(
       accepted
         ? { title: "验收成果", label: "请输入验收通过意见", placeholder: "填写验收意见…", confirmText: "通过", tone: "primary" }
         : { title: "退回成果", label: "请输入退回修改理由", placeholder: "填写退回理由…", confirmText: "退回修改", tone: "danger" }
     );
     if (!reason) return;
-    try {
+    await runMutation(async () => {
       await apiCall(`/api/work-items/${workItemId}/reviews`, "POST", {
         accepted,
         reason,
       });
       showMsg(accepted ? "成果已验收通过" : "成果已退回并要求修改");
       await reloadProject();
-    } catch (e) {}
+    });
   };
 
   // 4. Add Evidence
   const handleAddEvidence = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
+    await runMutation(async () => {
+      if (!evidenceContent.trim() || !evidenceSource.trim()) {
+        throw new Error("请填写证据内容和数据来源");
+      }
       await apiCall(`/api/projects/${project.id}/evidences`, "POST", {
-        contentOrUri: evidenceContent,
-        source: evidenceSource,
+        contentOrUri: evidenceContent.trim(),
+        source: evidenceSource.trim(),
         nature: evidenceNature,
         obtainedAt: evidenceObtainedAt || undefined,
       });
@@ -382,20 +464,18 @@ export default function ProjectDetailClient({
       setEvidenceNature("REAL");
       setEvidenceObtainedAt("");
       await reloadProject();
-      fetchEvidenceInsight();
-      fetchOpportunity();
-    } catch (e) {}
+      await Promise.all([fetchEvidenceInsight(), fetchOpportunity()]);
+    });
   };
 
   // P1-01/A2: 负责人独立核实或否决一条证据（仅 OWNER 可操作，服务端强制校验角色）
   const handleVerifyEvidence = async (evidenceId: string, status: "VERIFIED" | "REJECTED") => {
-    try {
+    await runMutation(async () => {
       await apiCall(`/api/evidences/${evidenceId}/verify`, "POST", { status });
       showMsg(status === "VERIFIED" ? "证据已独立核实，现可作为决策凭据" : "证据已否决");
       await reloadProject();
-      fetchEvidenceInsight();
-      fetchOpportunity();
-    } catch (e) {}
+      await Promise.all([fetchEvidenceInsight(), fetchOpportunity()]);
+    });
   };
 
   // P1-02: OWNER 录入市场验证并置状态（服务端仅 OWNER + 只允许负责人手动确认，不以模型评分替代）
@@ -405,11 +485,8 @@ export default function ProjectDetailClient({
       showMsg("请选择已核实证据", "error");
       return;
     }
-    try {
-      const res = await fetch(`/api/projects/${project.id}/opportunity`, {
-        method: "PATCH",
-        headers: identityHeaders(mockAuth, activeUserId, { "Content-Type": "application/json" }),
-        body: JSON.stringify({
+    await runMutation(async () => {
+      await apiCall(`/api/projects/${project.id}/opportunity`, "PATCH", {
           evidenceId: validationEvidenceId,
           validation: {
             sampleSize: validationSampleSize || undefined,
@@ -417,26 +494,23 @@ export default function ProjectDetailClient({
             limitations: validationLimitations || undefined,
           },
           status: validationStatus,
-        }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "保存失败");
       showMsg("市场验证已保存");
       setShowValidationModal(false);
       setValidationEvidenceId("");
       setValidationSampleSize("");
       setValidationTimeRange("");
       setValidationLimitations("");
-      fetchOpportunity();
+      await fetchOpportunity();
       await reloadProject();
-    } catch (e) {}
+    });
   };
 
   // 5. Submit Feedback
   const handleCreateFeedback = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!feedbackContent.trim()) return;
-    try {
+    await runMutation(async () => {
       await apiCall(`/api/projects/${project.id}/feedback`, "POST", {
         targetType: "Project",
         targetId: project.id,
@@ -445,18 +519,19 @@ export default function ProjectDetailClient({
       showMsg("反馈提交成功");
       setFeedbackContent("");
       await reloadProject();
-    } catch (e) {}
+    });
   };
 
   // 6. Dispose Feedback
   const handleDisposeFeedback = async (feedbackId: string, status: "ACCEPTED" | "REJECTED") => {
+    if (savingRef.current) return;
     const reason = await askReason(
       status === "ACCEPTED"
         ? { title: "采纳反馈并立项修订", label: "采纳意见并建立修订工作项说明", placeholder: "填写采纳意见，将作为修订工作项说明…", confirmText: "采纳并立项", tone: "primary" }
         : { title: "驳回反馈", label: "驳回反馈理由", placeholder: "填写驳回理由…", confirmText: "确认驳回", tone: "danger" }
     );
     if (!reason) return;
-    try {
+    await runMutation(async () => {
       await apiCall(`/api/feedback/${feedbackId}/disposition`, "POST", {
         status,
         reason,
@@ -464,26 +539,27 @@ export default function ProjectDetailClient({
       });
       showMsg("反馈已处置");
       await reloadProject();
-    } catch (e) {}
+    });
   };
 
   const handlePrepareProduction = async () => {
-    try {
+    await runMutation(async () => {
       await apiCall(`/api/projects/${project.id}/production/prepare`, "POST");
       showMsg("已进入生产准备并补齐 G2 准备任务；这不代表生产已获批");
       await reloadProject();
-    } catch (e) {}
+    });
   };
 
   const handleRequestG2 = async () => {
-    try {
+    await runMutation(async () => {
       await apiCall(`/api/projects/${project.id}/production/g2`, "POST");
       showMsg("正式 G2 已提交，等待指定决策人审批");
       await reloadProject();
-    } catch (e) {}
+    });
   };
 
   const handleProductionStart = async () => {
+    if (savingRef.current) return;
     const note = await askReason({
       title: "确认实际生产开工",
       label: "实际开工说明",
@@ -492,14 +568,15 @@ export default function ProjectDetailClient({
       tone: "primary",
     });
     if (!note) return;
-    try {
+    await runMutation(async () => {
       await apiCall(`/api/projects/${project.id}/production/start`, "POST", { note });
       showMsg("已记录真实开工，项目进入商业化生产阶段");
       await reloadProject();
-    } catch (e) {}
+    });
   };
 
   const handleProductionDelivery = async () => {
+    if (savingRef.current) return;
     const note = await askReason({
       title: "确认生产交付",
       label: "实际交付说明",
@@ -508,26 +585,30 @@ export default function ProjectDetailClient({
       tone: "primary",
     });
     if (!note) return;
-    try {
+    await runMutation(async () => {
       await apiCall(`/api/projects/${project.id}/production/deliver`, "POST", { note });
       showMsg("生产交付已确认，项目进入已交付阶段");
       await reloadProject();
-    } catch (e) {}
+    });
   };
 
   // 7. Create & Submit Decision Packet
   const handleCreateAndSubmitPacket = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
+    await runMutation(async () => {
+      const budgetAmount = preparePacketBudget(packetBudget);
+      if (!packetScope.trim() || !packetPlan.trim()) {
+        throw new Error("请填写实际授权动作范围和打样验证计划");
+      }
       const evidences = project.evidences.map((e: any) => ({ id: e.id, hash: e.hash }));
       const artifacts = project.workItems.flatMap((w: any) =>
         w.artifacts.map((a: any) => ({ type: a.type, version: a.contentVersion }))
       );
 
       const packet = await apiCall(`/api/projects/${project.id}/decision-packets`, "POST", {
-        budgetAmount: parseFloat(packetBudget),
-        budgetScope: packetScope,
-        validationPlan: packetPlan,
+        budgetAmount,
+        budgetScope: packetScope.trim(),
+        validationPlan: packetPlan.trim(),
         artifactVersions: artifacts,
         evidenceVersions: evidences,
       });
@@ -537,18 +618,19 @@ export default function ProjectDetailClient({
       showMsg("打样门决策包已起草并冻结提交审查");
       setShowPacketModal(false);
       await reloadProject();
-    } catch (e) {}
+    });
   };
 
   // 8. Decide Gate
   const handleDecideGate = async (packetId: string, decision: string) => {
+    if (savingRef.current) return;
     const reason = await askReason(
       decision === "APPROVE"
         ? { title: "批准决策包", label: "请输入批准理由", placeholder: "填写批准理由…", confirmText: "批准", tone: "primary" }
         : { title: "退回修改", label: "请输入退回/修改理由", placeholder: "填写退回或修改理由…", confirmText: "退回修改", tone: "danger" }
     );
     if (!reason) return;
-    try {
+    await runMutation(async () => {
       const res = await apiCall(`/api/decision-packets/${packetId}/decide`, "POST", {
         decision,
         reason,
@@ -573,10 +655,10 @@ export default function ProjectDetailClient({
           : "已做出决策"
       );
       await reloadProject();
-    } catch (e) {}
+    });
   };
 
-  const stages = ["DRAFT", "RESEARCH", "SAMPLING", "PRODUCTION_PREP", "PRODUCTION"];
+  const stages = projectStagesForMode(project.mode);
 
   // 阶段步进条：状态取自项目阶段枚举；标签一律经 status-labels 中文化（禁止裸渲染英文枚举）。
   const currentStageIdx = stages.indexOf(project.stage);
@@ -591,7 +673,7 @@ export default function ProjectDetailClient({
       // 这里没有逐阶段的完成记录，说「已完成」是从数组下标推出来的断言。
       note:
         project.stage === st
-          ? "当前进行中"
+          ? st === "DELIVERED" ? "已交付" : "当前进行中"
           : state === "done"
             ? "已走过"
             : state === "unknown"
@@ -615,7 +697,7 @@ export default function ProjectDetailClient({
         : packet.status === "DRAFT" || packet.status === "IN_REVIEW"
           ? "pending"
           : "blocked";
-  const gateNodes: GateNode[] = [
+  const allGateNodes: GateNode[] = [
     {
       key: "G1",
       label: "研发打样门",
@@ -633,19 +715,20 @@ export default function ProjectDetailClient({
       refId: productionPacket?.id ?? null,
     },
   ];
+  const gateNodes = project.mode === "FIXED_PRODUCT" ? allGateNodes.filter((gate) => gate.key === "G2") : allGateNodes;
 
   return (
     <AppShell
       active="products"
       user={{ name: currentSession?.userName, meta: currentSession?.userEmail }}
-      runtime={{ tone: "neutral", label: "模型未配置", detail: "仅结构化能力可用" }}
+      runtime={runtime}
       topbarRight={
         mockAuth ? (
           <div className="hermes-identity">
             <span>当前模拟操作身份（开发态）</span>
             <select
               value={activeUserId}
-              onChange={(e) => setActiveUserId(e.target.value)}
+              onChange={(e) => setActiveUserId(e.target.value)} disabled={saving}
               aria-label="切换操作人"
             >
               {allUsers.map((u) => (
@@ -675,26 +758,18 @@ export default function ProjectDetailClient({
       />
 
       <div className="hermes-stack">
-        {/* Global Toast Alert */}
-        {message && (
-          <div
-            className={`hermes-banner ${message.type === "error" ? "is-danger" : "is-ok"}`}
-            role={message.type === "error" ? "alert" : "status"}
-            aria-live={message.type === "error" ? "assertive" : "polite"}
-            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}
-          >
-            <span>{message.text}</span>
-            <button type="button" className="hermes-ghost-btn hermes-btn-sm" onClick={() => setMessage(null)}>
-              关闭
-            </button>
-          </div>
-        )}
+        {/* Global Toast Alert：成功 5 秒后淡出（计时见 showMsg），失败常驻可关（KX-28 Notice） */}
+        <Notice
+          msg={message ? { tone: message.type === "error" ? "danger" : "ok", text: message.text } : null}
+          onClose={() => setMessage(null)}
+          autoHideMs={0}
+        />
 
         {reasonDialog}
 
         {/* Project Header Card + Stage Progression Pipeline */}
         <Panel
-          eyebrow={`模式 · ${labelRunMode(project.mode)}`}
+          eyebrow={`模式 · ${labelProjectMode(project.mode)}`}
           title={
             <>
               {project.title} <small>r{project.revision}</small>
@@ -713,7 +788,7 @@ export default function ProjectDetailClient({
         </Panel>
 
         {/* Gaps & Readiness Alert */}
-        {gaps.length > 0 && (
+        {currentGaps.length > 0 && (
           <div className="hermes-panel" style={{ borderColor: "var(--warn-line)", background: "var(--warn-bg)" }}>
             <div className="hermes-panel-head is-stacked">
               <span className="hermes-section-label" style={{ color: "var(--warn-ink)" }}>
@@ -722,29 +797,37 @@ export default function ProjectDetailClient({
               <strong style={{ color: "var(--warn-ink)", fontSize: 12 }}>必须解决后方可批准</strong>
             </div>
             <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: "var(--warn-ink)", lineHeight: 1.8 }}>
-              {gaps.map((g, i) => (
+              {currentGaps.map((g, i) => (
                 <li key={i}>{g}</li>
               ))}
             </ul>
           </div>
         )}
 
-        <div className="hermes-workspace-tabs" role="tablist" aria-label="项目工作区">
-          {[
-            ["overview", "概览"],
-            ["rnd", "AI 研发"],
-            ["tasks", "工作项"],
-            ["evidence", "证据"],
-            ["decisions", "决策"],
-            ["records", "记录"],
-          ].map(([key, label]) => (
+        <div ref={workspaceTabsRef} className="hermes-workspace-tabs" role="tablist" aria-label="项目工作区" data-morph="tabs">
+          {PROJECT_WORKSPACE_TABS.map(([key, label], index) => (
             <button
               key={key}
+              id={`project-tab-${key}`}
               type="button"
               role="tab"
+              tabIndex={activeWorkspaceTab === key ? 0 : -1}
               aria-selected={activeWorkspaceTab === key}
+              aria-controls="project-workspace-panel"
               className={`hermes-workspace-tab ${activeWorkspaceTab === key ? "is-active" : ""}`}
-              onClick={() => setActiveWorkspaceTab(key as typeof activeWorkspaceTab)}
+              onClick={() => setActiveWorkspaceTab(key)}
+              onKeyDown={(event) => {
+                const next = event.key === "ArrowRight" ? (index + 1) % PROJECT_WORKSPACE_TABS.length
+                  : event.key === "ArrowLeft" ? (index - 1 + PROJECT_WORKSPACE_TABS.length) % PROJECT_WORKSPACE_TABS.length
+                  : event.key === "Home" ? 0
+                  : event.key === "End" ? PROJECT_WORKSPACE_TABS.length - 1 : null;
+                if (next === null) return;
+                event.preventDefault();
+                setActiveWorkspaceTab(PROJECT_WORKSPACE_TABS[next][0]);
+                const tab = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next];
+                tab?.focus();
+                tab?.scrollIntoView({ block: "nearest", inline: "nearest" });
+              }}
             >
               {label}
               {key === "tasks" && project.workItems.length > 0 ? <span>{project.workItems.length}</span> : null}
@@ -754,14 +837,15 @@ export default function ProjectDetailClient({
           ))}
         </div>
 
+        <div ref={workspacePanelRef} id="project-workspace-panel" role="tabpanel" aria-labelledby={`project-tab-${activeWorkspaceTab}`} tabIndex={0}>
         {activeWorkspaceTab === "overview" && (
           <div className="hermes-workspace-overview">
             <Panel
               eyebrow="NEXT ACTION"
               title="现在最重要的事"
               sub={
-                gaps.length > 0
-                  ? `还有 ${gaps.length} 个研发/决策缺口需要先解决`
+                currentGaps.length > 0
+                  ? `还有 ${currentGaps.length} 个研发/决策缺口需要先解决`
                   : productRndWorkItem?.id
                     ? "研发工作流已经建立，可以查看 AI 团队进度与管理报告"
                     : "当前没有研发阻断，可以继续安排下一项工作"
@@ -802,13 +886,13 @@ export default function ProjectDetailClient({
                   <small>修订与留痕</small>
                 </button>
               </div>
-              {gaps.length > 0 ? (
+              {currentGaps.length > 0 ? (
                 <div className="hermes-overview-gaps">
                   <strong>优先补齐</strong>
                   <ul>
-                    {gaps.slice(0, 4).map((gap, index) => <li key={index}>{gap}</li>)}
+                    {currentGaps.slice(0, 4).map((gap, index) => <li key={index}>{gap}</li>)}
                   </ul>
-                  {gaps.length > 4 ? <span>另有 {gaps.length - 4} 项未展开</span> : null}
+                  {currentGaps.length > 4 ? <span>另有 {currentGaps.length - 4} 项未展开</span> : null}
                 </div>
               ) : (
                 <div className="hermes-note">
@@ -913,7 +997,7 @@ export default function ProjectDetailClient({
             title="机会分析与市场验证 (P1-02)"
             actions={
               isOwner ? (
-                <button onClick={() => setShowValidationModal(true)} className="hermes-primary-btn hermes-btn-sm">
+                <button disabled={saving} onClick={() => { setMessage(null); setShowValidationModal(true); }} className="hermes-primary-btn hermes-btn-sm">
                   <Icon name="plus" size={15} />
                   录入市场验证
                 </button>
@@ -1002,14 +1086,14 @@ export default function ProjectDetailClient({
             eyebrow="P1-02"
             title="录入市场验证"
             sub="仅负责人可提交；验证状态由负责人手动确认，不以模型评分替代真实验证。"
-            onClose={() => setShowValidationModal(false)}
+            onClose={() => { if (!savingRef.current) setShowValidationModal(false); }}
             wide
           >
-            <form onSubmit={handleSubmitValidation} className="hermes-form-grid">
+            <form onSubmit={handleSubmitValidation} className="hermes-form-grid" aria-busy={saving}>{formError}
               <label className="hermes-label">
                 <span>选择已核实证据</span>
                 <select
-                  className="hermes-select"
+                  className="hermes-select" disabled={saving}
                   value={validationEvidenceId}
                   onChange={(e) => setValidationEvidenceId(e.target.value)}
                 >
@@ -1026,7 +1110,7 @@ export default function ProjectDetailClient({
               <label className="hermes-label">
                 <span>样本规模</span>
                 <input
-                  className="hermes-input"
+                  className="hermes-input" disabled={saving}
                   value={validationSampleSize}
                   onChange={(e) => setValidationSampleSize(e.target.value)}
                   placeholder="如：50 名目标用户 / 30 天渠道销售"
@@ -1035,7 +1119,7 @@ export default function ProjectDetailClient({
               <label className="hermes-label">
                 <span>时间范围</span>
                 <input
-                  className="hermes-input"
+                  className="hermes-input" disabled={saving}
                   value={validationTimeRange}
                   onChange={(e) => setValidationTimeRange(e.target.value)}
                   placeholder="如：2026-08-01 ~ 2026-08-30"
@@ -1044,7 +1128,7 @@ export default function ProjectDetailClient({
               <label className="hermes-label">
                 <span>局限</span>
                 <input
-                  className="hermes-input"
+                  className="hermes-input" disabled={saving}
                   value={validationLimitations}
                   onChange={(e) => setValidationLimitations(e.target.value)}
                   placeholder="如：样本集中于华东，未覆盖华南"
@@ -1053,7 +1137,7 @@ export default function ProjectDetailClient({
               <label className="hermes-label">
                 <span>验证状态</span>
                 <select
-                  className="hermes-select"
+                  className="hermes-select" disabled={saving}
                   value={validationStatus}
                   onChange={(e) => setValidationStatus(e.target.value)}
                 >
@@ -1062,10 +1146,10 @@ export default function ProjectDetailClient({
                 </select>
               </label>
               <div className="hermes-modal-actions">
-                <button type="submit" className="hermes-primary-btn">
-                  保存
+                <button type="submit" className="hermes-primary-btn" disabled={saving}>
+                  {saving ? "正在保存…" : "保存"}
                 </button>
-                <button type="button" className="hermes-outline-btn" onClick={() => setShowValidationModal(false)}>
+                <button type="button" className="hermes-outline-btn" disabled={saving} onClick={() => setShowValidationModal(false)}>
                   取消
                 </button>
               </div>
@@ -1117,7 +1201,7 @@ export default function ProjectDetailClient({
                 <button
                   className="hermes-primary-btn"
                   onClick={handlePrepareProduction}
-                  disabled={!productionContext?.preparation?.ready}
+                  disabled={saving || !productionContext?.preparation?.ready}
                 >
                   样品闭环，进入生产准备
                 </button>
@@ -1129,7 +1213,7 @@ export default function ProjectDetailClient({
                   <button
                     className="hermes-primary-btn"
                     onClick={handleRequestG2}
-                    disabled={!productionContext?.gate?.ready}
+                    disabled={saving || !productionContext?.gate?.ready}
                   >
                     提交正式 G2 审批
                   </button>
@@ -1140,12 +1224,12 @@ export default function ProjectDetailClient({
                 </span>
               )}
               {isOwner && project.stage === "PRODUCTION_PREP" && productionPacket?.status === "APPROVED" && (
-                <button className="hermes-primary-btn" onClick={handleProductionStart}>
+                <button disabled={saving} className="hermes-primary-btn" onClick={handleProductionStart}>
                   确认实际开工
                 </button>
               )}
               {isOwner && project.stage === "PRODUCTION" && (
-                <button className="hermes-primary-btn" onClick={handleProductionDelivery}>
+                <button disabled={saving} className="hermes-primary-btn" onClick={handleProductionDelivery}>
                   确认生产交付
                 </button>
               )}
@@ -1161,10 +1245,10 @@ export default function ProjectDetailClient({
         <Panel
           eyebrow="GOVERNANCE"
           title="正式门禁决策包"
-          sub="G1 与 G2 均冻结不可变快照，由指定决策人裁决；负责人禁止自批"
+          sub={project.mode === "FIXED_PRODUCT" ? "指定产品以 G2 冻结生产投入快照，由指定决策人裁决；负责人禁止自批" : "G1 与 G2 均冻结不可变快照，由指定决策人裁决；负责人禁止自批"}
           actions={
             isOwner && (project.stage === "DRAFT" || project.stage === "RESEARCH") ? (
-              <button onClick={() => setShowPacketModal(true)} className="hermes-primary-btn hermes-btn-sm">
+              <button disabled={saving} onClick={() => { setMessage(null); setShowPacketModal(true); }} className="hermes-primary-btn hermes-btn-sm">
                 <Icon name="plus" size={15} />
                 起草/重提决策包
               </button>
@@ -1173,7 +1257,7 @@ export default function ProjectDetailClient({
         >
           <GateLine gates={gateNodes} ariaLabel="项目门禁线" />
           <p className="viz-source-note">
-            G1 批准允许投入打样；G2 批准允许投入生产。两者都不等于实际执行完成，真实开工/交付另行记录。
+            {project.mode === "FIXED_PRODUCT" ? "指定产品从生产准备开始，G2 批准允许投入生产。" : "G1 批准允许投入打样；G2 批准允许投入生产。"}授权不等于实际执行完成，真实开工/交付另行记录。
           </p>
           {project.decisionPackets.length === 0 ? (
             <Empty>暂无决策包。由负责人起草打样门方案并冻结提交。</Empty>
@@ -1233,14 +1317,14 @@ export default function ProjectDetailClient({
                           <button
                             onClick={() => handleDecideGate(pkt.id, "REQUEST_CHANGES")}
                             className="hermes-danger-btn hermes-btn-sm"
-                            disabled={!isDecisionMaker}
+                            disabled={saving || !isDecisionMaker}
                           >
                             退回修改
                           </button>
                           <button
                             onClick={() => handleDecideGate(pkt.id, "APPROVE")}
                             className="hermes-primary-btn hermes-btn-sm"
-                            disabled={!isDecisionMaker}
+                            disabled={saving || !isDecisionMaker}
                           >
                             {pkt.gate === "PRODUCTION_GATE" ? "批准 G2（授权生产投入）" : "批准 G1（推进至打样）"}
                           </button>
@@ -1280,7 +1364,7 @@ export default function ProjectDetailClient({
           sub="安排工作项、提交交付物与负责人核实验收"
           actions={
             isOwner ? (
-              <button onClick={() => setShowWorkModal(true)} className="hermes-primary-btn hermes-btn-sm">
+              <button disabled={saving} onClick={() => { setMessage(null); setShowWorkModal(true); }} className="hermes-primary-btn hermes-btn-sm">
                 <Icon name="plus" size={15} />
                 安排工作项
               </button>
@@ -1318,7 +1402,7 @@ export default function ProjectDetailClient({
                           前置依赖 (F03):
                         </div>
                         {item.dependencies.map((depId: string) => {
-                          const dep = project.workItems.find((w: any) => w.id === depId);
+                          const dep = workItemById.get(depId);
                           const depDone = dep?.status === "ACCEPTED";
                           return (
                             <div key={depId} className="hermes-inline" style={{ fontSize: 11 }}>
@@ -1344,7 +1428,7 @@ export default function ProjectDetailClient({
                       </div>
                     )}
                     {item.dependencies?.length > 0 && item.status === "TODO" && !item.dependencies.every((d: string) => {
-                      const dep = project.workItems.find((w: any) => w.id === d);
+                      const dep = workItemById.get(d);
                       return dep?.status === "ACCEPTED";
                     }) && (
                       <div className="hermes-banner is-danger" style={{ marginTop: 6 }}>
@@ -1362,7 +1446,7 @@ export default function ProjectDetailClient({
                           <div key={a.id} className="hermes-row-body">
                             <span style={{ fontWeight: 600, color: "var(--accent-hover)" }}>[{a.producerType}] {a.title}:</span>{" "}
                             <span className="hermes-mono">id: {a.id}</span>{" "}
-                            {a.content}
+                            <ArtifactContent id={a.id} content={a.content ?? ""} />
                           </div>
                         ))}
                       </div>
@@ -1456,15 +1540,15 @@ export default function ProjectDetailClient({
 
                     {/* Work Item Actions */}
                     <div className="hermes-inline" style={{ justifyContent: "space-between", marginTop: 8 }}>
-                      <button onClick={() => setShowSubmissionModal(item.id)} className="hermes-link">
+                      <button disabled={saving} onClick={() => { setMessage(null); setShowSubmissionModal(item.id); }} className="hermes-link">
                         + 提交产物成果
                       </button>
                       {isOwner && item.status === "SUBMITTED" && (
                         <div className="hermes-inline">
-                          <button onClick={() => handleReviewWorkItem(item.id, false)} className="hermes-danger-btn hermes-btn-sm">
+                          <button disabled={saving} onClick={() => handleReviewWorkItem(item.id, false)} className="hermes-danger-btn hermes-btn-sm">
                             退回修改
                           </button>
-                          <button onClick={() => handleReviewWorkItem(item.id, true)} className="hermes-primary-btn hermes-btn-sm">
+                          <button disabled={saving} onClick={() => handleReviewWorkItem(item.id, true)} className="hermes-primary-btn hermes-btn-sm">
                             检查通过 (Accept)
                           </button>
                         </div>
@@ -1486,7 +1570,7 @@ export default function ProjectDetailClient({
           title="证据与依据 (REAL/DEMO)"
           sub="可信市场与研报来源"
           actions={
-            <button onClick={() => setShowEvidenceModal(true)} className="hermes-primary-btn hermes-btn-sm">
+            <button disabled={saving} onClick={() => { setMessage(null); setShowEvidenceModal(true); }} className="hermes-primary-btn hermes-btn-sm">
               <Icon name="plus" size={15} />
               添加证据
             </button>
@@ -1531,10 +1615,10 @@ export default function ProjectDetailClient({
                   )}
                   {isOwner && evi.verifyStatus === "UNVERIFIED" && (
                     <div className="hermes-inline" style={{ marginTop: 6 }}>
-                      <button onClick={() => handleVerifyEvidence(evi.id, "VERIFIED")} className="hermes-primary-btn hermes-btn-sm">
+                      <button disabled={saving} onClick={() => handleVerifyEvidence(evi.id, "VERIFIED")} className="hermes-primary-btn hermes-btn-sm">
                         核实
                       </button>
-                      <button onClick={() => handleVerifyEvidence(evi.id, "REJECTED")} className="hermes-danger-btn hermes-btn-sm">
+                      <button disabled={saving} onClick={() => handleVerifyEvidence(evi.id, "REJECTED")} className="hermes-danger-btn hermes-btn-sm">
                         否决
                       </button>
                     </div>
@@ -1550,14 +1634,16 @@ export default function ProjectDetailClient({
         {activeWorkspaceTab === "records" && (<>
         {/* Collaboration & Feedback */}
         <Panel eyebrow="协作" title="协作反馈与修订闭环">
-          <form onSubmit={handleCreateFeedback} className="hermes-form-grid">
+          <form onSubmit={handleCreateFeedback} className="hermes-form-grid" aria-busy={saving}>{formError}
             <textarea
-              className="hermes-textarea"
+              className="hermes-textarea" disabled={saving}
+              aria-label="反馈内容"
+              required
               value={feedbackContent}
               onChange={(e) => setFeedbackContent(e.target.value)}
               placeholder="提交针对方案、口感或成分的反馈..."
             />
-            <button type="submit" className="hermes-outline-btn">
+            <button type="submit" className="hermes-outline-btn" disabled={saving}>
               发表反馈
             </button>
           </form>
@@ -1577,10 +1663,10 @@ export default function ProjectDetailClient({
                 )}
                 {isOwner && fb.status === "OPEN" && (
                   <div className="hermes-inline" style={{ justifyContent: "flex-end", marginTop: 4 }}>
-                    <button onClick={() => handleDisposeFeedback(fb.id, "REJECTED")} className="hermes-ghost-btn hermes-btn-sm">
+                    <button disabled={saving} onClick={() => handleDisposeFeedback(fb.id, "REJECTED")} className="hermes-ghost-btn hermes-btn-sm">
                       驳回
                     </button>
-                    <button onClick={() => handleDisposeFeedback(fb.id, "ACCEPTED")} className="hermes-link">
+                    <button disabled={saving} onClick={() => handleDisposeFeedback(fb.id, "ACCEPTED")} className="hermes-link">
                       采纳并立项修订
                     </button>
                   </div>
@@ -1592,20 +1678,21 @@ export default function ProjectDetailClient({
 
         </>)}
 
+        </div>
         {/* Modals stay outside tabs so open forms are not destroyed by tab navigation. */}
         {/* Modal: Create Work Item */}
         {showWorkModal && (
-          <Modal eyebrow="工作项" title="安排新工作项" onClose={() => setShowWorkModal(false)} wide>
-            <form onSubmit={handleCreateWorkItem} className="hermes-form-grid">
+          <Modal eyebrow="工作项" title="安排新工作项" onClose={() => { if (!savingRef.current) setShowWorkModal(false); }} wide>
+            <form onSubmit={handleCreateWorkItem} className="hermes-form-grid" aria-busy={saving}>{formError}
               <label className="hermes-label">
                 <span>工作项名称</span>
                 <input
                   type="text"
                   required
-                  className="hermes-input"
+                  className="hermes-input" disabled={saving}
                   value={workTitle}
                   onChange={(e) => setWorkTitle(e.target.value)}
-                  placeholder="例如: 烘焙微胶囊茶多酚稳定性测试"
+                  placeholder={TENANT_UI.workTitlePlaceholder}
                 />
               </label>
               <label className="hermes-label">
@@ -1613,7 +1700,7 @@ export default function ProjectDetailClient({
                 <input
                   type="text"
                   required
-                  className="hermes-input"
+                  className="hermes-input" disabled={saving}
                   value={workTarget}
                   onChange={(e) => setWorkTarget(e.target.value)}
                   placeholder="例如: 测定80度烤制30分钟后的留存率"
@@ -1624,7 +1711,7 @@ export default function ProjectDetailClient({
                 <textarea
                   required
                   rows={2}
-                  className="hermes-textarea"
+                  className="hermes-textarea" disabled={saving}
                   value={workDeliverable}
                   onChange={(e) => setWorkDeliverable(e.target.value)}
                   placeholder="例如: 实验报告PDF及多酚留存率数据表"
@@ -1632,22 +1719,23 @@ export default function ProjectDetailClient({
               </label>
               <label className="hermes-label">
                 <span>执行方式 (F05)</span>
-                <select className="hermes-select" value={workExecutorType} onChange={(e) => setWorkExecutorType(e.target.value)}>
+                <select className="hermes-select" disabled={saving} value={workExecutorType} onChange={(e) => setWorkExecutorType(e.target.value)}>
                   <option value="HUMAN">{labelWorkExecutorType("HUMAN")}</option>
                   <option value="TEST_AGENT">{labelWorkExecutorType("TEST_AGENT")}</option>
                   <option value="DIGITAL_WORKER">{labelWorkExecutorType("DIGITAL_WORKER")}</option>
                 </select>
               </label>
-              <label className="hermes-label">
+              <div className="hermes-label">
                 <span>前置依赖工作项 (F03，可多选)</span>
                 <div className="hermes-row is-flat" style={{ maxHeight: 120, overflowY: "auto", padding: 6 }}>
                   {project.workItems.length === 0 ? (
                     <span className="hermes-row-meta">暂无其他任务可选</span>
                   ) : (
                     project.workItems.map((pwi: any) => (
-                      <label key={pwi.id} className="hermes-inline" style={{ fontSize: 11, cursor: "pointer" }}>
+                      <label key={pwi.id} className="hermes-inline" style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 13, cursor: "pointer" }}>
                         <input
                           type="checkbox"
+                          disabled={saving}
                           checked={workDependencies.includes(pwi.id)}
                           onChange={(e) =>
                             setWorkDependencies((prev) =>
@@ -1666,13 +1754,13 @@ export default function ProjectDetailClient({
                 <span className="hermes-note" style={{ marginTop: 4 }}>
                   前置依赖未验收时，本任务将标记为阻塞，待依赖完成后解除。
                 </span>
-              </label>
+              </div>
               <div className="hermes-modal-actions">
-                <button type="button" className="hermes-outline-btn" onClick={() => setShowWorkModal(false)}>
+                <button type="button" className="hermes-outline-btn" disabled={saving} onClick={() => setShowWorkModal(false)}>
                   取消
                 </button>
-                <button type="submit" className="hermes-primary-btn">
-                  确认创建
+                <button type="submit" className="hermes-primary-btn" disabled={saving}>
+                  {saving ? "正在创建…" : "确认创建"}
                 </button>
               </div>
             </form>
@@ -1681,11 +1769,12 @@ export default function ProjectDetailClient({
 
         {/* Modal: Submit Deliverables */}
         {showSubmissionModal && (
-          <Modal eyebrow="交付" title="提交产物成果" onClose={() => setShowSubmissionModal(null)} wide>
-            <div className="hermes-form-grid">
+          <Modal eyebrow="交付" title="提交产物成果" onClose={() => { if (!savingRef.current) setShowSubmissionModal(null); }} wide>
+            <form onSubmit={(event) => { event.preventDefault(); void handleSubmitDeliverables(showSubmissionModal); }} className="hermes-form-grid" aria-busy={saving}>
+              {formError}
               <label className="hermes-label">
                 <span>运行方式标记 (真实性约束)</span>
-                <select className="hermes-select" value={subRunMode} onChange={(e) => setSubRunMode(e.target.value)}>
+                <select className="hermes-select" disabled={saving} value={subRunMode} onChange={(e) => setSubRunMode(e.target.value)}>
                   <option value="MANUAL">{labelRunMode("MANUAL")}</option>
                   <option value="TEST_STUB">{labelRunMode("TEST_STUB")}</option>
                 </select>
@@ -1693,15 +1782,11 @@ export default function ProjectDetailClient({
               <label className="hermes-label">
                 <span>成果类型</span>
                 <select
-                  className="hermes-select"
+                  className="hermes-select" disabled={saving}
                   value={subArtifactType}
                   onChange={(e) => {
                     const type = e.target.value;
                     setSubArtifactType(type);
-                    if (STRUCTURED_SUBMISSION_TYPES.has(type)) {
-                      setSubArtifactContent(structuredTemplate(type));
-                      setSubArtifactTitle(type);
-                    }
                   }}
                 >
                   <option value="RESEARCH_REPORT">{labelArtifactType("RESEARCH_REPORT")}</option>
@@ -1714,11 +1799,20 @@ export default function ProjectDetailClient({
                   <option value="COST_SCENARIO">{labelArtifactType("COST_SCENARIO")}</option>
                 </select>
               </label>
+              {STRUCTURED_SUBMISSION_TYPES.has(subArtifactType) && (
+                <div className="hermes-note">
+                  <button type="button" className="hermes-outline-btn hermes-btn-sm" disabled={saving || !!subArtifactContent.trim()} onClick={() => setSubArtifactContent(structuredTemplate(subArtifactType))}>
+                    插入 JSON 示例模板
+                  </button>
+                  <p>示例默认标记为演示数据（DEMO）。请填写实际成果并核实数据性质后提交；已有内容不会被模板覆盖。</p>
+                </div>
+              )}
               <label className="hermes-label">
                 <span>产物标题</span>
                 <input
                   type="text"
-                  className="hermes-input"
+                  required
+                  className="hermes-input" disabled={saving}
                   value={subArtifactTitle}
                   onChange={(e) => setSubArtifactTitle(e.target.value)}
                   placeholder="例如: 留存率测定报告"
@@ -1727,8 +1821,9 @@ export default function ProjectDetailClient({
               <label className="hermes-label">
                 <span>{STRUCTURED_SUBMISSION_TYPES.has(subArtifactType) ? "结构化 JSON 内容" : "产物核心内容"}</span>
                 <textarea
+                  required
                   rows={3}
-                  className="hermes-textarea"
+                  className="hermes-textarea" disabled={saving}
                   value={subArtifactContent}
                   onChange={(e) => setSubArtifactContent(e.target.value)}
                   placeholder={STRUCTURED_SUBMISSION_TYPES.has(subArtifactType)
@@ -1737,24 +1832,24 @@ export default function ProjectDetailClient({
                 />
               </label>
               <div className="hermes-modal-actions">
-                <button type="button" className="hermes-outline-btn" onClick={() => setShowSubmissionModal(null)}>
+                <button type="button" className="hermes-outline-btn" disabled={saving} onClick={() => setShowSubmissionModal(null)}>
                   取消
                 </button>
-                <button type="button" className="hermes-primary-btn" onClick={() => handleSubmitDeliverables(showSubmissionModal)}>
-                  确认提交
+                <button type="submit" className="hermes-primary-btn" disabled={saving}>
+                  {saving ? "正在提交…" : "确认提交"}
                 </button>
               </div>
-            </div>
+            </form>
           </Modal>
         )}
 
         {/* Modal: Add Evidence */}
         {showEvidenceModal && (
-          <Modal eyebrow="证据" title="录入依据证据" onClose={() => setShowEvidenceModal(false)} wide>
-            <form onSubmit={handleAddEvidence} className="hermes-form-grid">
+          <Modal eyebrow="证据" title="录入依据证据" onClose={() => { if (!savingRef.current) setShowEvidenceModal(false); }} wide>
+            <form onSubmit={handleAddEvidence} className="hermes-form-grid" aria-busy={saving}>{formError}
               <label className="hermes-label">
                 <span>证据性质 (REAL vs DEMO 强隔离)</span>
-                <select className="hermes-select" value={evidenceNature} onChange={(e) => setEvidenceNature(e.target.value)}>
+                <select className="hermes-select" disabled={saving} value={evidenceNature} onChange={(e) => setEvidenceNature(e.target.value)}>
                   <option value="REAL">{labelEvidenceNature("REAL")}</option>
                   <option value="DEMO">{labelEvidenceNature("DEMO")}</option>
                 </select>
@@ -1764,7 +1859,7 @@ export default function ProjectDetailClient({
                 <textarea
                   required
                   rows={2}
-                  className="hermes-textarea"
+                  className="hermes-textarea" disabled={saving}
                   value={evidenceContent}
                   onChange={(e) => setEvidenceContent(e.target.value)}
                   placeholder="例如: 2026年低糖多酚麦片在抖音电商热销增长率研报"
@@ -1775,7 +1870,7 @@ export default function ProjectDetailClient({
                 <input
                   type="text"
                   required
-                  className="hermes-input"
+                  className="hermes-input" disabled={saving}
                   value={evidenceSource}
                   onChange={(e) => setEvidenceSource(e.target.value)}
                   placeholder="例如: 蝉妈妈电商数据平台 / 实验室质检"
@@ -1785,17 +1880,17 @@ export default function ProjectDetailClient({
                 <span>采集时间 (留空则按录入时刻)</span>
                 <input
                   type="datetime-local"
-                  className="hermes-input"
+                  className="hermes-input" disabled={saving}
                   value={evidenceObtainedAt}
                   onChange={(e) => setEvidenceObtainedAt(e.target.value)}
                 />
               </label>
               <div className="hermes-modal-actions">
-                <button type="button" className="hermes-outline-btn" onClick={() => setShowEvidenceModal(false)}>
+                <button type="button" className="hermes-outline-btn" disabled={saving} onClick={() => setShowEvidenceModal(false)}>
                   取消
                 </button>
-                <button type="submit" className="hermes-primary-btn">
-                  存入证据库
+                <button type="submit" className="hermes-primary-btn" disabled={saving}>
+                  {saving ? "正在保存…" : "存入证据库"}
                 </button>
               </div>
             </form>
@@ -1804,14 +1899,16 @@ export default function ProjectDetailClient({
 
         {/* Modal: Draft Decision Packet */}
         {showPacketModal && (
-          <Modal eyebrow="P0" title="起草研发打样门决策包 (P0)" onClose={() => setShowPacketModal(false)} wide>
-            <form onSubmit={handleCreateAndSubmitPacket} className="hermes-form-grid">
+          <Modal eyebrow="P0" title="起草研发打样门决策包 (P0)" onClose={() => { if (!savingRef.current) setShowPacketModal(false); }} wide>
+            <form onSubmit={handleCreateAndSubmitPacket} className="hermes-form-grid" aria-busy={saving}>{formError}
               <label className="hermes-label">
                 <span>拟投入预算金额 (元)</span>
                 <input
                   type="number"
+                  min="0.01"
+                  step="0.01"
                   required
-                  className="hermes-input"
+                  className="hermes-input" disabled={saving}
                   value={packetBudget}
                   onChange={(e) => setPacketBudget(e.target.value)}
                 />
@@ -1821,7 +1918,7 @@ export default function ProjectDetailClient({
                 <input
                   type="text"
                   required
-                  className="hermes-input"
+                  className="hermes-input" disabled={saving}
                   value={packetScope}
                   onChange={(e) => setPacketScope(e.target.value)}
                 />
@@ -1831,7 +1928,7 @@ export default function ProjectDetailClient({
                 <textarea
                   required
                   rows={2}
-                  className="hermes-textarea"
+                  className="hermes-textarea" disabled={saving}
                   value={packetPlan}
                   onChange={(e) => setPacketPlan(e.target.value)}
                 />
@@ -1840,11 +1937,11 @@ export default function ProjectDetailClient({
                 💡 提交后将自动绑定当前有效成果与证据版本生成不可变快照与 scopeHash。
               </div>
               <div className="hermes-modal-actions">
-                <button type="button" className="hermes-outline-btn" onClick={() => setShowPacketModal(false)}>
+                <button type="button" className="hermes-outline-btn" disabled={saving} onClick={() => setShowPacketModal(false)}>
                   取消
                 </button>
-                <button type="submit" className="hermes-primary-btn">
-                  冻结并提交审批
+                <button type="submit" className="hermes-primary-btn" disabled={saving}>
+                  {saving ? "正在提交…" : "冻结并提交审批"}
                 </button>
               </div>
             </form>

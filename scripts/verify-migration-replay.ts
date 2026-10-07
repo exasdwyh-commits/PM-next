@@ -29,6 +29,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadEnvFiles } from "../src/shared/env";
+import { localBin } from "./lib/local-bin";
 
 loadEnvFiles();
 
@@ -60,10 +61,11 @@ function adminQueryOn(db: string, sql: string): string {
   return execFileSync(`${PG_BIN}/psql`, ["-h", host, "-p", port, "-U", PGADMIN_USER!, "-d", db, "-t", "-A", "-c", sql], { encoding: "utf8" }).trim();
 }
 
-const prismaBin = "./node_modules/.bin/prisma";
 function prisma(args: string[], url: string): { status: number; out: string } {
-  const res = spawnSync(prismaBin, args, { encoding: "utf8", env: { ...process.env, DATABASE_URL: url } });
-  return { status: res.status ?? -1, out: `${res.stdout ?? ""}${res.stderr ?? ""}` };
+  const [cmd, cmdArgs] = localBin("prisma", args);
+  const res = spawnSync(cmd, cmdArgs, { encoding: "utf8", env: { ...process.env, DATABASE_URL: url } });
+  const why = res.error ? `无法运行 prisma：${res.error.message}\n` : "";
+  return { status: res.status ?? -1, out: `${why}${res.stdout ?? ""}${res.stderr ?? ""}` };
 }
 
 const created: string[] = [];

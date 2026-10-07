@@ -1,6 +1,8 @@
 import { Prisma } from "@prisma/client";
 import prisma from "@/shared/db";
 import { NotFoundError } from "@/shared/errors";
+import { withKeyLock } from "@/shared/key-mutex";
+import { lockExecutorGuardTx, ExecutionStoppedError, type ExecutorGuard } from "@/modules/worker/claim";
 import type { SessionContext } from "@/modules/identity/session";
 
 /**
@@ -12,6 +14,10 @@ import type { SessionContext } from "@/modules/identity/session";
  * transaction-scoped advisory lock keyed by the mission id, so concurrent
  * writers (worker executor + supervisor advance + user controls) never
  * collide, and `@@unique([missionTaskId, seq])` is the last line of defence.
+ *
+ * `appendMissionEvents` additionally queues per mission inside this process, so
+ * a burst of node events cannot park one pooled connection per writer while
+ * they all block on that advisory lock.
  *
  * The legacy `snapshot.log` is still written for compatibility (PR ①); the UI
  * switches to this stream in PR ②.
@@ -32,9 +38,18 @@ export const MISSION_EVENT_TYPES = [
   "node.finished",
   "node.skipped",
   "node.rerun",
+  // 诚实事件：把「这只是推断」「这条被推翻了」「那条跟着作废了」从正文里抬到时间线上。
+  "node.hypothesis",
+  "node.refuted",
+  "node.retracted",
   "qa.revise",
+  // KX-51：节点中途提问 / 用户回答（answer | ignore | abort | timeout）。
+  "node.ask",
+  "node.answered",
   "user.input",
   "user.input.applied",
+  // KX-72：用户按条复核契约。
+  "contract.reviewed",
 ] as const;
 
 export type MissionEventType = (typeof MISSION_EVENT_TYPES)[number];
@@ -67,12 +82,20 @@ function sanitizePayload(payload: Record<string, unknown> | undefined): Prisma.I
   return json as Prisma.InputJsonValue;
 }
 
-/** Append events inside an existing transaction. Returns the assigned seqs. */
+/**
+ * Append events inside an existing transaction. Returns the assigned seqs.
+ *
+ * Deliberately NOT wrapped in the in-process key lock: the caller already owns
+ * an open transaction, so queueing here could make one transaction wait for a
+ * key held by another that is itself blocked on this transaction's advisory
+ * lock. Transaction-owning callers serialize through Postgres only.
+ */
 export async function appendMissionEventsTx(
   tx: Prisma.TransactionClient,
-  input: { organizationId: string; missionTaskId: string; demo?: boolean; events: MissionEventInput[] }
+  input: { organizationId: string; missionTaskId: string; demo?: boolean; events: MissionEventInput[]; execution?: ExecutorGuard }
 ): Promise<number[]> {
   if (!input.events.length) return [];
+  if (input.execution) await lockExecutorGuardTx(tx, input.execution);
   await tx.$executeRawUnsafe(
     "SELECT pg_advisory_xact_lock(hashtext($1))",
     `kern-mission-events:${input.missionTaskId}`
@@ -103,16 +126,27 @@ export async function appendMissionEventsTx(
   return seqs;
 }
 
-/** Append outside a transaction (executor side). Never throws: telemetry must not fail work. */
+/**
+ * Waiting for the per-mission advisory lock is normal — the supervisor may hold
+ * it inside a longer transaction — so let a queued append wait rather than fail
+ * to start (P2028), which this function would silently swallow.
+ */
+const MISSION_EVENT_TX = { maxWait: 15_000, timeout: 20_000 } as const;
+
+/** Append outside a transaction. Revoked execution throws; callers must check durable source writes. */
 export async function appendMissionEvents(input: {
   organizationId: string;
   missionTaskId: string;
   demo?: boolean;
   events: MissionEventInput[];
+  execution?: ExecutorGuard;
 }): Promise<number[]> {
   try {
-    return await prisma.$transaction((tx) => appendMissionEventsTx(tx, input));
+    return await withKeyLock(`kern-mission-events:${input.missionTaskId}`, () =>
+      prisma.$transaction((tx) => appendMissionEventsTx(tx, input), MISSION_EVENT_TX)
+    );
   } catch (error) {
+    if (error instanceof ExecutionStoppedError) throw error;
     console.error(
       `[kern-events] append failed ${input.missionTaskId}:`,
       error instanceof Error ? error.message : error

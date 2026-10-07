@@ -1,0 +1,138 @@
+/* KX-22 工作台首页（方案 B：收件箱优先）。颜色 / 圆角 / 阴影 / 字号全部取自 theme/kern-design.css；小件见 @/components/kx。
+   主列：需要你处理（首条展开）+ 推进表；右栏：Kern 在做 / 哪里异常 / 最近完成。
+
+   动效（2026-10-04）：此前本文件 **零 transition**，列表行 hover、按钮按压、卡片浮起
+   全部是硬切——违反本项目自己的动效原则 P3「不用硬切：每个转场都要承载意义」。
+   现统一挂 --m-tr-ui（globals.css 唯一定义，含颜色类 + 按压位移，且不含尺寸），
+   与 /workforce 的 .hermes-kpi 保持同一套手感，同时满足 MC3/MC4（只动合成层与颜色类）。
+   降动画由 globals.css 的全局 prefers-reduced-motion 规则统一兜底，此处不重复声明。 */
+.kx-wb { display: grid; gap: 14px; color: var(--k-ink); }
+
+/* 可交互面：统一挂标准 UI 过渡 */
+.kx-wb-row,
+.kx-wb-cell,
+.kx-wb-card,
+a.hermes-primary-btn,
+a.hermes-outline-btn,
+.kx-wb-talk { transition: var(--m-tr-ui); }
+
+.kx-wb-head { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px 16px; }
+.kx-wb-head > div { flex: 1 1 320px; min-width: 0; }
+.kx-wb-head h1 { margin: 0; font-size: var(--k-t-title); font-weight: 650; letter-spacing: -.015em; line-height: 1.35; }
+.kx-wb-head p { margin: 2px 0 0; color: var(--k-ink-2); font-size: var(--k-t-xs); line-height: 1.6; }
+
+.kx-wb-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); gap: 14px; align-items: start; }
+.kx-wb-stack { display: grid; gap: 14px; align-content: start; min-width: 0; }
+
+/* 卡片：圆角/阴影全部走令牌（原先硬编码 14px，与 kern-design 的 --k-r-lg 不一致） */
+.kx-wb-card { min-width: 0; padding-bottom: 6px; border: 1px solid var(--k-line); border-radius: var(--k-r-lg); background: var(--k-surface); box-shadow: var(--k-sh-1); }
+.kx-wb-card-h { display: flex; align-items: center; gap: 8px; padding: 12px 16px 8px; }
+.kx-wb-card-h h2 { margin: 0; font-size: 14.5px; font-weight: 650; line-height: 1.4; }
+.kx-wb-link { margin-left: auto; color: var(--k-brand-ink); font-size: var(--k-t-xs); font-weight: 560; text-decoration: none; }
+.kx-wb-link:hover { text-decoration: underline; }
+
+/* 首条展开
+   2026-10-04 重做层级：原先 .kx-wb-focus 在 .kx-wb-card 里再画一层边框+圆角+底色，
+   .kx-wb-facts > div 又在 focus 里再画一层 —— 卡片套卡片套卡片，正是 DESIGN.md
+   「Avoid」里点名要避免的。现改为「左语义色条 + 极淡底」表达重点，不再叠卡片：
+     重点层级靠色条与留白建立，不靠再套一层框。 */
+/* 重点卡入场：左侧语义色条「画下来」
+   这一块是全页唯一「需要你处理」的落点，重要性高于下面任何一行。
+   此前它和普通行一样是瞬时出现的；现在色条自上而下画出（scaleY 0→1），
+   主体轻微上浮就位——让「这条是主角」在进场那一刻就成立。
+   刻意不做数字补间：补间期间显示的数字是错的，与「状态必须真实」冲突。 */
+@keyframes kx-wb-rail-draw { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes kx-wb-focus-in { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+.kx-wb-focus {
+  position: relative;
+  display: grid; gap: 9px;
+  margin: 0 12px 8px; padding: 14px 16px 14px 18px;
+  border-radius: var(--k-r);
+  background: var(--k-brand-wash);
+  animation: kx-wb-focus-in var(--m-d-base) var(--m-ease-out) backwards;
+}
+/* 左语义色条改由 ::before 承担：inset box-shadow 无法单独做 scaleY 动画，
+   而「色条画下来」正是这一拍要表达的意思。 */
+.kx-wb-focus::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  border-radius: 3px 0 0 3px; background: var(--k-brand);
+  transform-origin: top center; animation: kx-wb-rail-draw var(--m-d-morph) var(--m-ease-out) backwards;
+}
+.kx-wb-focus-t { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 6px 10px; }
+.kx-wb-focus-t b { flex: 1 1 240px; min-width: 0; font-size: var(--k-t-base); font-weight: 620; line-height: 1.55; }
+.kx-wb-muted { margin: 0; color: var(--k-ink-2); font-size: var(--k-t-xs); line-height: 1.6; }
+
+/* 事实对：改为「标签 + 值」的竖排定义列表，去掉第三层边框与底色 */
+.kx-wb-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; }
+.kx-wb-facts > div { display: grid; gap: 3px; min-width: 0; padding-left: 10px; border-left: 2px solid var(--k-line-2); }
+.kx-wb-facts small { color: var(--k-ink-3); font-size: var(--k-t-xs); line-height: 1.4; }
+.kx-wb-facts b { font-size: var(--k-t-sm); font-weight: 580; line-height: 1.55; }
+.kx-wb-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+
+/* 列表行 */
+.kx-wb-row { position: relative; display: flex; align-items: center; gap: 10px; padding: 9px 16px; border-top: 1px solid var(--k-line-soft); color: inherit; text-decoration: none; }
+
+/* 列表行进场（2026-10-04）
+   此前新增一条待办时，行是「闪」出来的——P3 要求「不用硬切」，而新增待办
+   本身就是一件值得被看见的事。现在首屏挂载时逐行淡入上移，间隔 45ms
+   （复用 --m-stagger，与 kx 系原语同一节奏）；第 7 行起不再累加延迟，
+   避免长列表末尾干等。只动 transform + opacity，不触发布局。 */
+@keyframes kx-wb-row-in { from { transform: translateY(5px); opacity: 0; } to { transform: none; opacity: 1; } }
+.kx-wb-row.is-enter { animation: kx-wb-row-in var(--m-d-base) var(--m-ease-out) backwards; animation-delay: calc(var(--m-stagger) * min(var(--m-row-index, 6), 6)); }
+/* P3「转场承载意义」：hover 不只换底色，还要让整行「浮起」一点——
+   手指/指针移到哪一行，那一行就是当前关注对象。位移只给 1px（合成层，不触发布局）。 */
+.kx-wb-row { position: relative; }
+a.kx-wb-row:hover { background: var(--k-surface-2); transform: translateX(2px); }
+a.kx-wb-row:hover::before {
+  content: ""; position: absolute; left: 0; top: 6px; bottom: 6px;
+  width: 2px; border-radius: 0 2px 2px 0; background: var(--k-brand);
+}
+.kx-wb-card-h + .kx-wb-row { border-top: 0; }
+.kx-wb-row.is-dot { align-items: flex-start; }
+.kx-wb-row.is-dot .kx-dot { margin-top: 7px; }
+.kx-wb-row-t { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.kx-wb-row-t b { font-size: var(--k-t-sm); font-weight: 560; line-height: 1.5; overflow-wrap: anywhere; }
+.kx-wb-row-t small { color: var(--k-ink-2); font-size: var(--k-t-xs); line-height: 1.5; }
+.kx-wb-more { margin: 0; padding: 8px 16px 4px; color: var(--k-ink-2); font-size: var(--k-t-xs); }
+.kx-wb-empty { display: flex; align-items: flex-start; gap: 10px; padding: 4px 16px 10px; color: var(--k-ink-2); font-size: var(--k-t-sm); line-height: 1.6; }
+.kx-wb-empty .kx-dot { margin-top: 7px; }
+.kx-wb-line { margin: 0; padding: 0 16px 8px; color: var(--k-ink-2); font-size: var(--k-t-xs); line-height: 1.6; }
+.kx-wb-traces { padding: 0 8px 4px; }
+
+/* 推进表 */
+.kx-wb-table { width: 100%; border-collapse: collapse; font-size: var(--k-t-sm); }
+.kx-wb-table th { padding: 6px 16px; border-bottom: 1px solid var(--k-line); color: var(--k-ink-2); font-size: var(--k-t-xs); font-weight: 600; text-align: left; }
+.kx-wb-table td { padding: 8px 16px; border-top: 1px solid var(--k-line-soft); vertical-align: middle; }
+.kx-wb-table tbody tr:first-child td { border-top: 0; }
+.kx-wb-table td:last-child { width: 1%; white-space: nowrap; }
+.kx-wb-cell { display: grid; gap: 2px; color: inherit; text-decoration: none; }
+.kx-wb-cell:hover b { text-decoration: underline; }
+/* 表格行同样给「当前行」指示，避免整张表只有文字变化 */
+.kx-wb-table tbody tr { transition: var(--m-tr-ui); }
+.kx-wb-table tbody tr:hover { background: var(--k-surface-2); }
+.kx-wb-cell b { font-weight: 560; line-height: 1.5; }
+.kx-wb-cell small { color: var(--k-ink-2); font-size: var(--k-t-xs); line-height: 1.5; }
+
+.kx-wb-foot { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--k-ink-2); font-size: var(--k-t-xs); }
+
+/* 降动画（MC2 强制）：进场逐行淡入与 stagger 全部关掉，行直接就位。
+   内容一个不少——动效只是「怎么出现」，不是「有没有出现」。 */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .kx-wb-row.is-enter,
+  :root:not([data-motion="full"]) .kx-wb-focus,
+  :root:not([data-motion="full"]) .kx-wb-focus::before { animation: none; animation-delay: 0s; }
+  :root:not([data-motion="full"]) .kx-wb-row,
+  :root:not([data-motion="full"]) .kx-wb-cell,
+  :root:not([data-motion="full"]) .kx-wb-card,
+  :root:not([data-motion="full"]) .kx-wb-table tbody tr { transition: none; }
+}
+
+@media (max-width: 1100px) {
+  .kx-wb-cols { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 720px) {
+  .kx-wb-facts { grid-template-columns: minmax(0, 1fr); }
+  .kx-wb-row, .kx-wb-cell { min-height: 44px; }
+  .kx-wb-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; }
+  .kx-wb-actions a, .kx-wb-talk { min-height: 44px; }
+}

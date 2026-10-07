@@ -11,19 +11,50 @@ on:
       - "src/app/api/missions/**"
       - "tests/regression-kern-supervisor.ts"
       - "tests/regression-kern-memory-quota.ts"
+      - "tests/regression-model-call-quota.ts"
       - "tests/regression-kern-mission-controls.ts"
+      - "tests/regression-kern-node-ask.ts"
       - "tests/kern-mission-controls.test.ts"
       - "tests/kern-mission-timeline.test.ts"
       - "tests/kern-brief.test.ts"
       - "tests/regression-kern-brief.ts"
       - "tests/regression-kern-takeaway.ts"
       - "tests/kern-report.test.ts"
+      - "tests/kern-reply-format.test.ts"
+      - "src/modules/assistant-runtime/reply-format.ts"
+      - "src/modules/assistant-runtime/persona.ts"
       - "src/app/muse/**"
+      - "src/modules/response-format/**"
+      - "src/modules/muse/**"
+      - "src/app/api/missions/**"
+      - "tests/kern-response-*.test.ts"
       - "src/modules/muse/**"
       - "src/modules/memory/**"
-      - "src/modules/billing/**"
+      - "src/modules/usage/**"
+      - "src/modules/model-gateway/**"
       - "tests/kern-supervisor-plan.test.ts"
+      - "tests/kern-metaso.test.ts"
       - "package.json"
+      - "src/modules/identity/**"
+      - "src/app/login/**"
+      - "src/app/api/auth/**"
+      - "tests/regression-local-test-login.ts"
+      - "tests/regression-kern-readiness.ts"
+      - "tests/regression-kern-worker-heartbeat.ts"
+      - "tests/regression-kern-execution-control.ts"
+      - "tests/regression-model-cancellation.ts"
+      - "tests/kern-execution-abort.test.ts"
+      - "src/shared/abort.ts"
+      - "src/shared/net/**"
+      - "src/modules/connectors/**"
+      - "src/modules/workspace/setup.ts"
+      - "tests/regression-worker-failure-cleanup.ts"
+      - "tests/regression-worker-review-probes.ts"
+      - "tests/regression-worker-r2-boundaries.ts"
+      - "tests/regression-worker-r3-boundaries.ts"
+      - "tests/regression-worker-fairness.ts"
+      - "src/modules/worker/scheduler.ts"
+      - "src/modules/worker/fair-queue.ts"
       - ".github/workflows/kern-supervisor-ci.yml"
   push:
     branches: ["main"]
@@ -36,19 +67,50 @@ on:
       - "src/app/api/missions/**"
       - "tests/regression-kern-supervisor.ts"
       - "tests/regression-kern-memory-quota.ts"
+      - "tests/regression-model-call-quota.ts"
       - "tests/regression-kern-mission-controls.ts"
+      - "tests/regression-kern-node-ask.ts"
       - "tests/kern-mission-controls.test.ts"
       - "tests/kern-mission-timeline.test.ts"
       - "tests/kern-brief.test.ts"
       - "tests/regression-kern-brief.ts"
       - "tests/regression-kern-takeaway.ts"
       - "tests/kern-report.test.ts"
+      - "tests/kern-reply-format.test.ts"
+      - "src/modules/assistant-runtime/reply-format.ts"
+      - "src/modules/assistant-runtime/persona.ts"
       - "src/app/muse/**"
+      - "src/modules/response-format/**"
+      - "src/modules/muse/**"
+      - "src/app/api/missions/**"
+      - "tests/kern-response-*.test.ts"
       - "src/modules/muse/**"
       - "src/modules/memory/**"
-      - "src/modules/billing/**"
+      - "src/modules/usage/**"
+      - "src/modules/model-gateway/**"
       - "tests/kern-supervisor-plan.test.ts"
+      - "tests/kern-metaso.test.ts"
       - "package.json"
+      - "src/modules/identity/**"
+      - "src/app/login/**"
+      - "src/app/api/auth/**"
+      - "tests/regression-local-test-login.ts"
+      - "tests/regression-kern-readiness.ts"
+      - "tests/regression-kern-worker-heartbeat.ts"
+      - "tests/regression-kern-execution-control.ts"
+      - "tests/regression-model-cancellation.ts"
+      - "tests/kern-execution-abort.test.ts"
+      - "src/shared/abort.ts"
+      - "src/shared/net/**"
+      - "src/modules/connectors/**"
+      - "src/modules/workspace/setup.ts"
+      - "tests/regression-worker-failure-cleanup.ts"
+      - "tests/regression-worker-review-probes.ts"
+      - "tests/regression-worker-r2-boundaries.ts"
+      - "tests/regression-worker-r3-boundaries.ts"
+      - "tests/regression-worker-fairness.ts"
+      - "src/modules/worker/scheduler.ts"
+      - "src/modules/worker/fair-queue.ts"
       - ".github/workflows/kern-supervisor-ci.yml"
 
 jobs:
@@ -100,10 +162,30 @@ jobs:
       - run: npx prisma generate
       - run: npm run typecheck
       - run: npx prisma migrate deploy
+      - run: npm run test:local-login
+      - run: npm run test:response-format
       - run: npm run test:kern-supervisor-plan
       - run: npm run test:kern-supervisor
+      - run: npm run test:kern-execution-delivery
       - run: npm run test:kern-memory-quota
+      - run: npm run test:research-lineage
+      - run: npm run test:metaso
+      - run: npm run test:provider-attempt-quota
+      - run: npm run test:model-call-quota
       - run: npm run test:kern-mission-controls
+      - run: npm run test:kern-node-ask
+      - run: npm run test:execution-abort
+      - run: npm run test:kern-message-execution
+      - run: npm run test:kern-execution-control
+      - run: npm run test:model-cancellation
+      - run: npm run test:model-execution-facts
+      - run: npm run test:worker-fairness
+      - run: npm run test:worker-failure-cleanup
+      - run: npm run test:worker-review-probes
+      - run: npm run test:worker-r2-boundaries
+      - run: npm run test:worker-r3-boundaries
+      - run: npm run test:worker-heartbeat
+      - run: npm run test:kern-readiness
       - run: npm run test:kern-brief
       - run: npm run test:kern-takeaway
       - run: npm run test:workforce

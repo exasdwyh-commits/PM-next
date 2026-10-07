@@ -14,7 +14,15 @@ async function main() {
   const leader = await user("version-leader@hermes.test");
   const ctx = (u: typeof owner) => ({ userId: u.id, organizationId: u.organizationId, userEmail: u.email, userName: u.name });
   const project = await createProject(ctx(owner), { title: `VERSION_REVIEW_${Date.now()}`, target: "Synthetic version consistency test", mode: "NEW_PRODUCT", isDemo: true, decisionMakerId: leader.id });
-  await prisma.evidence.create({ data: { projectId: project.id, contentOrUri: "Test price: 售价 80 元", source: "SYNTHETIC_TEST", hash: "test-version-source", nature: "DEMO", verifyStatus: "VERIFIED" } });
+  // 2026-10-04 修正：本脚本此前从未被任何 npm test:* 或 CI 引用，是静默失效的测试。
+  // 把它接起来后立刻变红：证据缺口闭合失败（P1-02 → price）。查证结论是**夹具过时**，
+  // 不是产品缺陷——早于迁移 20260908090000/20260909010000 时，"有证据"只需写一条自由文本
+  // Evidence；现在 price 等基线字段由结构化 EvidenceClaim 判定，
+  // pickResolvedClaims 只采纳 kind=FACT 且所属 evidence 已 VERIFIED 的断言
+  // （见 research/evidence-claims.ts:122）。本脚本只建了自由文本、没建 claim，
+  // 于是 price 永远算缺口 —— 这正是「证据驱动」应有的行为，脚本需要跟上。
+  const priceEvidence = await prisma.evidence.create({ data: { projectId: project.id, contentOrUri: "Test price: 售价 80 元", source: "SYNTHETIC_TEST", hash: "test-version-source", nature: "DEMO", verifyStatus: "VERIFIED" } });
+  await prisma.evidenceClaim.create({ data: { evidenceId: priceEvidence.id, fieldKey: "price", fieldName: "到手价", kind: "FACT", value: "80", currency: "CNY", spec: "10g/袋", unit: "袋", mechanism: "到手价", evidenceLevel: "B", freshness: "FRESH" } });
   const original = await assembleProductSuggestionPackage(ctx(owner), project.id, { businessOptions: { commissionRate: 20, marketingRate: 5, batchQuantity: 100, shelfLifeMonths: 12, netWeight: "TEST ORIGINAL 10g" } });
   await commitProductSuggestionToGate(ctx(owner), project.id, original, { isConfirmed: true, idempotencyKey: `${project.id}-original` });
   const revised = structuredClone(original);

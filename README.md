@@ -1,5 +1,9 @@
 # PM-next · Kern AI Product OS
 
+本地交付包当前状态与启动说明：[2026-10-05 本地修复记录](docs/KERN_LOCAL_STATUS_2026-10-05.md)。历史分支与 CI 记录不代表当前源码包的实测结果。
+
+当前功能维护优先级、执行修复与真实任务验收条件：[2026-10-07 功能维护记录](docs/KERN_FUNCTIONAL_MAINTENANCE_2026-10-07.md)。
+
 PM-next 是一个面向产品负责人和小型团队的 **Kern Personal Chief of Staff + Product OS**：Kern 负责理解目标、统筹数字员工、调用模型/技能/工具、推进产品工作，并通过 Evidence / QA / Governance 保持结果可信。
 
 产品采用“一个 Kern、两类界面”的结构：
@@ -364,6 +368,20 @@ npm run test:sweep
 - 全部外部科研、法规、供应链数据源适配。
 
 AppleScript / Accessibility 通道已经预留；有稳定 API/CLI/AppleScript 的本机任务应优先使用确定性工具，不为了“像人点击”而退化成脆弱 GUI 自动化。
+
+## 项目地图
+
+架构图由源码静态 import 关系确定性生成，不靠人工维护：
+
+```bash
+npm run kern:map             # 生成 docs/maps/kern-runtime.kern-graph.json 与 kern-runtime.archify.json
+npm run test:kern-project-map # 校验区域、关键依赖边与覆盖率
+```
+
+- 区域定义在 `src/modules/visual-intelligence/project-map-builder.ts` 的 `AREAS`，按目录前缀归属；
+- 新增 `src/modules/<name>/` 若未登记到 `AREAS`，覆盖率守卫会让 `test:kern-project-map` 失败（未归属文件不得超过 2%）；
+- `docs/maps/kern-system.architecture.json` 是更早的手工架构图（同为 archify 格式，但不是同一套生成流程），保留作历史参考；
+- `test:kern-project-map` 已接入 Quality CI。
 
 ## 文档
 

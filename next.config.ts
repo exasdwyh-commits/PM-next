@@ -1,4 +1,8 @@
 import type { NextConfig } from "next";
+import { readFileSync } from "node:fs";
+
+// KX-25：版本号在构建时注入（客户端只拿到这一个字符串，不打包 package.json）
+const APP_VERSION = (JSON.parse(readFileSync("./package.json", "utf8")) as { version: string }).version;
 
 /**
  * 默认输出到 .next。
@@ -16,6 +20,7 @@ import type { NextConfig } from "next";
  */
 const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
+  env: { NEXT_PUBLIC_APP_VERSION: APP_VERSION },
 };
 
 export default nextConfig;

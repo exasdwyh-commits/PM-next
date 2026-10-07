@@ -2,16 +2,15 @@
 
 import React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/app-shell";
 import CollapsibleList from "@/components/collapsible-list";
-import { Badge, Empty, KV, Panel, Tabs, Thinking, cx } from "@/components/ui";
+import { Badge, Empty, KV, Panel, Tabs, Thinking } from "@/components/ui";
 import Icon from "@/components/icons";
+import { Notice } from "@/components/notice";
+import { useTabSwap } from "@/components/motion/tabs";
 import { ProgressRing, ScoreBar } from "@/components/viz";
-import RevisionPanel from "./revision-panel";
-import LaunchTab from "./launch-tab";
-import CostCalculator from "./cost-calculator";
-import ChannelRoutesPanel from "./channel-routes";
 import { buildProductThemes, type ProductThemeInput } from "@/modules/workspace/briefing";
 import { fmtDate, fmtDateTime } from "@/shared/datetime";
 import {
@@ -49,6 +48,11 @@ const WEIGHTS: Record<string, number> = {
 };
 
 type TabKey = "overview" | "analysis" | "version" | "channel" | "cost" | "validation" | "launch";
+const TAB_KEYS: TabKey[] = ["overview", "analysis", "version", "channel", "cost", "validation", "launch"];
+const RevisionPanel = dynamic(() => import("./revision-panel"), { loading: () => <Thinking label="正在载入修改草案…" /> });
+const LaunchTab = dynamic(() => import("./launch-tab"), { loading: () => <Thinking label="正在载入上市计划…" /> });
+const CostCalculator = dynamic(() => import("./cost-calculator"), { loading: () => <Thinking label="正在载入成本计算器…" /> });
+const ChannelRoutesPanel = dynamic(() => import("./channel-routes"), { loading: () => <Thinking label="正在载入渠道路线…" /> });
 
 const NATURE_BADGE: Record<string, { tone: "ok" | "warn" | "neutral"; label: string }> = {
   fact: { tone: "ok", label: "已有依据" },
@@ -90,9 +94,18 @@ export default function ProductOverviewClient({
   runtime: { tone: "ok" | "warn" | "neutral"; label: string; detail: string };
 }) {
   const router = useRouter();
-  const [tab, setTab] = React.useState<TabKey>("overview");
+  const searchParams = useSearchParams();
+  const [tab, setTab] = React.useState<TabKey>(() => {
+    const initialTab = searchParams.get("tab") as TabKey | null;
+    return initialTab && TAB_KEYS.includes(initialTab) ? initialTab : "overview";
+  });
   const [busy, setBusy] = React.useState(false);
+  const analysisBusy = React.useRef(false);
   const [msg, setMsg] = React.useState<{ tone: "ok" | "danger"; text: string } | null>(null);
+  // KX-28：标签切换时内容区高度平滑、内容淡入；视野在标签栏以下时拉回标签栏。
+  const tabsRef = React.useRef<HTMLDivElement>(null);
+  const tabPanelRef = React.useRef<HTMLDivElement>(null);
+  useTabSwap(tabPanelRef, tab, tabsRef);
   // 纠错区默认收起：它是「结论不对时」的备选路径，不该在常态下占版面。
   const [showFix, setShowFix] = React.useState(false);
 
@@ -109,14 +122,9 @@ export default function ProductOverviewClient({
   };
 
   React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const urlTab = params.get("tab") as TabKey | null;
-      if (urlTab && ["overview", "analysis", "version", "channel", "cost", "validation", "launch"].includes(urlTab)) {
-        setTab(urlTab);
-      }
-    }
-  }, []);
+    const urlTab = searchParams.get("tab") as TabKey | null;
+    setTab(urlTab && TAB_KEYS.includes(urlTab) ? urlTab : "overview");
+  }, [searchParams]);
 
   const p = overview.product;
   const dims: any[] = overview.dimensions ?? [];
@@ -125,14 +133,35 @@ export default function ProductOverviewClient({
 
   // ── TASK-012: 已保存的成本情景 ──
   const [savedScenarios, setSavedScenarios] = React.useState<any[]>([]);
-  React.useEffect(() => {
-    if (tab === "cost" && p?.id) {
-      fetch(`/api/products/${p.id}/cost-scenarios`)
-        .then((r) => (r.ok ? r.json() : { scenarios: [] }))
-        .then((d) => setSavedScenarios(d.scenarios ?? []))
-        .catch(() => setSavedScenarios([]));
+  const [scenariosLoading, setScenariosLoading] = React.useState(false);
+  const [scenariosError, setScenariosError] = React.useState<string | null>(null);
+  const scenarioRequest = React.useRef(0);
+  const loadScenarios = React.useCallback(async (signal?: AbortSignal) => {
+    const request = ++scenarioRequest.current;
+    setScenariosLoading(true);
+    setScenariosError(null);
+    try {
+      const response = await fetch(`/api/products/${p.id}/cost-scenarios`, { signal });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !Array.isArray(data?.scenarios)) throw new Error(data?.message || "已保存情景读取失败，请重试。");
+      if (!signal?.aborted && request === scenarioRequest.current) setSavedScenarios(data.scenarios);
+    } catch (err) {
+      if (!signal?.aborted && request === scenarioRequest.current) setScenariosError(err instanceof Error ? err.message : "已保存情景读取失败，请重试。");
+    } finally {
+      if (!signal?.aborted && request === scenarioRequest.current) setScenariosLoading(false);
     }
-  }, [tab, p?.id]);
+  }, [p.id]);
+  React.useEffect(() => {
+    setSavedScenarios([]);
+    setScenariosError(null);
+  }, [p.id]);
+  React.useEffect(() => {
+    const controller = new AbortController();
+    if (tab === "cost" && p?.id) {
+      void loadScenarios(controller.signal);
+    }
+    return () => { controller.abort(); scenarioRequest.current += 1; };
+  }, [tab, p?.id, loadScenarios]);
 
   const handleSaveScenario = async (scenario: {
     scenarioName: string;
@@ -147,10 +176,10 @@ export default function ProductOverviewClient({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...scenario, workItemId: p.projects?.[0]?.id }),
     });
-    if (!res.ok) throw new Error("Save failed");
+    const body = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(body?.message || "情景保存失败，请重试。");
     // 刷新情景列表
-    const d = await fetch(`/api/products/${p.id}/cost-scenarios`).then((r) => r.json());
-    setSavedScenarios(d.scenarios ?? []);
+    await loadScenarios();
   };
 
   // 派生量集中在最前：下面「产品简报」「分析结论」两处都要用，
@@ -166,6 +195,8 @@ export default function ProductOverviewClient({
   const evidenceVerified: number = overview.evidenceCompleteness.verifiedReal;
 
   const runAnalysis = async () => {
+    if (analysisBusy.current) return;
+    analysisBusy.current = true;
     setBusy(true);
     setMsg(null);
     try {
@@ -181,6 +212,7 @@ export default function ProductOverviewClient({
     } catch (e: any) {
       setMsg({ tone: "danger", text: e.message || "分析失败" });
     } finally {
+      analysisBusy.current = false;
       setBusy(false);
     }
   };
@@ -325,11 +357,7 @@ export default function ProductOverviewClient({
         {busy && (
           <Thinking label="正在按确定性规则重跑分析…" hint="本次执行的步骤（不调用模型）" steps={ANALYSIS_STEPS} />
         )}
-        {msg && (
-          <div className={cx("hermes-banner", msg.tone === "ok" ? "is-ok" : "is-danger")} style={{ marginTop: 10 }}>
-            {msg.text}
-          </div>
-        )}
+        <Notice msg={msg} onClose={() => setMsg(null)} style={{ marginTop: 10 }} />
       </section>
 
       <details className="hermes-details">
@@ -406,7 +434,6 @@ export default function ProductOverviewClient({
   const analysisTab = (
     <div className="hermes-stack">
       <Panel
-        eyebrow="AI VERDICT"
         icon="chart"
         title="分析结论"
         actions={
@@ -535,11 +562,7 @@ export default function ProductOverviewClient({
           <Thinking label="正在按确定性规则重跑分析…" hint="本次执行的步骤（不调用模型）" steps={ANALYSIS_STEPS} />
         )}
 
-        {msg && (
-          <div className={cx("hermes-banner", msg.tone === "ok" ? "is-ok" : "is-danger")} style={{ marginTop: 10 }}>
-            {msg.text}
-          </div>
-        )}
+        <Notice msg={msg} onClose={() => setMsg(null)} style={{ marginTop: 10 }} />
       </Panel>
 
       {/* 六维评分 = 「查看评估明细」，默认收起（第四层口径：计算过程按需查看） */}
@@ -617,7 +640,7 @@ export default function ProductOverviewClient({
         </div>
       </details>
 
-      <RevisionPanel productId={p.id} onChanged={() => router.refresh()} />
+      <RevisionPanel key={p.id} productId={p.id} onChanged={() => router.refresh()} />
     </div>
   );
 
@@ -667,7 +690,7 @@ export default function ProductOverviewClient({
         )}
       </section>
 
-      <RevisionPanel productId={p.id} onChanged={() => router.refresh()} />
+      <RevisionPanel key={p.id} productId={p.id} onChanged={() => router.refresh()} />
 
       <details className="hermes-details">
         <summary style={{ fontWeight: 600, padding: "4px 0" }}>
@@ -724,6 +747,7 @@ export default function ProductOverviewClient({
   const costTab = (
     <div className="hermes-stack">
       <CostCalculator
+        key={p.id}
         targetCost={currentVersion?.targetCost ?? null}
         currency={currentVersion?.currency ?? null}
         versionTag={currentVersion?.versionTag ?? null}
@@ -731,6 +755,9 @@ export default function ProductOverviewClient({
         productId={p.id}
         savedScenarios={savedScenarios}
         onSaveScenario={handleSaveScenario}
+        scenariosLoading={scenariosLoading}
+        scenariosError={scenariosError}
+        onRetryScenarios={() => void loadScenarios()}
       />
 
       <section className="hermes-theme-section">
@@ -797,11 +824,11 @@ export default function ProductOverviewClient({
                   ? `已有 ${evidenceVerified} 条经负责人核实的真实依据支撑判断。`
                   : "已录入资料均未核实，不能作为事实使用。"}
             </p>
-            <p className="hermes-note">
-              {evidenceTotal > 0
-                ? `口径：已核实真实依据 ${evidenceVerified} 条 / 依据总数 ${evidenceTotal} 条；未核实与演示数据不计入分子。`
-                : "口径：暂无依据可核实（依据总数 0 条）。待补证后再评估已核实占比。"}
-            </p>
+            {evidenceTotal > 0 ? (
+              <p className="hermes-note">
+                口径：已核实真实依据 {evidenceVerified} 条 / 依据总数 {evidenceTotal} 条；未核实与演示数据不计入分子。
+              </p>
+            ) : null}
           </div>
         </div>
       </section>
@@ -949,16 +976,17 @@ export default function ProductOverviewClient({
         ]}
         active={tab}
         onChange={(k) => handleTabChange(k as TabKey)}
+        listRef={tabsRef}
       />
 
-      <div style={{ marginTop: 14 }}>
+      <div ref={tabPanelRef} style={{ marginTop: 14 }}>
         {tab === "overview" && overviewTab}
         {tab === "analysis" && analysisTab}
         {tab === "version" && versionTab}
-        {tab === "channel" && <ChannelRoutesPanel productId={p.id} />}
+        {tab === "channel" && <ChannelRoutesPanel key={p.id} productId={p.id} />}
         {tab === "cost" && costTab}
         {tab === "validation" && validationTab}
-        {tab === "launch" && <LaunchTab productId={p.id} onChanged={() => router.refresh()} />}
+        {tab === "launch" && <LaunchTab key={p.id} productId={p.id} onChanged={() => router.refresh()} />}
       </div>
     </AppShell>
   );

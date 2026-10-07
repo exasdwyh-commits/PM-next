@@ -31,11 +31,8 @@ import {
   startAgentTask,
 } from "../src/modules/workforce/service";
 import { startProductRndProgram } from "../src/modules/product-rnd";
-import {
-  EXECUTOR_STRATEGIES,
-  executeAgentTask,
-  executorStrategyCodes,
-} from "../src/modules/worker/executor";
+import { EXECUTOR_STRATEGIES } from "../src/modules/product-rnd/executor-strategies";
+import { executeAgentTask, executorStrategyCodes } from "../src/modules/worker/executor";
 import {
   claimAgentTaskForExecution,
   hasLiveExecutorLease,
@@ -45,9 +42,9 @@ import {
   executorLoopOnce,
   reconcileLoopOnce,
   researchLoopOnce,
-} from "../src/modules/worker/loops";
+} from "../src/modules/supervisor/worker-runtime";
 import { resolveWorkerSession } from "../src/modules/worker/identity";
-import { acquireWorkerLock, releaseWorkerLock } from "../src/modules/worker";
+import { acquireWorkerLock, releaseWorkerLock } from "../src/modules/supervisor/worker-runtime";
 import { enqueueKernSpecialistDispatch } from "../src/modules/assistant-runtime/specialist-dispatch";
 import { appendAgentTaskConversationReturn } from "../src/modules/workforce/conversation-return";
 
@@ -413,7 +410,9 @@ async function main() {
       path.join(lockDir, "lock.json"),
       JSON.stringify({
         workerId: "other-worker",
-        pid: 1, // init 必然存活，模拟「另一个 Worker 正在跑」
+        // 用父进程（测试启动器）模拟「另一个 Worker 正在跑」：必然存活且不是本进程。
+        // 旧写法 pid: 1 依赖 Linux 的 init，Windows 上不存在该进程 → 锁被判失效 → 假红。
+        pid: process.ppid,
         startedAt: new Date().toISOString(),
         heartbeatAt: new Date().toISOString(),
       }),

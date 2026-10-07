@@ -74,7 +74,8 @@ test("legacy Advisor service is a compatibility facade, not a runtime core", () 
 });
 
 test("Kern Chat view model is conversation-first, not mission/today dashboard-first", () => {
-  const types = read("src/app/muse/types.ts");
+  // KX-71：类型下沉到模块层，页面文件只 re-export。
+  const types = read("src/modules/muse/types.ts");
   const readModel = read("src/modules/muse/read-model.ts");
   const client = read("src/app/muse/muse-client.tsx");
 
@@ -167,7 +168,11 @@ test("Kern V2 keeps advanced controls quiet and gates execution below the GoalPl
   assert.ok(goalPlan.includes('"kern-goal-plan-shadow/v1"'));
   assert.ok(goalPlan.includes("autoCreateAgentTasks: false"));
   assert.ok(goalPlan.includes('specialistAutoDispatch: "READINESS_GATED"'));
-  assert.ok(goalPlan.includes("STRATEGIC_VALUE_TRADEOFF"));
+  // human gate 清单已收敛到 governance/protected-actions.ts（行为断言见 kern-protected-actions PA2）
+  assert.ok(goalPlan.includes("humanGates: [...HUMAN_GATE_IDS]"));
+  assert.ok(
+    read("src/modules/governance/protected-actions.ts").includes('"STRATEGIC_VALUE_TRADEOFF"')
+  );
   assert.ok(service.includes("buildKernGoalPlanShadow"));
   assert.ok(service.includes("goalPlanShadow"));
   assert.ok(service.includes("resolveKernDispatchReadiness"));
@@ -192,7 +197,8 @@ test("Kern specialist AUTO is database-idempotent and provenance-bound", () => {
   const schema = read("prisma/schema.prisma");
   const dispatch = read("src/modules/assistant-runtime/specialist-dispatch.ts");
   const returnPath = read("src/modules/workforce/conversation-return.ts");
-  const executor = read("src/modules/worker/executor.ts");
+  // KX-71：worker 只留通用执行器，专员策略在 product-rnd，通过 worker/registry 注册。
+  const executor = read("src/modules/worker/executor.ts") + read("src/modules/product-rnd/executor-strategies.ts") + read("src/modules/supervisor/worker-runtime.ts");
 
   assert.ok(schema.includes("idempotencyKey  String?          @unique"));
   assert.ok(dispatch.includes("sourceRun"));

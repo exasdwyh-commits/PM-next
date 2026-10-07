@@ -1,5 +1,10 @@
 import { chromium } from "playwright";
 
+const DEV_PASSWORD = process.env.DEV_LOGIN_PASSWORD ?? process.env.SEED_PASSWORD;
+if (!DEV_PASSWORD) {
+  throw new Error("缺少开发口令：请设置 DEV_LOGIN_PASSWORD 或 SEED_PASSWORD 环境变量（口令不写进仓库）");
+}
+
 const BASE = "http://127.0.0.1:3100";
 const ROUTE = process.env.PROBE_ROUTE || "/products";
 const SELECTORS = (process.env.PROBE_SELECTORS || ".hermes-workspace,.hermes-projects-panel,.project-table-head,.project-row,.project-name,.project-name strong,.project-row > *").split(",");
@@ -15,7 +20,7 @@ const page = await ctx.newPage();
 await page.goto(BASE + "/login", { waitUntil: "domcontentloaded" });
 await page.waitForTimeout(1200);
 await page.fill('input[type="email"]', "li_vp@hermes.test");
-await page.fill('input[type="password"]', "admin123");
+await page.fill('input[type="password"]', DEV_PASSWORD);
 await page.click('button[type="submit"]');
 await page.waitForURL(BASE + "/", { timeout: 30000 }).catch(() => {});
 await page.waitForTimeout(1500);

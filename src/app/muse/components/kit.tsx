@@ -38,7 +38,35 @@ export function StateTag({ state }: { state: AiState }) {
 export function Btn({
   v = "default", size, children, ...rest
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { v?: "default" | "primary" | "danger" | "ghost"; size?: "sm" }) {
-  return <button type="button" className="m-btn" data-v={v} data-size={size} {...rest}>{children}</button>;
+  // 主按钮柔光跟随指针（T5）：把指针坐标写进 --mx/--my，样式由 ::after 消费；非 primary 保持原样。
+  const onPointerMove = v === "primary"
+    ? (e: React.PointerEvent<HTMLButtonElement>) => {
+        const box = e.currentTarget.getBoundingClientRect();
+        e.currentTarget.style.setProperty("--mx", `${e.clientX - box.left}px`);
+        e.currentTarget.style.setProperty("--my", `${e.clientY - box.top}px`);
+        rest.onPointerMove?.(e);
+      }
+    : rest.onPointerMove;
+  return <button type="button" className="m-btn" data-v={v} data-size={size} {...rest} onPointerMove={onPointerMove}>{children}</button>;
+}
+const BTN_STATE_TEXT = { busy: "处理中", done: "已完成", error: "失败，可重试" } as const;
+/**
+ * 带状态的按钮（KX-12）：idle 时输出与 Btn 完全一致；其余状态挂 [data-morph]（CSS 收成圆形→描勾→展开），
+ * 文案包进 .m-btn-lbl 参与淡出淡回，字形与读屏播报不变。
+ * 配合 src/components/motion/react.ts 的 useBtnState 使用。
+ */
+export function StatefulBtn({
+  state = "idle", ...props
+}: React.ComponentProps<typeof Btn> & { state?: "idle" | "busy" | "done" | "error" }) {
+  if (state === "idle") return <Btn {...props} />;
+  const { v = "default", size, children, ...rest } = props;
+  return (
+    <button type="button" className="m-btn" data-v={v} data-size={size} {...rest} data-morph="btn" data-state={state} aria-busy={state === "busy" || undefined} disabled={rest.disabled || state === "busy"}>
+      <span className="m-btn-glyph" aria-hidden>{state === "done" ? svg("M5 12.5l4.2 4.2L19 7", 15) : state === "error" ? svg("M7 7l10 10M17 7 7 17", 15) : null}</span>
+      <span className="m-btn-lbl">{children}</span>
+      <span className="hermes-sr-only" role="status">{BTN_STATE_TEXT[state]}</span>
+    </button>
+  );
 }
 
 export function Card({ className = "", children }: { className?: string; children: React.ReactNode }) {
@@ -82,4 +110,9 @@ export const I = {
   spark: () => svg("M12 4v3M12 17v3M4 12h3M17 12h3M6.8 6.8 8.9 8.9M15.1 15.1l2.1 2.1M17.2 6.8 15.1 8.9M8.9 15.1 6.8 17.2"),
   search: () => svg("M11 18.5a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15ZM20 20l-3.8-3.8"),
   check: () => svg("M5 13l4.5 4.5L19 7"),
+  copy: () => svg("M9 9h11v11H9zM5 15V5h10"),
+  pin: () => svg("M9 4h6l-1 7 3 3v2H7v-2l3-3zM12 16v5"),
+  clock: () => svg("M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7v5l3 2"),
+  pen: () => svg("M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"),
+  archive: () => svg("M3 4h18v4H3zM5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"),
 };

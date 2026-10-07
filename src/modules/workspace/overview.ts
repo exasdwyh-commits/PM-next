@@ -326,7 +326,10 @@ export async function getWorkspaceOverview(
         projectIds.length > 0
           ? `我参与的项目 ${projectIds.length} 个 · 组织内产品 ${products.length} 个`
           : `我参与的项目 0 个 · 组织内产品 ${products.length} 个`,
-      permissionLabel: `组织范围：${session.organizationId} · 仅统计我是成员的项目`,
+      // 2026-10-04：原先把 organizationId（UUID）拼进这句给用户看，
+      // 属于实现腔文案——用户不关心内部主键，且截断成 8 位后更像内部串号。
+      // 改为只陈述真实的口径事实；组织名由页面层单独取，不在这里拼。
+      permissionLabel: "仅统计我是成员的项目 · 组织内全量",
     },
     todos: { count: todoItems.length, items: todoItems },
     pendingDecisions: { count: pendingDecisionItems.length, items: pendingDecisionItems },

@@ -112,6 +112,44 @@ export const SQUAD_LIFECYCLE_STATUS_LABELS: Record<string, string> = {
 export const CHANNEL_RULE_RECORD_STATUS_LABELS: Record<string, string> = {
   ASSUMED: "假设",
   CONFIRMED: "已确认",
+  SUPERSEDED: "已被取代",
+};
+
+/** 渠道路线状态（`ChannelSpecRouteStatus`） */
+export const CHANNEL_SPEC_ROUTE_STATUS_LABELS: Record<string, string> = {
+  DRAFT: "草稿",
+  BLOCKED: "受阻",
+  VALIDATION_READY: "待验证",
+  VALIDATING: "验证中",
+  CONFIRMED: "已确认",
+  REJECTED: "已否决",
+  SUPERSEDED: "已被取代",
+};
+
+/** 产品验证真实结果（`ProductValidationOutcomeStatus`） */
+export const PRODUCT_VALIDATION_OUTCOME_LABELS: Record<string, string> = {
+  SUCCESS: "成功",
+  FAILURE: "失败",
+  INCONCLUSIVE: "无定论",
+  NOT_RUN: "未执行",
+};
+
+/** 预测回测对齐结果（`BacktestAlignmentStatus`） */
+export const BACKTEST_ALIGNMENT_LABELS: Record<string, string> = {
+  ALIGNED_SUCCESS: "预测成功且属实",
+  ALIGNED_FAILURE: "预测失败且属实",
+  FALSE_POSITIVE: "误报（预测成功但失败）",
+  FALSE_NEGATIVE: "漏报（预测失败但成功）",
+  ABSTAINED: "未做预测",
+  INCONCLUSIVE: "无定论",
+};
+
+/** 经验候选状态（`ExperienceLessonStatus`） */
+export const EXPERIENCE_LESSON_STATUS_LABELS: Record<string, string> = {
+  CANDIDATE: "候选",
+  APPROVED: "已批准",
+  REJECTED: "已驳回",
+  SUPERSEDED: "已被取代",
 };
 
 /** 知识源类型 */
@@ -393,6 +431,49 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   PRODUCTION_DELIVERED: "确认生产交付",
   LAUNCH_APPROVAL_REVOKED: "撤销上市批准",
   LAUNCH_EXECUTED: "确认实际上市",
+  ACCEPT_RESULT: "接受结果",
+  AGENT_MODEL_POLICY_BOUND: "绑定员工模型策略",
+  AGENT_PARENT_TASK_CLOSED_FROM_RETURN: "按回执关闭上级任务",
+  AGENT_RETURN_REVIEW_ACCEPTED: "回执复核：接受",
+  AGENT_RETURN_REVIEW_ESCALATED: "回执复核：上报",
+  AGENT_RETURN_REVIEW_REDELEGATED: "回执复核：重新委派",
+  AGENT_TASK_CREATED: "创建员工任务",
+  AGENT_TASK_DELEGATED: "委派员工任务",
+  AGENT_TASK_FINISHED: "员工任务完成",
+  AGENT_TASK_STARTED: "员工任务开始",
+  ASSESS_POTENTIAL: "评估潜力",
+  AUTO: "自动处理",
+  AUTOPILOT_BOOTSTRAPPED: "自动驾驶初始化",
+  AUTOPILOT_EVENT_FAILED: "自动驾驶事件失败",
+  AUTOPILOT_EVENT_PROCESSED: "自动驾驶事件已处理",
+  BIND_AGENT: "绑定员工",
+  CHANNEL_RULE_PROFILE_CREATED: "创建渠道规则",
+  CHANNEL_SPEC_ROUTE_EVALUATED: "评估渠道路线",
+  CHANNEL_SPEC_ROUTE_STATUS_CHANGED: "渠道路线状态变更",
+  CREATE_RULE: "创建规则",
+  DECISION_RUN_RECORDED: "记录决策运行",
+  EVALUATE_ROUTE: "评估路线",
+  EXPERIENCE_LESSON_REBUILT: "重建经验候选",
+  EXPERIENCE_LESSON_REVIEWED: "审核经验候选",
+  INSTALL_PRESETS: "安装预设",
+  KERN_MISSION_LAUNCHED: "Kern 任务启动",
+  KERN_MISSION_RESUMED: "Kern 任务续跑",
+  MODEL_CONTROL_PRESETS_INSTALLED: "安装模型预设",
+  MODEL_POLICY_SAVED: "保存模型策略",
+  MODEL_PROFILE_SAVED: "保存模型配置",
+  POTENTIAL_PREDICTION_FROZEN: "冻结潜力预测",
+  PRODUCT_OUTCOME_VERIFIED: "核验产品真实结果",
+  PRODUCT_POTENTIAL_ASSESSED: "完成产品潜力评估",
+  PRODUCT_VERSION_PUBLISHED: "发布产品版本",
+  PROPOSAL_REANALYSIS_FAILED: "提案重新分析失败",
+  READY_FOR_GOVERNANCE_REVIEW: "可进入治理评审",
+  RECONCILE: "对账推进",
+  REWORK_OR_STOP: "返工或停止",
+  SAVE_POLICY: "保存策略",
+  SAVE_PROFILE: "保存配置",
+  START: "开始",
+  TRANSITION_ROUTE: "路线状态流转",
+  WORKFORCE_BOOTSTRAPPED: "员工体系初始化",
 };
 
 /**
@@ -452,6 +533,10 @@ export const labelActionProposalStatus = (k?: string | null) => labelOf(ACTION_P
 export const labelOpportunityType = (k?: string | null) => labelOf(OPPORTUNITY_TYPE_LABELS, k);
 export const labelOpportunityElement = (k?: string | null) => labelOf(OPPORTUNITY_ELEMENT_LABELS, k);
 export const labelAuditAction = (k?: string | null) => labelOf(AUDIT_ACTION_LABELS, k);
+export const labelChannelSpecRouteStatus = (k?: string | null) => labelOf(CHANNEL_SPEC_ROUTE_STATUS_LABELS, k);
+export const labelProductValidationOutcome = (k?: string | null) => labelOf(PRODUCT_VALIDATION_OUTCOME_LABELS, k);
+export const labelBacktestAlignment = (k?: string | null) => labelOf(BACKTEST_ALIGNMENT_LABELS, k);
+export const labelExperienceLessonStatus = (k?: string | null) => labelOf(EXPERIENCE_LESSON_STATUS_LABELS, k);
 export const labelLaunchMilestoneKind = (k?: string | null) => labelOf(LAUNCH_MILESTONE_KIND_LABELS, k);
 export const labelScoreDimension = (k?: string | null) => labelOf(SCORE_DIMENSION_LABELS, k);
 export const labelProductSpecField = (k?: string | null) => labelOf(PRODUCT_SPEC_FIELD_LABELS, k);

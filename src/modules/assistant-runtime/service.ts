@@ -1,6 +1,8 @@
+import { lockRunExecutionTx, type ConversationExecution } from "@/modules/worker/run-claim";
 import { Prisma } from "@prisma/client";
 import prisma from "@/shared/db";
-import { getUsage, QuotaExceededError } from "@/modules/billing";
+import { UnprocessableEntityError } from "@/shared/errors";
+import { getUsage, UsageLimitError } from "@/modules/usage";
 import { extractExplicitMemory, rememberForUser } from "@/modules/memory";
 import type { SessionContext } from "@/modules/identity/session";
 import { executeKernConversationTurn } from "./conversation-engine";
@@ -52,8 +54,16 @@ export async function sendDepartmentAssistantMessage(
   session: SessionContext,
   conversationId: string,
   content: string,
-  options?: { runId?: string }
+  options?: { runId?: string; execution?: ConversationExecution }
 ) {
+  if (typeof content !== "string" || !content.trim()) {
+    throw new UnprocessableEntityError("消息内容必须是非空文本");
+  }
+  const updateMessage = async (args: Prisma.MessageUpdateArgs) => prisma.$transaction(async tx => {
+    if (options?.execution) await lockRunExecutionTx(tx, options.execution.guard);
+    return tx.message.update(args);
+  });
+  await options?.execution?.assertActive();
   const context = await buildDepartmentAssistantContext(session, conversationId);
   const reflexPromise = runDepartmentAssistantReflexShadow(session, {
     text: content,
@@ -68,6 +78,7 @@ export async function sendDepartmentAssistantMessage(
     content,
     options
   );
+  await options?.execution?.assertActive();
   const reflex = await reflexPromise;
   const plannedCollaboration = buildKernCollaborationPlanShadow({
     text: content,
@@ -97,6 +108,7 @@ export async function sendDepartmentAssistantMessage(
     text: content,
     intent: result.intent,
     collaboration: collaborationPlanShadow,
+    productBound: Boolean(context.productId),
   });
   let mission: { missionTaskId: string; created: boolean; nodeCount: number } | null = null;
   let missionError: string | null = null;
@@ -109,23 +121,24 @@ export async function sendDepartmentAssistantMessage(
   let memoryHandled = false;
   const explicitMemory = extractExplicitMemory(content);
   if (explicitMemory) {
+    await options?.execution?.assertActive();
     let memoryQuotaNote: string | null = null;
     const saved = await rememberForUser(session, { ...explicitMemory, source: null }).catch(
       (error: unknown) => {
-        if (error instanceof QuotaExceededError) memoryQuotaNote = error.message;
+        if (error instanceof UsageLimitError) memoryQuotaNote = error.message;
         return null;
       }
     );
     if (!saved && memoryQuotaNote) {
       // Honest: never pretend it was remembered.
-      responseMessage = await prisma.message.update({
+      responseMessage = await updateMessage({
         where: { id: result.message.id },
         data: { content: `这条我没能记住：${memoryQuotaNote}。` },
       });
       memoryHandled = true;
     }
     if (saved) {
-      responseMessage = await prisma.message.update({
+      responseMessage = await updateMessage({
         where: { id: result.message.id },
         data: { content: `记住了：${saved.content}\n\n之后的工作我都会按这个来。随时可以在「设置 → Kern 的记忆」里查看或删除。` },
       });
@@ -137,6 +150,7 @@ export async function sendDepartmentAssistantMessage(
   // “继续 / 重试” picks up the stopped mission in this conversation instead of starting over.
   let resumed = false;
   if (!memoryHandled && isResumeIntent(content)) {
+    await options?.execution?.assertActive();
     const stoppedId = await findResumableMission(session, conversationId).catch(() => null);
     if (stoppedId) {
       resumed = true;
@@ -153,7 +167,7 @@ export async function sendDepartmentAssistantMessage(
             : "这项工作目前不需要继续。";
         if (r.resumed) mission = { missionTaskId: stoppedId, created: false, nodeCount: 0 };
       }
-      responseMessage = await prisma.message.update({
+      responseMessage = await updateMessage({
         where: { id: result.message.id },
         data: {
           content: note,
@@ -164,6 +178,7 @@ export async function sendDepartmentAssistantMessage(
   }
 
   if (!memoryHandled && !resumed && missionDecision.launch) {
+    await options?.execution?.assertActive();
     try {
       // Display Layer: clarify → plan card → the user confirms (or runs a demo).
       // Nothing runs and no quota is used until the user presses 开始.
@@ -175,12 +190,11 @@ export async function sendDepartmentAssistantMessage(
         goalPlan: playbook === "GENERIC" ? buildMissionPlanFromGoalPlan(goalPlanShadow) : undefined,
       });
       briefCreated = { messageId: result.message.id, stage: brief.stage };
-      // Tell the user up-front when the plan is out of missions — the brief
-      // still works for adjusting the plan and for a quota-free demo run.
+      // 部署设置了安全上限且已到顶时提前说明——简报仍可调整计划、做演示运行。
       const usage = await getUsage(session.organizationId).catch(() => null);
       const quotaFull =
         usage && usage.limits.missionsPerMonth !== null && usage.used.missions >= usage.limits.missionsPerMonth
-          ? `\n\n> 注意：本月任务额度已用完（已用 ${usage.used.missions}/${usage.limits.missionsPerMonth}）。你仍可以先确认需求、用**演示运行**看效果；要让团队真正开工，可以在「设置 → 套餐与用量」升级，或等下个周期。`
+          ? `\n\n> 注意：本月已接手 ${usage.used.missions} 项工作，达到本部署设置的上限 ${usage.limits.missionsPerMonth}。你仍可以先确认需求、用**演示运行**看效果；要调整上限请联系管理员。`
           : "";
       const note0 =
         brief.stage === "CLARIFY"
@@ -190,7 +204,7 @@ export async function sendDepartmentAssistantMessage(
             ].filter(Boolean).join("\n\n")
           : "**这件事我来牵头。** 下面是我拟的计划，你确认后团队就开工；也可以先调整，或用演示模式看看效果。";
       const note = note0 + quotaFull;
-      responseMessage = await prisma.message.update({
+      responseMessage = await updateMessage({
         where: { id: result.message.id },
         data: {
           // The router's single-turn reply (e.g. an intake form) is superseded by the brief.
@@ -210,6 +224,7 @@ export async function sendDepartmentAssistantMessage(
     dispatchReadiness.state === "EXECUTOR_READY"
   ) {
     try {
+      await options?.execution?.assertActive();
       specialistDispatch = await enqueueKernSpecialistDispatch({
         session,
         conversationId,
@@ -231,7 +246,7 @@ export async function sendDepartmentAssistantMessage(
           ? result.message.citations
           : [];
 
-        responseMessage = await prisma.message.update({
+        responseMessage = await updateMessage({
           where: { id: result.message.id },
           data: {
             content: nextContent,
@@ -302,7 +317,9 @@ export async function sendDepartmentAssistantMessage(
     select: { contextSnapshot: true },
   });
   if (run) {
-    await prisma.agentRun.update({
+    await prisma.$transaction(async tx => {
+      if (options?.execution) await lockRunExecutionTx(tx, options.execution.guard);
+      return tx.agentRun.update({
       where: { id: result.runId },
       data: {
         contextSnapshot: asInputJson({
@@ -328,6 +345,7 @@ export async function sendDepartmentAssistantMessage(
         }),
       },
     });
+    });
   }
 
   let message = responseMessage;
@@ -340,7 +358,7 @@ export async function sendDepartmentAssistantMessage(
           return (citation as Record<string, unknown>).kind !== "kern-graph";
         })
       : [];
-    message = await prisma.message.update({
+    message = await updateMessage({
       where: { id: result.message.id },
       data: {
         citations: asInputJson([
@@ -351,6 +369,7 @@ export async function sendDepartmentAssistantMessage(
     });
   }
 
+  await options?.execution?.assertActive();
   return {
     ...result,
     message,

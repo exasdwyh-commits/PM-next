@@ -9,9 +9,14 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 
+const DEV_PASSWORD = process.env.DEV_LOGIN_PASSWORD ?? process.env.SEED_PASSWORD;
+if (!DEV_PASSWORD) {
+  throw new Error("缺少开发口令：请设置 DEV_LOGIN_PASSWORD 或 SEED_PASSWORD 环境变量（口令不写进仓库）");
+}
+
 const BASE = process.env.AUDIT_BASE || "http://127.0.0.1:3120";
 const EMAIL = process.env.AUDIT_EMAIL || "li_vp@hermes.test";
-const PASSWORD = process.env.AUDIT_PASSWORD || "admin123";
+const PASSWORD = process.env.AUDIT_PASSWORD || DEV_PASSWORD;
 
 const WIDTHS = [
   { w: 1366, h: 768, tag: "1366" },

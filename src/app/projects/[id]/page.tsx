@@ -6,9 +6,10 @@ import { buildEvidenceInsight } from "@/modules/research/evidence-claims";
 import { parseProjectRequirements } from "@/modules/research/requirement-parser";
 import { synthesizeOpportunityAnalysis } from "@/modules/research/opportunity-analysis";
 import { BUSINESS_BASELINE, BASELINE_FIELD } from "@/config/business-baseline";
-import { isMockAuthEnabled } from "@/shared/runtime-status";
+import { getRuntimeStatus, isMockAuthEnabled } from "@/shared/runtime-status";
 import { toSessionView } from "@/shared/session-view";
-import { PROJECT_DETAIL_SELECT } from "@/modules/projects/project-view";
+import { getProjectDetail } from "@/modules/projects/service";
+import { ForbiddenError, NotFoundError } from "@/shared/errors";
 import ProjectDetailClient from "./project-detail-client";
 
 export const dynamic = "force-dynamic";
@@ -30,21 +31,13 @@ export default async function ProjectDetailPage({
     redirect("/login");
   }
 
-  const project = await prisma.project.findUnique({
-    where: { id },
-    // B6 收尾：与 GET /api/projects/[id] 共用同一份对外白名单（project-view），
-    // 消除 SSR 与客户端刷新两套形状的漂移，同时不再下发内部关联 id 与 Json
-    select: PROJECT_DETAIL_SELECT,
-  });
-
-  // R02: Cross-company or non-member cannot view project
-  if (!project || project.organizationId !== session.organizationId) {
-    notFound();
-  }
-
-  const isMember = project.members.some((m) => m.userId === session.userId);
-  if (!isMember) {
-    notFound();
+  let project;
+  try {
+    // Share the API's membership checks, public fields and current gate diagnostics.
+    project = await getProjectDetail(session, id);
+  } catch (error) {
+    if (error instanceof ForbiddenError || error instanceof NotFoundError) notFound();
+    throw error;
   }
 
   // B6：开发态身份切换才需要组织成员名单；生产态不下发，避免把同组织用户 id/name/email
@@ -57,22 +50,7 @@ export default async function ProjectDetailPage({
       })
     : [];
 
-  // Calculate gate gaps
-  const marketEvidences = project.evidences.filter(
-    (e) => e.nature === "REAL" && e.verifyStatus === "VERIFIED"
-  );
-  const latestPacket = project.decisionPackets[0];
-
-  const gaps: string[] = [];
-  if (marketEvidences.length === 0) {
-    gaps.push("缺少核实有效的真实市场依据 (REAL Evidence)");
-  }
-  if (!latestPacket || !latestPacket.budgetAmount || !latestPacket.budgetScope) {
-    gaps.push("拟投入预算金额或明确授权动作范围未确定");
-  }
-  if (!project.decisionMakerId) {
-    gaps.push("未指定独立决策人");
-  }
+  const gaps = project.gaps;
 
   // P1-01: 服务端计算证据覆盖/缺口（仅已核实 FACT；缺口保持 UNKNOWN），跨认证模式可用
   const evidenceInsight = buildEvidenceInsight(project.evidences);
@@ -132,6 +110,7 @@ export default async function ProjectDetailPage({
       mockAuth={mockAuth}
       initialEvidenceInsight={JSON.parse(JSON.stringify(evidenceInsight))}
       initialOpportunity={JSON.parse(JSON.stringify(initialOpportunity))}
+      runtime={getRuntimeStatus()}
     />
   );
 }

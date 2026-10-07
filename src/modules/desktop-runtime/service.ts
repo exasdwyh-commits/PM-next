@@ -25,6 +25,18 @@ import {
   parseDesktopInstruction,
 } from "./contracts";
 import {
+  ApprovalService,
+  type ApprovalGrantStore,
+} from "@/modules/governance/approval-service";
+import {
+  DESKTOP_GRANT_TTL_MS,
+  classifyDesktopAction,
+  desktopActionHash,
+  desktopGrantScope,
+  readDesktopConfirmation,
+  type DesktopConfirmationState,
+} from "./confirmation";
+import {
   noteDesktopPresence,
   readDesktopPresence,
   type DesktopPresence,
@@ -105,6 +117,12 @@ export async function enqueueDesktopTask(
     );
   }
 
+  // KX-35：服务端分级。危险命令不入队；需确认的动作先停在 WAITING_HUMAN。
+  const decision = classifyDesktopAction(action);
+  if (decision.policy === "DENY") {
+    throw new UnprocessableEntityError(`危险命令已拒绝执行：${decision.reason}`);
+  }
+
   let agent = await findDesktopAgent(session);
   if (!agent) {
     try {
@@ -137,7 +155,146 @@ export async function enqueueDesktopTask(
       : "desktop-runtime",
   });
 
-  return { task, action };
+  if (decision.policy === "CONFIRM") {
+    const confirmation: DesktopConfirmationState = {
+      policy: "CONFIRM",
+      reason: decision.reason ?? "执行前需要你确认",
+      actionHash: desktopActionHash(action),
+      requestedAt: new Date().toISOString(),
+      status: "PENDING",
+      grantId: null,
+      decidedAt: null,
+      decidedByUserId: null,
+    };
+    const waiting = await prisma.agentTask.update({
+      where: { id: task.id },
+      data: {
+        status: AgentTaskStatus.WAITING_HUMAN,
+        contextSnapshot: {
+          ...asRecord(task.contextSnapshot),
+          desktopConfirmation: confirmation as unknown as Prisma.InputJsonValue,
+        } as Prisma.InputJsonValue,
+      },
+    });
+    return { task: waiting, action, confirmation };
+  }
+
+  return { task, action, confirmation: null };
+}
+
+/** 审批服务需要 PM_OS_APPROVAL_HMAC_SECRET；未配置时为 null（需确认的动作一律无法放行，不会误放行）。 */
+export function desktopApprovalService(store?: ApprovalGrantStore): ApprovalService | null {
+  try {
+    return store ? new ApprovalService(store) : new ApprovalService();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * KX-35 确认卡：允许一次 / 不允许。
+ * - 门禁同 claim：同组织 + 同发起人 + Desktop Operator，任一不符 404。
+ * - 只接受「待确认」的任务（WAITING_HUMAN + desktopConfirmation.PENDING），否则 409。
+ * - ALLOW：签发绑定 actionHash 的单次 ApprovalGrant，任务回到 QUEUED 等执行端领取。
+ * - DENY：任务 CANCELLED，结果写明「你没有允许」。
+ */
+export async function confirmDesktopTask(
+  session: SessionContext,
+  input: { taskId: string; decision: "ALLOW" | "DENY" },
+  deps: { approvals?: ApprovalService | null } = {}
+) {
+  const task = await prisma.agentTask.findUnique({
+    where: { id: input.taskId },
+    select: {
+      id: true,
+      organizationId: true,
+      createdByUserId: true,
+      status: true,
+      contextSnapshot: true,
+      agent: { select: { code: true } },
+    },
+  });
+  if (
+    !task ||
+    task.organizationId !== session.organizationId ||
+    task.createdByUserId !== session.userId ||
+    task.agent.code !== DESKTOP_AGENT_CODE
+  ) {
+    throw new NotFoundError("Desktop task not found");
+  }
+  const action = readAction(task.contextSnapshot);
+  const confirmation = readDesktopConfirmation(task.contextSnapshot);
+  if (
+    !action ||
+    !confirmation ||
+    confirmation.status !== "PENDING" ||
+    task.status !== AgentTaskStatus.WAITING_HUMAN
+  ) {
+    throw new ConflictError("这项本机任务当前不在等待确认");
+  }
+  // 快照里的动作被改过（指纹不符）就不允许按旧确认放行。
+  if (desktopActionHash(action) !== confirmation.actionHash) {
+    throw new ConflictError("本机动作与确认时的指纹不一致，请重新发起");
+  }
+
+  const now = new Date();
+  const base = asRecord(task.contextSnapshot);
+  if (input.decision === "DENY") {
+    const updated = await prisma.agentTask.update({
+      where: { id: task.id },
+      data: {
+        status: AgentTaskStatus.CANCELLED,
+        completedAt: now,
+        contextSnapshot: {
+          ...base,
+          desktopConfirmation: {
+            ...confirmation,
+            status: "DENIED",
+            decidedAt: now.toISOString(),
+            decidedByUserId: session.userId,
+          } as unknown as Prisma.InputJsonValue,
+          desktopResult: {
+            ok: false,
+            summary: "你没有允许执行，这项本机任务已取消。",
+            output: null,
+            finishedAt: now.toISOString(),
+          },
+        } as Prisma.InputJsonValue,
+      },
+      select: { id: true, status: true },
+    });
+    return { taskId: updated.id, status: updated.status, decision: "DENY" as const, grantId: null };
+  }
+
+  const approvals = deps.approvals === undefined ? desktopApprovalService() : deps.approvals;
+  if (!approvals) {
+    throw new ConflictError("审批签名密钥未配置（PM_OS_APPROVAL_HMAC_SECRET），暂时无法放行需确认的本机动作");
+  }
+  const scope = desktopGrantScope(task.id, action);
+  const grant = await approvals.issue(
+    session,
+    { ...scope, validUntil: new Date(now.getTime() + DESKTOP_GRANT_TTL_MS), channel: "desktop-confirm" },
+    now
+  );
+  // 只在仍是 WAITING_HUMAN 时回到队列，防止并发的第二次点击重复放行。
+  const moved = await prisma.agentTask.updateMany({
+    where: { id: task.id, status: AgentTaskStatus.WAITING_HUMAN },
+    data: {
+      status: AgentTaskStatus.QUEUED,
+      contextSnapshot: {
+        ...base,
+        desktopConfirmation: {
+          ...confirmation,
+          status: "APPROVED",
+          grantId: grant.id,
+          decidedAt: now.toISOString(),
+          decidedByUserId: session.userId,
+        } as unknown as Prisma.InputJsonValue,
+      } as Prisma.InputJsonValue,
+    },
+  });
+  if (moved.count !== 1) throw new ConflictError("这项本机任务已被处理");
+  return { taskId: task.id, status: AgentTaskStatus.QUEUED, decision: "ALLOW" as const, grantId: grant.id };
 }
 
 export async function listDesktopRuntimeTasks(
@@ -189,7 +346,8 @@ export async function listDesktopRuntimeTasks(
 
 export async function claimDesktopRuntimeTask(
   session: SessionContext,
-  input: { taskId: string; deviceId: string }
+  input: { taskId: string; deviceId: string },
+  deps: { approvals?: ApprovalService | null } = {}
 ) {
   const task = await prisma.agentTask.findUnique({
     where: { id: input.taskId },
@@ -226,7 +384,58 @@ export async function claimDesktopRuntimeTask(
     throw new ConflictError(`Desktop task is ${task.status}, expected QUEUED`);
   }
 
+  // KX-35：需确认的动作必须持有已批准、未用过、指纹一致的单次 ApprovalGrant，领取即消耗。
+  const decision = classifyDesktopAction(action);
+  if (decision.policy === "DENY") {
+    throw new ConflictError("危险命令不允许在本机执行");
+  }
+  const confirmation = decision.policy === "CONFIRM" ? readDesktopConfirmation(task.contextSnapshot) : null;
+  const approvals =
+    decision.policy === "CONFIRM" ? (deps.approvals === undefined ? desktopApprovalService() : deps.approvals) : null;
+  if (decision.policy === "CONFIRM") {
+    if (!confirmation || confirmation.status !== "APPROVED" || !confirmation.grantId) {
+      throw new ConflictError("这项本机任务还没有得到你的确认");
+    }
+    if (!approvals) throw new ConflictError("审批签名密钥未配置，无法核验确认凭据");
+  }
+
+  // 先启动（含并发 / 状态校验）再消耗凭据：启动失败时凭据原样保留，不会出现
+  // 「凭据已作废、任务却卡在 QUEUED」的死局。
   const started = await startAgentTask(session, task.id);
+  if (decision.policy === "CONFIRM" && confirmation && approvals) {
+    try {
+      await approvals.consume(confirmation.grantId!, {
+        organizationId: session.organizationId,
+        ...desktopGrantScope(task.id, action),
+        runId: started.run.id,
+      });
+    } catch (error) {
+      // 凭据无效 / 已用 / 过期 / 动作被改：撤销这次运行，任务退回「等你确认」。
+      // 动作被改的情况下重新确认会因指纹不符再次被拒，不会放行篡改后的命令。
+      await prisma.$transaction([
+        prisma.agentRun.update({ where: { id: started.run.id }, data: { status: "CANCELLED" } }),
+        prisma.agentTask.update({
+          where: { id: task.id },
+          data: {
+            status: AgentTaskStatus.WAITING_HUMAN,
+            startedAt: null,
+            contextSnapshot: {
+              ...asRecord(task.contextSnapshot),
+              desktopConfirmation: {
+                ...confirmation,
+                status: "PENDING",
+                grantId: null,
+                decidedAt: null,
+                decidedByUserId: null,
+              } as unknown as Prisma.InputJsonValue,
+            } as Prisma.InputJsonValue,
+          },
+        }),
+      ]);
+      const used = error instanceof Error && error.message === "approval-grant-already-consumed";
+      throw new ConflictError(used ? "确认凭据已被使用过，需要重新确认" : "确认凭据无效或已过期，需要重新确认");
+    }
+  }
   const claimedAt = new Date().toISOString();
   const current = await prisma.agentTask.findUnique({
     where: { id: task.id },
@@ -399,12 +608,14 @@ export interface DesktopTaskView {
   goal: string;
   status: AgentTaskStatus;
   phase: DesktopTaskPhase;
-  /** 动作类别 + 真实参数，供用户复核 Hermes 到底动了什么 */
-  action: { tool: string; kind: string; detail: string } | null;
+  /** 动作的中文说明 + 真实参数，供用户复核 Hermes 到底动了什么（label 已是展示文案，不是枚举） */
+  action: { tool: string; label: string; detail: string } | null;
   createdAt: string;
   updatedAt: string;
   conversationId: string | null;
   claim: { deviceId: string; claimedAt: string } | null;
+  /** KX-35：等你确认的本机动作（只有 PENDING 时非 null） */
+  confirmation: { reason: string; requestedAt: string } | null;
   result: {
     ok: boolean;
     summary: string;
@@ -468,7 +679,7 @@ function toTaskView(task: {
     goal: task.goal,
     status: task.status,
     phase: phaseOf(task.status),
-    action: action && described ? { tool: action.tool, ...described } : null,
+    action: action && described ? { tool: action.tool, label: described.kind, detail: described.detail } : null,
     createdAt: task.createdAt.toISOString(),
     updatedAt: task.updatedAt.toISOString(),
     conversationId:
@@ -476,6 +687,12 @@ function toTaskView(task: {
         ? context.desktopConversationId
         : null,
     claim: claim ? { deviceId: claim.deviceId, claimedAt: claim.claimedAt } : null,
+    confirmation: (() => {
+      const c = readDesktopConfirmation(task.contextSnapshot);
+      return c && c.status === "PENDING" && task.status === AgentTaskStatus.WAITING_HUMAN
+        ? { reason: c.reason, requestedAt: c.requestedAt }
+        : null;
+    })(),
     result: readResult(task.contextSnapshot),
   };
 }

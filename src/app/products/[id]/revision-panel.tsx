@@ -53,26 +53,36 @@ export default function RevisionPanel({
   const [note, setNote] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = React.useState(false);
   const [result, setResult] = React.useState<any>(null);
   const [comparison, setComparison] = React.useState<any>(null);
+  const busyRef = React.useRef(false);
+  const loadRequest = React.useRef(0);
 
-  const load = React.useCallback(async () => {
+  const load = React.useCallback(async (signal?: AbortSignal) => {
+    const request = ++loadRequest.current;
     setLoading(true);
     setErr(null);
+    setLoadFailed(false);
     try {
-      const res = await fetch(`/api/products/${productId}/revisions`);
+      const res = await fetch(`/api/products/${productId}/revisions`, { signal });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "读取可采纳项失败");
-      setData(json);
+      if (!signal?.aborted && request === loadRequest.current) setData(json);
     } catch (e: any) {
-      setErr(e.message || "读取失败");
+      if (!signal?.aborted && request === loadRequest.current) {
+        setErr(e.message || "读取失败");
+        setLoadFailed(true);
+      }
     } finally {
-      setLoading(false);
+      if (!signal?.aborted && request === loadRequest.current) setLoading(false);
     }
   }, [productId]);
 
   React.useEffect(() => {
-    load();
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => { controller.abort(); loadRequest.current += 1; };
   }, [load]);
 
   /**
@@ -81,22 +91,19 @@ export default function RevisionPanel({
    */
   const toggle = (opt: any) => {
     const key: string = String(opt.key);
-    setSelected((prev) => {
-      const next: Record<string, boolean> = { ...prev, [key]: !prev[key] };
-      if (next[key]) {
-        setValues((v) => {
-          const merged = { ...v };
-          for (const t of opt.targets) {
-            if (merged[t.field] === undefined) merged[t.field] = t.currentValue ?? "";
-          }
-          return merged;
-        });
+    const next = !selected[key];
+    setSelected((prev) => ({ ...prev, [key]: next }));
+    if (next) setValues((values) => {
+      const merged = { ...values };
+      for (const target of opt.targets) {
+        if (merged[target.field] === undefined) merged[target.field] = target.currentValue ?? "";
       }
-      return next;
+      return merged;
     });
   };
 
   const submit = async () => {
+    if (busyRef.current) return;
     const adopted = (data?.options ?? []).filter((o: any) => selected[o.key]);
     if (adopted.length === 0) {
       setErr("请至少勾选一项要采纳的改动");
@@ -114,7 +121,9 @@ export default function RevisionPanel({
       return;
     }
     setBusy(true);
+    busyRef.current = true;
     setErr(null);
+    setComparison(null);
     try {
       const res = await fetch(`/api/products/${productId}/revisions`, {
         method: "POST",
@@ -130,23 +139,29 @@ export default function RevisionPanel({
       if (!res.ok) throw new Error(json.message || "创建新版本失败");
       setResult(json);
 
-      // 变更前后对比：用返回的上一轮 run 与本轮 run 精确对比，不拿"最新"当"变更前"
-      if (json.previousRunId && json.analysisRunId) {
-        const cmp = await fetch(
-          `/api/products/${productId}/revisions/compare?before=${json.previousRunId}&after=${json.analysisRunId}`
-        );
-        const cmpJson = await cmp.json();
-        if (cmp.ok) setComparison(cmpJson);
-      }
-
       setSelected({});
       setValues({});
       setNote("");
       await load(); // 刷新版本轨迹与可采纳项
       onChanged();
+
+      // 变更前后对比：用返回的上一轮 run 与本轮 run 精确对比，不拿"最新"当"变更前"
+      if (json.previousRunId && json.analysisRunId) {
+        try {
+          const cmp = await fetch(
+            `/api/products/${productId}/revisions/compare?before=${json.previousRunId}&after=${json.analysisRunId}`
+          );
+          const cmpJson = await cmp.json();
+          if (!cmp.ok) throw new Error(cmpJson.message || "对比读取失败");
+          setComparison(cmpJson);
+        } catch {
+          setErr("新版本已创建；变更前后对比暂时无法读取，请稍后查看分析轮次轨迹。");
+        }
+      }
     } catch (e: any) {
       setErr(e.message || "创建新版本失败");
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   };
@@ -167,7 +182,7 @@ export default function RevisionPanel({
 
   return (
     <div className="hermes-stack">
-      {err && <div className="hermes-banner is-danger">{err}</div>}
+      {err && <div className="hermes-banner is-danger" role="alert">{err}{loadFailed && !busy && <button type="button" className="hermes-ghost-btn" onClick={() => void load()}>重试读取</button>}</div>}
 
       <Panel
         eyebrow="REVISION"
@@ -191,6 +206,7 @@ export default function RevisionPanel({
                     <input
                       type="checkbox"
                       checked={!!selected[o.key]}
+                      disabled={busy}
                       onChange={() => toggle(o)}
                       aria-label={`采纳：${o.title}`}
                     />
@@ -231,6 +247,7 @@ export default function RevisionPanel({
                         {t.label}
                         <input
                           className="hermes-input"
+                          disabled={busy}
                           value={values[t.field] ?? ""}
                           placeholder={t.placeholder}
                           onChange={(e) => setValues((v) => ({ ...v, [t.field]: e.target.value }))}
@@ -259,6 +276,7 @@ export default function RevisionPanel({
               本轮修改理由（写入版本留痕，必填以便日后追溯）
               <textarea
                 className="hermes-textarea"
+                disabled={busy}
                 rows={2}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}

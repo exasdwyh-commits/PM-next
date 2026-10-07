@@ -196,6 +196,10 @@ model User {
   businessEventsCreated BusinessEvent[] @relation("BusinessEventCreator")
 
   kernMemories KernMemory[]
+  kernCredentials KernCredential[]
+  kernConnectors  KernConnector[]
+  kernSchedules   KernSchedule[]
+  kernPlaybooks   KernPlaybook[]
 
   @@index([organizationId, isSystem])
   @@index([organizationId])
@@ -1498,6 +1502,10 @@ enum AgentRunStatus {
 }
 
 model AgentRun {
+  /// 客户端消息标识与原子接收的用户消息；为空为历史交互式运行。
+  clientMessageId String?
+  inputMessageId  String? @unique
+  executionToken  String?
   id             String         @id @default(uuid())
   organizationId String
   conversationId String?
@@ -1552,6 +1560,7 @@ model AgentRun {
   @@index([organizationId])
   @@index([conversationId])
   @@index([agentId])
+  @@unique([conversationId, clientMessageId])
   @@index([agentTaskId])
   @@index([status])
 }
@@ -1563,6 +1572,12 @@ enum ModelRunStatus {
 }
 
 model ModelRun {
+  logicalCallId String?
+  transportKnown Boolean @default(false)
+  transportStartedAt DateTime?
+  budgetScopeKey String?
+  budgetMaxAttempts Int?
+  budgetDeadlineAt DateTime?
   id             String         @id @default(uuid())
   organizationId String
   agentRunId     String?
@@ -1588,6 +1603,8 @@ model ModelRun {
 
   @@index([organizationId, createdAt])
   @@index([agentRunId])
+  @@index([logicalCallId])
+  @@index([budgetScopeKey])
   @@index([policyKey, policyVersion])
   @@index([profileKey])
   @@index([status])
@@ -2685,6 +2702,8 @@ enum KernMemoryKind {
   FACT
   DECISION
   OUTCOME
+  /// KX-74 程序性记忆：用户的纠正 / 复核意见，下次同类工作先看
+  CORRECTION
 }
 
 model KernMemory {
@@ -2695,6 +2714,8 @@ model KernMemory {
   content        String
   source         String?
   pinned         Boolean        @default(false)
+  /// KX-74 主题词（从内容 / 任务目标抽取），按主题检索
+  topics         String[]       @default([])
   useCount       Int            @default(0)
   lastUsedAt     DateTime?
   createdAt      DateTime       @default(now())
@@ -2705,23 +2726,6 @@ model KernMemory {
 
   @@unique([userId, source])
   @@index([organizationId, userId, forgottenAt])
-}
-
-/// Commercial plan per organization. Billing provider reference is optional
-/// (Stripe etc. plugs in later); limits live in code (src/modules/billing).
-enum KernPlanTier {
-  FREE
-  PRO
-  TEAM
-}
-
-model OrganizationSubscription {
-  organizationId String       @id
-  tier           KernPlanTier @default(FREE)
-  externalRef    String?
-  currentPeriodStart DateTime @default(now())
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
 }
 
 /// Append-only event stream of a Kern mission (Display Layer). The mission root
@@ -2744,4 +2748,121 @@ model KernMissionEvent {
 
   @@unique([missionTaskId, seq])
   @@index([organizationId, missionTaskId, seq])
+}
+
+/// KX-30 凭证保管层：一个目标（域名 / connector:<id>）下的一组 header，AES-256-GCM 加密。
+/// 明文与密文都不出服务端；hint 只含 header 名 + 末 4 位。撤销时清空 cipher。
+model KernCredential {
+  id             String    @id @default(uuid())
+  organizationId String
+  userId         String
+  target         String
+  label          String
+  hint           String
+  cipher         String
+  keyVersion     Int
+  oneTime        Boolean   @default(false)
+  expiresAt      DateTime?
+  usedAt         DateTime?
+  revokedAt      DateTime?
+  useCount       Int       @default(0)
+  lastUsedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, userId, revokedAt])
+  @@index([userId, target])
+}
+
+/// KX-31 连接器：用户接入的 MCP 服务器（Streamable HTTP）与工具快照。
+/// tools = ConnectorToolSpec[]（name/effect/enabled/capability/…）；读默认启用、写默认停用。
+/// 凭证不存这里：调用时按主机从 KernCredential 注入。
+model KernConnector {
+  id             String    @id @default(uuid())
+  organizationId String
+  userId         String
+  name           String
+  slug           String
+  url            String
+  tools          Json      @default("[]")
+  lastError      String?
+  refreshedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, userId])
+}
+
+/// KX-34 定时与主动：每日简报 / 提醒 / 定时重跑工作。worker 的 schedule loop 原子认领触发。
+model KernSchedule {
+  id                  String    @id @default(uuid())
+  organizationId      String
+  userId              String
+  /// DAILY_BRIEF | REMINDER | MISSION
+  kind                String
+  title               String
+  cron                String
+  timezone            String    @default("Asia/Shanghai")
+  payload             Json      @default("{}")
+  conversationId      String?
+  enabled             Boolean   @default(true)
+  nextRunAt           DateTime?
+  lastRunAt           DateTime?
+  lastStatus          String?
+  lastError           String?
+  runCount            Int       @default(0)
+  consecutiveFailures Int       @default(0)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([enabled, nextRunAt])
+  @@index([organizationId, userId])
+}
+
+/// KX-34b Worker 心跳：崩溃恢复判断租约持有者是否存活；界面显示 Worker 是否在运行。
+/// KX-36 做法：把一次顺利完成的工作的最终计划存成模板，相近目标自动套用。
+model KernPlaybook {
+  id                  String    @id @default(uuid())
+  organizationId      String
+  userId              String
+  name                String
+  sourceGoal          String
+  sourceMissionTaskId String
+  /// 模板化的 MissionPlan（goal 与引用原目标处为 {{goal}}）
+  plan                Json
+  useCount            Int       @default(0)
+  successCount        Int       @default(0)
+  failureCount        Int       @default(0)
+  /// KX-73：连续验收通过次数（失败 / 取消清零）；达到 AUTOMATION_MIN_ACCEPTED 才允许转定时
+  acceptedStreak      Int       @default(0)
+  lastAcceptedAt      DateTime?
+  lastUsedAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sourceMissionTaskId])
+  @@index([organizationId, userId])
+}
+
+model PmWorkerHeartbeat {
+  /// null 表示全组织；旧行在新进程确认范围前不证明任何组织已就绪。
+  organizationId String?
+  scopeKnown Boolean @default(false)
+  workerId    String    @id
+  pid         Int
+  host        String
+  loops       Json      @default("[]")
+  startedAt   DateTime
+  heartbeatAt DateTime
+  stoppedAt   DateTime?
+
+  @@index([heartbeatAt])
 }

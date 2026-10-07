@@ -25,6 +25,10 @@
 | `_tokenize-quiet-enterprise.mjs` | 把 `globals.css` 的字面量 hex/rgba 批量替换为 Quiet Enterprise 语义令牌（一次性迁移） | **已应用**，勿重跑 |
 | `_probe_layout.mjs` | 用 Playwright 度量指定路由若干选择器的布局盒（诊断） | 已用毕 |
 | `_small-screen-struct.mjs` | 小屏电脑自适应的结构度量（侧栏/内容/列显隐等，诊断） | 已用毕 |
+| `_audit-density.mjs` `_check-overflow.mjs` `_css-neutral.mjs` `_dead-css-scan.mjs` `_small-screen-audit.mjs` `_probe*` `_shot*` `_shots-*` `_label-sweep*.py` `_typo-pass*.py` `_bump-type.py` `_move-cockpit-css.py` `_restore-env.sh` `_set-dev-password.ts` | 2026-09-27 ~ 09-28 界面走查 / 截图 / 文案批改 / 环境恢复用的一次性探针（09-29 从 `scripts/` 根目录批量归档，KX-70 前清理） | 已用毕 |
+
+> 规则（09-29 起）：`scripts/_*` 已加入 `.gitignore`。新的一次性探针放 `outputs/scratch-scripts/`（不入库）；
+> 只有需要追溯的才移到本目录并在上表登记。
 
 ## ⚠️ 勿重跑警告（尤其 `_tokenize-quiet-enterprise.mjs`）
 

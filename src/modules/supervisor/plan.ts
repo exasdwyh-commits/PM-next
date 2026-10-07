@@ -1,6 +1,7 @@
 import type { ModelTaskClass } from "@/modules/model-gateway";
 import type { KernGoalPlanShadow } from "@/modules/assistant-runtime/goal-plan";
 import type { KernCollaborationPlanShadow } from "@/modules/assistant-runtime/collaboration-planner";
+import { HUMAN_GATE_IDS } from "@/modules/governance/protected-actions";
 
 /**
  * Kern Mission Plan — the *executable* form of a goal.
@@ -14,29 +15,29 @@ import type { KernCollaborationPlanShadow } from "@/modules/assistant-runtime/co
  * `decideMissionStep`, so the control policy is unit-testable and replayable.
  */
 
-export type MissionNodeKind = "SPECIALIST" | "RED_TEAM" | "QA" | "SYNTHESIS";
+import type { MissionNode, MissionNodeKind, MissionPlan, MissionPlaybook, MissionSignal } from "@/modules/kern-contracts";
+export type { MissionNode, MissionNodeKind, MissionPlan, MissionPlaybook, MissionSignal };
 
-export interface MissionNode {
-  key: string;
-  kind: MissionNodeKind;
-  agentCode: string;
-  objective: string;
-  dependsOn: string[];
-  taskClass: ModelTaskClass;
-  /** A critical node that ends BLOCKED/FAILED makes the mission need the user. */
-  critical: boolean;
+const SIGNAL_WORDS: [RegExp, MissionSignal][] = [
+  [/^(禁止|不可做|不可行|不建议做)/, "PROHIBITED"],
+  [/^(有条件可做|有条件|需整改后可做)/, "CONDITIONAL"],
+  [/^(可做|可行|无阻断)/, "CLEAR"],
+];
+/** 取最后一条「…判定：X」行（以最终结论为准）。 */
+export function extractNodeSignals(text: string): MissionSignal[] {
+  const lines = [...text.matchAll(/判定\s*[:：]\s*\**\s*([^\s*|。，,；;]+)/g)].map((m) => m[1]);
+  const last = lines.at(-1);
+  if (!last) return [];
+  const hit = SIGNAL_WORDS.find(([re]) => re.test(last));
+  return hit ? [hit[1]] : [];
 }
 
-export type MissionPlaybook = "GENERIC" | "NEW_PRODUCT";
-
-export interface MissionPlan {
-  version: "kern-mission-plan/v1";
-  goal: string;
-  playbook: MissionPlaybook;
-  successCriteria: string[];
-  nodes: MissionNode[];
-  budget: { maxTasks: number; maxRevisionRounds: number };
-  humanGates: string[];
+/** 调度用的依赖：dependsOn + 条件节点。 */
+export function effectiveDeps(n: MissionNode, plan?: MissionPlan): string[] {
+  const cond = n.skipWhen?.nodeKey;
+  if (!cond || n.dependsOn.includes(cond)) return n.dependsOn;
+  if (plan && !plan.nodes.some((x) => x.key === cond)) return n.dependsOn;
+  return [...n.dependsOn, cond];
 }
 
 export type MissionNodeStatus =
@@ -60,6 +61,8 @@ export interface MissionNodeState {
   reason: string | null;
   revisionFeedback: string | null;
   qa: MissionQaVerdict | null;
+  /** KX-54：本节点产出的判定信号。 */
+  signals?: MissionSignal[];
 }
 
 export interface MissionState {
@@ -71,6 +74,50 @@ export interface MissionState {
 }
 
 export type MissionOutcome = "COMPLETED" | "NEEDS_USER" | "CANCELLED";
+
+/**
+ * KX-53（Astron A2）：真实进度，而不是「完成数 / 总数」。
+ *  - 按节点类型加权（综合最重、QA 最轻），进行中的节点算一半；
+ *  - 跳过 / 受阻 / 失败都算「已结束」；
+ *  - remainingDepth = 未结束节点沿依赖的最长链长度（还要排几轮）；
+ *  - 未全部结束时最多 99%，避免“100% 但还在跑”。
+ */
+const PROGRESS_WEIGHT: Record<MissionNodeKind, number> = { SPECIALIST: 1, RED_TEAM: 1, QA: 0.6, SYNTHESIS: 1.5 };
+export interface MissionProgress {
+  pct: number;
+  remainingSteps: number;
+  remainingDepth: number;
+}
+export function estimateMissionProgress(plan: MissionPlan, state: MissionState): MissionProgress {
+  let total = 0;
+  let done = 0;
+  const open = new Set<string>();
+  for (const n of plan.nodes) {
+    const w = PROGRESS_WEIGHT[n.kind] ?? 1;
+    const st = state.nodes[n.key]?.status ?? "PENDING";
+    total += w;
+    if (isTerminalNodeStatus(st)) done += w;
+    else {
+      open.add(n.key);
+      if (st === "ACTIVE") done += w * 0.5;
+    }
+  }
+  const byKey = new Map(plan.nodes.map((n) => [n.key, n]));
+  const memo = new Map<string, number>();
+  const depth = (key: string, seen: Set<string>): number => {
+    if (!open.has(key)) return 0;
+    if (memo.has(key)) return memo.get(key)!;
+    if (seen.has(key)) return 1;
+    seen.add(key);
+    const deps = byKey.get(key)?.dependsOn ?? [];
+    const d = 1 + Math.max(0, ...deps.map((k) => depth(k, seen)));
+    memo.set(key, d);
+    return d;
+  };
+  const remainingDepth = Math.max(0, ...[...open].map((k) => depth(k, new Set())));
+  const raw = total ? Math.round((done / total) * 100) : 100;
+  return { pct: open.size ? Math.min(99, raw) : 100, remainingSteps: open.size, remainingDepth };
+}
 
 export type MissionAction =
   | { type: "DISPATCH"; nodeKey: string }
@@ -84,15 +131,8 @@ export function isTerminalNodeStatus(status: MissionNodeStatus): boolean {
   return TERMINAL.includes(status);
 }
 
-export const MISSION_HUMAN_GATES = [
-  "PAYMENT_OR_FINANCIAL_COMMITMENT",
-  "EXTERNAL_PUBLISH_OR_SEND",
-  "IRREVERSIBLE_DELETE_OR_OVERWRITE",
-  "SENSITIVE_PERMISSION_CHANGE",
-  "FORMAL_BUSINESS_GATE",
-  "LEGAL_OR_CONTRACT_COMMITMENT",
-  "STRATEGIC_VALUE_TRADEOFF",
-];
+/** 唯一事实源在 governance/protected-actions.ts；这里保留导出名以兼容既有引用。 */
+export const MISSION_HUMAN_GATES: readonly string[] = HUMAN_GATE_IDS;
 
 const TASK_CLASS_BY_AGENT: Record<string, ModelTaskClass> = {
   research_agent: "WEB_RESEARCH",
@@ -130,6 +170,9 @@ export function detectMissionPlaybook(text: string): MissionPlaybook | null {
   return NEW_PRODUCT_GOAL.test(text) ? "NEW_PRODUCT" : null;
 }
 
+/** 由单一受治理工具完整作答、不应再被 brief 取代的意图。 */
+const DEDICATED_ANSWER_INTENTS: ReadonlySet<string> = new Set(["CHALLENGE_THESIS"]);
+
 /**
  * Should Kern turn this message into a supervised multi-agent mission?
  *
@@ -142,10 +185,17 @@ export function decideMissionLaunch(input: {
   text: string;
   intent: string;
   collaboration: KernCollaborationPlanShadow;
+  /** R-03：未绑定产品时「挑战判断」没有专用报告可出，交给红队任务。缺省按已绑定处理（兼容旧调用）。 */
+  productBound?: boolean;
 }): { launch: boolean; playbook: MissionPlaybook | null; reason: string } {
   // Governed write / local execution paths keep their own policies.
   if (input.intent.startsWith("PROPOSE_") || input.intent === "DESKTOP_EXECUTION") {
     return { launch: false, playbook: null, reason: "GOVERNED_ACTION_PATH" };
+  }
+  // 专用工具已在本轮完整作答（挑战报告）：不得再升级为任务，否则 brief 会整体覆盖报告，
+  // 用户点名要的证伪结论反而消失（acceptance-science 3.3–3.6）。「挑战…判断」同时命中红队信号，必须先于协作模式判断。
+  if (DEDICATED_ANSWER_INTENTS.has(input.intent) && input.productBound !== false) {
+    return { launch: false, playbook: null, reason: "DEDICATED_TOOL_ANSWERED" };
   }
   // Product R&D on a bound product already has a dedicated orchestrator.
   if (input.intent === "START_PRODUCT_RND" || input.collaboration.mode === "FULL_RND") {
@@ -153,6 +203,14 @@ export function decideMissionLaunch(input: {
   }
   const playbook = detectMissionPlaybook(input.text);
   if (playbook) return { launch: true, playbook, reason: "NEW_PRODUCT_GOAL" };
+  // A requested deliverable needs the worker's tools and export path even when
+  // only one specialist is involved. Chat prose cannot substitute for execution.
+  const explicitDeliverable = /(请|帮我|替我|为我).{0,12}(完成|生成|制作|做|交付|输出).{0,30}(报告|报表|测算|文档)/.test(input.text);
+  const explicitToolExecution = /(?:请|必须|实际|调用).{0,12}(?:调用|使用)?(?:计算工具|工具核验)/.test(input.text);
+  const declinesMission = /(不要|无需|不用|别).{0,8}(创建任务|启动任务|执行任务|调用工具)/.test(input.text);
+  if (!declinesMission && (explicitDeliverable || explicitToolExecution)) {
+    return { launch: true, playbook: "GENERIC", reason: "EXPLICIT_DELIVERABLE" };
+  }
   if (["PAIR", "COUNCIL", "RED_TEAM"].includes(input.collaboration.mode)) {
     return { launch: true, playbook: "GENERIC", reason: `MULTI_AGENT_${input.collaboration.mode}` };
   }
@@ -184,15 +242,16 @@ export function buildNewProductMissionPlan(goal: string): MissionPlan {
     node("market", "SPECIALIST", "research_agent",
       "研究目标市场：需求与用户痛点、市场规模与趋势、主要竞品与价格带、渠道格局。每个判断标注来源或明确写 UNKNOWN。", [], true),
     node("compliance", "SPECIALIST", "compliance_agent",
-      "识别该方向的法规、资质、宣称与渠道合规边界，列出可能阻断上市的硬约束。", []),
+      "识别该方向的法规、资质、宣称与渠道合规边界，列出可能阻断上市的硬约束。最后单独一行写「合规判定：可做 / 有条件可做 / 禁止」。", []),
     node("economics", "SPECIALIST", "cost_bom_agent",
       "给出单位经济性框架：成本结构、目标毛利、定价区间与关键成本假设；缺数据时列出需要的真实报价，不要编数字。", []),
     node("opportunity", "SPECIALIST", "product_agent",
       "基于市场研究形成 2–3 个候选机会：目标用户、核心价值主张、差异化、为何现在；给出推荐方向与取舍理由。", ["market"], true),
     node("validation", "SPECIALIST", "research_agent",
       "为推荐方向设计最小验证计划：关键假设排序、每个假设的验证方法、成功/失败阈值、预算与周期。", ["opportunity", "compliance", "economics"]),
-    node("gtm", "SPECIALIST", "marketing_agent",
+    { ...node("gtm", "SPECIALIST", "marketing_agent",
       "为推荐方向制定上市与营销策略：首批目标人群、渠道优先级、核心信息、冷启动动作与衡量指标。", ["opportunity"]),
+      skipWhen: { nodeKey: "compliance", signal: "PROHIBITED" } },
     node("red-team", "RED_TEAM", "red_team",
       "证伪推荐方向：最可能失败的三条路径、被忽略的竞争/合规/供应风险、哪些结论证据最弱。", ["opportunity", "compliance", "economics"]),
     node("qa", "QA", "qa_verifier", QA_OBJECTIVE, ["validation", "gtm", "red-team"]),
@@ -211,7 +270,7 @@ export function buildNewProductMissionPlan(goal: string): MissionPlan {
     ],
     nodes,
     budget: { maxTasks: 16, maxRevisionRounds: 1 },
-    humanGates: MISSION_HUMAN_GATES,
+    humanGates: [...MISSION_HUMAN_GATES],
   };
 }
 
@@ -261,18 +320,21 @@ export function validateMissionPlan(plan: MissionPlan): string[] {
   }
   for (const n of plan.nodes) {
     for (const d of n.dependsOn) if (!keys.has(d)) errors.push(`${n.key} depends on missing ${d}`);
+    if (n.skipWhen && (n.skipWhen.nodeKey === n.key || !keys.has(n.skipWhen.nodeKey))) errors.push(`${n.key} skipWhen refers to invalid ${n.skipWhen.nodeKey}`);
   }
   const synth = plan.nodes.filter((n) => n.kind === "SYNTHESIS");
   if (synth.length !== 1) errors.push("plan must have exactly one SYNTHESIS node");
   // cycle check (Kahn)
-  const indeg = new Map(plan.nodes.map((n) => [n.key, n.dependsOn.length]));
-  const queue = plan.nodes.filter((n) => n.dependsOn.length === 0).map((n) => n.key);
+  // 条件节点也算依赖（KX-54），否则 skipWhen 指向下游会死锁。
+  const deps = new Map(plan.nodes.map((n) => [n.key, effectiveDeps(n, plan)]));
+  const indeg = new Map(plan.nodes.map((n) => [n.key, deps.get(n.key)!.length]));
+  const queue = plan.nodes.filter((n) => deps.get(n.key)!.length === 0).map((n) => n.key);
   let seen = 0;
   while (queue.length) {
     const k = queue.shift()!;
     seen++;
     for (const n of plan.nodes) {
-      if (n.dependsOn.includes(k)) {
+      if (deps.get(n.key)!.includes(k)) {
         indeg.set(n.key, (indeg.get(n.key) ?? 0) - 1);
         if (indeg.get(n.key) === 0) queue.push(n.key);
       }
@@ -338,7 +400,7 @@ export function decideMissionStep(plan: MissionPlan, state: MissionState): Missi
     const qa = state.nodes[qaNode.key];
     if (
       qa?.status === "SUCCEEDED" &&
-      qa.qa?.verdict === "REVISE" &&
+      (qa.qa?.verdict === "REVISE" || qa.qa?.verdict === "FAIL") &&
       state.revisionRounds < plan.budget.maxRevisionRounds
     ) {
       const producers = plan.nodes.filter((n) => n.kind === "SPECIALIST" || n.kind === "RED_TEAM");
@@ -365,11 +427,16 @@ export function decideMissionStep(plan: MissionPlan, state: MissionState): Missi
   for (const n of plan.nodes) {
     const s = state.nodes[n.key];
     if (!s || s.status !== "PENDING") continue;
-    const depsDone = n.dependsOn.every((d) => {
+    const depsDone = effectiveDeps(n, plan).every((d) => {
       const ds = state.nodes[d];
       return ds && isTerminalNodeStatus(ds.status);
     });
     if (!depsDone) continue;
+    const cond = n.skipWhen;
+    if (cond && byKey.has(cond.nodeKey) && state.nodes[cond.nodeKey]?.signals?.includes(cond.signal)) {
+      actions.push({ type: "SKIP", nodeKey: n.key, reason: `CONDITION_${cond.nodeKey}_${cond.signal}` });
+      continue;
+    }
     if (budgetLeft <= 0) {
       actions.push({ type: "SKIP", nodeKey: n.key, reason: "TASK_BUDGET_EXHAUSTED" });
       continue;
@@ -380,15 +447,29 @@ export function decideMissionStep(plan: MissionPlan, state: MissionState): Missi
   return actions;
 }
 
-/** Apply a REVISE action to state (pure) — used by the service and tests. */
-export function applyRevision(
+/**
+ * 一次 REVISE 到底波及到谁（纯函数）。
+ *
+ * - `refuted`   ：被复核点名推翻的节点 —— 它自己的结论不成立。
+ * - `retracted` ：没被点名，但依赖链上游被推翻、因而**连带作废**的下游节点。
+ * - `reset`     ：以上两者 + QA 节点，即需要退回 PENDING 重做的全集。
+ *
+ * 抽成独立函数是为了让「事件里对用户说作废了谁」和「状态机实际重置了谁」共用
+ * 同一份计算：否则两处各写一遍，迟早漂移成两套口径，而口径不一致的诚实等于不诚实。
+ */
+export interface MissionRevisionImpact {
+  refuted: string[];
+  retracted: string[];
+  reset: string[];
+}
+
+export function revisionImpact(
   plan: MissionPlan,
-  state: MissionState,
   action: Extract<MissionAction, { type: "REVISE" }>
-): MissionState {
-  const next: MissionState = JSON.parse(JSON.stringify(state));
-  next.revisionRounds += 1;
-  const reset = new Set(action.nodeKeys);
+): MissionRevisionImpact {
+  const known = new Set(plan.nodes.map((n) => n.key));
+  const refuted = [...new Set(action.nodeKeys)].filter((k) => known.has(k));
+  const reset = new Set(refuted);
   const qa = plan.nodes.find((n) => n.kind === "QA");
   if (qa) reset.add(qa.key);
   // Anything downstream of a revised node must also be recomputed.
@@ -397,13 +478,26 @@ export function applyRevision(
     grew = false;
     for (const n of plan.nodes) {
       if (n.kind === "SYNTHESIS" || reset.has(n.key)) continue;
-      if (n.dependsOn.some((d) => reset.has(d))) {
+      if (effectiveDeps(n).some((d) => reset.has(d))) {
         reset.add(n.key);
         grew = true;
       }
     }
   }
-  for (const key of reset) {
+  // QA 是发起推翻的一方，它要重跑但不算「结论被作废」。
+  const notRetracted = new Set([...refuted, ...(qa ? [qa.key] : [])]);
+  return { refuted, retracted: [...reset].filter((k) => !notRetracted.has(k)), reset: [...reset] };
+}
+
+/** Apply a REVISE action to state (pure) — used by the service and tests. */
+export function applyRevision(
+  plan: MissionPlan,
+  state: MissionState,
+  action: Extract<MissionAction, { type: "REVISE" }>
+): MissionState {
+  const next: MissionState = JSON.parse(JSON.stringify(state));
+  next.revisionRounds += 1;
+  for (const key of revisionImpact(plan, action).reset) {
     const s = next.nodes[key];
     if (!s) continue;
     s.status = "PENDING";
@@ -462,7 +556,7 @@ export function prepareMissionResume(
   while (grew) {
     grew = false;
     for (const n of plan.nodes) {
-      if (!reset.has(n.key) && n.dependsOn.some((d) => reset.has(d))) {
+      if (!reset.has(n.key) && effectiveDeps(n).some((d) => reset.has(d))) {
         reset.add(n.key);
         grew = true;
       }
@@ -491,13 +585,38 @@ function downstreamClosure(plan: MissionPlan, seed: Iterable<string>): Set<strin
   while (grew) {
     grew = false;
     for (const n of plan.nodes) {
-      if (!reset.has(n.key) && n.dependsOn.some((d) => reset.has(d))) {
+      if (!reset.has(n.key) && effectiveDeps(n).some((d) => reset.has(d))) {
         reset.add(n.key);
         grew = true;
       }
     }
   }
   return reset;
+}
+
+/**
+ * 契约打回时该从哪个节点重跑。
+ * - 打回 auto:qa-pass：QA 点名的上游节点里最靠前的那个（连带 QA 与综合结论一起重做）；没点名就重跑 QA。
+ * - 打回 auto:critical-done：第一个没成功的关键节点。
+ * - 其余（分节 / 标注 / 人工项）：null，由调用方退回综合结论。
+ */
+export function rejectionRerunRoot(plan: MissionPlan, state: MissionState, rejectedIds: string[]): string | null {
+  const order = new Map(plan.nodes.map((n, i) => [n.key, i] as const));
+  const earliest = (keys: string[]) => keys.filter((k) => order.has(k)).sort((a, b) => order.get(a)! - order.get(b)!)[0] ?? null;
+  if (rejectedIds.includes("auto:critical-done")) {
+    const failed = plan.nodes.filter((n) => n.critical && n.kind !== "SYNTHESIS" && state.nodes[n.key]?.status !== "SUCCEEDED").map((n) => n.key);
+    const hit = earliest(failed);
+    if (hit) return hit;
+  }
+  if (rejectedIds.includes("auto:qa-pass")) {
+    const qaNode = plan.nodes.find((n) => n.kind === "QA");
+    if (!qaNode) return null;
+    const blamed = (state.nodes[qaNode.key]?.qa?.issues ?? [])
+      .map((i) => i.target)
+      .filter((t): t is string => !!t && order.has(t) && plan.nodes[order.get(t)!].kind !== "QA" && plan.nodes[order.get(t)!].kind !== "SYNTHESIS");
+    return earliest(blamed) ?? qaNode.key;
+  }
+  return null;
 }
 
 /**

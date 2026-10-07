@@ -91,3 +91,13 @@ test("reason labels and event merge are stable", () => {
   const merged = mergeEvents(events.slice(0, 5), [...events.slice(3, 8)].reverse());
   assert.deepEqual(merged.map((e) => e.seq), events.slice(0, 8).map((e) => e.seq));
 });
+
+// Transport count must never be inferred from old logical tool events.
+test("metrics wording distinguishes actual requests and missing tokens from historical logical calls", async () => {
+  const { metricsLine } = await import("../src/app/muse/mission-timeline");
+  const base = { completed: true, accepted: null, humanInterventions: 0, reworkRounds: 0, timeToResultMs: 1000, cost: { modelCalls: 1, modelLatencyMs: 0, tokens: null } };
+  assert.match(metricsLine(base), /实际请求次数未知/);
+  const actual = metricsLine({ ...base, cost: { ...base.cost, actualAttempts: 3, successfulAttempts: 1, knownTokens: 6 } });
+  assert.match(actual, /模型请求 3 次（成功 1 次）/);
+  assert.match(actual, /tokens 不完整（已知 6）/);
+});

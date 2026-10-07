@@ -6,6 +6,7 @@ import {
   buildNewProductMissionPlan,
   decideMissionLaunch,
   decideMissionStep,
+  rejectionRerunRoot,
   initialMissionState,
   parseQaVerdict,
   validateMissionPlan,
@@ -39,6 +40,14 @@ test("launch policy: goals and multi-agent work become missions; governed paths 
   assert.equal(decideMissionLaunch({ text: "今天有什么任务", intent: "WORKSPACE_STATUS", collaboration: collab("SOLO") }).launch, false);
   assert.equal(decideMissionLaunch({ text: "我想开发一个新产品", intent: "DESKTOP_EXECUTION", collaboration: collab("SOLO") }).launch, false);
   assert.equal(decideMissionLaunch({ text: "开始完整研发评估", intent: "START_PRODUCT_RND", collaboration: collab("FULL_RND") }).launch, false);
+  assert.equal(decideMissionLaunch({ text: "请完成一份定价与盈亏测算报告，实际调用计算工具核验数字", intent: "UNSUPPORTED", collaboration: collab("SPECIALIST", ["cost_bom_agent"]) }).launch, true);
+  assert.equal(decideMissionLaunch({ text: "帮我生成一份文档", intent: "UNSUPPORTED", collaboration: collab("SOLO") }).launch, true);
+  assert.equal(decideMissionLaunch({ text: "请完成一份报告，但不要创建任务或调用工具", intent: "UNSUPPORTED", collaboration: collab("SOLO") }).launch, false);
+  assert.equal(decideMissionLaunch({ text: "你能生成什么报告？", intent: "UNSUPPORTED", collaboration: collab("SOLO") }).launch, false);
+  // 挑战判断由 advisor.challenge 当轮作答；即使命中红队信号也不得升级为任务（否则 brief 覆盖挑战报告）。
+  const challenge = decideMissionLaunch({ text: "挑战我的判断：这个产品假设哪里最脆弱？", intent: "CHALLENGE_THESIS", collaboration: collab("RED_TEAM") });
+  assert.equal(challenge.launch, false);
+  assert.equal(challenge.reason, "DEDICATED_TOOL_ANSWERED");
 });
 
 test("new product playbook is a valid DAG with parallel first pass, red team, QA and synthesis", () => {
@@ -137,4 +146,26 @@ test("resume keeps successful work, resets blocked + downstream, tops up budget,
 test("resume intent is narrow", () => {
   for (const t of ["继续", "继续。", "重试", "接着做", "continue"]) assert.ok(isResumeIntent(t), t);
   for (const t of ["继续帮我分析竞品", "我想开发一个新产品"]) assert.equal(isResumeIntent(t), false, t);
+});
+
+test("QA FAIL also enters the revision loop (R-04)", () => {
+  const plan = buildNewProductMissionPlan("x");
+  const s = initialMissionState(plan);
+  for (const k of Object.keys(s.nodes)) if (plan.nodes.find((n) => n.key === k)!.kind !== "SYNTHESIS") s.nodes[k].status = "SUCCEEDED";
+  s.nodes.qa.qa = { verdict: "FAIL", issues: [{ target: "opportunity", problem: "差异化缺证据" }] };
+  const actions = decideMissionStep(plan, s);
+  assert.equal(actions[0].type, "REVISE");
+});
+
+test("rejectionRerunRoot picks the blamed upstream node, else QA, else null", () => {
+  const plan = buildNewProductMissionPlan("x");
+  const s = initialMissionState(plan);
+  for (const k of Object.keys(s.nodes)) s.nodes[k].status = "SUCCEEDED";
+  s.nodes.qa.qa = { verdict: "FAIL", issues: [{ target: "opportunity", problem: "缺证据" }, { target: "synthesis", problem: "忽略" }] };
+  assert.equal(rejectionRerunRoot(plan, s, ["auto:qa-pass"]), "opportunity");
+  s.nodes.qa.qa = { verdict: "FAIL", issues: [{ target: null, problem: "整体薄弱" }] };
+  assert.equal(rejectionRerunRoot(plan, s, ["auto:qa-pass"]), "qa");
+  assert.equal(rejectionRerunRoot(plan, s, ["auto:sections"]), null);
+  s.nodes.market.status = "FAILED";
+  assert.equal(rejectionRerunRoot(plan, s, ["auto:critical-done"]), "market");
 });

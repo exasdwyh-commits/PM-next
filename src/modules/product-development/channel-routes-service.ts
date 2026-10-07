@@ -31,6 +31,7 @@ import {
   type PotentialGateInput,
   type ProductPotentialAssessment,
 } from "./potential-assessment";
+import { labelChannelRuleRecordStatus, labelChannelSpecRouteStatus } from "@/shared/status-labels";
 
 const KEY_RE = /^[a-z0-9][a-z0-9_-]{1,63}$/;
 const GENERIC_KEY_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{1,63}$/;
@@ -782,7 +783,7 @@ export async function createChannelRuleProfile(
       action: "CHANNEL_RULE_PROFILE_CREATED",
       objectType: "ChannelRuleProfileRecord",
       objectId: created.id,
-      summary: `创建渠道规则 ${label} / ${version}（${status}）`,
+      summary: `创建渠道规则 ${label} / ${version}（${labelChannelRuleRecordStatus(status)}）`,
       details: {
         channelKey,
         version,
@@ -1311,7 +1312,7 @@ export async function transitionChannelRouteStatus(
       action: "CHANNEL_SPEC_ROUTE_STATUS_CHANGED",
       objectType: "ChannelSpecRoute",
       objectId: route.id,
-      summary: `渠道路线 ${route.name}：${route.status} → ${targetStatus}`,
+      summary: `渠道路线 ${route.name}：${labelChannelSpecRouteStatus(route.status)} → ${labelChannelSpecRouteStatus(targetStatus)}`,
       details: {
         productId,
         routeKey: route.routeKey,

@@ -1,11 +1,16 @@
 "use client";
 /** 会话与就地卡片：Kern 的回答是可读的散文 + 少量结构化卡片，不是仪表盘。 */
 import type { Decision, Employee, EvidenceRef, Message, MessageBlock, PlanStep } from "../types";
+import { fmtDate, fmtTime } from "@/shared/datetime";
 import { KernGraphCard } from "./graph";
 import { MissionCard } from "./mission";
 import { BriefCard } from "./brief";
+import { MissionConclusion } from "./mission-conclusion";
 import { Prose } from "./prose";
 import { Btn, Card, CardHead, CONF, I, Node, StateTag, Tag, TONE } from "./kit";
+import { HoldToConfirm } from "@/components/motion/hold-to-confirm";
+import { useEnterOnce } from "@/components/motion/react";
+import { useEffect, useRef, useState } from "react";
 
 export function Plan({ steps, employees }: { steps: PlanStep[]; employees: Employee[] }) {
   return (
@@ -27,11 +32,23 @@ export function Plan({ steps, employees }: { steps: PlanStep[]; employees: Emplo
   );
 }
 
+/** 等待回复：只在请求真实进行中时出现；不模拟逐字生成，也不编造进度。灰条只是中性占位，不代表进度。 */
 export function Working({ text }: { text: string }) {
+  const [visible, setVisible] = useState(true);
+  useEffect(() => {
+    const update = () => setVisible(document.visibilityState !== "hidden");
+    update();
+    document.addEventListener("visibilitychange", update);
+    return () => document.removeEventListener("visibilitychange", update);
+  }, []);
   return (
-    <div className="m-working" aria-live="polite">
-      <span className="m-orb" aria-hidden />
-      {text}
+    <div className="m-working" data-motion={visible && !text.includes("等待") ? "running" : "still"} role="status" aria-live="polite">
+      <span className="m-working-network" aria-hidden="true">
+        <span className="m-working-point"><I.source /></span>
+        <svg viewBox="0 0 72 24"><path d="M0 12h72" /><path className="m-working-signal" d="M0 12h72" /></svg>
+        <span className="m-working-core"><I.spark /></span>
+      </span>
+      <span className="m-working-copy"><strong>Kern</strong><span>{text}</span></span>
     </div>
   );
 }
@@ -72,11 +89,18 @@ export function CheckIn({ d, onOpenSource, onResolve }: { d: Decision; onOpenSou
           </p>
         )}
         <div className="m-btn-row">
-          {d.options.map((o, i) => (
-            <Btn key={o.id} v={i === 0 ? "primary" : o.kind === "reject" ? "danger" : "default"} title={o.hint} onClick={() => onResolve(d, o)}>
-              {o.label}
-            </Btn>
-          ))}
+          {d.options.map((o, i) =>
+            // 触及受保护动作（gate）的批准不可撤回：用长按确认防误触。
+            d.gate && o.kind === "approve" ? (
+              <HoldToConfirm key={o.id} v="primary" hint={`按住${o.label}`} onConfirm={() => onResolve(d, o)}>
+                {o.label}
+              </HoldToConfirm>
+            ) : (
+              <Btn key={o.id} v={i === 0 ? "primary" : o.kind === "reject" ? "danger" : "default"} title={o.hint} onClick={() => onResolve(d, o)}>
+                {o.label}
+              </Btn>
+            ),
+          )}
         </div>
         <p className="m-hint">{d.raisedBy} 提出{d.gate ? ` · ${d.gate}` : ""}。确认后 Kern 会自己继续，不用你盯着。</p>
       </div>
@@ -84,16 +108,18 @@ export function CheckIn({ d, onOpenSource, onResolve }: { d: Decision; onOpenSou
   );
 }
 
-function Block({ b, employees, onOpenSource }: { b: MessageBlock; employees: Employee[]; onOpenSource: (r: EvidenceRef) => void }) {
+function Block({ b, employees, onOpenSource, missionAttached = false }: { b: MessageBlock; employees: Employee[]; onOpenSource: (r: EvidenceRef) => void; missionAttached?: boolean }) {
   switch (b.kind) {
     case "text":
       return <Prose text={b.text} />;
+    case "conclusion":
+      return <MissionConclusion missionId={b.ref} text={b.text} />;
     case "graph":
       return <KernGraphCard graph={b.graph} />;
     case "mission":
       return <MissionCard missionId={b.ref} />;
     case "brief":
-      return <BriefCard messageId={b.ref} />;
+      return <BriefCard messageId={b.ref} missionAttached={missionAttached} />;
     case "plan":
       return (
         <Card>
@@ -134,11 +160,8 @@ function Block({ b, employees, onOpenSource }: { b: MessageBlock; employees: Emp
                 </div>
               ))}
             </div>
-            <div className="m-btn-row">
-              <Btn v="primary">批准写入</Btn>
-              <Btn>先不改</Btn>
-            </div>
-            <p className="m-hint">Kern 不直接改业务数据，改动一律先给你看。</p>
+            {/* 批准只有一个入口：对话里的确认卡 / 顶栏「需要你」（有真实提议 id 与审计）。这里只做预览，不放无效按钮。 */}
+            <p className="m-hint">Kern 不直接改业务数据。这项改动已放进「需要你」，在那里批准或拒绝。</p>
           </div>
         </Card>
       );
@@ -168,25 +191,30 @@ function Block({ b, employees, onOpenSource }: { b: MessageBlock; employees: Emp
 export function friendlyTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  const now = new Date();
-  const hm = d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
-  if (d.toDateString() === now.toDateString()) return hm;
-  const y = new Date(now); y.setDate(now.getDate() - 1);
-  if (d.toDateString() === y.toDateString()) return `昨天 ${hm}`;
-  return `${d.getMonth() + 1}月${d.getDate()}日 ${hm}`;
+  // 一律按业务时区计算「今天 / 昨天」与时分：服务端（UTC）与浏览器渲染结果一致，不会 hydration 失败。
+  const hm = fmtTime(d).slice(0, 5);
+  const day = fmtDate(d);
+  const now = Date.now();
+  if (day === fmtDate(now)) return hm;
+  if (day === fmtDate(now - 86_400_000)) return `昨天 ${hm}`;
+  const [, month, date] = day.split("-");
+  return `${Number(month)}月${Number(date)}日 ${hm}`;
 }
 
-export function Turn({ m, employees, onOpenSource }: { m: Message; employees: Employee[]; onOpenSource: (r: EvidenceRef) => void }) {
+export function Turn({ m, employees, onOpenSource, onRetry, enter = false }: { m: Message; employees: Employee[]; onOpenSource: (r: EvidenceRef) => void; onRetry?: () => void; enter?: boolean }) {
+  const ref = useRef<HTMLElement>(null);
+  // 新消息整条轻微上移淡入一次；历史消息、轮询刷新不重播。
+  useEnterOnce(ref, enter);
   if (m.author === "user") {
     return (
-      <article className="m-turn" data-who="me">
+      <article ref={ref} className="m-turn" data-who="me">
         {m.blocks.map((b, i) => <p key={i} className="m-said">{b.kind === "text" ? b.text : ""}</p>)}
       </article>
     );
   }
   const by = employees.find((e) => e.id === m.byEmployeeId);
   return (
-    <article className="m-turn">
+    <article ref={ref} className="m-turn">
       <div className="m-who">
         <span className="m-who-av" aria-hidden>{by?.mark ?? "K"}</span>
         <b>{by?.name && !/^Kern\b/.test(by.name) ? by.name : "Kern"}</b>
@@ -194,7 +222,16 @@ export function Turn({ m, employees, onOpenSource }: { m: Message; employees: Em
         <time dateTime={m.at} title={m.at}>{friendlyTime(m.at)}</time>
         {m.state !== "success" ? <StateTag state={m.state} /> : null}
       </div>
-      {m.blocks.map((b, i) => <Block key={i} b={b} employees={employees} onOpenSource={onOpenSource} />)}
+      {m.blocks.map((b, i) => enter ? (
+        <span key={i} className="m-block-in" style={{ animationDelay: `${Math.min(i, 8) * 90}ms` }}>
+          <Block b={b} employees={employees} onOpenSource={onOpenSource} missionAttached={m.blocks.some(block => block.kind === "mission")} />
+        </span>
+      ) : (
+        <Block key={i} b={b} employees={employees} onOpenSource={onOpenSource} missionAttached={m.blocks.some(block => block.kind === "mission")} />
+      ))}
+      {m.state === "error" && onRetry ? (
+        <div className="m-turn-retry"><Btn size="sm" v="ghost" onClick={onRetry}>重试</Btn></div>
+      ) : null}
     </article>
   );
 }

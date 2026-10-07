@@ -277,67 +277,10 @@ export function KV({ items }: { items: { k: React.ReactNode; v: React.ReactNode 
   );
 }
 
-/** 模态框：沿用既有 .hermes-modal 外观 */
-export function Modal({
-  eyebrow,
-  title,
-  sub,
-  onClose,
-  wide,
-  children,
-}: {
-  eyebrow?: string;
-  title: React.ReactNode;
-  sub?: React.ReactNode;
-  onClose: () => void;
-  wide?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="hermes-modal-backdrop" onMouseDown={onClose}>
-      <div
-        className={cx("hermes-modal", "hermes-glass", wide && "is-wide")}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <button type="button" className="modal-close" onClick={onClose} aria-label="关闭">
-          <Icon name="close" size={17} />
-        </button>
-        {eyebrow && <span className="eyebrow">{eyebrow}</span>}
-        <h3>{title}</h3>
-        {sub && <p>{sub}</p>}
-        {children}
-      </div>
-    </div>
-  );
-}
+export { Modal } from "./modal";
 
-/** 标签页 */
-export function Tabs<T extends string>({
-  items,
-  active,
-  onChange,
-}: {
-  items: { key: T; label: React.ReactNode }[];
-  active: T;
-  onChange: (key: T) => void;
-}) {
-  return (
-    <div className="hermes-tabs" role="tablist">
-      {items.map((it) => (
-        <button
-          key={it.key}
-          type="button"
-          role="tab"
-          aria-selected={active === it.key}
-          className={active === it.key ? "is-active" : ""}
-          onClick={() => onChange(it.key)}
-        >
-          {it.label}
-        </button>
-      ))}
-    </div>
-  );
-}
+/** 标签页：客户端组件（选中底板滑动 + 方向键），见 ./tabs。 */
+export { Tabs } from "./tabs";
 
 export function Button({
   variant = "primary",

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { PROJECT_WORKSPACE_TABS } from "../src/app/projects/[id]/project-workspace";
 
 const ROOT = process.cwd();
 
@@ -41,7 +42,9 @@ test("Kern is the primary operating shell and management stays independent", () 
 test("management conversations route back through Kern", () => {
   const home = read("src/app/workbench-client.tsx");
   assert.equal(home.includes("今天想让 Kern 做什么？"), false, "management must not restore a hero prompt surface");
-  assert.ok(home.includes('placeholder="交代一件事给 Kern…"'));
+  // KX-22 方案 B：去掉与 Muse 输入坞重复的输入条，页头只留一个「去和 Kern 说」入口
+  assert.ok(home.includes("去和 Kern 说"));
+  assert.ok(home.includes('href="/muse"'));
   assert.ok(home.includes("/muse?query="), "management handoff must enter the Kern operating shell");
   assert.ok(home.includes("需要你处理"));
   assert.ok(home.includes("Kern 正在工作"));
@@ -64,9 +67,11 @@ test("product remains the primary business object", () => {
 
 test("project detail stays a focused product workspace", () => {
   const detail = read("src/app/projects/[id]/project-detail-client.tsx");
-  for (const tab of ["概览", "AI 研发", "工作项", "证据", "决策", "记录"]) {
-    assert.ok(detail.includes(`["${tab === "概览" ? "overview" : tab === "AI 研发" ? "rnd" : tab === "工作项" ? "tasks" : tab === "证据" ? "evidence" : tab === "决策" ? "decisions" : "records"}", "${tab}"]`));
-  }
+  assert.ok(detail.includes("PROJECT_WORKSPACE_TABS"), "workspace must render the shared tab definitions");
+  assert.deepEqual(PROJECT_WORKSPACE_TABS, [
+    ["overview", "概览"], ["rnd", "AI 研发"], ["tasks", "工作项"],
+    ["evidence", "证据"], ["decisions", "决策"], ["records", "记录"],
+  ]);
   assert.ok(detail.includes('onOpenDecisions={() => setActiveWorkspaceTab("decisions")}'));
   assert.ok(detail.includes('onOpenEvidence={() => setActiveWorkspaceTab("evidence")}'));
 });
@@ -81,9 +86,10 @@ test("R&D UI exposes business stages rather than raw agent plumbing", () => {
   assert.ok(rnd.includes("<ExecutiveReportView"));
 });
 
-test("executive report remains decision-first and honest about unknowns", () => {
+test("executive report keeps the decision dock beside the evidence and stays honest about unknowns", () => {
   const report = read("src/components/executive-report.tsx");
-  for (const label of ["负责人现在最需要知道", "未闭合项", "显式风险", "需负责人决策", "还不能下结论"]) {
+  // KX-22 方案 C：横幅 + 四格统计取消；主区依据表 + 风险 / UNKNOWN，右侧常驻「需要你决定」面板
+  for (const label of ["当前结论", "kx-rp-dock", "需要你决定", "最大风险", "还不能下结论"]) {
     assert.ok(report.includes(label), `missing executive report contract: ${label}`);
   }
   assert.ok(report.includes("去补证据"));
@@ -130,7 +136,8 @@ test("Kern primary route stays conversation-first while management remains avail
   assert.equal(client.includes("kern-today-needs-you"), false, "chat home must not lead with an approval queue");
   assert.ok(shell.includes("最近对话"));
   assert.ok(shell.includes("新对话"));
-  assert.ok(shell.includes("工作台"));
+  // KX-20 方案 B：工作台入口移到顶部上下文栏的区域切换
+  assert.ok(client.includes('<a href="/manage">工作台</a>'));
   assert.equal(shell.includes("进度 UNKNOWN"), false, "conversation rail must not expose project-management noise");
 });
 
@@ -186,7 +193,7 @@ test("management empty states explain why and what to do next", () => {
     "进入具体项目的「工作项」页安排第一项工作",
     "由负责人在项目「决策」页起草并提交",
     "点击「录入依据证据」登记来源并完成核实",
-    "可去「机会」页录入并核实来源",
+    // KX-22 方案 B：「值得看的市场机会」已移出工作台首页（入口保留在左侧「市场机会」导航），对应空态随之移除
     "需要你决策或补充信息时会在这里出现",
   ]) {
     assert.ok(combined.includes(guidance), "missing actionable empty-state guidance: " + guidance);
@@ -199,6 +206,7 @@ test("visible product terminology is Kern / 产品 / 项目 / 工作项", () => 
     "src/components/app-shell.tsx",
     "src/app/layout.tsx",
     "src/app/login/page.tsx",
+    "src/app/login/login-client.tsx",
     "src/app/error.tsx",
     "src/app/not-found.tsx",
     "src/app/advisor/advisor-client.tsx",
@@ -220,7 +228,7 @@ test("visible product terminology is Kern / 产品 / 项目 / 工作项", () => 
   }
 
   const shell = read("src/components/app-shell.tsx");
-  const login = read("src/app/login/page.tsx");
+  const login = read("src/app/login/login-client.tsx");
   const workforce = read("src/modules/workforce/service.ts");
   const projects = read("src/app/projects/projects-client.tsx");
   const detail = stripComments(read("src/app/projects/[id]/project-detail-client.tsx"));
@@ -232,7 +240,7 @@ test("visible product terminology is Kern / 产品 / 项目 / 工作项", () => 
 
   assert.ok(projects.includes("<h1>项目管理</h1>"), "Project entity must be called 项目");
   assert.equal(projects.includes("执行工作区"), false, "Project entity must not be renamed as 执行工作区");
-  assert.ok(detail.includes('["tasks", "工作项"]'), "WorkItem tab must use 工作项");
+  assert.ok(detail.includes("PROJECT_WORKSPACE_TABS") && PROJECT_WORKSPACE_TABS.some(([key, label]) => key === "tasks" && label === "工作项"), "WorkItem tab must use 工作项");
   assert.ok(detail.includes("安排新工作项") && detail.includes("前置依赖工作项"), "WorkItem actions must use 工作项");
   assert.equal(detail.includes("修订任务说明"), false, "feedback-created WorkItem must not be called 修订任务");
   assert.equal(detail.includes("门槛"), false, "generic Gate label must use 门禁");
@@ -242,8 +250,12 @@ test("visible product terminology is Kern / 产品 / 项目 / 工作项", () => 
 
 test("Kern preserves the original Muse visual system while changing product logic", () => {
   const css = read("src/app/muse/muse.css");
-  assert.ok(css.includes("--m-surface:     rgba(255,255,255,.92);"));
-  assert.ok(css.includes("--m-surface: rgba(24,27,34,.86);"));
+  // Kern Design Foundation：唯一令牌源在 theme/kern-design.css（亮 / 暗两套），
+  // muse 层只做 --m-* → --k-* 映射，不再自带字面色值（否则会出现两套真相）。
+  assert.ok(css.includes("--m-surface:     var(--k-surface);"), "muse tokens must map to the single Kern token source");
+  const tokens = read("src/app/theme/kern-design.css");
+  assert.match(tokens, /--k-surface:\s*[^;]+;/, "kern-design.css defines the light surface");
+  assert.match(tokens, /prefers-color-scheme:\s*dark|data-theme="dark"|\.dark\b/, "kern-design.css defines a dark theme");
   assert.ok(
     css.includes("radial-gradient(880px 520px"),
     "the original Muse canvas atmosphere must remain intact"
@@ -257,12 +269,15 @@ test("Kern preserves the original Muse visual system while changing product logi
 });
 
 test("Executive Report exposes the decision sequence and folds raw detail", () => {
-  const report = read("src/components/executive-report.tsx");
-  for (const label of ["当前结论：", "关键依据", "最大风险与关键风险", "还不能下结论", "需要你决定", "下一步"]) {
-    assert.ok(report.includes(label), "missing executive report label: " + label);
-  }
-  assert.ok(report.includes("<details") && report.includes("查看专业数字员工意见"));
-  assert.ok(report.includes("查看报告溯源"));
+  const report = stripComments(read("src/components/executive-report.tsx"));
+  // KX-22 方案 C 顺序：结论 → 关键依据 → 最大风险 → UNKNOWN → 附录（折叠）→ 需要你决定 → 下一步
+  const order = ["当前结论：", "关键依据", "最大风险", "还不能下结论", "报告溯源", "需要你决定", "下一步"].map((label) => {
+    const at = report.indexOf(label);
+    assert.ok(at >= 0, "missing executive report label: " + label);
+    return at;
+  });
+  assert.deepEqual([...order].sort((a, b) => a - b), order, "executive report sections must keep the fixed order");
+  assert.ok(report.includes("<details") && report.includes("专业数字员工意见"));
 });
 
 test("desktop execution reads as Kern using the Mac, with runtime details secondary", () => {
@@ -282,12 +297,37 @@ test("Kern primary shell behaves like a real conversation surface", () => {
   const shell = read("src/app/muse/components/shell.tsx");
   const turn = read("src/app/muse/components/turn.tsx");
 
-  assert.ok(client.includes('Working text="Kern 正在处理这条消息…"'));
-  assert.ok(client.includes("scrollIntoView"), "new conversation turns should stay visible");
+  assert.ok(client.includes("Kern 正在处理这条消息…"));
+  assert.ok(client.includes("等待后台执行器启动"), "accepted messages explain missing worker rather than pretending to run");
+  assert.ok(client.includes("scrollToLatest"), "new conversation turns should stay visible");
   assert.ok(shell.includes('m-brand-mark" aria-hidden>K<'), "visible Kern brand mark must be K");
   assert.ok(turn.includes('by?.mark ?? "K"'), "assistant fallback avatar must be Kern, not Muse");
   const readModel = read("src/modules/muse/read-model.ts");
   assert.ok(readModel.includes('agent.code === "hermes_pm" ? "e-hermes" : agent.id'));
   assert.ok(readModel.includes('mark: "K"'), "Kern fallback employee mark must be K");
   assert.equal(client.includes("Kern 正在执行这条消息"), false, "request-in-flight UI must not fake backend execution");
+});
+
+test("conversation rail supports rename and archive on real owned conversations", () => {
+  const client = read("src/app/muse/muse-client.tsx");
+  const shell = read("src/app/muse/components/shell.tsx");
+  const api = read("src/app/api/conversations/[id]/route.ts");
+  const service = read("src/modules/assistant-runtime/conversations.ts");
+
+  assert.ok(shell.includes("onRename"), "rail must expose a rename affordance");
+  assert.ok(shell.includes("onArchive"), "rail must expose an archive affordance");
+  assert.ok(
+    client.includes("/api/conversations/${conversation.id}`"),
+    "rail actions must call the real conversation PATCH endpoint"
+  );
+  assert.ok(client.includes("router.refresh()"), "rail actions must refresh server model after mutation");
+  assert.ok(api.includes("getServerSession"), "PATCH endpoint must authenticate");
+  assert.ok(
+    service.includes("requireOwnedKernConversation"),
+    "service layer must enforce owner-only semantics"
+  );
+  assert.ok(
+    service.includes('throw new NotFoundError("Conversation not found")'),
+    "cross-owner access must stay NotFound (no existence leak)"
+  );
 });

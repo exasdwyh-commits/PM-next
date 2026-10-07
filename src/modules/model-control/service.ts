@@ -5,8 +5,13 @@ import { ForbiddenError, NotFoundError, UnprocessableEntityError } from "@/share
 import { isOrgAdmin } from "@/modules/identity/admin";
 import type { SessionContext } from "@/modules/identity/session";
 import { isProviderRuntimeConfigured } from "@/modules/model-gateway/provider-runtime";
+import {
+  DEFAULT_MODEL_FAILURE_POLICY,
+  resolveModelFailurePolicy,
+} from "@/modules/model-gateway/health";
 import type {
   ModelCapability,
+  ModelFailurePolicy,
   ModelPolicy,
   ModelProfile,
   ModelTaskClass,
@@ -122,7 +127,7 @@ export async function getModelControlOverview(session: SessionContext) {
   };
 }
 
-export async function installRecommendedModelControlPresets(session: SessionContext) {
+export async function installRecommendedModelControlPresets(session: SessionContext, options: { missingOnly?: boolean } = {}) {
   await assertAdmin(session);
 
   return prisma.$transaction(async (tx) => {
@@ -152,7 +157,7 @@ export async function installRecommendedModelControlPresets(session: SessionCont
           dataPolicyNote: preset.dataPolicyNote,
           isPreset: true,
         },
-        update: {
+        update: options.missingOnly ? {} : {
           isPreset: true,
           description: preset.description,
           dataPolicyNote: preset.dataPolicyNote,
@@ -181,7 +186,7 @@ export async function installRecommendedModelControlPresets(session: SessionCont
           maxContextRequirement: preset.maxContextRequirement,
           isPreset: true,
         },
-        update: {
+        update: options.missingOnly ? {} : {
           isPreset: true,
           description: preset.description,
         },
@@ -611,9 +616,37 @@ export async function resolveGatewayPolicyForAgent(params: {
     requiredCapabilities: jsonStringArray(policyRow.requiredCapabilities) as ModelCapability[],
     cloudAllowed: policyRow.cloudAllowed,
     maxContextRequirement: policyRow.maxContextRequirement,
+    failurePolicy: jsonFailurePolicy(policyRow.failurePolicy),
   };
 
   return { policy, profiles };
+}
+
+const FAILURE_POLICY_KEYS = [
+  "failureThreshold",
+  "cooldownMs",
+  "rateLimitCooldownMs",
+  "authCooldownMs",
+  "rateLimitRetries",
+  "rateLimitMaxWaitMs",
+] as const;
+
+/**
+ * KX-66：读取策略行上的 failurePolicy（可只写部分字段，其余取默认值）。
+ * 字段不合法时整体回落到默认策略，不让一条坏配置把模型调用拖垮。
+ */
+function jsonFailurePolicy(value: unknown): ModelFailurePolicy | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  const merged: ModelFailurePolicy = { ...DEFAULT_MODEL_FAILURE_POLICY };
+  for (const key of FAILURE_POLICY_KEYS) {
+    if (typeof raw[key] === "number") merged[key] = raw[key] as number;
+  }
+  try {
+    return resolveModelFailurePolicy(merged);
+  } catch {
+    return undefined;
+  }
 }
 
 

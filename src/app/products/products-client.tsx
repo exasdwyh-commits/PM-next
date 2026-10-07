@@ -1,4 +1,6 @@
 "use client";
+import { getTenantPack } from "@/modules/tenant";
+const TENANT_UI = getTenantPack().tenant.ui;
 
 import React from "react";
 import Link from "next/link";
@@ -74,6 +76,7 @@ export default function ProductsClient({
   const [form, setForm] = React.useState({ ...EMPTY_FORM, ...initialForm });
   const [errorMsg, setErrorMsg] = React.useState("");
   const [busy, setBusy] = React.useState(false);
+  const busyRef = React.useRef(false);
   const [query, setQuery] = React.useState("");
   const [stageFilter, setStageFilter] = React.useState<string>("");
 
@@ -91,15 +94,28 @@ export default function ProductsClient({
 
   const handleIngest = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (busyRef.current) return;
     setErrorMsg("");
+    const requiredFields = [
+      ["name", "名称"], ["coreIdea", "一句话想法"], ["targetAudience", "目标人群与场景"],
+      ["coreSellingPoints", "核心卖点"], ["targetChannels", "预期渠道"],
+    ] as const;
+    for (const [key, label] of requiredFields) {
+      if (!form[key].trim()) { setErrorMsg(`请填写「${label}」，不能只输入空格。`); return; }
+    }
+    if (form.targetCost && (!Number.isFinite(Number(form.targetCost)) || Number(form.targetCost) < 0)) {
+      setErrorMsg("目标成本必须是大于或等于 0 的有效数字。");
+      return;
+    }
+    busyRef.current = true;
     setBusy(true);
     try {
       const payload: Record<string, unknown> = {
-        name: form.name,
-        coreIdea: form.coreIdea,
-        targetAudience: form.targetAudience,
-        coreSellingPoints: form.coreSellingPoints,
-        targetChannels: form.targetChannels,
+        name: form.name.trim(),
+        coreIdea: form.coreIdea.trim(),
+        targetAudience: form.targetAudience.trim(),
+        coreSellingPoints: form.coreSellingPoints.trim(),
+        targetChannels: form.targetChannels.trim(),
       };
       if (form.priceExpectation) payload.priceExpectation = form.priceExpectation;
       if (form.targetCost) payload.targetCost = Number(form.targetCost);
@@ -120,6 +136,7 @@ export default function ProductsClient({
     } catch (err: any) {
       setErrorMsg(err.message || "入库失败");
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   };
@@ -182,9 +199,10 @@ export default function ProductsClient({
       user={{ name: activeUser?.name || currentSession?.userName, meta: currentSession?.userEmail }}
       runtime={runtime}
       topbarLeft={
+        /* 2026-10-04：顶栏页名与页内 h1 同名会重复一次（首屏可见的冗余）。
+           顶栏改为只放**分区上下文**，页面主标题由 h1 独占。 */
         <div className="hermes-topbar-title">
-          <span className="eyebrow">PRODUCT DEVELOPMENT</span>
-          <strong>产品</strong>
+          <span className="hermes-topbar-scope">工作台</span>
         </div>
       }
       topbarRight={
@@ -204,7 +222,6 @@ export default function ProductsClient({
     >
       <div className="hermes-page-heading">
         <div>
-          <p className="eyebrow">产品库</p>
           <h1>产品</h1>
           <p>已有明确想法 → 入库 → 分析评分 → 多轮优化 → 打样验证 → 上市准备 → 上市复盘</p>
         </div>
@@ -215,17 +232,15 @@ export default function ProductsClient({
       </div>
 
       <Panel
-        eyebrow="PORTFOLIO"
         title="产品列表"
         titleSmall={`(${filtered.length}${filtered.length !== products.length ? ` / 共 ${products.length}` : ""})`}
-        sub="阶段与负责人为真实字段，未填写即显示「未设置」"
         actions={
           <div className="hermes-inline">
             <div className="hermes-search is-compact">
               <Icon name="search" size={14} />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索产品名称或编码..." />
+              <input aria-label="搜索产品名称或编码" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索产品名称或编码..." />
             </div>
-            <select className="hermes-select is-compact" value={stageFilter} onChange={(e) => setStageFilter(e.target.value)}>
+            <select aria-label="筛选产品阶段" className="hermes-select is-compact" value={stageFilter} onChange={(e) => setStageFilter(e.target.value)}>
               <option value="">全部阶段</option>
               {STAGE_ORDER.map((s) => (
                 <option key={s} value={s}>
@@ -249,6 +264,7 @@ export default function ProductsClient({
             {products.length === 0
               ? "还没有产品。点右上角「新产品入库」，只需填写名称、一句话想法、目标人群、核心卖点与预期渠道即可保存。"
               : "没有匹配的产品，请调整搜索或阶段筛选。"}
+            {(query || stageFilter) && <button type="button" className="hermes-ghost-btn" onClick={() => { setQuery(""); setStageFilter(""); }}>清除筛选</button>}
           </Empty>
         ) : view === "list" ? (
           <>
@@ -311,14 +327,14 @@ export default function ProductsClient({
           title="新产品入库"
           sub="首屏只要求五项；价格、成本、规格、禁用项、上市日为选填，可稍后补充。保存后立即进入产品总览。"
           wide
-          onClose={() => setShowIngest(false)}
+          onClose={() => { if (!busyRef.current) setShowIngest(false); }}
         >
-          {errorMsg && <div className="hermes-banner is-danger">{errorMsg}</div>}
+          {errorMsg && <div className="hermes-banner is-danger" role="alert">{errorMsg}</div>}
           <form onSubmit={handleIngest}>
             <div className="hermes-form-grid">
               <label className="hermes-label">
                 <span>名称 *</span>
-                <input required className="hermes-input" value={form.name} onChange={set("name")} placeholder="例如：低 GI 慢碳代餐燕麦脆" />
+                <input required className="hermes-input" value={form.name} onChange={set("name")} placeholder={TENANT_UI.productNamePlaceholder} />
               </label>
               <label className="hermes-label">
                 <span>一句话想法 *</span>
@@ -367,15 +383,15 @@ export default function ProductsClient({
                   </label>
                   <label className="hermes-label">
                     <span>目标成本（元）</span>
-                    <input type="number" step="0.01" className="hermes-input" value={form.targetCost} onChange={set("targetCost")} placeholder="单位目标成本" />
+                    <input type="number" min="0" step="0.01" className="hermes-input" value={form.targetCost} onChange={set("targetCost")} placeholder="单位目标成本" />
                   </label>
                   <label className="hermes-label">
                     <span>剂型 / 规格</span>
-                    <input className="hermes-input" value={form.formSpec} onChange={set("formSpec")} placeholder="例如：片剂 60 片 / 瓶" />
+                    <input className="hermes-input" value={form.formSpec} onChange={set("formSpec")} placeholder={TENANT_UI.formSpecPlaceholder} />
                   </label>
                   <label className="hermes-label">
                     <span>禁用项</span>
-                    <input className="hermes-input" value={form.forbiddenItems} onChange={set("forbiddenItems")} placeholder="例如：不含蔗糖、不含防腐剂" />
+                    <input className="hermes-input" value={form.forbiddenItems} onChange={set("forbiddenItems")} placeholder={TENANT_UI.forbiddenItemsPlaceholder} />
                   </label>
                   <label className="hermes-label">
                     <span>目标上市日</span>
@@ -385,7 +401,7 @@ export default function ProductsClient({
               </details>
 
               <div className="hermes-modal-actions">
-                <button type="button" className="hermes-outline-btn" onClick={() => setShowIngest(false)}>
+                <button type="button" className="hermes-outline-btn" disabled={busy} onClick={() => setShowIngest(false)}>
                   取消
                 </button>
                 <button type="submit" className="hermes-primary-btn" disabled={busy}>

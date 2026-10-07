@@ -55,6 +55,7 @@ export default async function ProductDetailPage({
 
   return (
     <ProductOverviewClient
+      key={id}
       overview={JSON.parse(JSON.stringify(overview))}
       automationTraces={JSON.parse(JSON.stringify(automationTraces))}
       currentSession={toSessionView(session)}

@@ -37,7 +37,7 @@ import prisma from "../src/shared/db";
 import { assertTestDatabaseSafety } from "./test-safety";
 import { hashPassword } from "../src/modules/identity/session";
 import { bootstrapDefaultWorkforce, finishAgentTask, startAgentTask } from "../src/modules/workforce/service";
-import { runPmWorker } from "../src/modules/worker";
+import { runPmWorker } from "../src/modules/supervisor/worker-runtime";
 
 const BASE = process.env.BASE_URL || "http://127.0.0.1:3180";
 const RUN_TAG = `prde2e${Date.now()}`;

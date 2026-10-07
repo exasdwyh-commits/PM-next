@@ -309,9 +309,11 @@ export default function AdvisorClient({
       user={{ name: currentSession?.userName, meta: currentSession?.userEmail }}
       runtime={runtime}
       topbarLeft={
+        /* 2026-10-04：原先顶栏是装饰性英文眉题 DEPARTMENT ASSISTANT + 「Kern 助理」，
+            与页内 h1「Kern 助理」重复；英文眉题本身也属于交付记录里已清理过的那类装饰文案。
+            顶栏改放分区上下文，主标题由 h1 独占（h1 本身是动态的，会带产品名）。 */
         <div className="hermes-topbar-title">
-          <span className="eyebrow">DEPARTMENT ASSISTANT</span>
-          <strong>Kern 助理</strong>
+          <span className="hermes-topbar-scope">工作台</span>
         </div>
       }
       topbarRight={

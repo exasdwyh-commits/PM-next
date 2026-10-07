@@ -110,6 +110,14 @@ PIDS+=("$(cat /tmp/llm-e2e-mock.pid)")
 echo $! > /tmp/llm-e2e-server.pid)
 PIDS+=("$(cat /tmp/llm-e2e-server.pid)")
 
+# Accepted messages execute in a separate process with the same model configuration.
+NODE_OPTIONS= NODE_ENV=production DEV_MOCK_AUTH=false DATABASE_URL="$TEST_DATABASE_URL" \
+  ADVISOR_LLM_ENABLED=true ADVISOR_MODEL_PROVIDER="mock-openai-compatible" ADVISOR_MODEL_ID="mock-llm-e2e" \
+  ADVISOR_LLM_BASE_URL="http://127.0.0.1:$MOCK_PORT/v1" ADVISOR_LLM_TIMEOUT_MS=1000 ADVISOR_LLM_MAX_TOKENS=512 \
+  PM_WORKER_LOCK_DIR="/tmp/kern-llm-worker-$$" nohup ./node_modules/.bin/tsx scripts/pm-worker.ts --loops=conversation --quiet \
+  > /tmp/llm-e2e-worker.log 2>&1 &
+PIDS+=("$!")
+
 # 3. 探活 + 归属校验（端口启动前空闲 + 监听进程 cwd==本仓库）
 up=0
 for _ in $(seq 1 40); do
@@ -120,12 +128,23 @@ done
 if [[ "$up" != "1" ]]; then
   echo "❌ 服务未就绪（日志尾部）："; tail -10 /tmp/llm-e2e-server.log; exit 1
 fi
-lpid="$(lsof -nP -iTCP:"$API_PORT" -sTCP:LISTEN -t 2>/dev/null | head -1)"
-lcwd="$(lsof -a -p "$lpid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)"
-if [[ "$lcwd" != "$ROOT" ]]; then
-  echo "❌ ${API_PORT} 上服务器 cwd=「${lcwd}」≠ 本仓库「${ROOT}」"; exit 4
+# 与 acc-server.sh 同口径：首选本次启动的 PID 做归属证明（/proc/<pid>/cwd，Linux 与 Git Bash 均可用），
+# 取不到再回退 lsof。Windows 上没有 lsof，旧写法恒得空 cwd → 服务真实可用却 exit 4 的假红。
+# 安全性不降低：端口启动前已强制空闲 + HTTP 200 + 启动 PID 存活 + cwd 为本仓库。
+ourpid="$(cat /tmp/llm-e2e-server.pid)"
+lcwd=""
+if kill -0 "$ourpid" 2>/dev/null && [[ -e "/proc/$ourpid/cwd" ]]; then
+  lcwd="$(readlink "/proc/$ourpid/cwd" 2>/dev/null || true)"
 fi
-echo "✅ 服务就绪（pid=${lpid} · LLM 已启用 · mock 端点 :${MOCK_PORT}）"
+lpid=""
+if [[ -z "$lcwd" ]] && command -v lsof >/dev/null 2>&1; then
+  lpid="$(lsof -nP -iTCP:"$API_PORT" -sTCP:LISTEN -t 2>/dev/null | head -1)"
+  lcwd="$(lsof -a -p "$lpid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)"
+fi
+if [[ "$lcwd" != "$ROOT" ]]; then
+  echo "❌ ${API_PORT} 上服务器 cwd=「${lcwd:-UNKNOWN}」≠ 本仓库「${ROOT}」"; exit 4
+fi
+echo "✅ 服务就绪（launcher=${ourpid} · listener=${lpid:-未由 lsof 解析} · LLM 已启用 · mock 端点 :${MOCK_PORT}）"
 
 # 4. 跑套件
 export BASE_URL="http://127.0.0.1:$API_PORT"

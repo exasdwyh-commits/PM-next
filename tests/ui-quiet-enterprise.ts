@@ -59,6 +59,27 @@ const stripComments = (t: string) =>
 
 const css = stripComments(fs.readFileSync(path.join(SRC, "app/globals.css"), "utf8"));
 const themeCss = stripComments(fs.readFileSync(path.join(SRC, "app/theme/quiet-enterprise.css"), "utf8"));
+const museCss = stripComments(fs.readFileSync(path.join(SRC, "app/muse/muse.css"), "utf8"));
+/**
+ * 类名契约的「已定义」集合必须覆盖**全部**项目样式表。
+ * 2026-09-27 修：此前只读 globals.css，于是 muse.css 里定义好的类（如 .m-row.is-live）
+ * 被误报成「未定义」。这种误报的处理方式往往是把它塞进 UNSTYLED_HOOKS，
+ * 而那会把登记表从「有意无样式」退化成「误报收容所」，守卫也就失去意义了。
+ *
+ * 2026-10-04 再修：上次的修复只把 muse.css 加进来，写成了三个文件的硬编码列表，
+ * 于是「覆盖全部」这个承诺再次落空——workbench.css（.kx-wb-row.is-dot）、
+ * kx.css（.kx-*-t.is-enter）等后来新增的样式表都没被读入，
+ * .is-dot / .is-enter 因此被误报为「未定义」（本轮实测 9 个误报里占 2 个）。
+ * 症状和 2026-09-27 那次完全一样，而修法也退化成往 UNSTYLED_HOOKS 里塞名字。
+ *
+ * 现在改为**扫描 src 下全部 .css**，新增样式表自动纳入，不再靠人工维护清单。
+ * 顺序按路径排序，保证报错信息稳定可比。
+ */
+const projectCssFiles = walk(SRC)
+  .filter((f) => f.endsWith(".css"))
+  .sort();
+const allCss = projectCssFiles.map((f) => stripComments(fs.readFileSync(f, "utf8"))).join("\n");
+const projectCssNames = projectCssFiles.map((f) => path.relative(process.cwd(), f));
 
 /**
  * G1 · 令牌自引用成环检测：只命中**同名**的 `--x:var(--x[, fallback])`。
@@ -102,18 +123,26 @@ const INLINE_COLOR_RE = /#[0-9a-fA-F]{3,8}\b|(?:rgba?|hsla?|hwb|lab|lch|oklab|ok
  *   任何新增的拼错/改名类名都会立刻变红。
  */
 const UNSTYLED_HOOKS: Record<string, string> = {
-  "hermes-brief-situation": "工作台『现在的情况』分段容器：仅作语义分节，视觉由 .hermes-brief-* 子元素承担",
-  "hermes-brief-decisions": "工作台『需要你决定』分段容器：同上，有意不加自身样式",
-  "hermes-brief-themes": "工作台『其他工作』分段容器：同上，有意不加自身样式",
   "project-list": "产品列表包裹层：布局交由 .project-table-head / .project-row 网格承担",
   "is-assistant": "顾问对话『非本人』消息的状态标记：默认样式即基线，仅 is-user 需要覆盖，故无自身规则",
+  "hermes-desktop-panel": "本机执行面板根容器：自身不描边不着色，视觉由 .hermes-desktop-panel-head 与各子块承担",
+  "m-contract-review": "验收清单卡片根节点的语义标记（contract-card.tsx 里硬编码，非动态变体）：该区块的视觉已由 .m-contract-checks / .m-contract-mark / .m-contract-note 承担，与「任务契约」卡片的区别靠内容与 aria-label 表达，不需要额外皮肤；给它凭空补一套配色属于设计决策，不在守卫修复范围内",
 };
 
 /** 项目命名空间前缀（设计系统自建类），用于把 Tailwind 工具类排除在契约之外。 */
 const PROJECT_PREFIX =
-  /^(hermes|project|viz|bubble|panel|decision|hero|detail|metric|owner|row|stage|health|empty|modal|mode|form|compact|user|tiny|star|sparkline|mini|negative|blue|copper|green|muted|date|profile|eyebrow|top|milestone|is)-/;
+  /^(hermes|project|viz|bubble|panel|decision|hero|detail|metric|owner|row|stage|health|empty|modal|mode|form|compact|user|tiny|star|sparkline|mini|negative|blue|copper|green|muted|date|profile|eyebrow|top|milestone|kx|kr|m|is)-/;
 const PROJECT_BARE = new Set(["eyebrow", "star", "milestone", "negative", "sparkline", "blue", "copper", "green"]);
-const isProjectToken = (t: string) => PROJECT_BARE.has(t) || PROJECT_PREFIX.test(t + "-");
+/**
+ * Tailwind 的外边距工具类与 muse 的 `m-*` 类名前缀撞车（`m-0`/`m-4` vs `m-home`）。
+ * Tailwind 的间距值域是封闭的：数字、auto、px，以及负号前缀。
+ * 命中这些值的一律按 Tailwind 工具类排除；其余 `m-*` 仍按项目类名送进契约。
+ */
+const TAILWIND_SPACING_VALUE = /^-?(?:\d+(?:\.\d+)?|auto|px)$/;
+const isTailwindMargin = (t: string) => /^m[xytblr]?-(?:\d+(?:\.\d+)?|auto|px)$/.test(t);
+const isProjectToken = (t: string) =>
+  PROJECT_BARE.has(t) ||
+  (PROJECT_PREFIX.test(t + "-") && !(t.startsWith("m") && TAILWIND_SPACING_VALUE.test(t.slice(2))));
 
 /** 抽取 src 中 className 字面量的 token（去注释；忽略模板串里的 `${}` 片段）。 */
 function srcClassNameTokens(): Set<string> {
@@ -174,8 +203,8 @@ function runRenderGuards() {
   ok(!/Suspense/.test(vizSrc), "viz.tsx 不使用 Suspense（避免把后代 notFound() 的 404 变 200）");
   ok(!/\buse(State|Effect|Memo|Reducer|Ref|SyncExternalStore)\b/.test(vizSrc), "viz.tsx 无任何 React hook（纯展示）");
 
-  section("源码守卫 3：类名契约（src className 引用的项目类必须在 globals.css 有定义）");
-  const cssClean = css
+  section("源码守卫 3：类名契约（src className 引用的项目类必须在项目样式表里有定义）");
+  const cssClean = allCss
     .replace(/@import[^;]*;/g, " ")
     .replace(/url\([^)]*\)/g, " ")
     .replace(/"[^"]*"/g, " ")
@@ -184,7 +213,7 @@ function runRenderGuards() {
   const refTokens = [...srcClassNameTokens()].filter((t) => !t.includes("${") && isProjectToken(t)).sort();
   const undefinedTokens = refTokens.filter((c) => !cssClassSet.has(c));
   ok(undefinedTokens.every((c) => c in UNSTYLED_HOOKS),
-    `src 引用的 ${refTokens.length} 个项目类名里，CSS 未定义的只应是已登记的「无样式钩子」（实际 ${undefinedTokens.length}：${undefinedTokens.join(", ") || "无"}）`);
+    `src 引用的 ${refTokens.length} 个项目类名里，全部项目样式表都未定义的只应是已登记的「无样式钩子」（实际 ${undefinedTokens.length}：${undefinedTokens.join(", ") || "无"}）`);
   const hooks = Object.keys(UNSTYLED_HOOKS).sort();
   const sameSet = undefinedTokens.slice().sort().length === hooks.length && undefinedTokens.slice().sort().every((c, i) => c === hooks[i]);
   ok(sameSet,
@@ -208,6 +237,14 @@ function runRenderGuards() {
   section("源码守卫 4c：src .ts/.tsx 内联色值 = 0（hex / 函数式颜色）[G2]");
   // 顾问 / 研究模块由另一 agent 并行开发，暂不设卡；对方合入后应把下列排除项**移除**、重新纳入。
   const COLOR_GUARD_EXCLUDE = ["/advisor/", "/consultation/", "/api/conversations/", "/research/"];
+  /**
+   * 唯一的**永久**例外：导出件调色板。
+   * 导出页（MD/PDF）是脱离应用运行的独立文档，用户可能离线打开或直接打印，
+   * 拿不到 theme 令牌层，必须自带色值。因此不禁止它有色值，而是要求
+   * **全部集中在 PRINT_PALETTE 一个常量里**——常量外仍然一处都不许有。
+   */
+  const PALETTE_OWNER = "src/modules/supervisor/report-format.ts";
+  const PALETTE_RE = /const PRINT_PALETTE = \{[\s\S]*?\} as const;/;
   const isColorExcluded = (f: string) => {
     const rel = path.relative(process.cwd(), f).replace(/\\/g, "/");
     return COLOR_GUARD_EXCLUDE.some((p) => rel.includes(p));
@@ -217,12 +254,20 @@ function runRenderGuards() {
   const colorExcluded = tsFiles.filter(isColorExcluded).map((f) => path.relative(process.cwd(), f)).sort();
   const colorHits: string[] = [];
   for (const f of colorScanned) {
-    const hits = stripComments(fs.readFileSync(f, "utf8")).match(INLINE_COLOR_RE) || [];
+    const rel = path.relative(process.cwd(), f).replace(/\\/g, "/");
+    let text = stripComments(fs.readFileSync(f, "utf8"));
+    if (rel === PALETTE_OWNER) text = text.replace(PALETTE_RE, " ");
+    const hits = text.match(INLINE_COLOR_RE) || [];
     if (hits.length) colorHits.push(`${path.relative(process.cwd(), f)} → ${[...new Set(hits)].join(",")}`);
   }
   ok(
     colorHits.length === 0,
     `src .ts/.tsx 内联色值（hex / rgb|hsl|oklch… 函数式）= 0（实际 ${colorHits.length}：${colorHits.slice(0, 6).join(" | ") || "无"}）`,
+  );
+  // 例外不能变成空头支票：常量本身必须存在，否则上面的豁免就等于放行整个文件。
+  ok(
+    PALETTE_RE.test(fs.readFileSync(path.join(process.cwd(), PALETTE_OWNER), "utf8")),
+    `${PALETTE_OWNER} 的导出色值集中在 PRINT_PALETTE 常量内（该常量是全 src 唯一允许出现字面色值的位置）`,
   );
   console.log(`  ℹ G2 临时排除（并行开发；对方合入后应重新纳入）${colorExcluded.length} 个文件：`);
   for (const f of colorExcluded) console.log(`      - ${f}`);
@@ -241,10 +286,175 @@ function runRenderGuards() {
     "reduce 下 -webkit-text-fill-color / color 均回退为不透明 --accent-hover（非 transparent）");
 
   section("源码守卫 6c：响应式阶梯与关键断点规则（§10 rev2 · H3/H5/H6/H7 + A11y）");
-  const mediaWidths = [...css.matchAll(/@media \(max-width:(\d+)px\)/g)].map((m) => Number(m[1]));
-  const descending = mediaWidths.every((n, i) => i === 0 || n <= mediaWidths[i - 1]);
-  ok(mediaWidths.length >= 7 && descending,
-    `max-width 媒体查询按由宽到窄声明（实际 ${mediaWidths.join(" → ") || "无"}）`);
+  /**
+   * 2026-10-04：这一条原先检查「所有 max-width 媒体查询是否按由宽到窄声明」。
+   *
+   * 那个形式判据与它想保护的东西并不对应。本文件按**功能**组织（不是按断点组织），
+   * 同一个断点分散在多处本属正常；而真正会伤到用户的只有一种情况：
+   * **等特异度下，靠后的宽断点覆盖了靠前窄断点对同一选择器同一属性的声明**
+   * （max-width 是"低于某宽度即命中"，所以 390px 会同时命中 520 与 620）。
+   *
+   * 实测确认了这一点，也确认了形式判据会大量误报：本轮 globals.css 的 24 个
+   * max-width 块里，真正「窄被宽覆盖」的只有 4 对，其中 2 对两边值相同
+   * （.hermes-topbar-title strong 的 font-size、.hermes-topbar-title 的 min-width），
+   * 实际只有 2 对产生视觉差异（.hermes-content / .hermes-topbar 的 padding），
+   * 已在文件末尾用一段窄屏收口块修掉（见该块注释）。
+   *
+   * 现在改为直接检测级联冲突——**测意图本身**，而不是测一个容易误报的形式，
+   * 也不需要把 2500+ 行按功能组织的 CSS 重排成按断点组织（那是高风险且无收益的
+   * 大改）。断点数量下限仍保留，确保响应式阶梯没有被整体删掉。
+   */
+  const mediaWidths = [...css.matchAll(/@media \(max-width:\s*(\d+)px\)/g)].map((m) => Number(m[1]));
+  ok(mediaWidths.length >= 7,
+    `max-width 媒体查询数量 ≥ 7（实际 ${mediaWidths.length}：${mediaWidths.join(" → ") || "无"}）`);
+
+  // 按括号配平精确切出每个 @media (max-width:Npx) 块，记录「选择器+属性 → 值」。
+  type Decl = { prop: string; value: string };
+  const bySelector = new Map<string, Decl[]>();
+  {
+    let i = 0;
+    while (i < css.length) {
+      const m = /@media\s*\(max-width:\s*(\d+)px\)/.exec(css.slice(i));
+      if (!m) break;
+      const blockWidth = Number(m[1]);
+      const braceStart = css.indexOf("{", i + m.index);
+      if (braceStart < 0) break;
+      let depth = 0;
+      let j = braceStart;
+      for (; j < css.length; j++) {
+        if (css[j] === "{") depth++;
+        else if (css[j] === "}") {
+          depth--;
+          if (depth === 0) break;
+        }
+      }
+      const block = css.slice(braceStart + 1, j);
+      for (const rule of block.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        const selector = rule[1].trim().replace(/\s+/g, " ");
+        if (selector.startsWith("@")) continue;
+        for (const d of rule[2].matchAll(/([-a-zA-Z]+)\s*:\s*([^;]+)/g)) {
+          const key = selector;
+          const list = bySelector.get(key) ?? [];
+          list.push({ prop: d[1], value: d[2].trim() });
+          bySelector.set(key, list);
+        }
+      }
+      i = j + 1;
+    }
+  }
+  // 冲突判定：对每个 (选择器, 属性) 收集**全部**出现（源码序 + 断点宽 + 值），
+  // 只要存在一对「窄断点声明在前、宽断点声明在后、且值不同」，就算冲突——
+  // 因为 max-width 是「低于该宽度即命中」，窄屏下两者同时生效，后声明者胜，
+  // 于是窄断点在这条属性上被静默覆盖。
+  //
+  // 2026-10-04 修正：初版只记「首次出现」再比宽度，而首次出现几乎总在最宽的断点
+  // （如 .hermes-content 的 padding 首现于 1280px），条件 `prev.width < w` 恒为假，
+  // 守卫形同虚设——注入一个 900px 覆盖块也不变红。现改为全配对比较。
+  /**
+   * 「窄断点被靠后宽断点覆盖」的**已论证例外**。
+   *
+   * 背景：本文件 globals.css 里有两处 520 断点声明，被更靠后的 620 断点覆盖：
+   *   .hermes-content { padding }  ≤520 写 12px 10px 40px → 620 写 12px 14px 40px
+   *   .hermes-topbar  { padding }  ≤520 写 8px 10px 8px 12px → 620 写 6px 14px
+   *
+   * 为什么不修成「520 的值赢」：
+   * 620 那块是后加的**移动端外壳**整体设计（侧栏隐藏 + 移动菜单 + 弹窗安全区），
+   * 它的 `.hermes-topbar { margin: -12px -14px 12px; padding: 6px 14px }` 是
+   * **成对**的——负外边距让顶栏左右出血，与 14px 内边距刚好齐平（横向溢出 0）。
+   * 若把 520 的 10px 内边距抢回来，负外边距仍是 -14px，两侧立刻差 4px，
+   * ui-motion P1 的「产品页/项目页无横向溢出」会实测失败（已实测：4px）。
+   * 所以 520 的那两条是外壳重设计之前的**过时残留**，620 才是当前意图。
+   *
+   * 代价（如实记录）：≤520 的排版意图今后只能改 620 那块。守卫会在此留痕，
+   * 避免下一个「修冲突」的人重犯我这次犯的错。
+   */
+  const SUPERSEDED_BY_DESIGN: Array<{ key: string; narrow: number; wide: number }> = [
+    { key: ".hermes-content { padding }", narrow: 520, wide: 620 },
+    { key: ".hermes-topbar { padding }", narrow: 520, wide: 620 },
+  ];
+  /** 在所有能覆盖 narrow 的声明里，取最宽的那个（即实际生效者） */
+  const widestClobberer = (
+    list: Array<{ order: number; width: number; value: string }>,
+    narrow: { order: number; width: number; value: string },
+  ): number =>
+    Math.max(
+      ...list
+        .filter((o) => o.width > narrow.width && o.order > narrow.order && o.value !== narrow.value)
+        .map((o) => o.width),
+    );
+  const cascadeClashes: string[] = [];
+  {
+    const occ = new Map<string, Array<{ order: number; width: number; value: string }>>();
+    let order = 0;
+    let i = 0;
+    while (i < css.length) {
+      const m = /@media\s*\(max-width:\s*(\d+)px\)/.exec(css.slice(i));
+      if (!m) break;
+      const w = Number(m[1]);
+      const braceStart = css.indexOf("{", i + m.index);
+      if (braceStart < 0) break;
+      let depth = 0;
+      let j = braceStart;
+      for (; j < css.length; j++) {
+        if (css[j] === "{") depth++;
+        else if (css[j] === "}") {
+          depth--;
+          if (depth === 0) break;
+        }
+      }
+      const block = css.slice(braceStart + 1, j);
+      for (const rule of block.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        const selector = rule[1].trim().replace(/\s+/g, " ");
+        if (selector.startsWith("@")) continue;
+        for (const d of rule[2].matchAll(/([-a-zA-Z]+)\s*:\s*([^;]+)/g)) {
+          const key = `${selector} { ${d[1]} }`;
+          const list = occ.get(key) ?? [];
+          list.push({ order: order++, width: w, value: d[2].trim() });
+          occ.set(key, list);
+        }
+      }
+      i = j + 1;
+    }
+    for (const [key, list] of occ) {
+      for (const narrow of list) {
+        // 存在一个「更宽 + 更靠后 + 值不同」的声明，会在窄屏下赢掉 narrow
+        const clobbered = list.some(
+          (wide) =>
+            wide.width > narrow.width &&
+            wide.order > narrow.order &&
+            wide.value !== narrow.value,
+        );
+        if (!clobbered) continue;
+        // 已论证的例外：620 移动端外壳整体取代了更早的 520 排版。
+        // 见下方 SUPERSEDED_BY_DESIGN 的说明。新增例外必须写清为什么它是
+        // 「有意取代」而不是「漏改」，否则等于给真实缺陷开后门。
+        const excused = SUPERSEDED_BY_DESIGN.some(
+          (e) => e.key === key && e.narrow === narrow.width && e.wide === widestClobberer(list, narrow),
+        );
+        if (excused) continue;
+        // 如果**更靠后**还有一个宽度 ≤ narrow.width、且值与 narrow 相同的声明，
+        // 说明作者在级联末端把窄屏意图重新声明了一遍——这不算缺陷。
+        const restored = list.some(
+          (later) =>
+            later.order > narrow.order &&
+            later.width <= narrow.width &&
+            later.value === narrow.value,
+        );
+        if (restored) continue;
+        const winner = list
+          .filter((wide) => wide.width > narrow.width && wide.order > narrow.order)
+          .pop();
+        cascadeClashes.push(
+          `${key}：≤${narrow.width}px 声明 ${narrow.value}，被后声明的 ≤${winner?.width}px 覆盖为 ${winner?.value}`,
+        );
+        break;
+      }
+    }
+  }
+  ok(
+    cascadeClashes.length === 0,
+    `窄断点声明不被靠后的宽断点覆盖（实际冲突 ${cascadeClashes.length}${cascadeClashes.length ? "：" + [...new Set(cascadeClashes)].slice(0, 4).join(" | ") : ""}）`,
+  );
   ok(
     /\.hermes-sidebar \{ display:flex; width:var\(--sidebar-rail\); padding:18px 8px; \}/.test(css) &&
       !/\.hermes-sidebar \{ display:none; \}/.test(css),

@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
+import { validate } from "../src/modules/response-format/validate";
+import { isMissionConclusionCitation } from "../src/modules/supervisor/report-format";
+import { missionResponseEnvelope } from "../src/modules/supervisor/response";
+import { setWebSearchForTest } from "../src/modules/supervisor/web-search";
+import { loadMissionReport } from "../src/modules/supervisor/takeaway";
+import { missionReportMarkdown } from "../src/modules/supervisor/report-format";
 import { randomUUID } from "node:crypto";
 import { AgentTaskStatus, OrgRole } from "@prisma/client";
 import prisma from "../src/shared/db";
 import { assertTestDatabaseSafety } from "./test-safety";
 import { sendDepartmentAssistantMessage } from "../src/modules/assistant-runtime/service";
 import { bootstrapDefaultWorkforce } from "../src/modules/workforce/service";
-import { executorLoopOnce, reconcileLoopOnce } from "../src/modules/worker/loops";
+import { beatWorker, markWorkerStopped } from "../src/modules/worker/heartbeat";
+import { executorLoopOnce, reconcileLoopOnce } from "../src/modules/supervisor/worker-runtime";
 import {
   actOnBrief,
   buildNewProductMissionPlan,
@@ -42,6 +49,7 @@ async function main() {
   await prisma.organizationMember.create({ data: { organizationId: org.id, userId: admin.id, role: OrgRole.ORG_ADMIN } });
   const session = { userId: admin.id, organizationId: org.id, userEmail: admin.email, userName: admin.name };
   await bootstrapDefaultWorkforce(session);
+  await beatWorker({ organizationId: org.id, loops: ["executor"], startedAt: new Date() }, true);
 
   const conversation = await prisma.conversation.create({
     data: { organizationId: org.id, ownerId: admin.id, title: "新产品" },
@@ -107,7 +115,13 @@ async function main() {
     const messages = await prisma.message.findMany({ where: { conversationId: conversation.id } });
     assert.equal(messages.length, 1);
     assert.match(messages[0].content, /推荐方向 A/);
-    console.log("  ✔ single mission report message");
+    const conclusionRef = (messages[0].citations as unknown[]).map(isMissionConclusionCitation).find(Boolean);
+    assert.ok(conclusionRef, "completed conclusion is flagged for the ResponseEnvelope");
+    const env = await missionResponseEnvelope(session, conclusionRef!);
+    assert.ok(!validate(env).some((i) => i.level === "error"), "mission envelope passes the harness");
+    assert.equal(env.demo, false);
+    assert.ok(env.meta.quota, "real missions report quota");
+    console.log("  ✔ single mission report message (flagged conclusion, valid envelope)");
 
     console.log("▶ S4 no runnable model → honest BLOCKED, mission escalates to user");
     setMissionModelInvokerForTest(async () => ({ unavailable: "no policy" }));
@@ -125,6 +139,7 @@ async function main() {
     assert.ok(bs.outcome?.reasons.includes("MODEL_UNAVAILABLE"));
     assert.doesNotMatch(last!.content, /tried|policy/, "no raw internals shown to the user");
     assert.doesNotMatch(last!.content, /推荐方向/);
+    assert.ok(!(last!.citations as unknown[]).some((c) => isMissionConclusionCitation(c)), "blocked result is not a conclusion");
     console.log("  ✔ no fabricated result; user is asked to intervene");
 
     console.log("▶ S5 'I want to build a new product' → clarify brief → user confirms → mission");
@@ -183,20 +198,52 @@ async function main() {
 
     console.log("▶ S8 plan quota: over-limit work is refused honestly, chat still answers");
     const used = await prisma.agentTask.count({ where: { organizationId: org.id, parentTaskId: null, contextSnapshot: { path: ["schemaVersion"], equals: "kern-mission/v1" } } });
-    process.env.KERN_PLAN_FREE_MISSIONS = String(used);
+    process.env.KERN_LIMIT_MISSIONS_PER_MONTH = String(used);
     try {
       const over = await sendDepartmentAssistantMessage(session, chat.id, "我想开发一个新的产品，做宠物零食");
       assert.equal(over.mission, null);
-      assert.match(over.message.content, /额度已用完/);
-      assert.match(over.message.content, /套餐与用量/);
+      assert.match(over.message.content, /达到本部署设置的上限/);
+      assert.match(over.message.content, /联系管理员/);
+      assert.doesNotMatch(over.message.content, /套餐|升级/, "产品内不出现付费引导");
     } finally {
-      delete process.env.KERN_PLAN_FREE_MISSIONS;
+      delete process.env.KERN_LIMIT_MISSIONS_PER_MONTH;
     }
-    console.log("  ✔ quota enforced with an upgrade path");
+    console.log("  ✔ deployment limit enforced, no paywall");
+
+    console.log("▶ S9 captured search source → downstream → synthesis → response and export");
+    setWebSearchForTest(async () => [{ title: "测试来源", url: "https://example.com/market-proof", snippet: "合成研究资料：测试来源流转，不是真实市场结论。" }]);
+    let synthesisSawSource = false;
+    setMissionModelInvokerForTest(async ({ messages }) => {
+      const all = messages.map((m) => m.content).join("\n");
+      const key = /## 你的任务（([^）]+)）/.exec(all)?.[1] ?? "?";
+      if (key === "market" && !all.includes("## 工具结果")) return {
+        text: '```kern-tool\n{"tool":"web_search","input":{"query":"测试来源流转"}}\n```', provenance: { stub: true },
+      };
+      if (key === "qa") return { text: JSON.stringify({ verdict: "PASS", summary: "测试资料未核验，不作为事实", issues: [] }), provenance: { stub: true } };
+      if (key === "synthesis") {
+        synthesisSawSource = all.includes("https://example.com/market-proof") && all.includes("contentHash") && all.includes("sourceId");
+        return { text: "测试结论：来源尚未核验，不能据此作市场决策。", provenance: { stub: true } };
+      }
+      return { text: `${key}：外部未验证资料仅供推断。`, provenance: { stub: true } };
+    });
+    const researched = await launchKernMission(session, { plan: buildNewProductMissionPlan("验证测试新品的市场来源流转"), conversationId: chat.id, sourceRunId: "research-" + tag });
+    await drain(org.id);
+    assert.equal((await getKernMissionStatus(session, researched.missionTaskId)).outcome?.status, "COMPLETED");
+    assert.equal(synthesisSawSource, true, "source identity and snapshot must survive intermediate nodes");
+    const researchEnv = await missionResponseEnvelope(session, researched.missionTaskId);
+    assert.equal(researchEnv.meta.sources, 1, "inherited copies must not inflate source counts");
+    assert.equal(researchEnv.blocks.some((b) => b.type === "callout" && b.title === "这次没有联网研究"), false);
+    assert.deepEqual(validate(researchEnv), []);
+    const researchReport = await loadMissionReport(session, researched.missionTaskId);
+    assert.ok(missionReportMarkdown(researchReport).includes("https://example.com/market-proof"));
+    assert.ok(researchReport.researchSources?.[0].contentHash);
+    console.log("  ✔ real DB and worker: one durable unverified source reaches synthesis, UI envelope and export");
 
     console.log("\n✅ Kern supervisor regression passed");
   } finally {
+    setWebSearchForTest(undefined);
     setMissionModelInvokerForTest(null);
+    await markWorkerStopped();
     await prisma.$disconnect();
   }
 }

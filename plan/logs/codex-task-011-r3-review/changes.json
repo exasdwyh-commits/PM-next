@@ -1,0 +1,16 @@
+{
+  "changes": [
+    "src/modules/worker/executor.ts",
+    "src/modules/worker/fair-queue.ts",
+    "src/modules/worker/scheduler.ts",
+    "src/modules/worker/loops.ts",
+    "src/modules/worker/index.ts",
+    "src/modules/assistant-runtime/message-worker.ts",
+    "tests/regression-worker-fairness.ts",
+    "tests/regression-worker-failure-cleanup.ts",
+    "package.json",
+    "plan/opencode-task-011-delivery.md",
+    "tests/regression-worker-r2-boundaries.ts",
+    "tests/regression-worker-failure-fixture.ts"
+  ]
+}

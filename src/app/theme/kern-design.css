@@ -1,0 +1,206 @@
+/* ==========================================================================
+   Kern Design Foundation · 唯一设计基础（2026-09-27）
+   与 tools/response-preview（回复呈现框架 v1）同源：中性墨阶 + 单一强调（浅色亮蓝 / 深色靛紫，KX-60）。
+
+   原则
+   1) 克制：界面 90% 是中性色；强调色只给「需要人行动」的元素（主按钮、选中、check-in）。
+   2) 层级靠字重、字号和留白建立，不靠色块、渐变和阴影堆叠。
+   3) 深浅两套同为一等公民；语义色在两套里各自校准对比度（≥ 4.5:1 正文）。
+   4) 各界面层（muse.css 的 --m-*、quiet-enterprise.css 的 --accent 等）只做映射，不再自带色值。
+
+   深色作用域：全站（2026-09-27 batch ④ 起工作台与各页面完成令牌化，跟随系统深浅色）。
+   玻璃层：--k-glass* / --k-aura-* 给「浮在画布上的面」用（侧栏、卡片、输入坞、弹层），正文不上玻璃。
+   ========================================================================== */
+
+:root {
+  /* 浅色（KX-60，2026-09-29）：参照用户给的 MediSync 参考图——冷调蓝灰画布 + 纯白面板 +
+     单一亮蓝强调 + 极淡蓝调阴影。深色主题不变。 */
+
+  /* 面 */
+  --k-canvas:      #EEF2F8;
+  --k-surface:     #FFFFFF;
+  --k-surface-2:   #F8FAFD;
+  --k-sunk:        #F1F5FA;
+  --k-overlay:     rgba(15, 27, 51, .38);
+
+  /* 线：带一点蓝，白卡在蓝灰底上靠细边而非重阴影分层 */
+  --k-line:        #E4EAF3;
+  --k-line-2:      #D5DEEB;
+  --k-line-soft:   #EEF2F8;
+
+  /* 墨：深海军蓝四级 */
+  --k-ink:         #0F1B33;
+  --k-ink-2:       #334155;
+  --k-ink-3:       #64748B;
+  --k-ink-4:       #94A3B8;
+  --k-on-brand:    #FFFFFF;
+
+  /* 强调：单一亮蓝（正文链接 #2563EB 对白底 5.2:1） */
+  --k-brand:       #2563EB;
+  --k-brand-2:     #3B82F6;
+  --k-brand-hover: #1D4FD8;
+  --k-brand-ink:   #1D4ED8;
+  --k-brand-soft:  #EAF1FE;
+  --k-brand-line:  #CFE0FD;
+  --k-brand-wash:  rgba(37, 99, 235, .06);
+  --k-brand-ring:  rgba(37, 99, 235, .20);
+  /* 实心主按钮底色（白字 ≥ 4.5:1，KX-21）：浅色 = 品牌色本身；深色见下方暗色块 */
+  --k-brand-solid:       var(--k-brand);
+  --k-brand-solid-hover: var(--k-brand-hover);
+
+  /* 语义：参考图里的绿色「Upcoming」、红色「Cancelled」
+     2026-10-04：补 info（gpui-kit 语义角色对齐）。此前只有 ok/warn/bad/demo 四档，
+     「中性通知 / 待确认 / 规则命中」这类最常见的语气只能借用 demo（紫）或 neutral（灰），
+     语义错位。info 补上后，第四种语气有了自己的位置。 */
+  --k-ok:    #15803D; --k-ok-soft:   #E8F7EE; --k-ok-line:   #C3EBD2;
+  --k-warn:  #B45309; --k-warn-soft: #FEF5E7; --k-warn-line: #F8DDB0;
+  --k-bad:   #DC2626; --k-bad-soft:  #FEF0F0; --k-bad-line:  #FACACA;
+  --k-demo:  #7C3AED; --k-demo-soft: #F3F0FF; --k-demo-line: #E0D7FE;
+
+  /* —— 焦点环（focus ring）——
+     2026-10-04 新增。此前品牌辉光 --k-brand-ring 同时承担「品牌投影」和「键盘焦点环」
+     两个职责，二者需要的透明度与扩散半径不同：焦点环要更实、更大、更可见，
+     品牌辉光要更虚。结果是焦点环一直偏弱（无障碍问题）。
+     现在拆成两个令牌，焦点环不再蹭品牌辉光的值。 */
+  --k-focus:      #2563EB;                     /* 焦点环主色（浅色） */
+
+  /* 浅色卡片色（参考图日程卡：蓝 / 绿 / 紫三种极淡底），用于分类、标签、事件卡 */
+  --k-tint-blue:   #EEF4FF; --k-tint-blue-line:   #D8E5FD;
+  --k-tint-green:  #EDFAF3; --k-tint-green-line:  #CDEFDB;
+  --k-tint-violet: #F4F1FF; --k-tint-violet-line: #E3DCFE;
+
+  /* —— 交互态（2026-10-04 定义四态，2026-10-05 收敛为一态）——
+     此前只有 --k-hover 一个交互态令牌，其余 hover/active 都是各组件就地 rgba，
+     值互不相同，导致同一层级的按钮在不同页面 hover 深浅不一，因此集中定义了
+     「悬停 / 按下 / 选中 / 轨道」四态。
+     但 2026-10-05 全仓库引用清查：--k-active / --k-selected / --k-track
+     引用数均为 0 —— 按下态组件用 transform 缩放表达（见 muse.css :active），
+     选中态走 --accent-wash / --k-brand-soft（project-row.is-selected、
+     kr-table tr.is-pick、hermes-nav-item.is-active），轨道走 --accent-track。
+     四态里只有 --k-hover 有真实消费（globals.css 导航 hover），其余三态的
+     使用场景已被现有令牌覆盖，属于预留而非需要，故删除。 */
+  --k-hover:      rgba(37, 99, 235, .05);
+
+  /* —— 2026-10-04 收敛：此处原有 link / skeleton / chart / info / focus-soft 五组令牌
+     （共 20 个），已全部删除，理由逐条如下（它们引用数均为 0，属于预留而非需要）：
+       · chart-1..5 / bullish / bearish —— 分类色板。本项目唯一的可视化是
+         viz.tsx 的 BubbleChart，而它表达的是**证据置信度状态**，用的是状态色
+         （data-tone=ok|warn|block，见 globals.css .bubble-dot[data-tone]），
+         不是多序列图表。分类色板没有使用场景。
+       · chart-grid —— 坐标轴已有专色（.bubble-axis-x / .bubble-axis-y）。
+       · skeleton / skeleton-highlight —— muse 的加载态已有 m-shimmer 关键帧，
+         配自己的 --m-surface-sunk / --m-canvas-2，另立一套是重复。
+       · link 四态 —— 内容里没有真正的 <a href>（Kern 的正文是受控 Markdown，
+         外部链接走 .hermes-link，已用 --accent-hover）。没有使用场景。
+       · info 三档 —— 语义上确实存在缺口（此前只有 ok/warn/bad，中性通知只能借用
+         demo紫或 neutral灰），但当前无使用场景；等真需要第四种语气时再引入。
+       · focus-soft / ring-track —— 焦点环实测用单层 2px 实色描边已足够可辨
+         （globals.css 的 :where(a,button,...) :focus-visible 基线），
+         再加外扩辉光与底衬属于装饰。
+     保留的是 --k-focus（WCAG 2.4.7 必需）与 --k-hover（导航 hover 在用）。
+     2026-10-05 又删除 --k-active / --k-selected / --k-track：
+     引用数均为 0，且各自的使用场景已有令牌覆盖（按下态用 transform、
+     选中态用 --accent-wash / --k-brand-soft、轨道用 --accent-track），
+     见上方「交互态」注释。
+     与 DESIGN.md「克制：界面 90% 是中性色」「Avoid 无意义指标墙」一致：
+     不预留颜色入口。将来若真出现多序列图表或正文链接，按当时的设计决策重新引入。 */
+
+  /* 几何：4px 栅格 */
+  --k-r-xs: 6px; --k-r-sm: 8px; --k-r: 12px; --k-r-lg: 16px; --k-r-xl: 20px; --k-r-pill: 999px;
+  --k-sp-1: 4px; --k-sp-2: 8px; --k-sp-3: 12px; --k-sp-4: 16px; --k-sp-5: 20px; --k-sp-6: 24px; --k-sp-8: 32px;
+
+  /* 深度：蓝调、很轻 */
+  --k-sh-1: 0 1px 2px rgba(30, 64, 175, .05), 0 1px 1px rgba(15, 27, 51, .03);
+  --k-sh-2: 0 6px 20px -6px rgba(30, 64, 175, .10), 0 1px 3px rgba(15, 27, 51, .04);
+  --k-sh-3: 0 20px 50px -16px rgba(30, 64, 175, .20), 0 2px 6px rgba(15, 27, 51, .05);
+
+  /* 排版
+     2026-10-04：移除 Inter。原先把 "Inter" 排在首位，但 quiet-enterprise.css
+     的排版决策记录里写明「弃用 Inter」——理由是 Inter 是通用字体，且中文环境
+     只覆盖拉丁字形，中英混排会出现两套骨架。两个文件对同一件事的判断相反，
+     且 --font-title/--font-body 在映射层各自覆盖，导致 --k-font 的 Inter
+     既没被真正使用、又在源码里与设计决策矛盾。现在基础层与映射层一致。 */
+  --k-font: "SF Pro Text", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+            "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  /* 标题用 Display 字面（光学尺寸更大，大字号下更紧实）；正文用 Text 字面。
+     此前这层区分只存在于映射层的裸字体栈里，基础层无从感知。 */
+  --k-font-display: "SF Pro Display", -apple-system, BlinkMacSystemFont, "PingFang SC",
+            "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  --k-mono: "SFMono-Regular", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+  --k-t-xs: 12px; --k-t-sm: 13px; --k-t-base: 14px; --k-t-body: 15.5px; --k-t-lead: 17px;
+  --k-t-title: 20px; --k-t-display: 28px;
+  --k-lh-tight: 1.3; --k-lh-snug: 1.5; --k-lh-body: 1.75;
+
+  /* 动效 */
+  --k-ease: cubic-bezier(.2, .7, .3, 1);
+  --k-dur: .18s;
+
+  /* 玻璃层：参考图面板近乎不透明的白，磨砂只留一点质感；光晕全部改为冷蓝，不再有暖色 */
+  --k-glass:      rgba(255, 255, 255, .86);
+  --k-glass-2:    rgba(255, 255, 255, .92);
+  --k-glass-sunk: rgba(241, 245, 250, .72);
+  --k-glass-edge: rgba(30, 64, 175, .08);
+  --k-blur:       saturate(180%) blur(20px);
+  --k-aura-1:     rgba(59, 130, 246, .10);
+  --k-aura-2:     rgba(147, 197, 253, .14);
+  --k-aura-3:     rgba(99, 102, 241, .05);
+  --k-sh-glass:   0 1px 0 rgba(255, 255, 255, .9) inset, 0 8px 28px -14px rgba(30, 64, 175, .16), 0 1px 3px rgba(15, 27, 51, .04);
+  --k-sh-pop:     0 1px 0 rgba(255, 255, 255, .95) inset, 0 24px 60px -22px rgba(30, 64, 175, .26), 0 4px 12px rgba(15, 27, 51, .06);
+  --k-hover:      rgba(37, 99, 235, .05);
+  --k-code-bg:    rgba(15, 27, 51, .05);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --k-canvas:      #0A0B10;
+    --k-surface:     #141821;
+    --k-surface-2:   #171B25;
+    --k-sunk:        #11151D;
+    --k-overlay:     rgba(0, 0, 0, .58);
+    --k-line:        #252A34;
+    --k-line-2:      #313744;
+    --k-line-soft:   #1D222B;
+    --k-ink:         #F2F4F8;
+    --k-ink-2:       #CBD1DC;
+    --k-ink-3:       #8A93A3;
+    --k-ink-4:       #6E7788;
+    --k-on-brand:    #FFFFFF;
+    --k-brand:       #7C74F0;
+    --k-brand-2:     #9D97FF;
+    --k-brand-hover: #8D86F5;
+    --k-brand-ink:   #B7B2FF;
+    --k-brand-soft:  #1D1E3A;
+    --k-brand-line:  #32346A;
+    --k-brand-wash:  rgba(157, 151, 255, .10);
+    --k-brand-ring:  rgba(157, 151, 255, .30);
+    /* 深色主按钮：由 #7C74F0 在 OKLCH 里只降明度（0.627 → 0.58）派生，白字 4.61:1（原色只有 3.74:1） */
+    --k-brand-solid:       #6E64DF;
+    --k-brand-solid-hover: #6358D1;
+    --k-ok:   #56D3A0; --k-ok-soft:   #10261E; --k-ok-line:   #1F4A39;
+    --k-warn: #E7B25C; --k-warn-soft: #2A1F0D; --k-warn-line: #523D18;
+    --k-bad:  #F2837A; --k-bad-soft:  #2B1513; --k-bad-line:  #5A2723;
+    --k-demo: #B79BFF; --k-demo-soft: #1E1733; --k-demo-line: #3D2F68;
+    /* 焦点环：深色下品牌色本身够亮，直接用品牌色做环，辉光更实 */
+    --k-focus:      #9D97FF;
+    --k-sh-1: 0 1px 2px rgba(0, 0, 0, .40);
+    --k-sh-2: 0 6px 24px rgba(0, 0, 0, .45);
+    --k-sh-3: 0 24px 60px -16px rgba(0, 0, 0, .70);
+    --k-glass:      rgba(22, 22, 28, .72);
+    --k-glass-2:    rgba(29, 29, 36, .84);
+    --k-glass-sunk: rgba(12, 13, 19, .56);
+    --k-glass-edge: rgba(255, 255, 255, .07);
+    --k-aura-1:     rgba(99, 102, 241, .18);
+    --k-aura-2:     rgba(168, 85, 247, .08);
+    --k-aura-3:     rgba(20, 184, 166, .06);
+    --k-sh-glass:   0 1px 0 rgba(255, 255, 255, .05) inset, 0 12px 36px -14px rgba(0, 0, 0, .7);
+    --k-sh-pop:     0 1px 0 rgba(255, 255, 255, .07) inset, 0 30px 80px -24px rgba(0, 0, 0, .85);
+    --k-hover:      rgba(255, 255, 255, .05);
+    --k-code-bg:    rgba(255, 255, 255, .06);
+    /* 深色下分类色要提亮才看得见；5 序列按冷→暖→中性排布，保证相邻可辨 */
+    --k-tint-blue:   rgba(124, 116, 240, .10); --k-tint-blue-line:   rgba(124, 116, 240, .22);
+    --k-tint-green:  rgba(86, 211, 160, .08);  --k-tint-green-line:  rgba(86, 211, 160, .20);
+    --k-tint-violet: rgba(183, 155, 255, .09); --k-tint-violet-line: rgba(183, 155, 255, .22);
+  }
+}

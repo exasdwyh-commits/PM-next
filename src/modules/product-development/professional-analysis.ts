@@ -13,7 +13,7 @@
  */
 
 import { SessionContext } from "../identity/session";
-import { createAdvisorLLMClient, isAdvisorLLMEnabled } from "../advisor/llm";
+import { executeLegacyAdvisorModel, isAdvisorLLMEnabled } from "../model-gateway";
 import type { AuthorizedAnalysisContext } from "../advisor/context";
 import {
   type ProfessionalAnalysisV1,
@@ -41,6 +41,7 @@ export interface GenerateProfessionalAnalysisInput {
   productVersionId: string;
   /** 中止信号（可选） */
   signal?: AbortSignal;
+  agentRunId?: string;
 }
 
 /** 生成专业分析草稿的输出 */
@@ -193,20 +194,16 @@ function buildUserPrompt(context: AuthorizedAnalysisContext): string {
 /**
  * 调用 LLM 生成专业分析草稿
  */
-async function callLLMForAnalysis(
-  context: AuthorizedAnalysisContext,
-  signal?: AbortSignal
-): Promise<{ text: string; usage: { promptTokens?: number; completionTokens?: number; totalTokens?: number } | null }> {
-  const client = createAdvisorLLMClient();
-  if (!client) {
-    throw new Error("LLM 客户端未配置");
-  }
-  const messages = [
-    { role: "system" as const, content: buildSystemPrompt() },
-    { role: "user" as const, content: buildUserPrompt(context) },
-  ];
-
-  return client.chat(messages, signal);
+async function callLLMForAnalysis(input: GenerateProfessionalAnalysisInput) {
+  return executeLegacyAdvisorModel({
+    organizationId: input.session.organizationId, agentRunId: input.agentRunId,
+    taskClass: "PRODUCT_ANALYSIS", signal: input.signal,
+    messages: [
+      { role: "system", content: buildSystemPrompt() },
+      { role: "user", content: buildUserPrompt(input.context) },
+    ],
+    source: "product.professional-analysis",
+  });
 }
 
 // ── 解析与校验 ──
@@ -261,8 +258,9 @@ export async function generateProfessionalAnalysisDraft(
   // 2. 调用 LLM
   let llmResult;
   try {
-    llmResult = await callLLMForAnalysis(context, signal);
+    llmResult = await callLLMForAnalysis(input);
   } catch (e: any) {
+    signal?.throwIfAborted();
     return {
       analysis: createDefaultAnalysis(),
       isLLMGenerated: false,

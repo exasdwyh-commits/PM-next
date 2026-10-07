@@ -102,6 +102,26 @@ test("provider runtime: OpenAI-compatible response maps usage and actual model i
   }
 });
 
+test("provider runtime: exact configured credentials are redacted from HTTP and network errors regardless of prefix", async () => {
+  const originalFetch = globalThis.fetch;
+  const secret = "tp-fixture.key+special";
+  try {
+    for (const network of [false, true]) {
+      globalThis.fetch = (async () => {
+        if (network) throw new Error(`rejected token ${secret}`);
+        return new Response(JSON.stringify({ error: `invalid token ${secret}` }), { status: 401 });
+      }) as typeof fetch;
+      const plugin = createOpenAICompatibleProviderPlugin("agnes", { runtime: { provider: "agnes", baseUrl: "http://model.test/v1", apiKey: secret, timeoutMs: 1000, maxTokens: 128, temperature: 0.2, source: "MODEL_PROVIDER_ENV" } });
+      await assert.rejects(() => plugin.execute(profile, { taskClass: "SUMMARIZATION", messages: [] }), (error: unknown) => {
+        assert.ok(error instanceof ModelProviderError);
+        assert.ok(!error.message.includes(secret));
+        assert.match(error.message, /REDACTED/);
+        return true;
+      });
+    }
+  } finally { globalThis.fetch = originalFetch; }
+});
+
 test("provider runtime: 429 is classified as RATE_LIMIT for policy fallback", async () => {
   clearProviderEnv();
   process.env.MODEL_PROVIDER_AGNES_BASE_URL = "http://model.test/v1";

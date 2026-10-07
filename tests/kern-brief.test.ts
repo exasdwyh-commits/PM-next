@@ -28,17 +28,17 @@ test("answers → constraints; 'open' is not a constraint", () => {
   assert.doesNotMatch(plan.goal, /预算/);
 });
 
-test("estimate: demo costs nothing; quota projection", () => {
+test("estimate: demo costs nothing; monthly usage projection", () => {
   const plan = buildNewProductMissionPlan("g");
   const e = estimateBrief(plan, { used: 2, limit: 5 });
   assert.equal(e.steps, 9);
   assert.equal(e.members, 7);
   assert.equal(e.modelCalls.min, 9);
   assert.ok(e.modelCalls.max > 9);
-  assert.deepEqual(e.quota, { used: 2, limit: 5, afterLaunch: 3 });
+  assert.deepEqual(e.usage, { used: 2, limit: 5, afterLaunch: 3 });
   const d = estimateBrief(plan, { used: 2, limit: 5 }, true);
   assert.deepEqual(d.modelCalls, { min: 0, max: 0 });
-  assert.equal(d.quota, null);
+  assert.equal(d.usage, null);
 });
 
 test("demo output is labelled; QA revises once then passes; replay chunks rejoin", () => {

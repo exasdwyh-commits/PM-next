@@ -1,0 +1,2 @@
+# shell scripts must stay LF so Git Bash / WSL can execute them (CRLF breaks `set -o pipefail` line 1)
+*.sh text eol=lf

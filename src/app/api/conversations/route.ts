@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
     const session = await getServerSession(req);
     const body = await readJsonObjectBody(req);
     const convo = await createKernConversation(session, {
+      clientConversationId: body?.clientConversationId,
       title: body?.title,
       productId: body?.productId ?? null,
       runtimeConfig: body?.runtimeConfig,
