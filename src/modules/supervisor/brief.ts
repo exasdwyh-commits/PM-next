@@ -131,6 +131,25 @@ const MEMORY_HINTS: Record<string, RegExp> = {
   channel: /(渠道|线上|线下|电商|抖音|小红书|天猫|门店|直销)/,
 };
 
+/**
+ * Can a memory be reused as a pre-filled answer to a clarifying question?
+ *
+ * Mission conclusions are stored as memories too ("「<goal>」的结论：<report>").
+ * They routinely contain words like 用户/预算/渠道, so the hint regexes match them —
+ * but a multi-hundred-character report is never a valid answer to "who do you sell to".
+ * Prefilling from one pollutes plan.goal with another mission's output (which can
+ * even trip competitor-research detection and block launch). Short, single-line,
+ * non-markdown memories stay eligible.
+ */
+export function isUsableMemoryAnswer(content: string): boolean {
+  const text = content.trim();
+  if (!text || text.length > 60) return false;
+  if (/[\r\n]/.test(text)) return false;
+  if (/^\s*#{1,6}\s|^\s*[-*+]\s|\|/.test(text)) return false;
+  if (/的结论|总结\s*[:：]/.test(text)) return false;
+  return true;
+}
+
 /** Clarifying questions for a playbook, pre-filled from what Kern remembers. */
 export function buildClarifyQuestions(
   playbook: MissionPlaybook,
@@ -140,7 +159,7 @@ export function buildClarifyQuestions(
   if (playbook !== "NEW_PRODUCT") return requiredCompetitorQuestions(goal);
   return [Q_AUDIENCE, Q_BUDGET, Q_CHANNEL]
     .map((q) => {
-      const hit = memories.find((m) => MEMORY_HINTS[q.id]?.test(m.content));
+      const hit = memories.find((m) => MEMORY_HINTS[q.id]?.test(m.content) && isUsableMemoryAnswer(m.content));
       return {
         ...q,
         remembered: hit ? { memoryId: hit.id, text: hit.content.slice(0, 120) } : null,

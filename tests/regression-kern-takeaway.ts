@@ -5,6 +5,7 @@ import prisma from "../src/shared/db";
 import { assertTestDatabaseSafety } from "./test-safety";
 import { sendDepartmentAssistantMessage } from "../src/modules/assistant-runtime/service";
 import { bootstrapDefaultWorkforce } from "../src/modules/workforce/service";
+import { beatWorker } from "../src/modules/worker/heartbeat";
 import { executorLoopOnce, reconcileLoopOnce } from "../src/modules/supervisor/worker-runtime";
 import { applyProposal } from "../src/modules/advisor/proposals";
 import {
@@ -65,6 +66,8 @@ async function main() {
   const session = { userId: owner.id, organizationId: org.id, userEmail: owner.email, userName: owner.name };
   const otherSession = { userId: other.id, organizationId: org.id, userEmail: other.email, userName: other.name };
   await bootstrapDefaultWorkforce(session);
+  // readiness.launch 会校验 executor 心跳；本测试直接跑 worker loop，但仍需一条存活心跳。
+  await beatWorker({ organizationId: org.id, loops: ["executor"], startedAt: new Date() }, true);
 
   setMissionModelInvokerForTest(async ({ messages }) => {
     const u = messages[messages.length - 1].content;

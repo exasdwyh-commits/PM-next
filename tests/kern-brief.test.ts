@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { answerText, buildBriefPlan, buildClarifyQuestions, estimateBrief } from "../src/modules/supervisor/brief";
+import { answerText, buildBriefPlan, buildClarifyQuestions, estimateBrief, isUsableMemoryAnswer } from "../src/modules/supervisor/brief";
 import { buildNewProductMissionPlan } from "../src/modules/supervisor/plan";
 import { chunkForReplay, demoOutput } from "../src/modules/supervisor/demo";
 
@@ -14,6 +14,20 @@ test("clarify questions only for NEW_PRODUCT, memory maps to the right question"
   assert.equal(qs.find((q) => q.id === "channel")!.remembered?.memoryId, "m1");
   assert.equal(qs.find((q) => q.id === "audience")!.remembered, null);
   assert.equal(qs.find((q) => q.id === "budget")!.answer, null);
+});
+
+test("mission-conclusion memories are never prefilled as a clarifying answer", () => {
+  // A stored conclusion matches the 用户/渠道 hint regexes, but it is a report,
+  // not an answer — prefilling it would pollute plan.goal with another mission.
+  const conclusion = "「我想开发一个新产品：便携咖啡机」的结论：## 1. 结论与建议:推荐做「随行冷萃杯」。| 竞品 | 价格 | |---|---| | A | ¥299 | 目标用户是通勤白领";
+  assert.equal(isUsableMemoryAnswer(conclusion), false);
+  assert.equal(isUsableMemoryAnswer(""), false);
+  assert.equal(isUsableMemoryAnswer("目标客户是城市白领\n预算 30 万"), false);
+  assert.equal(isUsableMemoryAnswer("我们主要走小红书和抖音"), true);
+
+  const qs = buildClarifyQuestions("NEW_PRODUCT", "g", [{ id: "m1", content: conclusion }]);
+  assert.deepEqual(qs.map((q) => q.remembered), [null, null, null]);
+  assert.deepEqual(qs.map((q) => q.answer), [null, null, null]);
 });
 
 test("answers → constraints; 'open' is not a constraint", () => {
