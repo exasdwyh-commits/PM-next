@@ -1,0 +1,110 @@
+/* Adapted from the user's demo-beautified-advanced. Scoped to real Kern /muse.
+   Its glass/mesh/Bento language wraps existing state and handlers. */
+.muse[data-visual="advanced"] {
+  --k-canvas: #f5f2fb; --k-surface: #fff; --k-surface-2: #faf8fd; --k-sunk: #eee9f6;
+  --k-ink: #201831; --k-ink-2: #493d5a; --k-ink-3: #70627f; --k-ink-4: #92869f;
+  --k-line: #e5deee; --k-line-2: #d4c8e5; --k-line-soft: #f0ebf6;
+  --k-brand: #7c3aed; --k-brand-2: #c0269b; --k-brand-ink: #6d28d9; --k-brand-soft: #f0e7ff;
+  --k-brand-line: #d9c6fb; --k-brand-ring: #7c3aed30; --k-on-brand: #fff; --k-focus: #7c3aed;
+  --k-primary: #7c3aed; --k-primary-hover: #6d28d9;
+  --ka-glass: rgba(255,255,255,.78); --ka-glass-line: rgba(255,255,255,.85);
+  --ka-shadow: 0 8px 32px #38225a0d, 0 0 0 1px var(--ka-glass-line) inset;
+  --ka-mesh: radial-gradient(ellipse at 18% 8%, #b998ef38, transparent 50%), radial-gradient(ellipse at 88% 32%, #f3b8db32, transparent 48%), radial-gradient(ellipse at 35% 90%, #b6d7f52b, transparent 52%);
+  --ka-ease: cubic-bezier(.16,1,.3,1);
+  --m-lane: 880px;
+  background: var(--k-canvas);
+}
+.muse[data-visual="advanced"][data-theme="dark"] {
+  color-scheme: dark;
+  --k-canvas: #13101d; --k-surface: #211b2f; --k-surface-2: #282036; --k-sunk: #191424;
+  --k-ink: #f4effa; --k-ink-2: #ded2ec; --k-ink-3: #b3a4c4; --k-ink-4: #9d8db0;
+  --k-line: #3c304e; --k-line-2: #514166; --k-line-soft: #2e243c;
+  --k-brand: #a78bfa; --k-brand-2: #f0abdf; --k-brand-ink: #d5c2ff; --k-brand-soft: #352349;
+  --k-brand-line: #675086; --k-brand-ring: #a78bfa33; --k-primary: #7c3aed; --k-primary-hover: #6d28d9;
+  --ka-glass: rgba(33,27,47,.84); --ka-glass-line: rgba(213,194,255,.1);
+  --ka-shadow: 0 8px 32px #0003, 0 0 0 1px var(--ka-glass-line) inset;
+  --ka-mesh: radial-gradient(ellipse at 18% 8%, #7c3aed26, transparent 50%), radial-gradient(ellipse at 88% 32%, #c0269b18, transparent 48%);
+  --m-ok: #6ee7b7; --m-warn: #fbbf24; --m-bad: #fda4af;
+}
+.muse[data-visual="advanced"][data-theme="light"] { color-scheme: light; }
+.muse[data-visual="advanced"]::before { background: var(--ka-mesh); }
+.muse[data-visual="advanced"] :is(.m-rail,.m-top) { background: var(--ka-glass); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border-color: var(--k-line); }
+.muse[data-visual="advanced"] .m-brand-mark { background: var(--m-grad); box-shadow: 0 6px 18px var(--k-brand-ring); border-radius: 11px; }
+.muse[data-visual="advanced"] :is(.m-new,.m-goal-row,.m-card,.m-dock-inner,.kr-response,.m-home-sec,.ka-glass) {
+  background: var(--ka-glass); border: 1px solid var(--ka-glass-line); box-shadow: var(--ka-shadow); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+.muse[data-visual="advanced"] :is(.m-card,.kr-response,.m-home-sec,.ka-glass) { border-radius: 20px; }
+.muse[data-visual="advanced"] .m-home { gap: 18px; padding-top: 16px; }
+.muse[data-visual="advanced"] .m-home-head {
+  position: relative; padding: 28px; border-radius: 24px; background: var(--ka-mesh), var(--ka-glass); border: 1px solid var(--ka-glass-line); box-shadow: var(--ka-shadow); overflow: hidden;
+}
+.muse[data-visual="advanced"] .m-home-head h2 { font-family: var(--m-font); font-weight: 760; font-size: clamp(25px,3vw,36px); letter-spacing: -.035em; color: var(--k-brand-ink); }
+@supports (background-clip:text) {
+  .muse[data-visual="advanced"] .m-home-head h2 { background: var(--m-grad); background-clip: text; -webkit-background-clip: text; color: transparent; }
+}
+.muse[data-visual="advanced"] .m-home-head p { max-width: 65ch; font-size: 14px; color: var(--m-ink-2); }
+.muse[data-visual="advanced"] .kern-perspective { padding: 8px 12px; border-radius: 14px; background: var(--ka-glass); border: 1px solid var(--ka-glass-line); }
+.muse[data-visual="advanced"] .ka-bento { padding: 0; background: none; border: 0; box-shadow: none; }
+.muse[data-visual="advanced"] .kern-brief-heading { padding: 0 4px; font-weight: 600; color: var(--m-ink-2); }
+.muse[data-visual="advanced"] .kern-home-stats { gap: 12px; padding: 0 0 12px; }
+.muse[data-visual="advanced"] .kern-home-stats > :is(button,div) {
+  display: grid; gap: 8px; padding: 20px; border-radius: 18px; border: 1px solid var(--ka-glass-line); background: var(--ka-glass); box-shadow: var(--ka-shadow); transition: transform 250ms var(--ka-ease), box-shadow 250ms var(--ka-ease);
+}
+.muse[data-visual="advanced"] .kern-home-stats strong { font-size: 36px; font-weight: 700; color: var(--m-accent-ink); }
+.muse[data-visual="advanced"] .kern-home-stats strong > span:not(.m-sr) { font: inherit; }
+.muse[data-visual="advanced"] .ka-stat-label { color: var(--m-ink-2); font-size: 13px; }
+.muse[data-visual="advanced"] .ka-chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.muse[data-visual="advanced"] .ka-glass { padding: 22px; min-width: 0; }
+.muse[data-visual="advanced"] .ka-distribution { display: flex; align-items: center; gap: 20px; }
+.muse[data-visual="advanced"] .ka-distribution svg { width: 120px; flex: 0 0 120px; overflow: visible; filter: drop-shadow(0 5px 8px var(--k-brand-ring)); }
+.muse[data-visual="advanced"] :is(.ka-ring-track,.ka-ring-needs,.ka-ring-active) { fill: none; stroke-width: 9; }
+.muse[data-visual="advanced"] .ka-ring-track { stroke: var(--k-sunk); }
+.muse[data-visual="advanced"] .ka-ring-needs { stroke: var(--m-warn); }
+.muse[data-visual="advanced"] .ka-ring-active { stroke-linecap: butt; animation: ka-ring-in 650ms var(--ka-ease) both; }
+.muse[data-visual="advanced"] .ka-ring-number { fill: var(--m-ink); text-anchor: middle; font-size: 24px; font-weight: 750; }
+.muse[data-visual="advanced"] .ka-ring-caption { fill: var(--m-ink-3); text-anchor: middle; font-size: 10px; }
+.muse[data-visual="advanced"] :is(.ka-distribution,.ka-status-bars) h3 { margin: 0 0 12px; font-size: 14px; font-weight: 650; }
+.muse[data-visual="advanced"] .ka-distribution p { display: flex; gap: 7px; align-items: center; font-size: 13px; margin: 6px 0; color: var(--m-ink-2); }
+.muse[data-visual="advanced"] .ka-distribution b { margin-left: 6px; font-variant-numeric: tabular-nums; }
+.muse[data-visual="advanced"] :is(.ka-distribution,.ka-status-bars) small { display: block; margin-top: 12px; font-size: 12px; color: var(--m-ink-3); }
+.muse[data-visual="advanced"] .ka-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--m-accent); }
+.muse[data-visual="advanced"] .ka-dot.needs { background: var(--m-warn); }
+.muse[data-visual="advanced"] .ka-bar-row + .ka-bar-row { margin-top: 16px; }
+.muse[data-visual="advanced"] .ka-bar-row > div:first-child { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; margin-bottom: 8px; }
+.muse[data-visual="advanced"] .ka-bar-track { height: 8px; border-radius: 5px; background: var(--k-sunk); overflow: hidden; }
+.muse[data-visual="advanced"] .ka-bar-track i { display: block; height: 100%; border-radius: inherit; background: var(--m-grad); transform-origin: left; animation: ka-bar-in 650ms var(--ka-ease) both; }
+.muse[data-visual="advanced"] .ka-bar-track i[data-tone="needs"] { background: var(--m-warn); }
+.muse[data-visual="advanced"] .kern-brief-caption { border: 0; padding: 12px 4px 0; }
+.muse[data-visual="advanced"] .m-home-sec { padding: 20px; }
+.muse[data-visual="advanced"] .m-home-sec h3 { font-size: 14px; }
+.muse[data-visual="advanced"] .m-dock-inner { box-shadow: var(--ka-shadow), 0 8px 26px var(--k-brand-ring); }
+.muse[data-visual="advanced"] .m-btn[data-v="primary"] { background: linear-gradient(135deg,#7c3aed,#a21caf); color: #fff; box-shadow: 0 5px 16px var(--k-brand-ring); }
+.muse[data-visual="advanced"] .m-flow { background: var(--ka-glass); border-color: var(--k-line); border-radius: 16px; }
+.muse[data-visual="advanced"] .m-flow-node { background: var(--ka-glass); border-color: var(--k-line-2); box-shadow: 0 5px 16px var(--k-brand-ring); }
+.muse[data-visual="advanced"] .m-flow-node[data-flow-state="active"] { border-color: var(--m-accent); }
+.muse[data-visual="advanced"] .kr-lede h1 { font-family: var(--m-font); font-size: 24px; font-weight: 720; }
+.muse[data-visual="advanced"] .kr-chart { border-radius: 14px; background: var(--m-surface-2); }
+.muse[data-visual="advanced"] .kr-bar .fill { background: var(--m-grad); border-radius: 6px; animation: ka-bar-in 650ms var(--ka-ease) both; transform-origin: left; }
+.muse[data-visual="advanced"] .ka-appearance { display: grid; gap: 6px; padding: 6px 4px 10px; border-bottom: 1px solid var(--m-hairline); color: var(--m-ink-3); font-size: 12px; }
+.muse[data-visual="advanced"] .ka-appearance > div { display: flex; gap: 3px; }
+.muse[data-visual="advanced"] .ka-appearance button { min-height: 44px; flex: 1; border: 0; border-radius: 8px; background: var(--m-surface-2); color: var(--m-ink-2); font: inherit; cursor: pointer; }
+.muse[data-visual="advanced"] .ka-appearance button[aria-pressed="true"] { background: var(--m-accent-wash); color: var(--m-accent-ink); }
+@keyframes ka-bar-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes ka-ring-in { from { opacity: 0; } to { opacity: 1; } }
+@media (hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference) {
+  .muse[data-visual="advanced"] .kern-home-stats button:not(:disabled):hover { transform: perspective(1000px) rotateX(1deg) rotateY(-1deg) translateY(-3px); box-shadow: var(--ka-shadow), 0 8px 22px var(--k-brand-ring); }
+  .muse[data-visual="advanced"] .m-btn[data-v="primary"]:hover { transform: translateY(-1px) scale(1.02); }
+}
+@media (max-width:700px) {
+  .muse[data-visual="advanced"] .m-home-head { padding: 22px; }
+  .muse[data-visual="advanced"] .kern-home-stats { gap: 8px; }
+  .muse[data-visual="advanced"] .kern-home-stats > :is(button,div) { padding: 14px 10px; gap: 6px; }
+  .muse[data-visual="advanced"] .kern-home-stats strong { font-size: 28px; }
+  .muse[data-visual="advanced"] .ka-chart-grid { grid-template-columns: 1fr; }
+  .muse[data-visual="advanced"] .ka-glass { padding: 18px; }
+  .muse[data-visual="advanced"] .m-home-sec { padding: 16px; }
+  .muse[data-visual="advanced"] .m-btn[data-size="sm"] { min-height: 44px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .muse[data-visual="advanced"] :is(.ka-ring-active,.ka-bar-track i,.kr-bar .fill) { animation: none; transition: none; }
+}

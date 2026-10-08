@@ -1,0 +1,8 @@
+/* 角色切换控件——本地补齐样式，类名取自 overview-role-based.tsx / executive-report-role-based.tsx */
+.role-switch-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.role-switch{display:inline-flex;gap:4px;padding:4px;border:1px solid #e7e9ef;border-radius:10px;background:#fafafb}
+.role-switch button{font-size:12px;padding:6px 11px;border:0;border-radius:7px;background:transparent;cursor:pointer;color:#6b7280;transition:background .15s ease,color .15s ease}
+.role-switch button:hover{color:#4b5563}
+.role-switch button.is-active{background:#fff;color:#6d28d9;font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.role-auto-hint{font-size:11px;color:#7c3aed}
+.role-switch-wrap small{font-size:10px;color:#9099a6}

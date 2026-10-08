@@ -1421,3 +1421,23 @@
 .m-skel-card span::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .6), transparent); transform: translateX(-100%); animation: m-sweep 1.4s var(--m-ease-out) infinite; }
 @media (prefers-color-scheme: dark) { .m-skel-card span::after { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .08), transparent); } }
 @media (prefers-reduced-motion: reduce) { :root:not([data-motion="full"]) .m-skel-card span::after { animation: none; opacity: 0; } }
+
+/* Conversation controls: reserve the real composer height, including multiline drafts. */
+.muse .m-scroll > .m-lane { padding-bottom: calc(var(--m-composer-height, 144px) + 24px); }
+.muse .m-jump { bottom: calc(var(--m-composer-height, 144px) + 10px); }
+.m-tool-menu { position: relative; }
+.m-tool-menu > summary { list-style: none; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 7px 12px; border-radius: 9px; cursor: pointer; color: var(--m-ink-2); font-size: var(--m-t-xs); }
+.m-tool-menu > summary::-webkit-details-marker { display: none; }
+.m-tool-menu > summary svg { width: 16px; height: 16px; }
+.m-tool-menu > summary:hover, .m-tool-menu[open] > summary { background: var(--m-surface-2); }
+.m-tool-menu > summary:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.m-tool-menu-panel { position: absolute; z-index: 40; top: calc(100% + 8px); right: 0; display: grid; gap: 4px; width: 210px; padding: 8px; border: 1px solid var(--m-hairline-2); border-radius: 12px; background: var(--m-surface); box-shadow: var(--m-sh-2); }
+.muse .m-tool-menu-panel .m-btn { justify-content: flex-start; width: 100%; min-height: 44px; padding: 10px 12px; }
+.muse .m-tool-menu-panel .m-btn span { display: inline; }
+.m-mission-load-error p { color: var(--m-ink-2); line-height: 1.7; }
+@media (max-width: 620px) {
+  .muse .m-top-acts { flex-basis: auto; margin-left: auto; gap: 2px; flex-wrap: nowrap; justify-content: flex-end; }
+  .muse .m-tool-menu > summary { min-height: 44px; width: 44px; padding: 0; }
+  .muse .m-tool-menu > summary span { display: none; }
+  .muse .m-top-title { max-width: 140px; }
+}

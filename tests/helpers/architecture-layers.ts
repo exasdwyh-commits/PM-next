@@ -47,6 +47,11 @@ export const UNIT_LAYERS: Record<string, LayerId> = {
   "modules/memory": 2,
   "modules/playbooks": 2,
   "modules/workspace": 2,
+  // Kern 提示词构造（纯字符串常量，无依赖；只被 app/api/kern 使用）
+  "modules/kern-prompts": 2,
+  // 反馈 → Kern 记忆（modules/memory 属 L2）。依赖 L2，故自身也必须在 L2：
+  // 若归 L3 领域，就成了 L3 依赖 L2 的越界。
+  "modules/feedback": 2,
   // L3 领域（含产品生命周期任务包）
   "modules/research": 3,
   "modules/knowledge": 3,

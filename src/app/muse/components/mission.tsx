@@ -16,14 +16,20 @@ import { AskCard } from "./ask-card";
  */
 export function MissionCard({ missionId }: { missionId: string }) {
   // KX-23：主叙事需要事件流（假设 / 证伪 / 收回、工具调用），所以这里订阅事件
-  const { status: data, events, error, connected, control } = useMission(missionId);
+  const { status: data, events, error, connected, control, reload } = useMission(missionId);
   const [open, setOpen] = useState<null | "process" | "output">(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  if (error && !data) return null;
+  if (error && !data) return <Card className="m-mission">
+    <CardHead icon={<I.plan />} title="暂时无法读取任务进展" aside={<Tag tone="warn">读取失败</Tag>} />
+    <div className="m-card-body m-mission-load-error">
+      <p role="alert">{error === "404" || error === "403" ? "这项任务不可见，请确认当前账号和任务链接。" : "连接暂时中断。你可以重新读取进展，重试不会重新启动任务。"}</p>
+      <Btn size="sm" disabled={busy} onClick={async () => { setBusy(true); try { await reload(); } finally { setBusy(false); } }}>{busy ? "正在读取…" : "重新读取进展"}</Btn>
+    </div>
+  </Card>;
   const outcome = data?.outcome ?? null;
 
   const aside = !data ? null : outcome ? (

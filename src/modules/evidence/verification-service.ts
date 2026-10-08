@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/shared/db";
 import type { SessionContext } from "@/modules/identity/session";
 import { NotFoundError, ForbiddenError } from "@/shared/errors";
-import { IndependentEvidenceVerifier } from "./verifier";
+import { IndependentEvidenceVerifier } from "./independent-verifier";
 
 function json(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -50,11 +50,21 @@ export async function verifyEvidenceClaim(
   if (captures.length !== captureIds.length) {
     throw new NotFoundError("One or more source captures were not found");
   }
+  // P0-B 起 EvidenceSourceCapture.evidenceId 可空（来源可先入库、后绑定 Evidence）。
+  // 独立校验要求来源必须隶属于同一 Evidence / 项目，未绑定的一律拒绝，避免跨项目串用。
+  const bound = captures.flatMap((capture) =>
+    capture.evidence ? [{ capture, evidence: capture.evidence }] : []
+  );
+  if (bound.length !== captures.length) {
+    throw new ForbiddenError(
+      "Source capture is not bound to any evidence record"
+    );
+  }
   if (
-    captures.some(
-      (capture) =>
-        capture.evidence.project.organizationId !== session.organizationId ||
-        capture.evidence.project.id !== claim.evidence.project.id
+    bound.some(
+      ({ evidence }) =>
+        evidence.project.organizationId !== session.organizationId ||
+        evidence.project.id !== claim.evidence.project.id
     )
   ) {
     throw new ForbiddenError(
@@ -84,7 +94,9 @@ export async function verifyEvidenceClaim(
           sourceCaptureId: assessment.sourceCaptureId,
           verifierIdentity: result.verifierIdentity,
           supportStatus: assessment.supportStatus,
-          supportSpan: assessment.supportSpan,
+          // supportSpan 是可空 Json 列：null 必须显式写成 Prisma.JsonNull，
+          // 直接传 null 会被当成“不更新该字段”。
+          supportSpan: assessment.supportSpan ?? Prisma.JsonNull,
           sourceUri: assessment.sourceUri,
           sourceOrganization: assessment.sourceOrganization,
           metadata: json({

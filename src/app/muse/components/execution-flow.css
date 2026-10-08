@@ -101,3 +101,29 @@
 @keyframes m-flow-appear { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 640px) { .m-flow-head { flex-wrap: wrap; padding: 10px 12px; gap: 5px; }.m-flow-heading { flex: 1 1 130px; }.m-flow-heading small { display: none; }.m-flow-viewport { height: 330px; }.m-flow-tools button { width: 30px; height: 30px; }.m-flow-context { padding: 9px 12px; font-size: 10px; }.m-flow-inspector header { flex-wrap: wrap; }.m-flow-inspector header button { flex-shrink: 0; }.m-flow-minimap { width: 90px; height: 46px; } }
 @media (prefers-reduced-motion: reduce) { :root:not([data-motion="full"]) .m-flow *, :root:not([data-motion="full"]) .m-flow *::before, :root:not([data-motion="full"]) .m-flow *::after { animation: none !important; transition: none !important; } }
+
+/* Touch-friendly list shares the same recorded nodes, dependencies, and inspector. */
+.m-flow .m-seg { flex-shrink: 0; }
+.m-flow-inspector:focus-visible { outline: 2px solid var(--m-accent); outline-offset: -3px; }
+.m-flow-step-list { list-style: none; margin: 0; padding: 12px; display: grid; gap: 8px; }
+.m-flow-step-list button { width: 100%; min-height: 88px; padding: 14px; border: 1px solid var(--m-hairline-2); border-radius: 10px; background: var(--m-surface); color: var(--m-ink); text-align: left; font: inherit; cursor: pointer; }
+.m-flow-step-list button[aria-pressed="true"], .m-flow-step-list button[data-flow-state="active"] { border-color: var(--m-accent-line); background: var(--m-accent-wash); }
+.m-flow-step-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.m-flow-step-title strong { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.m-flow-step-title > span { flex-shrink: 0; font-size: 12px; color: var(--m-ink-3); }
+.m-flow-step-list button[data-flow-state="failed"] .m-flow-step-title > span { color: var(--m-bad); }
+.m-flow-step-list button[data-flow-state="blocked"] .m-flow-step-title > span { color: var(--m-warn); }
+.m-flow-step-list button[data-flow-state="done"] .m-flow-step-title > span { color: var(--m-ok); }
+.m-flow-step-list small { display: block; margin-top: 6px; font-size: 12px; color: var(--m-ink-3); overflow-wrap: anywhere; }
+.m-flow-step-list p { margin: 8px 0 0; font-size: 13px; line-height: 1.6; color: var(--m-ink-2); overflow-wrap: anywhere; }
+.m-flow-list-empty { padding: 16px; color: var(--m-ink-3); font-size: 13px; }
+@media (max-width: 640px) {
+  .m-flow-step-title { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .m-flow-heading { flex-basis: 100%; }
+  .m-flow-heading small { display: inline; margin-left: auto; }
+  .m-flow-head .m-seg button, .m-flow-tools button, .m-flow-inspector header button { min-height: 44px; min-width: 44px; }
+  .m-flow-head .m-seg button { padding: 8px 12px; }
+  .m-flow-tools { margin-left: auto; flex-wrap: wrap; }
+  .m-flow-context { font-size: 12px; flex-wrap: wrap; }
+  .m-flow-context button { min-height: 44px; text-align: left; }
+}

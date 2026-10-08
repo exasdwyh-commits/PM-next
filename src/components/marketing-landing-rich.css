@@ -1,0 +1,73 @@
+/* 营销落地（rich）——本地补齐样式，类名取自 marketing-landing-rich.tsx 实际用法 */
+.marketing-landing-rich{border:1px solid #e7e9ef;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.06);margin:16px 0}
+.landing-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:20px;background:linear-gradient(135deg,#fdf2f8,#fce7f3)}
+.landing-header .eyebrow{font-size:11px;color:#6b7280}
+.landing-header h2{margin:6px 0 4px;font-size:17px;font-weight:800;color:#1f2430}
+.landing-header small{font-size:12px;color:#6b7280}
+.category-badge{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#fff;border:1px solid #e7e9ef;white-space:nowrap}
+.landing-tabs{display:flex;gap:6px;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid #e7e9ef}
+.landing-tabs button{font-size:12px;padding:6px 12px;border:1px solid #e7e9ef;border-radius:20px;background:#fff;color:#4b5563;cursor:pointer}
+.landing-tabs button.is-active{border-color:#db2777;background:#fdf2f8;color:#be185d;font-weight:700}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 20px}
+.kpi{border:1px solid #e7e9ef;border-radius:12px;padding:12px;background:#fafafb;animation:fadeInUp .4s ease-out both}
+.kpi>span{display:block;font-size:11px;color:#6b7280}
+.kpi>strong{display:block;font-size:20px;font-weight:800;color:#1f2430;margin:4px 0}
+.kpi>small{font-size:10px;color:#9ca3af}
+.kpi.profit>strong{color:#0b7a4f}
+.kpi.total>strong{color:#6d28d9}
+.selling-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 20px 16px}
+.selling-card{padding:14px;border:1px solid #e7e9ef;border-radius:12px;background:linear-gradient(135deg,#fff,#fdf2f8);animation:floatIn .5s ease-out both}
+.selling-card .icon{font-size:18px}
+.selling-card strong{display:block;font-size:13px;margin:6px 0 4px}
+.selling-card p{margin:0;font-size:12px;color:#4b5563;line-height:1.5}
+.selling-card small{display:block;font-size:11px;color:#9ca3af;margin-top:6px}
+.script-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 20px 16px}
+.script-card{border:1px solid #e7e9ef;border-radius:12px;padding:14px;background:#f6f7f9;position:relative;overflow:hidden}
+.script-card h4{margin:0 0 8px;font-size:13px}
+.script-preview{margin:0;font-size:12px;line-height:1.6;color:#374151;white-space:pre-wrap}
+.script-preview::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent);animation:shimmer var(--m-d-morph) linear 1;pointer-events:none}
+.quote-preview{padding:0 20px 16px}
+.quote-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.quote-card{border:1px solid #e7e9ef;border-radius:12px;overflow:hidden;background:#fff}
+.quote-row{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;padding:9px 12px;font-size:12px;border-bottom:1px solid #f1f2f6}
+.quote-row:last-child{border-bottom:0}
+.quote-body{display:flex;justify-content:space-between;padding:10px 12px;background:#fafafb;font-size:12px;font-weight:700}
+.quote-actions{display:flex;gap:8px;margin-top:10px}
+.battlecard-preview{padding:0 20px 16px}
+.battle-table{width:100%;border-collapse:collapse;font-size:12px}
+.battle-table th,.battle-table td{padding:8px 10px;border-bottom:1px solid #f1f2f6;text-align:left}
+.battle-table th{background:#fafafb;color:#6b7280;font-weight:600}
+.battle-table .adv{color:#0b7a4f;font-weight:700}
+.market-preview{padding:0 20px 16px}
+.market-chart{display:flex;flex-direction:column;gap:8px}
+.market-chart .bar{display:flex;align-items:center;gap:8px}
+.market-chart .bar span{font-size:11px;width:64px;color:#6b7280}
+.market-chart .bar .track{flex:1;height:8px;background:#f0f2f6;border-radius:4px;overflow:hidden}
+.market-chart .bar .fill{height:100%;border-radius:4px;background:#db2777;transform-origin:left center;animation:growWidth var(--m-d-morph) var(--m-ease-out) both}
+.ppt-preview{padding:0 20px 16px}
+.ppt-slides{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.ppt-slides>div{aspect-ratio:16/9;border:1px solid #e7e9ef;border-radius:8px;background:#fafafb;display:flex;align-items:center;justify-content:center;font-size:11px;color:#9ca3af}
+.compliance-preview{padding:0 20px 16px}
+.compliance-list{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.compliance-item{display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border:1px solid #e7e9ef;border-radius:10px;background:#fafafb;font-size:12px}
+.qa-grid,.evidence-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 20px 16px}
+.qa-card,.evidence-card{border:1px solid #e7e9ef;border-radius:12px;padding:12px;background:#fff;font-size:12px}
+.evidence-card .lvl,.lvl{display:inline-block;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:800;background:#eef6ff;color:#1d4ed8}
+.lvl.A{background:#e7f6ee;color:#0b7a4f}.lvl.B{background:#eef6ff;color:#1d4ed8}
+.lvl.C{background:#fdf3e3;color:#b06a00}.lvl.D{background:#f6ecec;color:#c02b2b}
+.export-actions{display:flex;gap:8px;flex-wrap:wrap;padding:0 20px 20px}
+.export-actions button{font-size:12px;padding:7px 14px;border-radius:8px;cursor:pointer}
+.export-actions .primary{background:#db2777;border:1px solid #db2777;color:#fff}
+.export-actions .outline{background:#fff;border:1px solid #d1d5db;color:#374151}
+.generate-chips{display:flex;gap:6px;flex-wrap:wrap;padding:0 20px 12px}
+.generate-chips button{font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid #f5d0e3;background:#fdf2f8;color:#be185d;cursor:pointer}
+.generate-prompt{padding:0 20px 20px;font-size:12px;color:#6b7280}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes floatIn{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes growWidth{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}
+@media (max-width:900px){.kpi-row{grid-template-columns:repeat(2,1fr)}.selling-grid,.script-grid,.qa-grid,.evidence-grid{grid-template-columns:1fr}.ppt-slides{grid-template-columns:repeat(2,1fr)}}
+
+/* 降动画：MC2 —— 本文件可独立消费，故此分支不依赖 globals.css 的全局兜底。
+   归零时长并锁死 iteration-count，确保 status-pulse 等循环点停住后状态文字仍在。 */
+@media (prefers-reduced-motion:reduce){:root:not([data-motion="full"]) .kpi,:root:not([data-motion="full"]) .selling-card,:root:not([data-motion="full"]) .script-preview::after,:root:not([data-motion="full"]) .market-chart .bar .fill{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0s!important;transition-duration:.01ms!important;transition-delay:0s!important}}

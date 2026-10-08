@@ -1,0 +1,55 @@
+/* 研发驾驶舱（rich）——本地补齐样式，类名取自 product-rnd-cockpit-rich.tsx 实际用法 */
+.product-rnd-cockpit-rich{border:1px solid #e7e9ef;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.06);margin:16px 0}
+.cockpit-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:20px;background:linear-gradient(135deg,#eff6ff,#dbeafe)}
+.cockpit-header .eyebrow{font-size:11px;color:#6b7280}
+.cockpit-header h2{margin:6px 0 4px;font-size:17px;font-weight:800;color:#1f2430}
+.cockpit-header small{font-size:12px;color:#6b7280}
+.category-badge{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#fff;border:1px solid #e7e9ef;white-space:nowrap}
+.cockpit-tabs{display:flex;gap:6px;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid #e7e9ef}
+.cockpit-tabs button{font-size:12px;padding:6px 12px;border:1px solid #e7e9ef;border-radius:20px;background:#fff;color:#4b5563;cursor:pointer}
+.cockpit-tabs button.is-active{border-color:#2563eb;background:#eff6ff;color:#1d4ed8;font-weight:700}
+.cockpit-overview{padding:16px 20px}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kpi{border:1px solid #e7e9ef;border-radius:12px;padding:12px;background:#fafafb;animation:fadeInUp .4s ease-out both}
+.kpi>span{display:block;font-size:11px;color:#6b7280}
+.kpi>strong{display:block;font-size:20px;font-weight:800;color:#1f2430;margin:4px 0}
+.kpi>small{font-size:10px;color:#9ca3af}
+.kpi.ok{border-color:#bbe7cd}.kpi.ok>strong{color:#0b7a4f}
+.kpi.warn{border-color:#f7e0b5}.kpi.warn>strong{color:#b06a00}
+.kpi.bad{border-color:#f6c9c9}.kpi.bad>strong{color:#c02b2b}
+.kpi.brand{border-color:#c7dbfb}.kpi.brand>strong{color:#1d4ed8}
+.kpi-bar{margin-top:8px}
+.kpi-bar .track{height:6px;background:#f0f2f6;border-radius:3px;overflow:hidden}
+.kpi-bar .fill{height:100%;border-radius:3px;background:#2563eb;transform-origin:left center;animation:growWidth var(--m-d-morph) var(--m-ease-out) both}
+.cockpit-sections{padding:0 20px 20px}
+.section{margin-top:16px}
+.section h4{margin:0 0 10px;font-size:13px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips span{font-size:11px;padding:4px 10px;border-radius:20px;background:#eff6ff;color:#1d4ed8}
+.scheme-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.scheme-card{border:1px solid #e7e9ef;border-radius:12px;overflow:hidden;background:#fff;animation:fadeInUp .4s ease-out both}
+.scheme-header{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#fafafb;font-size:12px;font-weight:700}
+.scheme-kpi{display:flex;gap:12px;padding:10px 12px;font-size:11px;color:#6b7280}
+.scheme-kpi strong{display:block;font-size:14px;color:#1f2430}
+.scheme-bar{padding:0 12px 12px}
+.scheme-bar .track{height:6px;background:#f0f2f6;border-radius:3px;overflow:hidden}
+.scheme-bar .fill{height:100%;border-radius:3px;background:#1d4ed8;transform-origin:left center;animation:growWidth var(--m-d-morph) var(--m-ease-out) both}
+.schemes{padding:0 20px 16px}
+.timeline,.timeline-grid{display:flex;flex-direction:column;gap:8px}
+.timeline-item{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid #e7e9ef;border-radius:10px;background:#fafafb;font-size:12px;animation:fadeInUp .4s ease-out both}
+.timeline-item .dot{flex:none;width:8px;height:8px;border-radius:50%;margin-top:5px;background:#9ca3af}
+.timeline-item.done .dot{background:#0b7a4f}
+.timeline-item.running .dot{background:#2563eb;animation:status-pulse 1.6s ease-in-out infinite}
+.timeline-item.queued .dot{background:#d1d5db}
+.status{font-size:11px;color:#6b7280}
+.status.done{color:#0b7a4f}.status.running{color:#1d4ed8}.status.queued{color:#9ca3af}
+.critical-path{border:1px dashed #f7e0b5;background:#fffbf3;border-radius:10px;padding:10px 12px;font-size:12px;color:#b06a00}
+.cockpit-placeholder{padding:20px;font-size:12px;color:#9ca3af}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes growWidth{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes status-pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@media (max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.scheme-grid{grid-template-columns:1fr}}
+
+/* 降动画：MC2 —— 本文件可独立消费，故此分支不依赖 globals.css 的全局兜底。
+   归零时长并锁死 iteration-count，确保 status-pulse 等循环点停住后状态文字仍在。 */
+@media (prefers-reduced-motion:reduce){:root:not([data-motion="full"]) .kpi,:root:not([data-motion="full"]) .kpi-bar .fill,:root:not([data-motion="full"]) .scheme-card,:root:not([data-motion="full"]) .scheme-bar .fill,:root:not([data-motion="full"]) .timeline-item,:root:not([data-motion="full"]) .timeline-item.running .dot{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0s!important;transition-duration:.01ms!important;transition-delay:0s!important}}

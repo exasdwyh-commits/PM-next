@@ -1,0 +1,17 @@
+/* 角色工具区（原始版）——本地补齐样式，类名取自 role-tools.tsx */
+.role-tools{border:1px solid #e7e9ef;border-radius:14px;background:#fff;padding:14px}
+.role-tools h4{margin:0 0 4px;font-size:13px}
+.tools-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-top:10px}
+.tool-btn{display:flex;align-items:flex-start;gap:10px;padding:11px 12px;text-align:left;border:1px solid #e7e9ef;border-radius:11px;background:#fafafb;cursor:pointer;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
+.tool-btn:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.08)}
+.tool-btn.primary{border-color:#d8d0f5;background:#f5f3ff}
+.tool-btn.sales.primary{border-color:#f5d0e3;background:linear-gradient(135deg,#fdf2f8,#fff)}
+.tool-btn .icon{flex:none;font-size:17px;line-height:1.2}
+.tool-btn .label{font-size:12px;font-weight:700;color:#1f2430}
+.tool-info{display:flex;flex-direction:column;gap:2px;min-width:0}
+.tool-info small{font-size:11px;color:#6b7280;line-height:1.45}
+.tools-hint{font-size:11px;color:#9ca3af;margin-top:8px}
+.sales-script-hint{font-size:11px;color:#be185d;margin-top:6px}
+.role-tools.compact .tools-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+.role-tools.compact .tool-info small{display:none}
+.role-tools.leadership .tools-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}

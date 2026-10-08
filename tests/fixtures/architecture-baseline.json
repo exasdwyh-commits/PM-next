@@ -32,6 +32,14 @@
   ],
   "appDbFiles": [
     {
+      "key": "src/app/api/assistant/active-push/route.ts",
+      "why": "Arena 交付的新接口，直接查 kernMemory 取推送素材。消除路径：下沉到 modules/assistant-runtime 的能力服务（同目录 capabilities/ 已有 daily-briefing/project-tracking/marketing-landing），由服务持有 prisma，路由只做参数校验与序列化。"
+    },
+    {
+      "key": "src/app/api/assistant/daily-briefing/route.ts",
+      "why": "Arena 交付的新接口，直接查 kernMemory 组装简报。消除路径同上：并入 modules/assistant-runtime/capabilities，路由改为调用服务函数。"
+    },
+    {
       "key": "src/app/api/attachments/[id]/route.ts",
       "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
     },
@@ -40,8 +48,36 @@
       "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
     },
     {
+      "key": "src/app/api/cost/scenarios/[id]/approval/route.ts",
+      "why": "Arena 交付的审批状态机接口，跨 CostScenarioApproval / CostScenario 两张表多次写库。消除路径：并入 modules/cost-engine/scenarios.ts，把状态迁移收进单事务服务函数，避免路由内散落业务规则。"
+    },
+    {
+      "key": "src/app/api/cost/scenarios/[id]/comments/route.ts",
+      "why": "Arena 交付的评论读写接口，直接读写 CostScenarioComment。消除路径：并入 modules/cost-engine/scenarios.ts 的评论子服务，路由只做鉴权与校验。"
+    },
+    {
+      "key": "src/app/api/cost/scenarios/[id]/route.ts",
+      "why": "Arena 交付的方案详情/更新/删除接口，含自动建版本的写库逻辑。消除路径：并入 modules/cost-engine/scenarios.ts，把「更新 + 建版本」的 CAS 逻辑收敛为服务内单事务。"
+    },
+    {
+      "key": "src/app/api/cost/scenarios/[id]/versions/route.ts",
+      "why": "Arena 交付的版本列表/追加接口，直接读写 CostScenarioVersion。消除路径：并入 modules/cost-engine/scenarios.ts 的版本子服务。"
+    },
+    {
+      "key": "src/app/api/cost/scenarios/compare/route.ts",
+      "why": "Arena 交付的对比接口，先批量查 CostScenario 再调用纯函数 compareCostScenarios。消除路径：查询下沉到 modules/cost-engine/scenarios.ts（compareCostScenarios 已在该模块），路由只传 id 列表。"
+    },
+    {
+      "key": "src/app/api/cost/scenarios/route.ts",
+      "why": "Arena 交付的成本场景列表/新建接口，直接读写 CostScenario 与 CostScenarioVersion。消除路径：并入 modules/cost-engine/scenarios.ts（已有 saveCostScenario/listCostScenarios/compareCostScenarios），补齐 create/list 服务函数后路由只留校验。"
+    },
+    {
       "key": "src/app/api/evidences/[id]/verify/route.ts",
       "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/api/feedback/route.ts",
+      "why": "Arena 交付的反馈聚合接口：写入已走 modules/feedback，但读路径仍直接查 kernMemory 与 harnessSample 组装素材。消除路径：在 modules/feedback 补一个聚合读服务（listFeedback 已是服务函数），路由改为全额委托。"
     },
     {
       "key": "src/app/api/health/details/route.ts",
@@ -82,6 +118,18 @@
     {
       "key": "src/app/api/projects/route.ts",
       "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/api/research/fetch/route.ts",
+      "why": "Arena 交付的抓取接口，fetch 后直接落 EvidenceSourceCapture。消除路径：落库封装下沉到 modules/evidence（同目录已有 source-fetch-executor / source-fetcher），路由只做入参白名单与配额校验。"
+    },
+    {
+      "key": "src/app/api/research/verify/route.ts",
+      "why": "Arena 交付的独立校验接口，取 capture 后调 verifier 并落 EvidenceVerification。消除路径：下沉到 modules/evidence/verification-service.ts（已有 verifyEvidenceClaim，需补「裸 claim + sourceId」入口），路由只留入参校验。"
+    },
+    {
+      "key": "src/app/api/worker/status/route.ts",
+      "why": "Arena 交付的 Worker 状态接口，直接读 PMWorkerHeartbeat 与 AgentTask 做健康判定。消除路径：下沉到 modules/worker（heartbeat.ts 已有 classifyWorkerHealth），新增 getWorkerStatus(organizationId) 服务函数供路由调用。"
     },
     {
       "key": "src/app/api/workforce/tasks/route.ts",

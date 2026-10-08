@@ -9,10 +9,14 @@ import type { KernGraphV1 } from "@/modules/visual-intelligence/contracts";
 import { Btn, I } from "./components/kit";
 import { CheckIn, Turn, Working } from "./components/turn";
 import { useDesktopNotify } from "./desktop-notify";
+import { AppearanceControl, useMuseAppearance } from "./components/advanced-visuals";
+import { ToolMenu } from "./components/tool-menu";
 import { Blank, Dock, Rail } from "./components/shell";
 import { ConversationRename } from "./components/conversation-rename";
 import { reducedMotion } from "@/components/motion/motion";
 import { dedupeMissionCards } from "./conversation-view";
+import { WorkBrief } from "./components/work-brief";
+import { PerspectiveSelector, useWorkPerspective } from "@/components/workspace/perspective-selector";
 import { ConclusionDecisions } from "./components/conclusion-decisions";
 
 const ConnectorSheet = dynamic(() => import("./components/sheets").then(module => module.ConnectorSheet));
@@ -156,7 +160,9 @@ function persistPending(key: string, item: PendingSend | null) {
   } catch { /* 内存保留同一标识，服务器记录仍可在刷新后恢复。 */ }
 }
 
-export default function KernClient({ model }: { model: StudioModel }) {
+export default function KernClient({ model, preferenceScope }: { model: StudioModel; preferenceScope: { organizationId: string; userId: string } }) {
+  const perspective = useWorkPerspective(preferenceScope.organizationId, preferenceScope.userId);
+  const appearance = useMuseAppearance(`${preferenceScope.organizationId}:${preferenceScope.userId}`);
   const router = useRouter();
   const { brief, employees, runtime } = model;
   const [conversationId, setConversationId] = useState<string | null>(model.activeConversationId);
@@ -795,7 +801,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
   );
 
   return (
-    <div className="muse" data-rail={railOpen ? "open" : undefined}>
+    <div className="muse" data-visual="advanced" data-theme={appearance.resolved} data-rail={railOpen ? "open" : undefined}>
       <Rail
         user={model.user}
         conversations={brief.conversations}
@@ -852,6 +858,12 @@ export default function KernClient({ model }: { model: StudioModel }) {
                 <I.spark />
                 <span>记忆</span>
               </Btn>
+              <Btn size="sm" v="ghost" onClick={() => setSheet({ kind: "library" })} aria-haspopup="dialog" aria-expanded={sheet?.kind === "library"} aria-label="产出" title="Kern 完成的任务，随时再下载成文档、表格或演示稿">
+                <I.plan />
+                <span>产出</span>
+              </Btn>
+              <ToolMenu>
+              <AppearanceControl theme={appearance.theme} onSelect={appearance.select} />
               <Btn size="sm" v="ghost" onClick={() => setSheet({ kind: "vault" })} aria-haspopup="dialog" aria-expanded={sheet?.kind === "vault"} aria-label="凭证" title="Kern 替你保管的凭证（永不显示明文）">
                 <I.shield />
                 <span>凭证</span>
@@ -860,23 +872,21 @@ export default function KernClient({ model }: { model: StudioModel }) {
                 <I.source />
                 <span>连接</span>
               </Btn>
-              <Btn size="sm" v="ghost" onClick={() => setSheet({ kind: "library" })} aria-haspopup="dialog" aria-expanded={sheet?.kind === "library"} aria-label="产出" title="Kern 完成的任务，随时再下载成文档、表格或演示稿">
-                <I.plan />
-                <span>产出</span>
-              </Btn>
+
               <Btn size="sm" v="ghost" onClick={() => setSheet({ kind: "schedules" })} aria-haspopup="dialog" aria-expanded={sheet?.kind === "schedules"} aria-label="定时" title="每日简报、提醒与定期重跑：Kern 按时主动来找你">
                 <I.clock />
                 <span>定时</span>
               </Btn>
               {conversation && messages.length > 0 ? (
                 <Btn size="sm" v="ghost" onClick={() => void copyThread()} aria-label={copied ? "已复制全文" : "复制全文"} title={copied ? "已复制到剪贴板" : "复制全文为 Markdown"}>
-                  {copied ? <I.check /> : <I.copy />}
+                  {copied ? <I.check /> : <I.copy />}<span>{copied ? "已复制全文" : "复制全文"}</span>
                 </Btn>
               ) : null}
               <Btn size="sm" v="ghost" onClick={() => setSheet({ kind: "trail" })} aria-haspopup="dialog" aria-expanded={sheet?.kind === "trail"} aria-label="轨迹" title="Kern 做过的每一步">
                 <I.trail />
                 <span>轨迹</span>
               </Btn>
+              </ToolMenu>
             </div>
           </div>
         </header>
@@ -901,7 +911,11 @@ export default function KernClient({ model }: { model: StudioModel }) {
             disabled={sending || Boolean(processing) || Boolean(decisionBusy)} send={send}>
           <div className="m-lane">
             {conversationId === null && !sending && messages.length === 0 ? (
-              <Blank seeds={brief.suggestions} attention={brief.attention} userName={model.user.name} onSeed={updateDraft} onOpen={pickConversation} />
+              <>
+                <Blank seeds={brief.suggestions} attention={brief.attention} userName={model.user.name} onSeed={updateDraft} onOpen={pickConversation}
+                  perspective={<PerspectiveSelector role={perspective.role} onSelect={perspective.select} />}
+                  summary={<WorkBrief attention={brief.attention} role={perspective.role} />} />
+              </>
             ) : (
               <>
                 {displayedMessages.map((message, index) => (

@@ -1,0 +1,74 @@
+/* 项目总览（角色自适应）——本地补齐样式，类名取自 overview-role-based.tsx */
+.ov-role{margin:16px 0}
+.ov-role-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:18px;border:1px solid #e7e9ef;border-radius:14px;background:linear-gradient(135deg,#f7f8fb,#eef2f8)}
+.ov-eyebrow{font-size:11px;letter-spacing:.04em;color:#6b7280}
+.ov-role-header h2{margin:6px 0 4px;font-size:19px;font-weight:800;color:#1f2430}
+.ov-role-header p{margin:0;font-size:12px;color:#6b7280}
+.ov-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}
+.kpi{border:1px solid #e7e9ef;border-radius:12px;padding:12px;background:#fff;animation:fadeInUp .4s ease-out both}
+.kpi>span{display:block;font-size:11px;color:#6b7280}
+.kpi>strong{display:block;font-size:21px;font-weight:800;color:#1f2430;margin:4px 0}
+.kpi>small{font-size:10px;color:#9ca3af}
+.kpi.ok{border-color:#bbe7cd}.kpi.ok>strong{color:#0b7a4f}
+.kpi.warn{border-color:#f7e0b5}.kpi.warn>strong{color:#b06a00}
+.kpi.bad{border-color:#f6c9c9}.kpi.bad>strong{color:#c02b2b}
+.kpi.brand{border-color:#c7dbfb}.kpi.brand>strong{color:#1d4ed8}
+.ov-action{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.ov-action-item{padding:12px;border:1px solid #e7e9ef;border-radius:10px;background:#fafafb}
+.ov-action-item span{display:block;font-size:11px;color:#6b7280;margin-bottom:4px}
+.ov-action-item p{margin:0;font-size:12px;line-height:1.5;color:#374151}
+.ov-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.ov-charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.chart-card{border:1px solid #e7e9ef;border-radius:12px;padding:14px;background:#fff}
+.chart-card h4{margin:0 0 10px;font-size:13px}
+.chart-card .bar{display:flex;align-items:center;gap:8px;margin-top:8px}
+.chart-card .bar span{font-size:11px;width:52px;color:#6b7280}
+.chart-card .bar .track{flex:1;height:6px;background:#f0f2f6;border-radius:3px;overflow:hidden}
+.chart-card .bar .fill{height:100%;border-radius:3px;transform-origin:left center;animation:growWidth var(--m-d-morph) var(--m-ease-out) both}
+.chart-card .bar strong{font-size:11px;width:34px;text-align:right}
+.donut{display:flex;align-items:center;gap:12px}
+.donut strong{display:block;font-size:13px}
+.donut small{font-size:11px;color:#9ca3af}
+.ov-section{margin-top:16px;border:1px solid #e7e9ef;border-radius:12px;padding:14px;background:#fff}
+.ov-section h3{margin:0 0 10px;font-size:14px}
+.ov-table-wrap{overflow-x:auto}
+.ov-table{width:100%;border-collapse:collapse;font-size:12px}
+.ov-table th,.ov-table td{padding:8px 10px;border-bottom:1px solid #f1f2f6;text-align:left;white-space:nowrap}
+.ov-table th{background:#fafafb;color:#6b7280;font-weight:600}
+.lvl{display:inline-block;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:800;background:#eef6ff;color:#1d4ed8}
+.lvl.A{background:#e7f6ee;color:#0b7a4f}.lvl.B{background:#eef6ff;color:#1d4ed8}
+.lvl.C{background:#fdf3e3;color:#b06a00}.lvl.D{background:#f6ecec;color:#c02b2b}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;background:#f0f2f6;color:#4b5563}
+.badge.ok{background:#e7f6ee;color:#0b7a4f}
+.badge.warn{background:#fdf3e3;color:#b06a00}
+.badge.bad{background:#f6ecec;color:#c02b2b}
+.ov-gaps{margin-top:12px;padding:12px;border:1px dashed #f7e0b5;border-radius:10px;background:#fffbf3}
+.ov-gaps strong{display:block;font-size:12px;color:#b06a00;margin-bottom:8px}
+.ov-gaps ul{margin:0;padding-left:18px;font-size:12px;color:#4b5563;line-height:1.7}
+.ov-work-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.work-card{border:1px solid #e7e9ef;border-radius:10px;padding:11px;background:#fafafb}
+.work-h{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px}
+.work-h strong{font-size:12px}
+.work-card small{display:block;font-size:11px;color:#6b7280;margin-top:3px}
+.ov-sales-hero{padding:18px;border-radius:14px;background:linear-gradient(135deg,#111827,#1f2937);color:#f9fafb}
+.ov-sales-hero h2{margin:8px 0 6px;font-size:18px}
+.ov-sales-hero p{margin:0;font-size:12px;color:#d1d5db;line-height:1.6}
+.ov-sales-points{margin-top:14px}
+.ov-sales-points h3{margin:0 0 10px;font-size:14px}
+.sales-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.sales-card{display:flex;gap:10px;padding:12px;border:1px solid #e7e9ef;border-radius:12px;background:#fff}
+.sales-card .icon{flex:none;font-size:18px}
+.sales-card strong{display:block;font-size:12px;margin-bottom:3px}
+.sales-card small{display:block;font-size:11px;color:#6b7280;line-height:1.5}
+.ov-sales-tools{display:grid;grid-template-columns:1.1fr 1fr;gap:14px;margin-top:14px}
+.sales-script{border:1px solid #e7e9ef;border-radius:12px;padding:14px;background:#fff}
+.sales-script h4{margin:0 0 8px;font-size:13px}
+.sales-script p{margin:0;font-size:12px;line-height:1.7;color:#374151}
+.script-actions{display:flex;gap:8px;margin-top:10px}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes growWidth{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@media (max-width:900px){.ov-kpi-grid{grid-template-columns:repeat(2,1fr)}.ov-action,.ov-charts,.sales-grid,.ov-work-grid,.ov-sales-tools{grid-template-columns:1fr}}
+
+/* 降动画：MC2 —— 本文件可独立消费，故此分支不依赖 globals.css 的全局兜底。
+   归零时长并锁死 iteration-count，确保 status-pulse 等循环点停住后状态文字仍在。 */
+@media (prefers-reduced-motion:reduce){:root:not([data-motion="full"]) .kpi,:root:not([data-motion="full"]) .chart-card .bar .fill{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0s!important;transition-duration:.01ms!important;transition-delay:0s!important}}

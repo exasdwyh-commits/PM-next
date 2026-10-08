@@ -63,6 +63,9 @@ const INFINITE_ALLOWLIST = new Set([
   "m-flow-breathe", // 仅 ACTIVE 节点；同上，降动画时保留全部状态文字
   "m-working-breathe", // 请求等待组件；请求结束卸载，隐藏页面或等待用户时停止
   "m-working-travel", // 同一真实请求的连接线；同上
+  "status-pulse", // 面板内「进行中」状态点（worker restarting / 里程碑 running）；
+  // 仅在对应状态类名存在时挂载，状态流转（online / done / queued）即随类名移除而停止；
+  // 降动画时由文件内 prefers-reduced-motion 分支持续时长归零并锁 iteration-count，状态文字仍在
 ]);
 
 function cssFiles(dir: string): string[] {

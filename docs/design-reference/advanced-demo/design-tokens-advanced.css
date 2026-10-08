@@ -1,0 +1,282 @@
+/* Advanced Design Tokens - 档3重度美化 - Linear/Notion级 */
+
+:root {
+  /* OKLCH 4类专用 - 更均匀感知 */
+  --cat-regular-oklch: oklch(0.75 0.15 70);
+  --cat-regular-oklch-light: oklch(0.95 0.05 70);
+  --cat-health-oklch: oklch(0.6 0.18 290);
+  --cat-health-oklch-light: oklch(0.95 0.04 290);
+  --cat-cross-oklch: oklch(0.65 0.12 200);
+  --cat-cross-oklch-light: oklch(0.95 0.03 200);
+  --cat-cosmetics-oklch: oklch(0.6 0.18 350);
+  --cat-cosmetics-oklch-light: oklch(0.95 0.04 350);
+
+  /* Mesh Gradient */
+  --mesh-regular: radial-gradient(at 20% 30%, oklch(0.85 0.12 70) 0%, transparent 50%), radial-gradient(at 80% 70%, oklch(0.75 0.15 70) 0%, transparent 50%), linear-gradient(135deg, #fffbeb, #fef3c7);
+  --mesh-health: radial-gradient(at 20% 30%, oklch(0.75 0.15 290) 0%, transparent 50%), radial-gradient(at 80% 70%, oklch(0.6 0.18 290) 0%, transparent 50%), linear-gradient(135deg, #f5f3ff, #ede9fe);
+  --mesh-cross: radial-gradient(at 20% 30%, oklch(0.75 0.1 200) 0%, transparent 50%), radial-gradient(at 80% 70%, oklch(0.65 0.12 200) 0%, transparent 50%), linear-gradient(135deg, #ecfeff, #cffafe);
+  --mesh-cosmetics: radial-gradient(at 20% 30%, oklch(0.75 0.15 350) 0%, transparent 50%), radial-gradient(at 80% 70%, oklch(0.6 0.18 350) 0%, transparent 50%), linear-gradient(135deg, #fdf2f8, #fce7f3);
+
+  /* Glass */
+  --glass-bg: rgba(255,255,255,0.8);
+  --glass-border: rgba(255,255,255,0.5);
+  --glass-shadow: 0 8px 32px rgba(0,0,0,0.08), 0 0 0 1px rgba(255,255,255,0.5) inset;
+  --glass-blur: blur(12px);
+
+  /* Bento */
+  --bento-gap: 12px;
+  --bento-radius: 16px;
+
+  /* Typography - Variable */
+  --font-display: 800 24px/1.2 var(--font-sans);
+  --font-title-lg: 700 18px/1.3 var(--font-sans);
+  --font-title: 700 14px/1.3 var(--font-sans);
+  --font-body-lg: 500 12px/1.6 var(--font-sans);
+  --font-body: 400 11px/1.6 var(--font-sans);
+  --font-caption: 500 10px/1.4 var(--font-sans);
+  --font-eyebrow: 700 10px/1.2 var(--font-sans);
+  --font-mono: 400 11px/1.5 var(--font-mono);
+
+  /* Shadow - 彩色 + 层次 */
+  --shadow-2xs: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-xs: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.04);
+  --shadow-xl: 0 12px 32px rgba(0,0,0,0.12), 0 4px 8px rgba(0,0,0,0.04);
+  --shadow-2xl: 0 20px 48px rgba(0,0,0,0.14), 0 8px 16px rgba(0,0,0,0.06);
+
+  /* 彩色阴影 */
+  --shadow-regular: 0 8px 24px rgba(245,158,11,0.15), 0 2px 8px rgba(245,158,11,0.10);
+  --shadow-health: 0 8px 24px rgba(124,58,237,0.15), 0 2px 8px rgba(124,58,237,0.10);
+  --shadow-cross: 0 8px 24px rgba(8,145,178,0.15), 0 2px 8px rgba(8,145,178,0.10);
+  --shadow-cosmetics: 0 8px 24px rgba(219,39,119,0.15), 0 2px 8px rgba(219,39,119,0.10);
+
+  /* Motion - Spring */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-spring-soft: cubic-bezier(0.34, 1.2, 0.64, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+  --duration-instant: 100ms;
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+  --duration-slower: 600ms;
+}
+
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-ink: #f6f7f9;
+    --color-ink-muted: #9099a6;
+    --color-ink-faint: #6b7280;
+    --color-line: #2a2e36;
+    --color-line-strong: #3a3f4b;
+    --color-bg: #0f1116;
+    --color-bg-muted: #1a1d24;
+    --color-bg-faint: #21252e;
+    --glass-bg: rgba(15,17,22,0.8);
+    --glass-border: rgba(255,255,255,0.1);
+    --shadow-xs: 0 1px 3px rgba(0,0,0,0.2), 0 1px 2px rgba(0,0,0,0.15);
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.15);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.15);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.35), 0 4px 8px rgba(0,0,0,0.15);
+  }
+}
+
+[data-theme="dark"] {
+  --color-ink: #f6f7f9;
+  --color-ink-muted: #9099a6;
+  --color-ink-faint: #6b7280;
+  --color-line: #2a2e36;
+  --color-line-strong: #3a3f4b;
+  --color-bg: #0f1116;
+  --color-bg-muted: #1a1d24;
+  --color-bg-faint: #21252e;
+  --glass-bg: rgba(15,17,22,0.8);
+  --glass-border: rgba(255,255,255,0.1);
+}
+
+/* Glass Card */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: var(--glass-shadow);
+  transition: all var(--duration-normal) var(--ease-out-expo);
+}
+
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.12), 0 0 0 1px rgba(255,255,255,0.6) inset;
+}
+
+/* Bento Grid */
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--bento-gap);
+}
+
+.bento-item {
+  border-radius: var(--bento-radius);
+  overflow: hidden;
+  position: relative;
+}
+
+.bento-item.span-2 {
+  grid-column: span 2;
+}
+
+.bento-item.span-3 {
+  grid-column: span 3;
+}
+
+.bento-item.span-4 {
+  grid-column: span 4;
+}
+
+.bento-item.row-2 {
+  grid-row: span 2;
+}
+
+/* Mesh Gradient Bg */
+.mesh-bg {
+  position: relative;
+  overflow: hidden;
+}
+
+.mesh-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.mesh-bg[data-category="regular_food"]::before {
+  background: var(--mesh-regular);
+}
+
+.mesh-bg[data-category="health_food"]::before {
+  background: var(--mesh-health);
+}
+
+.mesh-bg[data-category="cross_border_food"]::before {
+  background: var(--mesh-cross);
+}
+
+.mesh-bg[data-category="cosmetics"]::before {
+  background: var(--mesh-cosmetics);
+}
+
+/* Gradient Text */
+.gradient-text {
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(135deg, var(--cat-health), var(--cat-cosmetics));
+}
+
+.gradient-text[data-category="regular_food"] {
+  background-image: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.gradient-text[data-category="health_food"] {
+  background-image: linear-gradient(135deg, #7c3aed, #db2777);
+}
+
+.gradient-text[data-category="cross_border_food"] {
+  background-image: linear-gradient(135deg, #0891b2, #0e7490);
+}
+
+.gradient-text[data-category="cosmetics"] {
+  background-image: linear-gradient(135deg, #db2777, #7c3aed);
+}
+
+/* Magnetic Button */
+.magnetic-btn {
+  position: relative;
+  transition: transform var(--duration-fast) var(--ease-out-expo);
+  will-change: transform;
+}
+
+.magnetic-btn:hover {
+  transform: scale(1.02);
+}
+
+.magnetic-btn:active {
+  transform: scale(0.98);
+}
+
+/* 3D Card */
+.card-3d {
+  transform-style: preserve-3d;
+  transition: transform var(--duration-normal) var(--ease-out-expo);
+}
+
+.card-3d:hover {
+  transform: perspective(1000px) rotateX(2deg) rotateY(-2deg) translateY(-4px);
+}
+
+/* CountUp */
+.count-up {
+  font-variant-numeric: tabular-nums;
+  animation: countUp 0.6s var(--ease-out-expo) both;
+}
+
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Skeleton */
+.skeleton {
+  background: linear-gradient(90deg, #f0f2f6 25%, #e7e9ef 50%, #f0f2f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-md);
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Parallax */
+.parallax {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* Focus Ring Advanced */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--cat-health);
+  border-radius: var(--radius-sm);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .bento-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .bento-item.span-3,
+  .bento-item.span-4 {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 640px) {
+  .bento-grid {
+    grid-template-columns: 1fr;
+  }
+  .bento-item.span-2,
+  .bento-item.span-3,
+  .bento-item.span-4 {
+    grid-column: span 1;
+  }
+}

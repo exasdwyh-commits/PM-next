@@ -19,7 +19,7 @@ import { buildTaskContract } from "./contract";
 import type { TaskContract } from "@/modules/kern-contracts";
 import { searchCapabilities } from "@/modules/assistant-runtime/capabilities/directory";
 import { loadCapabilityDirectory } from "@/modules/assistant-runtime/capabilities/directory-loader";
-import { requiredCompetitorQuestions, validCompetitorSubject, detectCompetitorResearch, competitorSubject, COMPETITOR_DEFAULT_SCOPE } from "./competitor-brief";
+import { requiredCompetitorQuestions, validCompetitorSubject, detectCompetitorResearch, competitorSubject, competitorResearchIntent, COMPETITOR_DEFAULT_SCOPE } from "./competitor-brief";
 import { getMissionReadiness } from "./readiness";
 
 /**
@@ -178,14 +178,31 @@ export function answerText(q: BriefQuestion): string | null {
   return q.answer.text?.trim() || null;
 }
 
-/** Build the plan from goal + answers; answers become explicit constraints. */
-export function buildBriefPlan(brief: Pick<MissionBrief, "goal" | "playbook" | "questions" | "playbookRef" | "clarifiedPlan" | "researchScope">, goalPlanFallback?: MissionPlan): MissionPlan {
-  const constraints = brief.questions
+/** Confirmed constraints (question: answer). Answers are inputs to the work — never task intent. */
+export function briefConstraints(brief: Pick<MissionBrief, "questions">): string[] {
+  return brief.questions
     .map((q) => [q.text.replace(/[？?]$/, ""), answerText(q)] as const)
     .filter(([, a]) => !!a)
     .map(([k, a]) => `${k}：${a}`);
+}
+
+/**
+ * Competitor-research intent for a brief: original request plus an explicit
+ * opt-out in the answers. Answers may switch intent off, but may never switch it
+ * on — otherwise mentioning 竞品 in a constraint would create a competitor study.
+ */
+export function briefCompetitorIntent(brief: Pick<MissionBrief, "goal" | "questions">): { competitorResearch: boolean } {
+  return { competitorResearch: competitorResearchIntent(brief.goal, briefConstraints(brief).join("\n")) };
+}
+
+/** Build the plan from goal + answers; answers become explicit constraints. */
+export function buildBriefPlan(brief: Pick<MissionBrief, "goal" | "playbook" | "questions" | "playbookRef" | "clarifiedPlan" | "researchScope">, goalPlanFallback?: MissionPlan): MissionPlan {
+  const constraints = briefConstraints(brief);
   let goal = constraints.length ? `${brief.goal}\n\n已确认的约束：\n${constraints.map((c) => `- ${c}`).join("\n")}` : brief.goal;
-  if (detectCompetitorResearch(goal)) goal += `\n\n调研默认范围（用户明确约束优先）：${brief.researchScope ?? COMPETITOR_DEFAULT_SCOPE}`;
+  // Intent is judged from the original request (+ an explicit opt-out in the
+  // answers), not from the concatenated text — otherwise a constraint that merely
+  // says 竞品 turns a normal brief into a competitor study.
+  if (competitorResearchIntent(brief.goal, constraints.join("\n"))) goal += `\n\n调研默认范围（用户明确约束优先）：${brief.researchScope ?? COMPETITOR_DEFAULT_SCOPE}`;
   if (brief.playbookRef) return instantiatePlan(brief.playbookRef.template, goal);
   if (brief.playbook === "NEW_PRODUCT") return buildNewProductMissionPlan(goal);
   const fallback = goalPlanFallback ?? brief.clarifiedPlan;
@@ -272,7 +289,7 @@ export async function createBriefForMessage(
     createdAt: new Date().toISOString(),
     playbookRef,
     clarifiedPlan: input.goalPlan ?? null,
-    researchScope: detectCompetitorResearch(input.goal) ? COMPETITOR_DEFAULT_SCOPE : undefined,
+    researchScope: competitorResearchIntent(input.goal) ? COMPETITOR_DEFAULT_SCOPE : undefined,
   };
   if (brief.plan) brief.contract = briefContract(brief, await suggestCapabilities(session, brief.goal));
   return brief;
@@ -290,7 +307,7 @@ async function loadBriefMessage(session: SessionContext, messageId: string) {
   const idx = citations.findIndex((c) => !!c && typeof c === "object" && (c as Record<string, unknown>).kind === "kern-brief");
   const brief = idx >= 0 ? readBrief((citations[idx] as Record<string, unknown>).brief) : null;
   if (!brief) throw new NotFoundError("Brief not found");
-  if ((brief.stage === "PLAN" || brief.stage === "CLARIFY") && detectCompetitorResearch(brief.goal) && !brief.researchScope) {
+  if ((brief.stage === "PLAN" || brief.stage === "CLARIFY") && competitorResearchIntent(brief.goal) && !brief.researchScope) {
     brief.researchScope = COMPETITOR_DEFAULT_SCOPE;
     if (brief.plan) {
       if (!brief.plan.goal.includes("\n\n调研默认范围（用户明确约束优先）：")) brief.plan.goal += `\n\n调研默认范围（用户明确约束优先）：${COMPETITOR_DEFAULT_SCOPE}`;
@@ -321,7 +338,7 @@ async function withEstimate(session: SessionContext, brief: MissionBrief) {
   return {
     messageId: null as string | null,
     brief,
-    readiness: brief.stage === "PLAN" && brief.plan ? await getMissionReadiness(session, brief.plan) : null,
+    readiness: brief.stage === "PLAN" && brief.plan ? await getMissionReadiness(session, brief.plan, briefCompetitorIntent(brief)) : null,
     estimate: brief.plan
       ? estimateBrief(brief.plan, usage ? { used: usage.used.missions, limit: usage.limits.missionsPerMonth } : null, brief.demo)
       : null,
@@ -426,7 +443,7 @@ export async function actOnBrief(session: SessionContext, messageId: string, act
     }
     case "launch": {
       if (brief.stage !== "PLAN" || !brief.plan) throw new ConflictError("Confirm the questions first");
-      const readiness = await getMissionReadiness(session, brief.plan);
+      const readiness = await getMissionReadiness(session, brief.plan, briefCompetitorIntent(brief));
       const blockers = action.demo ? readiness.blockers.filter(b => ["INPUT", "TEAM", "WORKER"].includes(b.code)) : readiness.blockers;
       if (blockers.length) throw new UnprocessableEntityError(blockers.map(b => b.message).join("；"));
       const conversationId = loaded.message.conversation.id;

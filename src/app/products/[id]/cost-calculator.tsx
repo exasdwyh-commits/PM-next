@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import "./cost-workbench.css";
 import { Badge, Empty, KV, cx } from "@/components/ui";
 import Icon from "@/components/icons";
 import { calcCost, applyDefaults } from "@/modules/cost-engine";
@@ -131,6 +132,7 @@ export default function CostCalculator({
     expenseBase: string;
   }) => Promise<void>;
 }) {
+  const resultRegion = React.useRef<HTMLElement>(null);
   const [form, setForm] = React.useState<Record<string, string>>({
     materialCost: "",
     packagingCost: "",
@@ -320,6 +322,10 @@ export default function CostCalculator({
       const input = buildCostInput(form);
       setResult(calcCost(input));
       setCalculatedInput(input);
+      requestAnimationFrame(() => {
+        resultRegion.current?.focus({ preventScroll: true });
+        resultRegion.current?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+      });
     } catch (err) {
       setResult(null);
       setCalculatedInput(null);
@@ -334,9 +340,10 @@ export default function CostCalculator({
   const overBudget = result && targetNum !== null ? result.totalBomCost > targetNum : null;
 
   return (
-    <div className="hermes-stack">
+    <div className="hermes-stack kern-cost-workbench">
+      <div className="kern-cost-steps" aria-label="成本测算步骤"><span><b>01</b> 填写成本</span><i aria-hidden>→</i><span><b>02</b> 计算结果</span><i aria-hidden>→</i><span><b>03</b> 保存与对比</span></div>
       {/* ── 成本结论（第三层：先给结果 + 主要来源，明细收起） ── */}
-      <section className="hermes-theme-section">
+      <section ref={resultRegion} tabIndex={-1} className="hermes-theme-section kern-cost-result" aria-label="成本计算结果" aria-live="polite">
         <div className="hermes-theme-head">
           <h2 className="hermes-theme-title">成本结论</h2>
           {result && (
@@ -348,8 +355,7 @@ export default function CostCalculator({
 
         {!result ? (
           <p className="hermes-theme-conclusion">
-            录入成本输入后，由确定性引擎实时计算单件成本（L1–L5）、毛利率与供货价区间。
-            无真实输入时不估算、不编造利润率。
+            先填写下方 6 项基础输入，再计算单件成本、利润与供货价。金额按人民币口径，未填写的数据不会自动当成零。
           </p>
         ) : (
           <>
@@ -358,18 +364,19 @@ export default function CostCalculator({
               （BOM 毛利率 {pct(result.bomMarginRate)}，净利率 {pct(result.netMarginRate)}）。
               保底供货价 {money(result.supplyPriceFloor)}，建议供货价 {money(result.supplyPriceSuggested)}。
             </p>
-            <KV
-              items={[
-                { k: "单件总成本（L1–L5，不含税）", v: money(result.totalCost) },
-                { k: "其中 BOM 成本（L1–L4，含损耗）", v: money(result.totalBomCost) },
-                { k: "BOM 毛利率", v: pct(result.bomMarginRate) },
-                { k: "净利率", v: pct(result.netMarginRate) },
-                { k: "盈亏平衡量", v: `${result.breakevenUnits} 件/月` },
-                { k: "保底供货价", v: money(result.supplyPriceFloor) },
-                { k: "建议供货价", v: money(result.supplyPriceSuggested) },
-                { k: "月固定成本（L6，月，不计入单件）", v: money(result.layer6Allocation) },
-              ]}
-            />
+            <dl className="kern-cost-metrics">
+              <div><dt>单件总成本 · 不含税</dt><dd>{money(result.totalCost)}</dd><small>L1–L5，包含渠道费用</small></div>
+              <div><dt>BOM 成本 · 含损耗</dt><dd>{money(result.totalBomCost)}</dd><small>L1–L4，产品与物流</small></div>
+              <div data-negative={result.netProfit < 0 || undefined}><dt>单件净利润</dt><dd>{money(result.netProfit)}</dd><small>扣除税费后</small></div>
+              <div data-negative={result.netMarginRate < 0 || undefined}><dt>净利率</dt><dd>{pct(result.netMarginRate)}</dd><small>按当前销售方案计算</small></div>
+            </dl>
+            <details className="kern-cost-details"><summary>查看盈亏平衡与供货价</summary><KV items={[
+              { k: "BOM 毛利率", v: pct(result.bomMarginRate) },
+              { k: "盈亏平衡量", v: `${result.breakevenUnits} 件/月` },
+              { k: "保底供货价", v: money(result.supplyPriceFloor) },
+              { k: "建议供货价", v: money(result.supplyPriceSuggested) },
+              { k: "月固定成本（L6，月，不计入单件）", v: money(result.layer6Allocation) },
+            ]} /></details>
             {hasTarget && targetNum !== null && (
               <p className={cx("hermes-note", overBudget && "is-alert")} style={{ marginTop: 10 }}>
                 产品成本上限（{versionTag ?? "当前版本"}）{money(targetNum)} {currency || ""}
@@ -386,9 +393,10 @@ export default function CostCalculator({
       {/* ── 成本输入 ── */}
       <section className="hermes-theme-section">
         <div className="hermes-theme-head">
-          <h2 className="hermes-theme-title">成本输入</h2>
+          <h2 className="hermes-theme-title">成本输入</h2><span className="hermes-note">基础输入必填 · 可以填写真实的 0</span>
         </div>
-        <div className="hermes-form-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+        <fieldset className="kern-cost-group"><legend><span>01</span> 基础成本与售价</legend>
+        <div className="hermes-form-grid">
           {REQUIRED_FIELDS.map((f) => (
             <label key={f.key as string} className="hermes-label">
               {f.label}
@@ -406,6 +414,10 @@ export default function CostCalculator({
             </label>
           ))}
 
+        </div></fieldset>
+        <fieldset className="kern-cost-group"><legend><span>02</span> 销售与履约方案</legend>
+        <p className="kern-cost-group-hint">选择渠道会更新佣金、平台及推广费率预设，请按真实合同核对。</p>
+        <div className="hermes-form-grid">
           <label className="hermes-label">
             渠道
             <select className="hermes-select" value={form.channel} onChange={(e) => onChannelChange(e.target.value)}>
@@ -450,6 +462,10 @@ export default function CostCalculator({
             <span className="hermes-note">{EXPRESS_PRESETS[form.expressType as ExpressType]?.description}</span>
           </label>
 
+        </div></fieldset>
+        <details className="kern-cost-details kern-cost-assumptions"><summary>03 · 费率与报价假设（可调整）</summary>
+        <p className="kern-cost-group-hint">下列费率为渠道预设；损耗、物流、售后及税率沿用引擎默认假设。计算结果用于情景对比，不能替代报价与税务核实。</p>
+        <div className="hermes-form-grid">
           <label className="hermes-label">
             达人佣金率 %（可覆盖预设）
             <input
@@ -507,7 +523,7 @@ export default function CostCalculator({
               onChange={(e) => setField("targetMarginRate", e.target.value)}
             />
           </label>
-        </div>
+        </div></details>
 
         {error && (
           <div className="hermes-banner is-danger" role="alert" style={{ marginTop: 12 }}>
@@ -515,18 +531,18 @@ export default function CostCalculator({
           </div>
         )}
 
-        <div className="hermes-inline" style={{ marginTop: 14 }}>
+        <div className="hermes-inline kern-cost-compute">
           <button className="hermes-primary-btn hermes-btn-sm" onClick={compute} disabled={!supportedCurrency}>
             <Icon name="play" size={13} />
             计算经济性
           </button>
-          <span className="hermes-note">所有数值由确定性引擎算出，不调用模型。</span>
+          <span className="hermes-note">修改输入后需重新计算；结果不会沿用旧数值。</span>
         </div>
         {!supportedCurrency && <p className="hermes-banner is-danger" role="alert">当前产品币种为 {currency}；成本引擎仅支持人民币（CNY）口径，暂不能计算或保存。</p>}
 
         {/* ── TASK-012: 保存情景 ── */}
         {result && onSaveScenario && (
-          <div className="hermes-inline" style={{ marginTop: 14, flexWrap: "wrap", gap: 8 }}>
+          <div className="hermes-inline kern-cost-save">
             <input
               className="hermes-input"
               type="text"
@@ -562,9 +578,9 @@ export default function CostCalculator({
 
         {/* ── TASK-012: 已保存情景列表 + 对比 ── */}
         {savedScenarios && savedScenarios.length > 0 && (
-          <div style={{ marginTop: 16 }}>
+          <div className="kern-cost-scenarios">
             <div className="hermes-inline" style={{ marginBottom: 8, gap: 8 }}>
-              <span className="hermes-note" style={{ fontWeight: 600 }}>已保存情景</span>
+              <h3>已保存情景</h3><span className="hermes-note">{compareMode ? `已选 ${selectedScenarios.length} / 2 项` : "选择一项载入输入，或选两项对比"}</span>
               <button
                 className="hermes-outline-btn hermes-btn-sm"
                 onClick={toggleCompareMode}
@@ -681,6 +697,7 @@ export default function CostCalculator({
       {/* ── 单件成本明细与税费（第四层：主动展开） ── */}
       {result && (
         <>
+          <details className="kern-cost-details kern-cost-breakdown"><summary>成本构成、税费与供货价明细</summary>
           <section className="hermes-theme-section">
             <div className="hermes-theme-head">
               <h2 className="hermes-theme-title">单件成本明细（L1–L5，不含税）</h2>
@@ -751,6 +768,7 @@ export default function CostCalculator({
             </table>
           </section>
 
+          </details>
           <section className="hermes-theme-section">
             <div className="hermes-theme-head">
               <h2 className="hermes-theme-title">自检告警</h2>

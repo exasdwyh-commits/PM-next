@@ -295,6 +295,8 @@ test("守卫 6：共享标签表的键必须覆盖权威定义的全部取值", 
     ["ProductSpecField（revision.ts 联合类型）", tsUnion("modules/product-development/revision.ts", "ProductSpecField"), (STATUS_LABELS_MODULE as any).PRODUCT_SPEC_FIELD_LABELS],
     ["MilestoneKind（launch/service.ts 联合类型）", tsUnion("modules/launch/service.ts", "MilestoneKind"), (STATUS_LABELS_MODULE as any).LAUNCH_MILESTONE_KIND_LABELS],
     ["WorkExecutorType（prisma 枚举）", prismaEnum("WorkExecutorType"), (STATUS_LABELS_MODULE as any).WORK_EXECUTOR_TYPE_LABELS],
+    // 2026-10-08：计费面板改用共享表后补登记，让「表漏键 / 与枚举分叉」有人盯。
+    ["ModelRunStatus（prisma 枚举）", prismaEnum("ModelRunStatus"), (STATUS_LABELS_MODULE as any).MODEL_RUN_STATUS_LABELS],
   ];
 
   for (const [what, keys, map] of cases) {

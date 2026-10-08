@@ -1,0 +1,67 @@
+/* 日常简报（rich）——本地补齐样式，类名取自 daily-briefing-rich.tsx 实际用法 */
+.daily-briefing-rich{border:1px solid #e7e9ef;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.06);margin:16px 0}
+.briefing-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:20px;background:linear-gradient(135deg,#f5f3ff,#ede9fe)}
+.briefing-header .eyebrow,.eyebrow{font-size:11px;letter-spacing:.04em;color:#6b7280}
+.briefing-header h2{margin:6px 0 4px;font-size:17px;font-weight:800;color:#1f2430}
+.briefing-header small{color:#6b7280;font-size:12px}
+.category-badge{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#fff;border:1px solid #e7e9ef;white-space:nowrap}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 20px}
+.kpi{border:1px solid #e7e9ef;border-radius:12px;padding:12px;background:#fafafb;animation:fadeInUp .4s ease-out both}
+.kpi>span{display:block;font-size:11px;color:#6b7280}
+.kpi>strong{display:block;font-size:22px;font-weight:800;color:#1f2430;margin:4px 0}
+.kpi>small{font-size:10px;color:#9ca3af}
+.kpi.ok{border-color:#bbe7cd}.kpi.ok>strong{color:#0b7a4f}
+.kpi.warn{border-color:#f7e0b5}.kpi.warn>strong{color:#b06a00}
+.kpi.bad{border-color:#f6c9c9}.kpi.bad>strong{color:#c02b2b}
+.kpi.brand{border-color:#d8d0f5}.kpi.brand>strong{color:#6d28d9}
+.kpi-bar{margin-top:8px}
+.kpi-bar .track{height:6px;background:#f0f2f6;border-radius:3px;overflow:hidden}
+.kpi-bar .fill{height:100%;border-radius:3px;transform-origin:left center;animation:growWidth var(--m-d-morph) var(--m-ease-out) both}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:0 20px 16px}
+.chart-card{border:1px solid #e7e9ef;border-radius:12px;padding:14px;background:#fff}
+.chart-card h4{margin:0 0 10px;font-size:13px}
+.chart-card .bar{display:flex;align-items:center;gap:8px;margin-top:8px}
+.chart-card .bar span{font-size:11px;width:52px;color:#6b7280}
+.chart-card .bar .track{flex:1;height:6px;background:#f0f2f6;border-radius:3px;overflow:hidden}
+.chart-card .bar .fill{height:100%;border-radius:3px;transform-origin:left center;animation:growWidth var(--m-d-morph) var(--m-ease-out) both}
+.donut{display:flex;align-items:center;gap:12px}
+.donut strong{display:block;font-size:13px}
+.donut small{font-size:10px;color:#9ca3af}
+.boss-summary{margin:0 20px 16px;padding:14px;border-radius:12px;background:#f7f8fb;border:1px solid #e7e9ef}
+.boss-summary strong{font-size:13px;display:block;margin-bottom:6px}
+.boss-summary p{margin:0;font-size:12px;line-height:1.5;color:#4b5563}
+.quick-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.quick-actions button{font-size:12px;padding:6px 12px;border-radius:8px;cursor:pointer}
+.quick-actions .primary{background:#6d28d9;border:1px solid #6d28d9;color:#fff}
+.quick-actions .outline{background:#fff;border:1px solid #d1d5db;color:#374151}
+.suggestions{padding:0 20px 20px}
+.suggestions h4{margin:0 0 10px;font-size:13px}
+.suggestion-list{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.suggestion-item{display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border:1px solid #e7e9ef;border-radius:10px;background:#fafafb;font-size:12px;color:#374151;animation:fadeInUp .4s ease-out both}
+.suggestion-item .icon{flex:none}
+.suggestion-chips{display:flex;gap:6px;flex-wrap:wrap}
+.suggestion-chips button{font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid #d8d0f5;background:#f5f3ff;color:#6d28d9;cursor:pointer}
+.selling-points,.selling-chips{display:flex;gap:8px;flex-wrap:wrap}
+.selling-chips span{font-size:11px;padding:4px 10px;border-radius:20px;background:#eef6ff;color:#1d4ed8}
+.sales-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.sales-card{display:flex;gap:10px;padding:12px;border:1px solid #e7e9ef;border-radius:12px;background:#fff}
+.sales-card .icon{font-size:18px}
+.sales-card strong{display:block;font-size:12px;margin-bottom:2px}
+.sales-card small{display:block;font-size:11px;color:#6b7280}
+.sales-tools{margin-top:12px}
+.script-hint{font-size:11px;color:#9ca3af;margin-top:6px}
+.role-switch{display:inline-flex;gap:4px;padding:4px;border:1px solid #e7e9ef;border-radius:10px;background:#fafafb}
+.role-switch button{font-size:12px;padding:5px 10px;border:0;border-radius:7px;background:transparent;cursor:pointer;color:#6b7280}
+.role-switch button.is-active{background:#fff;color:#6d28d9;font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.role-switch-hint{display:block;font-size:10px;color:#9ca3af;margin-top:6px}
+.leadership .sales-tools,.sales .quick-actions{display:none}
+.mini-stats{display:flex;gap:14px}
+.mini-stat span{display:block;font-size:10px;color:#9ca3af}
+.mini-stat strong{font-size:14px}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes growWidth{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@media (max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.charts{grid-template-columns:1fr}.sales-grid{grid-template-columns:1fr}}
+
+/* 降动画：MC2 —— 本文件可独立消费，故此分支不依赖 globals.css 的全局兜底。
+   归零时长并锁死 iteration-count，确保 status-pulse 等循环点停住后状态文字仍在。 */
+@media (prefers-reduced-motion:reduce){:root:not([data-motion="full"]) .kpi,:root:not([data-motion="full"]) .kpi-bar .fill,:root:not([data-motion="full"]) .chart-card .bar .fill,:root:not([data-motion="full"]) .suggestion-item{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0s!important;transition-duration:.01ms!important;transition-delay:0s!important}}

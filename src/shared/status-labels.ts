@@ -68,6 +68,19 @@ export const AGENT_RUN_STATUS_LABELS: Record<string, string> = {
 };
 
 /**
+ * 模型调用运行状态（ModelRunStatus · prisma 枚举）。
+ *
+ * 计费/用量面板按此展示模型调用记录。它和 AgentRunStatus 是**两个不同枚举**
+ * （少了 WAITING_CONFIRMATION / QUEUED / CANCELLED），不要为了省一张表混用 ——
+ * 混用会让模型调用上出现「等待人工确认」这类它根本不存在的状态。
+ */
+export const MODEL_RUN_STATUS_LABELS: Record<string, string> = {
+  RUNNING: "运行中",
+  SUCCEEDED: "已成功",
+  FAILED: "已失败",
+};
+
+/**
  * Agent 任务状态（AgentTaskStatus）。
  * 此前只在 product-rnd-panel.tsx 本地登记一份，与本文件登记的其它枚举分裂两处；
  * 收口到这里，其它页面（如 executive-report 的专业数字员工意见）改用同一份措辞。
@@ -505,6 +518,7 @@ export const labelProjectMode = (k?: string | null) => labelOf(PROJECT_MODE_LABE
 export const labelProjectStage = (k?: string | null) => labelOf(PROJECT_STAGE_LABELS, k);
 export const labelProductLifecycleStage = (k?: string | null) => labelOf(PRODUCT_LIFECYCLE_STAGE_LABELS, k);
 export const labelAgentRunStatus = (k?: string | null) => labelOf(AGENT_RUN_STATUS_LABELS, k);
+export const labelModelRunStatus = (k?: string | null) => labelOf(MODEL_RUN_STATUS_LABELS, k);
 export const labelAgentTaskStatus = (k?: string | null) => labelOf(AGENT_TASK_STATUS_LABELS, k);
 export const labelAnalysisRunKind = (k?: string | null) => labelOf(ANALYSIS_RUN_KIND_LABELS, k);
 export const labelEvidenceLevel = (k?: string | null) => labelOf(EVIDENCE_LEVEL_LABELS, k);

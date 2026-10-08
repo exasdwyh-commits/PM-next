@@ -33,7 +33,7 @@ test("WS3 健康判定：有一个活着就是 running；否则区分 stopped / 
   assert.equal(classifyWorkerHealth([stopped, dead], now).status, "stopped");
 });
 
-test("WS4 重复启动：活进程 + 心跳新鲜 → 拒绝；心跳陈旧或进程已死 → 接管", () => {
+test("WS4 重复启动：持有者进程存活 → 一律拒绝（不看心跳年龄）；进程已死 → 接管", () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), "pm-lock-"));
   process.env.PM_WORKER_LOCK_DIR = dir;
   const file = path.join(dir, "lock.json");
@@ -44,10 +44,16 @@ test("WS4 重复启动：活进程 + 心跳新鲜 → 拒绝；心跳陈旧或�
   try {
     write(process.ppid, 1_000);
     assert.equal(acquireWorkerLock(), null, "另一个活着的 Worker 持锁 → 本进程不启动");
+    /**
+     * 心跳陈旧但持有者进程仍存活 → 依然不接管。
+     *
+     * 文件锁只保证单实例，不按心跳年龄判权（见 worker/index.ts acquireWorkerLock 注释）：
+     * 排空期间刷不出心跳是正常状态，靠年龄硬抢会让新旧两个进程同时执行。
+     * 按 90s 年龄回收的是**数据库心跳 / 执行租约**（WORKER_STALE_MS，见 WS3 与 worker/heartbeat.ts），
+     * 与本文件锁是两套机制，不要混用。
+     */
     write(process.ppid, 120_000);
-    const a = acquireWorkerLock();
-    assert.ok(a, "心跳陈旧 → 接管");
-    releaseWorkerLock(a!.workerId);
+    assert.equal(acquireWorkerLock(), null, "心跳陈旧但进程存活 → 仍不接管");
     write(2_147_000_000, 1_000);
     const b = acquireWorkerLock();
     assert.ok(b, "持锁进程已不存在 → 接管");

@@ -118,6 +118,7 @@ function mapBacktestAlignment(
     | "FALSE_POSITIVE"
     | "FALSE_NEGATIVE"
     | "ABSTAINED"
+    | "VALIDATION_EXECUTED"
     | "INCONCLUSIVE"
     | "IDENTITY_MISMATCH"
     | "UNVERIFIED_OUTCOME"
@@ -133,6 +134,13 @@ function mapBacktestAlignment(
       return BacktestAlignmentStatus.FALSE_NEGATIVE;
     case "ABSTAINED":
       return BacktestAlignmentStatus.ABSTAINED;
+    case "VALIDATION_EXECUTED":
+      // Persisted as INCONCLUSIVE on purpose: the database enum has no dedicated
+      // value yet, and INCONCLUSIVE keeps this row out of the misjudgement count
+      // — which is the whole point of the label. When the harness is wired into
+      // the product, add BacktestAlignmentStatus.VALIDATION_EXECUTED with a
+      // migration so these rows stay queryable.
+      return BacktestAlignmentStatus.INCONCLUSIVE;
     case "INCONCLUSIVE":
       return BacktestAlignmentStatus.INCONCLUSIVE;
     case "IDENTITY_MISMATCH":

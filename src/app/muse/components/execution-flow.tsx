@@ -4,6 +4,8 @@ import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type P
 import { agentLabel, nodeLabel, reasonLabel, type MissionEvent, type MissionStatusView } from "../mission-timeline";
 import { FLOW_GOAL, FLOW_NODE, flowExcerpt, flowIsRunning, flowNodeDetails, flowNodeState, flowNodeSummary, flowNodeTitle, flowSourceUrl, layoutExecutionFlow, revealedFlowKeys } from "../execution-flow";
 import { I } from "./kit";
+import { Segmented } from "./controls";
+import { reducedMotion } from "@/components/motion/motion";
 import { Prose } from "./prose";
 import "./execution-flow.css";
 
@@ -19,6 +21,31 @@ export function ExecutionFlow({ status, events = [], connected = true, activity 
   const [view, setView] = useState<View | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
+  const [narrow, setNarrow] = useState(false);
+  const [chosenMode, setChosenMode] = useState<"canvas" | "steps" | null>(null);
+  const mode = chosenMode ?? (narrow ? "steps" : "canvas");
+  const inspector = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLElement>(null);
+  const selectNode = (key: string) => {
+    if (selectedKey === key) { setSelectedKey(null); return; }
+    setSelectedKey(key);
+    requestAnimationFrame(() => {
+      inspector.current?.focus({ preventScroll: true });
+      inspector.current?.scrollIntoView({ block: "nearest", behavior: reducedMotion() ? "instant" as ScrollBehavior : "smooth" });
+    });
+  };
+  const closeInspector = () => {
+    setSelectedKey(null);
+    const button = [...(root.current?.querySelectorAll<HTMLButtonElement>("button[data-node-key]") ?? [])].find(element => element.dataset.nodeKey === selectedKey);
+    button?.focus({ preventScroll: true });
+  };
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 640px)");
+    const update = () => setNarrow(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   const [visible, setVisible] = useState(true);
   const [showPlan, setShowPlan] = useState(false);
   const revealed = revealedFlowKeys(status, showPlan);
@@ -59,7 +86,7 @@ export function ExecutionFlow({ status, events = [], connected = true, activity 
     });
     observer.observe(element);
     return () => observer.disconnect();
-  }, [collapsed]);
+  }, [collapsed, mode]);
 
   const zoom = (factor: number) => {
     const scale = Math.min(1.6, Math.max(.38, camera.scale * factor));
@@ -78,11 +105,12 @@ export function ExecutionFlow({ status, events = [], connected = true, activity 
   };
 
   return (
-    <section className="m-flow" data-motion={running && !collapsed ? "running" : "still"} aria-label="执行工作流">
+    <section className="m-flow" ref={root} data-motion={running && !collapsed ? "running" : "still"} aria-label="执行工作流">
       <header className="m-flow-head">
         <span className="m-flow-heading"><I.plan /><strong>执行流程</strong><small>{status.progress.done}/{status.progress.total} 步已结束</small></span>
+        {!collapsed ? <Segmented label="工作流视图" value={mode} options={[{ value: "canvas", label: "流程图" }, { value: "steps", label: "步骤列表" }]} onChange={value => { setChosenMode(value); setView(null); }} /> : null}
         <div className="m-flow-tools">
-          {!collapsed ? <>
+          {!collapsed && mode === "canvas" ? <>
             <button type="button" aria-label="定位当前步骤" title="定位当前步骤" onClick={focusCurrent} disabled={!nodes.length}><FlowIcon kind="focus" /></button>
             <button type="button" aria-label="缩小工作流" title="缩小" onClick={() => zoom(1 / 1.2)} disabled={camera.scale <= .38}><FlowIcon kind="minus" /></button>
             <span className="m-flow-scale">{Math.round(camera.scale * 100)}%</span>
@@ -94,7 +122,15 @@ export function ExecutionFlow({ status, events = [], connected = true, activity 
       </header>
       {!collapsed ? <div id={id}>
         <div className="m-flow-context"><span>{status.status === "DRAFT" ? "拟定计划" : activeNodes.length > 1 ? `${activeNodes.length} 项正在并行` : status.outcome ? "执行路径已留存" : "随执行展开"}</span>{!status.outcome && status.status !== "DRAFT" ? <button type="button" aria-pressed={showPlan} onClick={() => { setShowPlan(value => !value); setView(null); }}>{showPlan ? "只看当前路径" : hidden ? `查看全部步骤 · 还有 ${hidden} 项` : "查看全部步骤"}</button> : <small>点击节点查看结果</small>}</div>
-        <div className="m-flow-viewport" ref={viewport} tabIndex={0} role="region" aria-label="工作流画布，用方向键移动" onKeyDown={event => {
+        {mode === "steps" ? <ol className="m-flow-step-list" aria-label="执行步骤列表">{nodes.map(node => {
+          const state = flowNodeState(node, status);
+          const detail = details.get(node.key)!;
+          return <li key={node.key}><button type="button" data-node-key={node.key} data-flow-state={state.tone} aria-pressed={selectedKey === node.key} onClick={() => selectNode(node.key)}>
+            <span className="m-flow-step-title"><strong>{flowNodeTitle(node)}</strong><span>{state.label}</span></span>
+            <small>{agentLabel(node.agentCode)}{node.dependsOn?.length ? ` · 前置：${node.dependsOn.map(key => { const prior = status.nodes.find(item => item.key === key); return prior ? flowNodeTitle(prior) : "缺失步骤"; }).join("、")}` : " · 无前置依赖"}</small>
+            <p>{state.tone === "active" ? connected ? detail.activity || "正在执行这项任务" : "连接中断，保留最近进展" : node.reason ? reasonLabel(node.reason) : flowExcerpt(flowNodeSummary(node), 120) || "点击查看步骤详情"}</p>
+          </button></li>;
+        })}{nodes.length === 0 ? <li className="m-flow-list-empty">还没有可展示的执行步骤。</li> : null}</ol> : <div className="m-flow-viewport" ref={viewport} tabIndex={0} role="region" aria-label="工作流画布，用方向键移动" onKeyDown={event => {
           if (event.target !== event.currentTarget) return;
           const directions: Record<string, [number, number]> = { ArrowLeft: [40, 0], ArrowRight: [-40, 0], ArrowUp: [0, 40], ArrowDown: [0, -40] };
           const offset = directions[event.key];
@@ -131,7 +167,7 @@ export function ExecutionFlow({ status, events = [], connected = true, activity 
               const detail = details.get(node.key)!;
               const summary = flowNodeSummary(node);
               const preview = state.tone === "done" ? flowExcerpt(summary, 86) || "步骤已完成，点击查看详情" : state.tone === "active" ? connected ? detail.activity || "正在执行这项任务" : "连接中断 · 保留最近进展" : node.reason ? reasonLabel(node.reason) : state.tone === "idle" ? node.status === "PENDING" ? "计划中的步骤，尚未执行" : state.label : state.label;
-              return <button key={node.key} type="button" className="m-flow-node" data-flow-state={state.tone} data-planned={node.status === "PENDING" || undefined} data-selected={selectedKey === node.key || undefined} aria-pressed={selectedKey === node.key} aria-label={`${flowNodeTitle(node)}，${state.label}，${agentLabel(node.agentCode)}`} title={node.objective || nodeLabel(node.key)} onClick={() => setSelectedKey(key => key === node.key ? null : node.key)} style={{ left: position.x, top: position.y, width: FLOW_NODE.width, height: FLOW_NODE.height } as CSSProperties}>
+              return <button key={node.key} type="button" className="m-flow-node" data-node-key={node.key} data-flow-state={state.tone} data-planned={node.status === "PENDING" || undefined} data-selected={selectedKey === node.key || undefined} aria-pressed={selectedKey === node.key} aria-label={`${flowNodeTitle(node)}，${state.label}，${agentLabel(node.agentCode)}`} title={node.objective || nodeLabel(node.key)} onClick={() => selectNode(node.key)} style={{ left: position.x, top: position.y, width: FLOW_NODE.width, height: FLOW_NODE.height } as CSSProperties}>
                 <i className="m-flow-port is-input" aria-hidden="true" />
                 <span className="m-flow-node-top"><span className="m-flow-symbol" key={state.tone} aria-hidden="true">{state.tone === "done" ? <I.check /> : state.tone === "blocked" || state.tone === "failed" ? <FlowIcon kind="alert" /> : node.kind === "SYNTHESIS" ? <I.spark /> : node.kind === "QA" || node.kind === "RED_TEAM" ? <I.shield /> : <I.source />}</span><span className="m-flow-node-copy"><small>{agentLabel(node.agentCode)}{node.kind === "SYNTHESIS" ? " · 综合" : node.kind === "QA" ? " · 复核" : ""}</small><strong>{flowNodeTitle(node)}</strong></span></span>
                 <span className="m-flow-node-preview" key={node.status}>{preview}</span>
@@ -151,9 +187,10 @@ export function ExecutionFlow({ status, events = [], connected = true, activity 
           }}><svg viewBox={`0 0 ${worldWidth} ${layout.height}`} preserveAspectRatio="none" aria-hidden="true"><rect className="m-flow-map-goal" x={FLOW_NODE.padding} y={goalY} width={FLOW_GOAL.width} height={FLOW_GOAL.height} rx="10" />{positions.map(position => <rect key={position.key} data-flow-state={flowNodeState(status.nodes.find(node => node.key === position.key)!, status).tone} opacity={revealed.has(position.key) ? 1 : .25} x={position.x} y={position.y} width={FLOW_NODE.width} height={FLOW_NODE.height} rx="10" />)}<rect className="m-flow-map-window" x={Math.max(0, -camera.x / camera.scale)} y={Math.max(0, -camera.y / camera.scale)} width={Math.min(worldWidth, size.width / camera.scale)} height={Math.min(layout.height, size.height / camera.scale)} /></svg></button> : null}
           {!status.nodes.length ? <p className="m-flow-empty">还没有可展示的执行步骤。</p> : null}
         </div>
+        }
         {layout.unresolved.length ? <p className="m-flow-warning">部分步骤的依赖存在循环，无法确定执行顺序。</p> : null}
-        {selected ? <div className="m-flow-inspector" key={selected.key}>
-          <header><strong>{nodeLabel(selected.key)}</strong><span>{flowNodeState(selected, status).label}</span><button type="button" aria-label="关闭节点详情" onClick={() => setSelectedKey(null)}><I.close /></button></header>
+        {selected ? <div className="m-flow-inspector" key={selected.key} ref={inspector} tabIndex={-1} role="region" aria-label={`步骤详情：${flowNodeTitle(selected)}`}>
+          <header><strong>{flowNodeTitle(selected)}</strong><span>{flowNodeState(selected, status).label}</span><button type="button" aria-label="关闭节点详情" onClick={closeInspector}><I.close /></button></header>
           {selected.objective ? <p>{selected.objective}</p> : null}
           {selected.reason ? <p className="m-flow-warning">{reasonLabel(selected.reason)}</p> : null}
           {details.get(selected.key)?.retracted || details.get(selected.key)?.uncertainty ? <p className="m-flow-warning">{details.get(selected.key)?.retracted ? "这一步曾出现结论被推翻或收回的记录，请结合复核结果查看。" : "这一步标记了尚未核实的信息，摘要不代表证据已经完整。"}</p> : null}

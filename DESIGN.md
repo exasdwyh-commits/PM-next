@@ -2,17 +2,17 @@
 
 ## Source of truth
 - Status: Active
-- Last refreshed: 2026-09-20
-- Primary product surfaces: 工作台、仪表盘、产品中心、AI 顾问、机会与知识中心、审批与追溯。
-- Evidence reviewed: `README.md`、`src/app/dashboard/*`、`src/app/globals.css`、`src/app/theme/quiet-enterprise.css`、`src/components/ui.tsx`、现有浏览器验收与截图产物。
+- Last refreshed: 2026-10-09
+- Primary product surfaces: `/muse` 对话与真实任务流程；产品/项目工作区；`/manage` 管理、证据与审批。
+- Evidence reviewed: `README.md`、`docs/FRONTEND_V3_CONVERSATION_FIRST.md`、`src/app/muse/*`、`src/app/globals.css`、`src/app/theme/kern-design.css`、`src/components/ui.tsx`、现有浏览器验收与截图产物。
 
 ## Brand
 - Personality: 冷静、专业、证据驱动；像高级产品团队的决策操作台，而不是泛用聊天机器人。
 - Trust signals: 来源、状态、责任人、时间、审批与可追溯记录始终可见；AI 建议必须能解释、能复核、能被人接管。
-- Avoid: 紫色渐变、装饰性光晕、无意义指标墙、卡片套卡片、把每一项内容都做成高亮 CTA、AI 生成感的插画堆砌。
+- Avoid: 无意义指标墙、把每一项内容都做成高亮 CTA、AI 生成感插画。2026-10-09 用户明确指定 demo-beautified-advanced：Kern /muse 使用紫粉 mesh、玻璃卡片、Bento、图表和动效；覆盖此前禁用紫色渐变的约定。
 
 ## Product goals
-- Goals: 让食品新品团队在一个清晰工作区中发现机会、形成证据、作出打样门决策并持续追踪交付。
+- Goals: 让产品团队在一个清晰工作区中发现机会、形成证据、作出打样门决策并持续追踪交付。
 - Non-goals: 把业务工作台做成营销落地页；用炫技动效替代信息可读性；让 AI 在未说明依据时替用户拍板。
 - Success signals: 用户能在首屏判断“当前最重要的事、为什么重要、下一步谁来做”；关键决策可在两次交互内进入详情或处理。
 
@@ -22,8 +22,8 @@
 - Key contexts of use: 桌面端深度工作为主；会议/现场查看需在平板和手机上快速读懂状态与待办。
 
 ## Information architecture
-- Primary navigation: 工作台作为日常入口；产品与项目承载对象详情；AI 顾问承载建议和审查；机会、知识、追溯与设置提供支撑。
-- Core routes/screens: Dashboard、Products、Projects、Advisor、Opportunities、Knowledge、Trace、Settings。
+- Primary navigation: Kern 对话作为日常入口；产品与项目承载对象详情；管理工作台承载审查；机会、知识、追溯与设置提供支撑。
+- Core routes/screens: Muse、Manage、Products、Projects（概览 / AI 研发 / 工作项 / 成本情景 / 证据 / 决策 / 记录）。
 - Content hierarchy: 页面结论/关键动作 → 风险与进度 → 支撑证据与历史。一个页面只允许一个主要行动。
 
 ## Design principles
@@ -34,18 +34,18 @@
 - Tradeoffs: 允许少量有意义的环境层与微动效，但不牺牲加载、对比度、表格扫描效率或可访问性。
 
 ## Visual language
-- Color: 延续 Quiet Enterprise 的冷灰白基底、墨蓝文本和蓝色动作强调；绿色/琥珀/红色只表达状态，不充当装饰。所有新色必须先进入 `quiet-enterprise.css`。
+- Color: /muse 使用用户指定 advanced demo 的紫粉渐变与玻璃表面，作用域限定 .muse[data-visual="advanced"]；项目与管理页面延续 Quiet Enterprise 的冷灰白基底、墨蓝文本和蓝色动作强调；绿色/琥珀/红色只表达状态，不充当装饰。使用 `kern-design.css` 的 `--k-*` 语义令牌，兼容浅色与深色。
 - Typography: 中文正文使用系统无衬线；关键页面标题使用现有中文衬线标题栈，营造编辑式、权威而非科技玩具化的气质。
 - Spacing/layout rhythm: 以 8px 基础节奏；页面首屏减少并列卡片，优先一条明确的主叙事线与一条行动队列。
 - Shape/radius/elevation: 继承现有 9–14px 圆角与 hair/card/lift 三级表面深度；高层浮面只用于可操作内容。
-- Motion: 150–220ms 的状态确认、展开与位置过渡；不使用循环装饰动画；尊重 `prefers-reduced-motion`。
+- Motion: /muse 图表与数字一次性 550–650ms 入场；鼠标下轻量 3D hover 与按钮反馈。执行动效受真实状态控制；减少动效时关闭图表入场与 hover。
 - Imagery/iconography: 优先真实产品、包装、证据或数据图形；图标只用于加速扫描，并保留文本标签或可访问名称。
 
 ## Components
 - Existing components to reuse: `src/components/ui.tsx` 的基础控件，以及现有的 dashboard、产品、顾问与可视化组件。
-- New/changed components: 决策摘要、AI 建议卡、证据/可信度条、风险行动队列、页面级空状态应逐步归并为可复用模式。
+- New/changed components: Kern 顶栏保留高频动作，次级工具收进“更多”；输入区按实际高度为回复留出空间；任务读取失败显示重试；执行流程复用真实节点、依赖与事件，提供流程图与步骤列表。手机默认步骤列表，保留图形入口；节点详情管理焦点。产品/项目工作区保持已有视角摘要和成本表单。
 - Variants and states: 每个高价值模块必须覆盖 loading、empty、error、success、disabled 与 AI-processing 状态；状态不能只靠颜色传达。
-- Token/component ownership: `src/app/theme/quiet-enterprise.css` 是颜色、排版、几何的唯一令牌来源；组件不得新增临时硬编码色值。
+- Token/component ownership: `src/app/theme/kern-design.css` 是当前令牌来源，quiet-enterprise 保留兼容映射；组件不得新增临时硬编码色值。
 
 ## Accessibility
 - Target standard: WCAG 2.1 AA。
@@ -74,12 +74,18 @@
 
 ## Implementation constraints
 - Framework/styling system: Next.js 15、React 19、TypeScript、Tailwind CSS；保持现有服务端/客户端边界。
-- Design-token constraints: 新增或变更视觉值先写入 `quiet-enterprise.css`；复用现有 `ui.tsx` 与主题类，避免页面级视觉分叉。
+- Design-token constraints: 复用 `kern-design.css` 的语义令牌；复用现有 `ui.tsx` 与主题类，避免页面级视觉分叉。
 - Performance constraints: 首屏避免重型图表和纯装饰媒体；动效不得阻塞交互；图片必须有明确内容价值。
 - Compatibility constraints: 不破坏现有鉴权、审计、证据和审批业务语义。
 - Test/screenshot expectations: 每轮高频页面改造提供桌面和 390px 视口验收；检查空、错、加载和键盘焦点状态。
 
 ## Open questions
-- [ ] 首轮视觉基准应以工作台、产品中心还是 AI 顾问为主？默认按工作台 → 产品中心 → AI 顾问推进。
+- [x] 用户已明确优先 Kern `/muse` 的 UI/UX，主流程是交代任务 → 看执行进展 → 阅读结果 → 继续行动；产品/项目工作区是上下文支撑。
 - [ ] 是否有现成品牌摄影、包装图或品牌手册可作为真实视觉资产？若无，先以数据和产品对象建立识别度。
-- [ ] 管理层和执行层是否需要不同的默认仪表盘密度？
+- [x] 工作视角由用户手动选择，按组织与账号保存；调整摘要顺序和下一步，不改变权限。
+- 真实任务流程复用 mission-timeline 与 SSE；静态项目依赖列表必须明确区分执行中、已提交、已验收。
+
+## Approved visual reference (2026-10-09)
+- 用户选择 `/Users/exasdwyh/Downloads/Kern优化版/PM-next/src/app/demo-beautified-advanced/page.tsx`。直接应用于正式 `/muse`，不以单独 demo 路由替代。
+- 复用视觉语言：mesh、玻璃面、Bento 指标、环形/条形图、渐变与按状态动效、手动/系统深浅色。
+- 图表使用当前已读取事项和真实任务步骤；不导入原型的固定价格、评分、可信率或无效果按钮。

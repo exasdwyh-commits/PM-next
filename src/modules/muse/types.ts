@@ -140,6 +140,8 @@ export interface ChatBrief {
   decisions: Decision[];
   conversations: ConversationSummary[];
   attention: {
+    /** True when one or more sources failed; empty arrays do not mean all clear. */
+    unavailable?: boolean;
     needsYou: AttentionItemView[];
     inProgress: AttentionItemView[];
     handledQuietly: number;

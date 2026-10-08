@@ -9,8 +9,10 @@ export default defineConfig([
   ...compat.extends("next/core-web-vitals"),
   globalIgnores([
     ".next/**",
-    ".next-verify/**",
-    ".next-acc/**",
+    // 各类本地构建产物目录（.next-verify / .next-acc / .next-fixed / .next-local-test …）：
+    // 它们是生成物，不该参与 lint。此前只列了 verify/acc 两个，于是 .next-fixed 与
+    // .next-local-test 里的 webpack chunk 被当作源码检查，贡献了 7 条无意义报错。
+    ".next-*/**",
     "node_modules/**",
     ".tmp-pg/**",
     ".uploads/**",

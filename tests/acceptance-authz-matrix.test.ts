@@ -80,9 +80,24 @@ const MARK = CROSS_TENANT_MARKER;
  * 2026-09-29（KX-64 系统通知）：+1 路由（/api/attention），+1 方法（GET）。只含本人数据，跨租户不可见。
  * 2026-09-29（KX-71 统一能力目录）：+1 路由（/api/capabilities），+1 方法（GET）。只含本人 / 本组织可见项。
  * 2026-09-29（KX-74 每周复盘）：+1 路由（/api/reviews/weekly），+2 方法（GET / POST）。只读写本人数据。
+ *
+ * 2026-10-08（Arena 工作区移植 P0–P8）：+19 路由 / +39 方法。
+ *   assistant/active-push、assistant/daily-briefing、assistant/marketing-landing、
+ *   assistant/project-tracking、billing、cost/scenarios（含 {id}、
+ *   {id}/approval、{id}/comments、{id}/versions、compare）、desktop/action、
+ *   feedback、harness/validate、kern/dispatch、playbook/new-product、
+ *   research/fetch、research/verify、worker/status。
+ *   （`/api/feedback/{id}/disposition` 早已存在，不计入本次新增。）
+ *   明细与取值依据见 tests/authz-matrix.ts 末尾那一段登记。
+ *
+ *   ⚠️ 同时修正一处**本次改动之前就已存在**的基线漂移：
+ *   改动前这两个常量是 92 / 128，但按 discoverRoutes() 的同一套规则，
+ *   main 上的实际值是 94 / 131（矩阵当时也是 131 条，AC1 是绿的）。
+ *   也就是说基线常量比真实值少了 2 路由 / 3 方法 —— 场景 1.3/1.4 在此次移植前
+ *   就已经是红的，与本批新路由无关。此次一并校正到 113 / 170。
  */
-const BASELINE_ROUTES = 92;
-const BASELINE_METHODS = 128;
+const BASELINE_ROUTES = 113;
+const BASELINE_METHODS = 170;
 
 let passed = 0;
 const failures: string[] = [];
@@ -375,6 +390,22 @@ async function main() {
   const planA = await prisma.launchPlan.create({
     data: { organizationId: orgA.id, productId: productA.id, projectId: projectA.id, title: `${MARK} 上市计划`, ownerId: ownerA.id },
   });
+  // 成本方案夹具（2026-10-08 移植 P0-1）：
+  //   · 名字带 MARK，让 `GET /api/cost/scenarios` 的 crossTenant 断言真正有意义
+  //     ——若跨组织过滤失效，orgB 的响应里会出现该标记。
+  //   · createdBy = ownerA：DELETE 限定「创建者或组织管理员」，
+  //     于是 outsider/viewer 得 403、foreign 得 404，只有 owner 那轮会真的删掉它。
+  //   · owner 轮的排序在最后，且 DELETE 登记在 phase 3，故不会破坏前面各轮的读断言。
+  const costScenarioA = await prisma.costScenario.create({
+    data: {
+      organizationId: orgA.id,
+      projectId: projectA.id,
+      name: `${MARK} 成本方案`,
+      productName: `${MARK} 探测产品`,
+      category: "health_food",
+      createdBy: ownerA.id,
+    },
+  });
   // 顾问交互运行夹具：同组织可读、仅发起人可取消
   const agentRunA = await prisma.agentRun.create({
     data: {
@@ -544,6 +575,9 @@ async function main() {
     [/^\/api\/memory\//, memoryA.id],
     [/^\/api\/vault\//, credentialA.id],
     [/^\/api\/connectors\//, connectorA.id],
+    // 2026-10-08 移植新增：成本方案的 {id} 系列（详情 / approval / comments / versions）
+    // 共用同一父方案夹具；此前无此解析项，expand() 会直接抛「无法解析路由占位符」。
+    [/^\/api\/cost\/scenarios\//, costScenarioA.id],
     [/^\/api\/schedules\//, scheduleA.id],
     [/^\/api\/playbooks\//, playbookA.id],
   ];
@@ -686,6 +720,10 @@ async function main() {
     await prisma.knowledgeDocument.deleteMany({ where: { organizationId: { in: orgIds } } });
     await prisma.knowledgeSource.deleteMany({ where: { organizationId: { in: orgIds } } });
     await prisma.auditEvent.deleteMany({ where: { actorId: { in: userIds } } });
+    // 成本方案：子表（评论 / 审批 / 版本）在 schema 上都是 onDelete: Cascade，
+    // 但仍显式按组织整表清掉 —— 与上面「按组织范围整体清理」的取向一致，
+    // 避免依赖级联顺序，也避免残留行在下一轮撞唯一键（本文件踩过这个坑）。
+    await prisma.costScenario.deleteMany({ where: { organizationId: { in: orgIds } } });
     await prisma.agentDelegation.deleteMany({ where: { organizationId: { in: orgIds } } });
     await prisma.agentRun.deleteMany({ where: { organizationId: { in: orgIds } } });
     await prisma.agentTask.deleteMany({ where: { organizationId: { in: orgIds } } });

@@ -37,7 +37,7 @@ export type Expectation = number[] | "NO_2XX";
 export interface RouteSpec {
   /** 路由模板；`{param}` 由验收用例的夹具映射展开 */
   path: string;
-  method: "GET" | "POST" | "PATCH" | "DELETE";
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   /** 鉴权口径（人类可读，用于审查表格是否自洽） */
   authz: string;
   expect: Record<Exclude<Identity, "owner">, Expectation>;
@@ -180,10 +180,11 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
   {
     path: "/api/conversations/{id}/messages",
     method: "POST",
-    authz: "会话归属校验：非组织内本人会话一律 404；校验前有内容非空检查",
+    authz: "会话归属校验：非组织内本人会话一律 404。入口先校验 clientMessageId（^[A-Za-z0-9_-]{8,100}$）与 content，缺/非法 → 422",
     expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
-    ownerGate: [201],
-    body: { content: "矩阵探测消息" },
+    // 202：入口是「接受→后台执行」，不是同步创建；同一 clientMessageId 重放返回 200。
+    ownerGate: [200, 202],
+    body: { content: "矩阵探测消息", clientMessageId: "matrix-probe-0001" },
     validationFirst: true,
   },
 
@@ -1235,6 +1236,360 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     ownerGate: [422],
     body: {},
     validationFirst: true,
+  },
+
+  // ==========================================================================
+  // 2026-10-08 · Arena 工作区移植（P0–P8「四类食品成本/生产规划 OS」）新增 API 面
+  // ==========================================================================
+  // 这一批 39 条由 tests/authz-route-coverage.test.ts 的 AC1 静态守卫发现：
+  // 移植新增了 19 条路由 / 39 个方法，但一条都没登记，等于「新增路由未登记即判失败」
+  // 这条硬规则对整批新 API 面全部失效。
+  //
+  // 取值依据（静态读码推导，尚未经 HTTP 实测）：
+  //   · 除 `GET /api/health` 类公开探活外，本批全部以 `getServerSession(req)` 开头，
+  //     匿名一律 401（UnauthorizedError 由 handleApiError 映射）。
+  //   · 这批路由**没有一条**使用 requireProjectRole / requireOrgAdmin，
+  //     只做 `organizationId` 归属过滤，因此 viewer / outsider / foreign 三者的差异
+  //     完全来自「有没有落在本组织」：
+  //       集合型（org 过滤 → 查不到就是空集合）→ 200，故标 crossTenant 断言不含他组织标记
+  //       `{id}` 型（先按 org 找父对象，找不到 404）  → foreign 404，同组织 200
+  //   · body/query 缺失时先被业务校验拦下的行，用于「鉴权先于校验」这一性质的回归；
+  //     真正想验 200/201 的行则显式给出合法载荷。
+  //
+  // 移植同时修掉了这批路由的三类缺陷（详见各条 authz 说明）：
+  //   ① 15 个 handler 的 `catch → 500` 把鉴权拒绝伪装成服务端崩溃（D-008 同类）；
+  //   ② 6 个 handler 完全没有会话校验（匿名可读调度配置/桌面能力/harness 校验器）；
+  //   ③ `GET .../{id}/versions` 缺父方案组织校验（跨租户可读版本历史）。
+  {
+    path: "/api/assistant/active-push",
+    method: "GET",
+    authz: "今日主动推送（用户自作用域）：按 organizationId + userId 取本人记忆后生成",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    crossTenant: true,
+  },
+  {
+    path: "/api/assistant/active-push",
+    method: "POST",
+    authz: "生成主动推送并落 inbox：作用域同 GET，body 全字段可选",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    crossTenant: true,
+    phase: 2,
+  },
+  {
+    path: "/api/assistant/active-push",
+    method: "PUT",
+    authz: "返回 cron 调度描述（触发时间/通道）。此前**无会话校验**，匿名可读调度配置；已补鉴权",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+  },
+  {
+    path: "/api/assistant/daily-briefing",
+    method: "GET",
+    authz: "每日简报（用户自作用域）：本人未遗忘记忆 + 生成简报",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    crossTenant: true,
+  },
+  {
+    path: "/api/assistant/daily-briefing",
+    method: "POST",
+    authz: "每日简报（POST 形态）：作用域同 GET",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    crossTenant: true,
+    phase: 2,
+  },
+  {
+    path: "/api/assistant/marketing-landing",
+    method: "GET",
+    authz: "营销落地页生成：纯生成，只把 organizationId 作为入参透传，不读库",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+  },
+  {
+    path: "/api/assistant/marketing-landing",
+    method: "POST",
+    authz: "营销落地页生成（POST 形态）：同 GET",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    phase: 2,
+  },
+  {
+    path: "/api/assistant/project-tracking",
+    method: "GET",
+    authz: "项目跟踪：projectId 为**必填**查询参数。本套件没有把项目夹具注入 query 的机制，故不带参数，"
+      + "此条只回归「鉴权先于业务校验」（匿名 401 而非 400）",
+    expect: { anon: [401], foreign: [400], outsider: [400], viewer: [400] },
+    ownerGate: [400],
+  },
+  {
+    path: "/api/assistant/project-tracking",
+    method: "POST",
+    authz: "项目跟踪（POST 形态）：缺 projectId 先 400；同为「鉴权先于校验」回归",
+    expect: { anon: [401], foreign: [400], outsider: [400], viewer: [400] },
+    ownerGate: [400],
+    body: {},
+    phase: 2,
+  },
+  {
+    path: "/api/billing",
+    method: "GET",
+    authz: "用量总览 + 成本护栏描述：按 organizationId 聚合，跨组织只看到自己的用量",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    crossTenant: true,
+  },
+
+  // ---------- 成本方案（P0-1 / P2-2）----------
+  {
+    path: "/api/cost/scenarios",
+    method: "GET",
+    authz: "成本方案列表 + 统计：按 organizationId 过滤，跨组织不可见",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    crossTenant: true,
+  },
+  {
+    path: "/api/cost/scenarios",
+    method: "POST",
+    authz: "新建成本方案：任何组织成员可在自己组织内新建，并连带建初始版本（v1）",
+    expect: { anon: [401], foreign: [201], outsider: [201], viewer: [201] },
+    ownerGate: [201],
+    body: { name: "{{RUN_TAG}}-scenario-{{IDENTITY}}", productName: "矩阵探测产品", category: "health_food" },
+    phase: 3,
+  },
+  {
+    path: "/api/cost/scenarios/{id}",
+    method: "GET",
+    authz: "方案详情（含评论/版本/审批）：先按 organizationId 找父对象，跨组织 404 不泄露存在性",
+    expect: { anon: [401], foreign: [404], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    crossTenant: true,
+  },
+  {
+    path: "/api/cost/scenarios/{id}",
+    method: "PUT",
+    authz: "更新方案并生成新版本：同组织成员可改（协作语义），跨组织 404。body 全省略即为「按现值重写」",
+    expect: { anon: [401], foreign: [404], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    body: {},
+    phase: 2,
+  },
+  {
+    path: "/api/cost/scenarios/{id}",
+    method: "DELETE",
+    authz: "删除方案是**破坏性**操作，限定创建者本人或组织管理员：同组织非创建者 403（存在性对同组织不保密），"
+      + "跨组织 404。此前只校验 organizationId，任何组织成员都能删他人方案",
+    expect: { anon: [401], foreign: [404], outsider: [403], viewer: [403] },
+    ownerGate: [200],
+    phase: 3,
+  },
+  {
+    path: "/api/cost/scenarios/{id}/approval",
+    method: "GET",
+    authz: "审批列表：按 scenarioId + organizationId 过滤，跨组织得到空列表（200）而非 404",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    crossTenant: true,
+  },
+  {
+    path: "/api/cost/scenarios/{id}/approval",
+    method: "POST",
+    authz: "提交审批：先按 organizationId 校验父方案（跨组织 404），再建审批行并把方案置 PENDING_APPROVAL",
+    expect: { anon: [401], foreign: [404], outsider: [201], viewer: [201] },
+    ownerGate: [201],
+    body: {},
+    phase: 2,
+  },
+  {
+    path: "/api/cost/scenarios/{id}/approval",
+    method: "PUT",
+    authz: "审批通过/驳回：body 缺 approvalId 或 status 先 400（此处**校验先于组织归属**，故四类身份同码）",
+    expect: { anon: [401], foreign: [400], outsider: [400], viewer: [400] },
+    ownerGate: [400],
+    body: {},
+    phase: 2,
+  },
+  {
+    path: "/api/cost/scenarios/{id}/comments",
+    method: "GET",
+    authz: "评论列表：按 scenarioId + organizationId 过滤，跨组织得到空列表（200）",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    crossTenant: true,
+  },
+  {
+    path: "/api/cost/scenarios/{id}/comments",
+    method: "POST",
+    authz: "发表评论：缺 content 先 400；带 content 时先按 organizationId 校验父方案（跨组织 404）",
+    expect: { anon: [401], foreign: [404], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    body: { content: "{{RUN_TAG}} 矩阵探测评论" },
+    phase: 2,
+  },
+  {
+    path: "/api/cost/scenarios/{id}/versions",
+    method: "GET",
+    authz: "版本历史：CostScenarioVersion **没有 organizationId**（租户由父方案继承），"
+      + "必须经父方案校验；此前 GET 漏了这一步，知道 scenarioId 即可跨租户读版本历史 —— 已补，跨组织 404",
+    expect: { anon: [401], foreign: [404], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    crossTenant: true,
+  },
+  {
+    path: "/api/cost/scenarios/{id}/versions",
+    method: "POST",
+    authz: "追加版本：先按 organizationId 校验父方案（跨组织 404），版本号取 max+1",
+    expect: { anon: [401], foreign: [404], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    body: { changeNote: "{{RUN_TAG}} 矩阵探测版本" },
+    phase: 2,
+  },
+  {
+    path: "/api/cost/scenarios/compare",
+    method: "POST",
+    authz: "方案对比：ids 少于 2 个先 400（**校验先于组织归属**），故四类身份同码",
+    expect: { anon: [401], foreign: [400], outsider: [400], viewer: [400] },
+    ownerGate: [400],
+    body: {},
+    phase: 2,
+  },
+
+  // ---------- 桌面运行时 / 反馈 / Harness / 派发 / 试算 / 研究 / Worker ----------
+  {
+    path: "/api/desktop/action",
+    method: "GET",
+    authz: "桌面运行时能力描述。此前**无会话校验**，匿名即可枚举本机可执行动作类型；已补鉴权",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+  },
+  {
+    path: "/api/desktop/action",
+    method: "POST",
+    authz: "执行桌面动作：body 缺 type 先 400。此前用裸 `throw new Error` 落到 500，"
+      + "把「调用方发错了」伪装成服务端崩溃（D-011/D-012 同类），已改 AppError",
+    expect: { anon: [401], foreign: [400], outsider: [400], viewer: [400] },
+    ownerGate: [400],
+    body: {},
+    phase: 2,
+  },
+  {
+    path: "/api/feedback",
+    method: "GET",
+    authz: "反馈/记忆/harness 样本（用户自作用域）：按 organizationId + userId 过滤",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    crossTenant: true,
+  },
+  {
+    path: "/api/feedback",
+    method: "POST",
+    authz: "提交反馈：body 缺 type 先 400（改用 AppError；此前裸 Error → 500）",
+    expect: { anon: [401], foreign: [400], outsider: [400], viewer: [400] },
+    ownerGate: [400],
+    body: {},
+    phase: 2,
+  },
+  {
+    path: "/api/feedback",
+    method: "PUT",
+    authz: "评估 harness 样本：body 缺 sampleId/actual/outcome 先 400（同上，已改 AppError）",
+    expect: { anon: [401], foreign: [400], outsider: [400], viewer: [400] },
+    ownerGate: [400],
+    body: {},
+    phase: 2,
+  },
+  {
+    path: "/api/harness/validate",
+    method: "GET",
+    authz: "Harness R1–R17 校验（固定样例）。此前**无会话校验**，匿名即可触发；已补鉴权",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+  },
+  {
+    path: "/api/harness/validate",
+    method: "POST",
+    authz: "Harness R1–R17 校验（带产物）：不读库，纯内存规则计算；缺产物输入时 applicable=false 而不假绿",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    body: {},
+    phase: 2,
+  },
+  {
+    path: "/api/kern/dispatch",
+    method: "GET",
+    authz: "专家派发计划（只读生成，不写库）：按会话身份返回派发步骤",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+  },
+  {
+    path: "/api/kern/dispatch",
+    method: "POST",
+    authz: "按目标生成派发计划：body 缺 goal 先 400；带 goal 则只读生成，不写库",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    body: { goal: "{{RUN_TAG}} 矩阵探测目标" },
+    phase: 2,
+  },
+  {
+    path: "/api/playbook/new-product",
+    method: "GET",
+    authz: "新品试算 playbook 描述。此前**无会话校验**，匿名可读内部流程说明；已补鉴权",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+  },
+  {
+    path: "/api/playbook/new-product",
+    method: "POST",
+    authz: "执行新品试算：body 缺 productIdea 先 400（已改 AppError）。"
+      + "该流程按 KERN_NEXT_PHASE_PLAN §3 需人工确认后才建 Product，故不产出产品行",
+    expect: { anon: [401], foreign: [400], outsider: [400], viewer: [400] },
+    ownerGate: [400],
+    body: {},
+    phase: 2,
+  },
+  {
+    path: "/api/research/fetch",
+    method: "GET",
+    authz: "抓取器描述。此前**无会话校验**，匿名可读；已补鉴权",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+  },
+  {
+    path: "/api/research/fetch",
+    method: "POST",
+    authz: "抓取并落 SourceCapture：body 缺 url 先 400；带 url 时先过成本护栏（超限 429）再抓取",
+    expect: { anon: [401], foreign: [400], outsider: [400], viewer: [400] },
+    ownerGate: [400],
+    body: {},
+    phase: 2,
+  },
+  {
+    path: "/api/research/verify",
+    method: "GET",
+    authz: "独立校验器描述。此前**无会话校验**，匿名可读；已补鉴权",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+  },
+  {
+    path: "/api/research/verify",
+    method: "POST",
+    authz: "独立校验：body 缺 claim/sourceId 先 400；跨组织找不到 SourceCapture 为 404；"
+      + "抓取记录字段不全为 422（**不填空串**，否则会把数据缺失伪装成 NOT_FOUND 结论）",
+    expect: { anon: [401], foreign: [400], outsider: [400], viewer: [400] },
+    ownerGate: [400],
+    body: {},
+    phase: 2,
+  },
+  {
+    path: "/api/worker/status",
+    method: "GET",
+    authz: "Worker 状态 + 任务队列：按 organizationId 过滤心跳与任务，跨组织不可见",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    crossTenant: true,
   },
 ];
 

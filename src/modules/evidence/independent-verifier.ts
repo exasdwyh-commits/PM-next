@@ -9,7 +9,12 @@ export interface VerifierClaim {
 }
 
 export interface VerifierSource {
-  evidenceId: string;
+  /**
+   * 绑定的 Evidence id。P0-B 起 `EvidenceSourceCapture.evidenceId` 允许为空
+   * （research-run 抓取的来源可以先入库、后绑定），因此这里同步放宽；
+   * 该字段仅被原样回写到 verification.metadata，不参与判定逻辑。
+   */
+  evidenceId: string | null;
   sourceCaptureId?: string | null;
   sourceUri: string;
   httpStatus: number;
@@ -18,7 +23,7 @@ export interface VerifierSource {
 }
 
 export interface SourceAssessment {
-  evidenceId: string;
+  evidenceId: string | null;
   sourceCaptureId: string | null;
   sourceUri: string;
   sourceOrganization: string | null;
