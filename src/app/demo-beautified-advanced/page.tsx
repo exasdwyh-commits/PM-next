@@ -153,7 +153,7 @@ export default function DemoBeautifiedAdvancedPage() {
             <div><strong>图表:</strong> 自定义Donut渐变+阴影+动画 + Bar Race shimmer + Waterfall利润 + Radar 5维 + tooltip精致</div>
             <div><strong>其他:</strong> Dark Mode prefers-color-scheme + data-theme + toggle + skeleton shimmer + focus ring + scrollbar 6px + typography层次</div>
           </div>
-          <small style={{ fontSize: 10, color: "#9099a6" }}>💡 全面美化一步到位，从"能用"到"精致"到"惊艳"，达到 Linear/Notion 级，4类沉浸感 + 角色自适应 + 3D+磁性+视差+渐变+阴影+动效，日常使用愉悦，客户演示惊艳</small>
+          <small style={{ fontSize: 10, color: "#9099a6" }}>💡 全面美化一步到位，从&quot;能用&quot;到&quot;精致&quot;到&quot;惊艳&quot;，达到 Linear/Notion 级，4类沉浸感 + 角色自适应 + 3D+磁性+视差+渐变+阴影+动效，日常使用愉悦，客户演示惊艳</small>
         </GlassCard>
       </div>
     </RoleProvider>

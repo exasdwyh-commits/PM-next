@@ -88,19 +88,19 @@ export function MarketingLandingRich({ category = "health_food", productName = "
               <div className="script-grid">
                 <div className="script-card" style={{ borderLeft: `3px solid ${catInfo.color}` }}>
                   <strong>版本1: 专业版 · 给技术型客户</strong>
-                  <p>"{productName}经过{catInfo.compliance}，{catInfo.selling[0]}，{catInfo.selling[1]}，多酚留存82%已验证，80℃烘焙工艺，{catInfo.selling[2]}，成本¥{catInfo.cost}，竞品¥{catInfo.price}，利润空间大，符合{catInfo.name}健康趋势。"</p>
+                  <p>&quot;{productName}经过{catInfo.compliance}，{catInfo.selling[0]}，{catInfo.selling[1]}，多酚留存82%已验证，80℃烘焙工艺，{catInfo.selling[2]}，成本¥{catInfo.cost}，竞品¥{catInfo.price}，利润空间大，符合{catInfo.name}健康趋势。&quot;</p>
                   <small>📎 依据：lab_test A级 + {catInfo.compliance} · 适合：技术/研发型客户</small>
                   <button style={{ background: catInfo.color, color: "white" }}>📋 复制专业版</button>
                 </div>
                 <div className="script-card" style={{ borderLeft: `3px solid ${catInfo.color}` }}>
                   <strong>版本2: 简洁版 · 给决策型客户</strong>
-                  <p>"{productName}，{catInfo.selling[0]}，{catInfo.selling[1]}，成本¥{catInfo.cost}竞品¥{catInfo.price}，利润{Math.round((1 - parseFloat(catInfo.cost) / parseFloat(catInfo.price)) * 100)}%，{catInfo.compliance}已合规，建议首批1000盒试销。"</p>
+                  <p>&quot;{productName}，{catInfo.selling[0]}，{catInfo.selling[1]}，成本¥{catInfo.cost}竞品¥{catInfo.price}，利润{Math.round((1 - parseFloat(catInfo.cost) / parseFloat(catInfo.price)) * 100)}%，{catInfo.compliance}已合规，建议首批1000盒试销。&quot;</p>
                   <small>📎 依据：cost_bom_agent + {catInfo.compliance} · 适合：老板/决策型客户</small>
                   <button style={{ background: catInfo.color, color: "white" }}>📋 复制简洁版</button>
                 </div>
                 <div className="script-card" style={{ borderLeft: `3px solid ${catInfo.color}` }}>
                   <strong>版本3: 促单版 · 给价格敏感客户</strong>
-                  <p>"{productName}现在成本仅¥{catInfo.cost}，竞品均价¥{catInfo.price}，利润{Math.round((1 - parseFloat(catInfo.cost) / parseFloat(catInfo.price)) * 100)}%，{catInfo.selling[0]}，{catInfo.selling[1]}，{catInfo.compliance}已合规，今天下单可享首批优惠，供货价¥{(parseFloat(catInfo.cost) * 1.5).toFixed(1)}。"</p>
+                  <p>&quot;{productName}现在成本仅¥{catInfo.cost}，竞品均价¥{catInfo.price}，利润{Math.round((1 - parseFloat(catInfo.cost) / parseFloat(catInfo.price)) * 100)}%，{catInfo.selling[0]}，{catInfo.selling[1]}，{catInfo.compliance}已合规，今天下单可享首批优惠，供货价¥{(parseFloat(catInfo.cost) * 1.5).toFixed(1)}。&quot;</p>
                   <small>📎 依据：supplier_quote + cost_bom · 适合：价格敏感/促单</small>
                   <button style={{ background: catInfo.color, color: "white" }}>📋 复制促单版</button>
                 </div>
@@ -159,8 +159,8 @@ export function MarketingLandingRich({ category = "health_food", productName = "
               <h4>✅ 合规可宣称清单 · {catInfo.icon} {catInfo.name} · {catInfo.compliance}</h4>
               <div className="compliance-list">
                 <div className="compliance-item ok" style={{ borderLeft: `3px solid #0b7a4f` }}><strong>✅ {catInfo.compliance}</strong><small>已合规 · 可宣称 · {catInfo.name}专用</small><span className="lvl A">A级</span></div>
-                <div className="compliance-item ok" style={{ borderLeft: `3px solid #0b7a4f` }}><strong>✅ 多酚功效可宣称</strong><small>多酚留存82%已验证 · lab_test A级 · 可宣称"富含多酚"</small><span className="lvl A">A级</span></div>
-                <div className="compliance-item warn" style={{ borderLeft: `3px solid #f59e0b` }}><strong>⚠️ 功能声称需注意</strong><small>不能宣称"治疗"，可宣称"有助于" · {catInfo.name}专用边界</small><span className="lvl B">B级</span></div>
+                <div className="compliance-item ok" style={{ borderLeft: `3px solid #0b7a4f` }}><strong>✅ 多酚功效可宣称</strong><small>多酚留存82%已验证 · lab_test A级 · 可宣称&quot;富含多酚&quot;</small><span className="lvl A">A级</span></div>
+                <div className="compliance-item warn" style={{ borderLeft: `3px solid #f59e0b` }}><strong>⚠️ 功能声称需注意</strong><small>不能宣称&quot;治疗&quot;，可宣称&quot;有助于&quot; · {catInfo.name}专用边界</small><span className="lvl B">B级</span></div>
                 <div className="compliance-item"><strong>📋 标签合规</strong><small>配料表+营养成分表+保质期+贮存条件已核实 · {catInfo.compliance}</small><span className="lvl A">A级</span></div>
               </div>
             </div>
@@ -180,7 +180,7 @@ export function MarketingLandingRich({ category = "health_food", productName = "
         <div className="qa-grid">
           <div className="qa-card" style={{ borderLeft: `3px solid ${catInfo.color}` }}><strong>Q: 卖点是什么？</strong><p>A: {catInfo.selling[0]}，{catInfo.selling[1]}，{catInfo.selling[2]}，成本¥{catInfo.cost}竞品¥{catInfo.price}利润{Math.round((1 - parseFloat(catInfo.cost) / parseFloat(catInfo.price)) * 100)}%</p><button style={{ background: catInfo.color, color: "white" }}>📋 复制</button></div>
           <div className="qa-card" style={{ borderLeft: `3px solid ${catInfo.color}` }}><strong>Q: 为什么值{catInfo.price}？</strong><p>A: {catInfo.compliance}已合规，多酚留存82%验证，{catInfo.selling[0]}，{catInfo.selling[1]}，竞品均价{catInfo.price}，利润空间大</p><button style={{ background: catInfo.color, color: "white" }}>📋 复制</button></div>
-          <div className="qa-card" style={{ borderLeft: `3px solid ${catInfo.color}` }}><strong>Q: 合规吗？</strong><p>A: {catInfo.compliance}已合规，可宣称"{catInfo.selling[0]}"，标签已核实，A级证据，可放心销售</p><button style={{ background: catInfo.color, color: "white" }}>📋 复制</button></div>
+          <div className="qa-card" style={{ borderLeft: `3px solid ${catInfo.color}` }}><strong>Q: 合规吗？</strong><p>A: {catInfo.compliance}已合规，可宣称&quot;{catInfo.selling[0]}&quot;，标签已核实，A级证据，可放心销售</p><button style={{ background: catInfo.color, color: "white" }}>📋 复制</button></div>
         </div>
       </div>
     </div>

@@ -3,10 +3,11 @@ import prisma from "@/shared/db";
 import { getServerSession } from "@/modules/identity/session";
 import { handleApiError } from "@/shared/api-handler";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(req);
-    const scenarioId = params.id;
+    const { id } = await params;
+    const scenarioId = id;
     const comments = await prisma.costScenarioComment.findMany({
       where: { scenarioId, organizationId: session.organizationId },
       include: { user: { select: { id: true, name: true, email: true } } },
@@ -19,10 +20,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(req);
-    const scenarioId = params.id;
+    const { id } = await params;
+    const scenarioId = id;
     const body = await req.json();
     const { content, mentions = [] } = body;
     if (!content) return NextResponse.json({ error: "content required" }, { status: 400 });

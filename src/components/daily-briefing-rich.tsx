@@ -68,7 +68,7 @@ export function DailyBriefingRich({ data, onAction }: { data: DailyBriefingData;
         </div>
 
         <div className="role-switch-hint">
-          <small>💡 领导视角极简，专注结论。试试说"切换到研发视角"或"切换到销售视角"，或手动：</small>
+          <small>💡 领导视角极简，专注结论。试试说&quot;切换到研发视角&quot;或&quot;切换到销售视角&quot;，或手动：</small>
           <div className="role-switch">
             <button className={(role as string) === "leadership" ? "is-active" : ""} onClick={() => setManualRole("leadership")}>👔 领导</button>
             <button className={(role as string) === "product" ? "is-active" : ""} onClick={() => setManualRole("product")}>🔬 研发</button>
@@ -105,7 +105,7 @@ export function DailyBriefingRich({ data, onAction }: { data: DailyBriefingData;
 
         <div className="script-hint" style={{ borderLeft: `3px solid ${catInfo.color}` }}>
           <strong>💬 今日推荐话术 · {catInfo.icon} {catInfo.name}</strong>
-          <p>"{data.projectTitle || "多酚软糖"}经过{data.verifiedCount}条证据核实，{catInfo.selling[0]}{catInfo.selling[1]}，成本仅10.2元，竞品均价{category === "health_food" ? "199" : "299"}元，利润空间大。建议首批1000盒试销。"</p>
+          <p>&quot;{data.projectTitle || "多酚软糖"}经过{data.verifiedCount}条证据核实，{catInfo.selling[0]}{catInfo.selling[1]}，成本仅10.2元，竞品均价{category === "health_food" ? "199" : "299"}元，利润空间大。建议首批1000盒试销。&quot;</p>
           <small>一键复制 · {catInfo.name}专用 · Kern生成 · {timeGreeting}可用</small>
         </div>
       </div>

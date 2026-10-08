@@ -192,7 +192,7 @@ export function CostScenarioManager({
             <CostApproval scenario={selectedScenarioForDetail} approvals={[]} onSubmit={() => alert("已提交审批，产品审核→领导审批")} onApprove={() => alert("已批准")} onReject={() => alert("已驳回")} />
           ) : (
             <div style={{ padding: 20, textAlign: "center", color: "#6b7280", fontSize: 12, border: "1px dashed #e7e9ef", borderRadius: 8 }}>
-              请先在列表中选择一个方案，点击"📂 加载"旁的选择，选择后在此查看审批流
+              请先在列表中选择一个方案，点击&quot;📂 加载&quot;旁的选择，选择后在此查看审批流
               <div style={{ marginTop: 8, display: "flex", gap: 6, justifyContent: "center" }}>
                 {scenarios.slice(0, 3).map(s => (
                   <button key={s.id} onClick={() => setSelectedScenarioForDetail(s)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #e7e9ef", background: "white", fontSize: 10, cursor: "pointer" }}>{s.name}</button>

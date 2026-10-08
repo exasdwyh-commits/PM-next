@@ -55,11 +55,11 @@ export function MissionConclusionOriginal({
 
 
 export function MissionConclusion(props: any) {
-  try {
-    const { role, source } = useRole();
-    if (source !== "default") {
-      return <MissionConclusionRich {...props} />;
-    }
-  } catch {}
+  const { source } = useRole();
+  // useRole 在无 Provider 时返回 default 兜底，不会抛异常，
+  // 因此这里必须在顶层无条件调用，不能包在 try/catch 里（条件调用 Hook 会破坏渲染）
+  if (source !== "default") {
+    return <MissionConclusionRich {...props} />;
+  }
   return <MissionConclusionOriginal {...props} />;
 }

@@ -30,7 +30,9 @@ yarn-error.log*
 .DS_Store
 *.pem
 
-# 构建产物（.next-verify / .next-acc 为本地验收构建目录，可达 150M+，禁止入库）
+# 构建产物（.next-*/ 均为本地验收/调试构建目录，单目录可达 400M+，禁止入库）
+# 统一用通配规则兜底，避免每换一个验收目录名就要补一条忽略
+.next-*/
 .next-verify/
 .next-acc/
 .next-fixed/
@@ -69,3 +71,9 @@ tools/response-preview/kern-conversation.html
 
 # 一次性探针 / 截图脚本不入库：放 outputs/scratch-scripts/，需要保留的归档到 scripts/archive/
 /scripts/_*
+
+# 排障期临时产物（探针脚本 / Next trace 转储 / 代码图谱工具库），禁止入库
+*.tmp.js
+/probe-*.js
+/trace
+/.codegraph/

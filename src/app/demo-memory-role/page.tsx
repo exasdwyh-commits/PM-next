@@ -24,8 +24,8 @@ function DemoInner() {
           </div>
           <div style={{ background: "white", padding: 12, borderRadius: 8, border: "1px solid #e7e9ef" }}>
             <strong>对话记忆</strong><br/>
-            说"记住我喜欢销售视角" → 存入 Kern Memory<br/>
-            说"以后默认用领导视角" → 长期偏好
+            说&quot;记住我喜欢销售视角&quot; → 存入 Kern Memory<br/>
+            说&quot;以后默认用领导视角&quot; → 长期偏好
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
@@ -48,7 +48,7 @@ function DemoInner() {
           <button className={role === "product" ? "is-active" : ""} onClick={() => setManualRole("product")}>🔬 产品研发</button>
           <button className={role === "sales" ? "is-active" : ""} onClick={() => setManualRole("sales")}>💼 销售营销</button>
         </div>
-        <small style={{ color: "#6b7280", fontSize: 11 }}>点击切换，2次后自动记忆 · 也可说"记住我喜欢销售视角"</small>
+        <small style={{ color: "#6b7280", fontSize: 11 }}>点击切换，2次后自动记忆 · 也可说&quot;记住我喜欢销售视角&quot;</small>
       </div>
 
       <div style={{ display: "grid", gap: 16 }}>
@@ -77,7 +77,7 @@ function DemoInner() {
       <div style={{ padding: 16, background: "#0f1116", color: "white", borderRadius: 12, display: "grid", gap: 12 }}>
         <h3>✅ 已实现</h3>
         <ul style={{ fontSize: 12, lineHeight: 1.8, margin: 0, paddingLeft: 16 }}>
-          <li>记忆偏好：手动2次自动记忆 + 对话"记住我喜欢XX视角" → 存入Kern Memory (PREFERENCE, pinned)</li>
+          <li>记忆偏好：手动2次自动记忆 + 对话&quot;记住我喜欢XX视角&quot; → 存入Kern Memory (PREFERENCE, pinned)</li>
           <li>记忆召回：每次对话 recallRolePreference，注入到 system prompt，Kern自动按偏好呈现</li>
           <li>工具角色化：领导隐藏，产品全部展开，销售转为销售工具箱，一键生成</li>
           <li>API：POST/GET/DELETE /api/memory/role</li>

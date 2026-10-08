@@ -8,12 +8,13 @@ import prisma from "@/shared/db";
 import { getServerSession } from "@/modules/identity/session";
 import { handleApiError } from "@/shared/api-handler";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(req);
+    const { id } = await params;
     const scenario = await prisma.costScenario.findFirst({
       where: {
-        id: params.id,
+        id: id,
         organizationId: session.organizationId,
       },
       include: {
@@ -41,29 +42,30 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     return NextResponse.json({ scenario });
   } catch (error) {
-    console.error(`GET /api/cost/scenarios/${params.id} error:`, error);
+    console.error(`GET /api/cost/scenarios/${id} error:`, error);
     return NextResponse.json({ error: "Failed to fetch scenario" }, { status: 500 });
   }
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(req);
+    const { id } = await params;
     const body = await req.json();
     const existing = await prisma.costScenario.findFirst({
-      where: { id: params.id, organizationId: session.organizationId },
+      where: { id: id, organizationId: session.organizationId },
     });
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     // 创建新版本
     const latestVersion = await prisma.costScenarioVersion.findFirst({
-      where: { scenarioId: params.id },
+      where: { scenarioId: id },
       orderBy: { version: "desc" },
     });
     const nextVersion = (latestVersion?.version || 0) + 1;
 
     const updated = await prisma.costScenario.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         name: body.name ?? existing.name,
         category: body.category ?? existing.category,
@@ -90,7 +92,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
     await prisma.costScenarioVersion.create({
       data: {
-        scenarioId: params.id,
+        scenarioId: id,
         version: nextVersion,
         moduleValues: updated.moduleValues as any,
         bomItems: updated.bomItems as any,
@@ -104,24 +106,25 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
     return NextResponse.json({ scenario: updated });
   } catch (error) {
-    console.error(`PUT /api/cost/scenarios/${params.id} error:`, error);
+    console.error(`PUT /api/cost/scenarios/${id} error:`, error);
     return NextResponse.json({ error: "Failed to update scenario" }, { status: 500 });
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(req);
+    const { id } = await params;
     const existing = await prisma.costScenario.findFirst({
-      where: { id: params.id, organizationId: session.organizationId },
+      where: { id: id, organizationId: session.organizationId },
     });
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    await prisma.costScenario.delete({ where: { id: params.id } });
+    await prisma.costScenario.delete({ where: { id: id } });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error(`DELETE /api/cost/scenarios/${params.id} error:`, error);
+    console.error(`DELETE /api/cost/scenarios/${id} error:`, error);
     return NextResponse.json({ error: "Failed to delete scenario" }, { status: 500 });
   }
 }

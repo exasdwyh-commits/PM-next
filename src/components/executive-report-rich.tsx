@@ -89,7 +89,7 @@ export function ExecutiveReportRich({ report }: { report: ExecutiveReportPayload
           </div>
           <div className="point-card">
             <strong>话术</strong>
-            <p className="script">"{report.summary?.slice(0, 80) || "暂无结论"}，已核实{verifiedCount}/{evidenceCount}条，{verifiedRate}%可信，可直接用于客户沟通。"</p>
+            <p className="script">&quot;{report.summary?.slice(0, 80) || "暂无结论"}，已核实{verifiedCount}/{evidenceCount}条，{verifiedRate}%可信，可直接用于客户沟通。&quot;</p>
           </div>
         </div>
 

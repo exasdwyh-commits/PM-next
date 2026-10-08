@@ -78,7 +78,7 @@ export function ProductRndCockpitRich({ project, category = "health_food", onOpt
             </div>
             <div className="section" style={{ borderLeft: `3px solid ${catInfo.color}` }}>
               <h4>📦 合规 · {catInfo.compliance} · {catInfo.name}专用</h4>
-              <p>{catInfo.compliance}已检查，{catInfo.name}专用合规，宣称边界已核实，可宣称"多酚功效"</p>
+              <p>{catInfo.compliance}已检查，{catInfo.name}专用合规，宣称边界已核实，可宣称&quot;多酚功效&quot;</p>
             </div>
             <div className="section" style={{ borderLeft: `3px solid ${catInfo.color}` }}>
               <h4>🏭 供应商 · 3家对比 · {catInfo.name}</h4>

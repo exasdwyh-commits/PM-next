@@ -59,7 +59,7 @@ export function OverviewRoleBasedRich({ project, gaps, evidenceInsight, opportun
             <button className={role === "product" ? "is-active" : ""} onClick={() => setManualRole("product")}>🔬 研发</button>
             <button className={role === "sales" ? "is-active" : ""} onClick={() => setManualRole("sales")}>💼 销售</button>
           </div>
-          <small style={{ fontSize: 10, color: "#9099a6" }}>可手动切换，也可对Kern说"切换到销售视角"</small>
+          <small style={{ fontSize: 10, color: "#9099a6" }}>可手动切换，也可对Kern说&quot;切换到销售视角&quot;</small>
           <div className="category-badge-rich" style={{ background: catInfo.color, color: "white" }}>{catInfo.icon} {catInfo.name}</div>
         </div>
       </div>

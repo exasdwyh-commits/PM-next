@@ -90,7 +90,7 @@ export default function DemoBeautifiedPage() {
               </div>
             </div>
           </div>
-          <small className="body-beautified">💡 轻量美化零风险，不改逻辑，纯CSS提升，卡片有层次，hover有反馈，按钮有质感，色彩有阴影，字体有层次，整体从"能用"到"精致" · 4类专用更沉浸，角色自适应更明显</small>
+          <small className="body-beautified">💡 轻量美化零风险，不改逻辑，纯CSS提升，卡片有层次，hover有反馈，按钮有质感，色彩有阴影，字体有层次，整体从&quot;能用&quot;到&quot;精致&quot; · 4类专用更沉浸，角色自适应更明显</small>
         </div>
       </div>
     </RoleProvider>

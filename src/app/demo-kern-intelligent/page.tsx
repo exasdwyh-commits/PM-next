@@ -79,7 +79,7 @@ function DemoInner() {
           <div style={{ background: "white", padding: 12, borderRadius: 8, border: "1px solid #e7e9ef" }}>
             <strong>1. 自动识别</strong><br/>
             根据关键词、页面、Envelope自动推断<br/>
-            例如"卖点"→销售，"证据"→产品，"总结"→领导
+            例如&quot;卖点&quot;→销售，&quot;证据&quot;→产品，&quot;总结&quot;→领导
           </div>
           <div style={{ background: "white", padding: 12, borderRadius: 8, border: "1px solid #e7e9ef" }}>
             <strong>2. 手动切换</strong><br/>
@@ -88,7 +88,7 @@ function DemoInner() {
           </div>
           <div style={{ background: "white", padding: 12, borderRadius: 8, border: "1px solid #e7e9ef" }}>
             <strong>3. Kern对话驱动</strong><br/>
-            说"切换到销售视角"或Kern在meta.suggestedRole建议<br/>
+            说&quot;切换到销售视角&quot;或Kern在meta.suggestedRole建议<br/>
             10分钟内优先，Kern作为主Agent统筹
           </div>
         </div>

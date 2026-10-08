@@ -149,7 +149,7 @@ export function CostOfficeExport({
               <div className="preview-sales">
                 <div className="selling-points">
                   <strong>卖点：{category === "health_food" ? "蓝帽子+多酚功能+软糖口感" : category === "cross_border_food" ? "进口+跨境背书+保税仓" : category === "cosmetics" ? "透明质酸保湿+烟酰胺美白+玻璃瓶质感" : "性价比+日常刚需+SC"}</strong>
-                  <p>话术："{category === "health_food" ? "蓝帽子备案5万已摊，功能卖点是关键" : "进口成本高但溢价强"}，总成本¥{result.breakdown.totalCost.toFixed(2)}，零售¥{(result.breakdown.totalCost * 2.5).toFixed(0)}，利润空间大。"</p>
+                  <p>话术：&quot;{category === "health_food" ? "蓝帽子备案5万已摊，功能卖点是关键" : "进口成本高但溢价强"}，总成本¥{result.breakdown.totalCost.toFixed(2)}，零售¥{(result.breakdown.totalCost * 2.5).toFixed(0)}，利润空间大。&quot;</p>
                 </div>
                 <div className="tool-preview">工具箱：下载证书/报告/图片，复制话术，渠道占比环形图</div>
               </div>
