@@ -4,6 +4,7 @@
  */
 
 import { executeResearchNode } from "@/modules/supervisor/research-integration";
+import { autoIdentityCode } from "@/modules/products/service";
 import prisma from "@/shared/db";
 
 export type PlaybookNodeKey =
@@ -250,15 +251,22 @@ export async function executeNewProductPlaybook(input: PlaybookInput): Promise<P
   let productId: string | undefined;
   if (status === "SUCCEEDED" && input.projectId) {
     try {
+      const productName = input.productIdea.slice(0, 50);
+      // Product 的必填项是 identityCode / targetAudience / marketPath / devMode；
+      // 早前这里传了不存在的 category/description/status 字段，落库必然失败。
+      // Playbook 阶段这些业务字段尚未由用户确认，按 playbook 已解析的信息落最小可用集，
+      // 其余留给产品工作台补全（sourceKind=AI_EXTRACTED 标明来源）。
       const product = await prisma.product.create({
         data: {
           organizationId: input.organizationId,
-          projectId: input.projectId,
-          name: input.productIdea.slice(0, 50),
-          category: category as any,
-          description: `由 NEW_PRODUCT Playbook 生成: ${input.productIdea}`,
-          status: "DRAFT",
-          createdById: input.userId,
+          projects: { connect: { id: input.projectId } },
+          name: productName,
+          identityCode: autoIdentityCode(productName),
+          targetAudience: input.productIdea.slice(0, 200),
+          marketPath: "PENDING",
+          devMode: "PENDING",
+          sourceKind: "AI_EXTRACTED",
+          ownerId: input.userId,
         },
       });
       productId = product.id;

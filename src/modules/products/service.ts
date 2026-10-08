@@ -186,7 +186,7 @@ export interface CreateDevelopmentProductParams {
   sourceKind?: string;
 }
 
-function autoIdentityCode(name: string): string {
+export function autoIdentityCode(name: string): string {
   const slug = name
     .toUpperCase()
     .replace(/[^A-Z0-9\u4e00-\u9fa5]/g, "")

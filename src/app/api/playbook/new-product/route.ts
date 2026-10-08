@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/shared/db";
 import { getServerSession } from "@/modules/identity/session";
 import { handleApiError } from "@/shared/api-handler";
+import { UnprocessableEntityError } from "@/shared/errors";
 import { executeNewProductPlaybook, describePlaybook } from "@/modules/product-rnd/playbook";
 
 export async function GET() {
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { productIdea, projectId, category = "health_food" } = body;
 
-    if (!productIdea) throw new Error("缺少 productIdea");
+    if (!productIdea) throw new UnprocessableEntityError("缺少 productIdea");
 
     const missionId = `mission_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 

@@ -5,7 +5,12 @@
 
 import { fetchSource } from "@/modules/research/source-fetch";
 import { verifyEvidence } from "@/modules/evidence/verifier";
-import { buildIdempotencyKey, findOrReuseResearchRun, createResearchRun } from "@/modules/research/research-run-idempotency";
+import {
+  buildIdempotencyKey,
+  findOrReuseResearchRun,
+  createResearchRun,
+  type ResearchRun,
+} from "@/modules/research/research-run-idempotency";
 import { buildLineageFromMission, validateCitationLineage } from "@/modules/research/citation-lineage";
 import prisma from "@/shared/db";
 
@@ -43,26 +48,39 @@ export async function executeResearchNode(input: ResearchNodeInput): Promise<Res
     revisionRound: input.revisionRound,
   });
 
-  let researchRun = existingRun;
+  let researchRun: ResearchRun | null = existingRun;
   if (!researchRun) {
-    researchRun = await createResearchRun(prisma, {
-      missionId: input.missionId,
-      nodeKey: input.nodeKey,
-      revisionRound: input.revisionRound,
-    });
-    // 更新 projectId 和 question
-    researchRun = await prisma.researchRun.update({
-      where: { id: researchRun.id },
-      data: {
-        projectId: input.projectId,
-        question: input.question,
-        idempotencyKey,
+    // 必填列在 create 时一次给全（projectId/question/createdById/inputRevision/scopeSnapshotJson）
+    const created = await createResearchRun(
+      prisma,
+      {
         missionId: input.missionId,
         nodeKey: input.nodeKey,
         revisionRound: input.revisionRound,
       },
-    });
+      {
+        projectId: input.projectId,
+        question: input.question,
+        createdById: input.userId,
+        inputRevision: input.revisionRound,
+        scopeSnapshotJson: { nodeKey: input.nodeKey, requiredSources: input.requiredSources ?? null },
+      },
+    );
+    // prisma 返回的记录中 idempotencyKey/revisionRound 可空，而本模块的 ResearchRun
+    // 约定二者必填（由 buildIdempotencyKey 写入），此处显式收敛类型
+    const normalized: ResearchRun = {
+      ...created,
+      idempotencyKey: created.idempotencyKey ?? idempotencyKey,
+      revisionRound: created.revisionRound ?? input.revisionRound,
+    } as unknown as ResearchRun;
+    researchRun = normalized;
   }
+
+  // 新建/更新后再次断言非空：后续逻辑一律依赖 researchRun.id，避免可空传播
+  if (!researchRun) {
+    throw new Error("ResearchRun 初始化失败");
+  }
+  const researchRunId: string = researchRun.id;
 
   // B1 研究节点接 ResearchRun - 根据 requiredSources 抓取
   const requiredSources = input.requiredSources || ["market", "regulatory", "competitor"];
@@ -89,7 +107,7 @@ export async function executeResearchNode(input: ResearchNodeInput): Promise<Res
       const capture = await prisma.evidenceSourceCapture.create({
         data: {
           organizationId: input.organizationId,
-          researchRunId: researchRun.id,
+          researchRunId,
           url: fetched.url,
           finalUrl: fetched.finalUrl,
           sourceUri: fetched.finalUrl,
@@ -120,7 +138,7 @@ export async function executeResearchNode(input: ResearchNodeInput): Promise<Res
   // B4 安全边界 - 无可用源 → BLOCKED
   if (sourceCaptures.length === 0) {
     await prisma.researchRun.update({
-      where: { id: researchRun.id },
+      where: { id: researchRunId },
       data: { status: "FAILED", errorReason: blockedReasons.join("; ") },
     });
     return {
@@ -145,7 +163,7 @@ export async function executeResearchNode(input: ResearchNodeInput): Promise<Res
 
   // 更新 ResearchRun 为成功
   await prisma.researchRun.update({
-    where: { id: researchRun.id },
+    where: { id: researchRunId },
     data: { status: "PUBLISHED", publishedAt: new Date() },
   });
 

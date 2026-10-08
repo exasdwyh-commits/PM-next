@@ -21,7 +21,11 @@ export interface ResearchRun {
   nodeKey: string;
   revisionRound: number;
   status: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED" | "BLOCKED";
-  sourceCaptures: any[];
+  /**
+   * 仅在 findOrReuseResearchRun 走 include:{ sourceCaptures:true } 的查询路径上存在；
+   * createResearchRun / prisma.researchRun.update 返回的记录不含该关系，故为可选。
+   */
+  sourceCaptures?: any[];
   createdAt: Date;
   updatedAt: Date;
   expiresAt?: Date;
@@ -63,7 +67,11 @@ export async function findOrReuseResearchRun(
   return { run: null, reused: false, reason: `无可用 ResearchRun, 需新建 idempotencyKey=${idempotencyKey}` };
 }
 
-export async function createResearchRun(prisma: any, key: ResearchRunKey): Promise<ResearchRun> {
+export async function createResearchRun(
+  prisma: any,
+  key: ResearchRunKey,
+  context: { projectId: string; question: string; createdById: string; inputRevision?: number; scopeSnapshotJson?: unknown },
+): Promise<ResearchRun> {
   const idempotencyKey = buildIdempotencyKey(key);
   return prisma.researchRun.create({
     data: {
@@ -71,7 +79,14 @@ export async function createResearchRun(prisma: any, key: ResearchRunKey): Promi
       missionId: key.missionId,
       nodeKey: key.nodeKey,
       revisionRound: key.revisionRound,
-      status: "PENDING",
+      // 以下四项为ResearchRun 必填列，必须在 create 时给全；
+      // 早前留给后续 update 补，导致 create 直接抛 P2022 失败
+      projectId: context.projectId,
+      question: context.question,
+      createdById: context.createdById,
+      inputRevision: context.inputRevision ?? 0,
+      scopeSnapshotJson: (context.scopeSnapshotJson ?? { nodeKey: key.nodeKey }) as any,
+      status: "RUNNING",
       createdAt: new Date(),
       updatedAt: new Date(),
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7天过期

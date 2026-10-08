@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/shared/db";
 import { getServerSession } from "@/modules/identity/session";
 import { handleApiError } from "@/shared/api-handler";
+import { UnprocessableEntityError } from "@/shared/errors";
 import { submitFeedback, listFeedback, deduplicateMemories, describeFeedback } from "@/modules/feedback";
 
 export async function GET(req: NextRequest) {
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
     const session = await getServerSession(req);
     const body = await req.json();
     const { type, content, topics, missionId, messageId, source } = body;
-    if (!type) throw new Error("缺少 type");
+    if (!type) throw new UnprocessableEntityError("缺少 type");
     const result = await submitFeedback({
       organizationId: session.organizationId,
       userId: session.userId,
@@ -58,7 +59,7 @@ export async function PUT(req: NextRequest) {
     const session = await getServerSession(req);
     const body = await req.json();
     const { sampleId, actual, outcome } = body;
-    if (!sampleId || !actual || !outcome) throw new Error("缺少 sampleId/actual/outcome");
+    if (!sampleId || !actual || !outcome) throw new UnprocessableEntityError("缺少 sampleId/actual/outcome");
     const { evaluateHarnessSample } = await import("@/modules/feedback");
     const result = await evaluateHarnessSample(session.organizationId, sampleId, actual, outcome);
     return NextResponse.json(result);

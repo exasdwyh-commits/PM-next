@@ -3,7 +3,7 @@
  */
 
 import { COST_MODULE_REGISTRY } from "./registry";
-import type { ProductCostTemplate, ModularCostResult } from "./types";
+import { num, type CostModuleValues, type ProductCostTemplate, type ModularCostResult } from "./types";
 
 export function calculateModularCost(
   template: ProductCostTemplate,
@@ -24,10 +24,12 @@ export function calculateModularCost(
     const def = COST_MODULE_REGISTRY[instance.moduleId];
     if (!def) continue;
 
-    const values = { ...instance.values, ...(overrides?.[instance.moduleId] || {}) } as Record<string, number>;
-    
-    if (instance.moduleId === "channel" && values.retailPrice) {
-      retailPrice = values.retailPrice;
+    // 字段实际含 select 的字符串值，此前 as Record<string, number> 是错误断言，
+    // 会让 select 判断在类型层失效。改为 CostModuleValues，由模块内 num()/str() 分派。
+    const values: CostModuleValues = { ...instance.values, ...(overrides?.[instance.moduleId] || {}) };
+
+    if (instance.moduleId === "channel" && num(values, "retailPrice") > 0) {
+      retailPrice = num(values, "retailPrice");
     }
 
     const result = def.calculate(values, { template });
@@ -97,8 +99,9 @@ export function calculateModularCost(
 
   const netProfit = retailPrice > 0 ? retailPrice - totalCost : 0;
   const netMarginRate = retailPrice > 0 ? (netProfit / retailPrice) * 100 : 0;
-  const monthlyFixed = (template.modules.find(m => m.moduleId === "overhead")?.values.monthlyFixed as number) || 0;
-  const monthlySales = (template.modules.find(m => m.moduleId === "overhead")?.values.monthlySales as number) || 1000;
+  const overheadValues = template.modules.find(m => m.moduleId === "overhead")?.values;
+  const monthlyFixed = num(overheadValues, "monthlyFixed");
+  const monthlySales = num(overheadValues, "monthlySales", 1000);
   const contributionMargin = retailPrice - (totalCost - totalChannel);
   const breakevenUnits = contributionMargin > 0 && monthlyFixed > 0 ? Math.ceil(monthlyFixed / contributionMargin) : 0;
 

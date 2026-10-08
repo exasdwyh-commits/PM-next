@@ -2,7 +2,7 @@
  * Cost Module Registry - 4类专用：普通食品、保健食品、跨境食品、化妆品
  */
 
-import type { CostModuleDef } from "./types";
+import { num, str, type CostModuleDef } from "./types";
 
 // 原料模块
 export const materialModule: CostModuleDef = {
@@ -18,9 +18,9 @@ export const materialModule: CostModuleDef = {
     { key: "importCost", label: "进口原料成本", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "跨境食品：进口原料额外成本" },
   ],
   calculate: (values) => {
-    const materialCost = values.materialCost || 0;
-    const importCost = values.importCost || 0;
-    const lossRate = values.lossRate || 3;
+    const materialCost = num(values, "materialCost");
+    const importCost = num(values, "importCost");
+    const lossRate = num(values, "lossRate", 3);
     const cost = (materialCost + importCost) * (1 + lossRate / 100);
     return {
       cost,
@@ -43,7 +43,7 @@ export const formulationModule: CostModuleDef = {
     { key: "servings", label: "含量数", unit: "粒/次/件", type: "number", defaultValue: 30, hint: "一盒数量" },
   ],
   calculate: (values) => {
-    const cost = values.formulationCost || 0;
+    const cost = num(values, "formulationCost");
     return { cost, breakdown: { 配方: cost } };
   },
 };
@@ -61,8 +61,8 @@ export const manufacturingModule: CostModuleDef = {
     { key: "batchSize", label: "批量", unit: "件/批", type: "number", defaultValue: 1000, hint: "批量越大单件越低" },
   ],
   calculate: (values) => {
-    const manufacturing = values.manufacturingCost || 0;
-    const filling = values.fillingCost || 0;
+    const manufacturing = num(values, "manufacturingCost");
+    const filling = num(values, "fillingCost");
     return { cost: manufacturing + filling, breakdown: { 加工: manufacturing, 灌装: filling } };
   },
 };
@@ -80,7 +80,7 @@ export const encapsulationModule: CostModuleDef = {
     { key: "capsuleCount", label: "数量", unit: "粒/件", type: "number", defaultValue: 60 },
   ],
   calculate: (values) => {
-    return { cost: values.encapsulationCost || 0, breakdown: { 剂型: values.encapsulationCost || 0 } };
+    return { cost: num(values, "encapsulationCost"), breakdown: { 剂型: num(values, "encapsulationCost") } };
   },
 };
 
@@ -99,10 +99,10 @@ export const packagingModule: CostModuleDef = {
     { key: "giftBox", label: "礼盒", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "礼盒额外成本" },
   ],
   calculate: (values) => {
-    const outer = values.packagingCost || 0;
-    const inner = values.innerPackagingCost || 0;
-    const bottle = values.bottleCost || 0;
-    const gift = values.giftBox || 0;
+    const outer = num(values, "packagingCost");
+    const inner = num(values, "innerPackagingCost");
+    const bottle = num(values, "bottleCost");
+    const gift = num(values, "giftBox");
     return { cost: outer + inner + bottle + gift, breakdown: { 外包装: outer, 内包装: inner, 瓶罐: bottle, 礼盒: gift } };
   },
 };
@@ -122,13 +122,13 @@ export const logisticsModule: CostModuleDef = {
     { key: "fragileFee", label: "易碎费", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "化妆品玻璃瓶" },
   ],
   calculate: (values) => {
-    let freight = values.freightBase || 4;
-    if (values.expressType === "COLD_CHAIN") freight = Math.max(freight, 5.5);
-    if (values.expressType === "SF_EXPRESS") freight = Math.max(freight, 8);
-    if (values.expressType === "PREMIUM") freight = Math.max(freight, 15);
-    const storage = values.storageCost || 0;
-    const bonded = values.bondedWarehouse || 0;
-    const fragile = values.fragileFee || 0;
+    let freight = num(values, "freightBase", 4);
+    if (str(values, "expressType") === "COLD_CHAIN") freight = Math.max(freight, 5.5);
+    if (str(values, "expressType") === "SF_EXPRESS") freight = Math.max(freight, 8);
+    if (str(values, "expressType") === "PREMIUM") freight = Math.max(freight, 15);
+    const storage = num(values, "storageCost");
+    const bonded = num(values, "bondedWarehouse");
+    const fragile = num(values, "fragileFee");
     return { cost: freight + storage + bonded + fragile, breakdown: { 快递: freight, 仓储: storage, 保税仓: bonded, 易碎: fragile } };
   },
 };
@@ -149,14 +149,14 @@ export const internationalLogisticsModule: CostModuleDef = {
     { key: "vatRate", label: "进口增值税率", unit: "%", type: "percent", defaultValue: 13, hint: "通常13%" },
   ],
   calculate: (values) => {
-    const intlFreight = values.internationalFreight || 0;
-    const customsFee = values.customsFee || 0;
-    const clearanceFee = values.clearanceFee || 0;
-    let tariffCost = values.tariffCost || 0;
+    const intlFreight = num(values, "internationalFreight");
+    const customsFee = num(values, "customsFee");
+    const clearanceFee = num(values, "clearanceFee");
+    let tariffCost = num(values, "tariffCost");
     // 如果没填关税额，按比例算：假设货值12元，关税12%
-    if (tariffCost === 0 && values.tariffRate) {
+    if (tariffCost === 0 && num(values, "tariffRate") > 0) {
       const goodsValue = 12; // 假设货值，可配置
-      tariffCost = goodsValue * (values.tariffRate / 100);
+      tariffCost = goodsValue * (num(values, "tariffRate") / 100);
     }
     const total = intlFreight + tariffCost + customsFee + clearanceFee;
     return {
@@ -181,9 +181,9 @@ export const certificationModule: CostModuleDef = {
     { key: "efficacyTest", label: "功效检测", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "化妆品功效检测" },
   ],
   calculate: (values) => {
-    const cert = values.certificationCost || 0;
-    const safety = values.safetyTest || 0;
-    const efficacy = values.efficacyTest || 0;
+    const cert = num(values, "certificationCost");
+    const safety = num(values, "safetyTest");
+    const efficacy = num(values, "efficacyTest");
     return { cost: cert + safety + efficacy, breakdown: { 检测: cert, 安全: safety, 功效: efficacy } };
   },
 };
@@ -211,18 +211,20 @@ export const complianceModule: CostModuleDef = {
     { key: "efficacyClaim", label: "功效宣称", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "化妆品功效宣称成本" },
   ],
   calculate: (values) => {
-    const compliance = values.complianceCost || 0;
-    const filingFee = values.filingFee || 0;
-    const amortization = values.filingAmortization || 10000;
+    const compliance = num(values, "complianceCost");
+    const filingFee = num(values, "filingFee");
+    const amortization = num(values, "filingAmortization", 10000);
     const filingPerUnit = filingFee > 0 ? filingFee / amortization : 0;
-    const labelCost = values.labelCost || values.labelFee || 0;
-    const efficacyClaim = values.efficacyClaim || 0;
+    const labelCost = num(values, "labelCost") || num(values, "labelFee");
+    const efficacyClaim = num(values, "efficacyClaim");
     const total = compliance + filingPerUnit + labelCost + efficacyClaim;
-    
+
     const notes: string[] = [];
-    if (values.complianceType === "health_registration" && filingFee < 200000) notes.push("保健食品注册通常20万+，请确认");
-    if (values.complianceType === "cosmetics_registration" && filingFee < 50000) notes.push("特殊化妆品注册通常5万+");
-    if (values.complianceType === "cross_border") notes.push("跨境需确认正面清单、中文标签、保税仓");
+    // filingFee 是「一次性总费用」(元)，与市场参考价 20万/5万 同量纲，可直接比。
+    // 早前写成拿它与摊销额比较，导致提示恒真，已改为直接比总费用。
+    if (str(values, "complianceType") === "health_registration" && filingFee > 0 && filingFee < 200000) notes.push("保健食品注册通常20万+，请确认填写的是一次性总费用还是单件均摊");
+    if (str(values, "complianceType") === "cosmetics_registration" && filingFee > 0 && filingFee < 50000) notes.push("特殊化妆品注册通常5万+，请确认填写的是一次性总费用还是单件均摊");
+    if (str(values, "complianceType") === "cross_border") notes.push("跨境需确认正面清单、中文标签、保税仓");
 
     return {
       cost: total,
@@ -247,11 +249,11 @@ export const channelModule: CostModuleDef = {
     { key: "retailPrice", label: "零售价", unit: "元", type: "number", required: true, step: "0.01", hint: "含税零售价，用于计算渠道费用" },
   ],
   calculate: (values) => {
-    const retailPrice = values.retailPrice || 0;
-    const platformFee = retailPrice * (values.platformFeeRate || 0) / 100;
-    const commission = retailPrice * (values.commissionRate || 0) / 100;
-    const marketing = retailPrice * (values.marketingRate || 0) / 100;
-    const returnRefund = retailPrice * (values.returnRate || 0) / 100;
+    const retailPrice = num(values, "retailPrice");
+    const platformFee = retailPrice * (num(values, "platformFeeRate")) / 100;
+    const commission = retailPrice * (num(values, "commissionRate")) / 100;
+    const marketing = retailPrice * (num(values, "marketingRate")) / 100;
+    const returnRefund = retailPrice * (num(values, "returnRate")) / 100;
     const total = platformFee + commission + marketing + returnRefund;
     return {
       cost: total,
@@ -276,8 +278,8 @@ export const overheadModule: CostModuleDef = {
     { key: "monthlySales", label: "预计月销量", unit: "件/月", type: "number", defaultValue: 1000, hint: "用于盈亏平衡计算" },
   ],
   calculate: (values) => {
-    const monthlyFixed = values.monthlyFixed || 0;
-    const monthlySales = values.monthlySales || 1000;
+    const monthlyFixed = num(values, "monthlyFixed");
+    const monthlySales = num(values, "monthlySales", 1000);
     const perUnit = monthlySales > 0 ? monthlyFixed / monthlySales : 0;
     return {
       cost: 0,
@@ -302,7 +304,7 @@ export const customModule: CostModuleDef = {
     { key: "customLabel", label: "成本名称", unit: "", type: "select", defaultValue: "其他", options: [{ value: "其他", label: "其他" }, { value: "设计费", label: "设计费" }, { value: "专利费", label: "专利费" }, { value: "授权费", label: "授权费" }, { value: "关税", label: "关税" }, { value: "标签费", label: "标签费" }] },
   ],
   calculate: (values) => {
-    return { cost: values.customCost || 0, breakdown: { [String(values.customLabel || "其他")]: values.customCost || 0 } };
+    return { cost: num(values, "customCost"), breakdown: { [String(values.customLabel || "其他")]: num(values, "customCost") } };
   },
 };
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/shared/db";
 import { getServerSession } from "@/modules/identity/session";
 import { handleApiError } from "@/shared/api-handler";
+import { NotFoundError, UnprocessableEntityError } from "@/shared/errors";
 import { verifyEvidence, describeVerifier } from "@/modules/evidence/verifier";
 
 export async function POST(req: NextRequest) {
@@ -10,13 +11,20 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { claim, sourceId, verifierIdentity = "verifier_rules" } = body;
 
-    if (!claim || !sourceId) throw new Error("缺少 claim 或 sourceId");
+    if (!claim || !sourceId) throw new UnprocessableEntityError("缺少 claim 或 sourceId");
 
     const source = await prisma.evidenceSourceCapture.findFirst({
       where: { id: sourceId, organizationId: session.organizationId },
     });
 
-    if (!source) throw new Error("SourceCapture not found");
+    if (!source) throw new NotFoundError("SourceCapture not found");
+    // 抓取记录里这四项是可空列，但 verifier 需要确定值才能判support；
+    // 空值说明抓取未完成，此时必须拒绝，不能用空串/假值凑出一次"已验证"
+    if (!source.id || !source.url || !source.finalUrl || !source.contentHash) {
+      throw new UnprocessableEntityError("SourceCapture 抓取不完整（缺 url/finalUrl/contentHash），无法验证");
+    }
+
+    const sourceCaptureId: string = source.id;
 
     const otherSources = await prisma.evidenceSourceCapture.findMany({
       where: { organizationId: session.organizationId, id: { not: sourceId } },
@@ -28,19 +36,19 @@ export async function POST(req: NextRequest) {
         id: claim.id || `claim_${Date.now()}`,
         field: claim.field || "unknown",
         value: claim.value || "",
-        sourceId: source.id,
-        sourceUrl: source.finalUrl,
+        sourceId: sourceCaptureId,
+        sourceUrl: source.finalUrl ?? source.url ?? undefined,
         claimKind: claim.claimKind || "FACT",
         createdByAgent: claim.createdByAgent,
       },
       {
-        id: source.id,
+        id: sourceCaptureId,
         url: source.url,
         finalUrl: source.finalUrl,
-        content: source.content,
+        content: source.content ?? "",
         contentHash: source.contentHash,
         trustTier: source.trustTier as any,
-        sourceOrganization: source.sourceOrganization,
+        sourceOrganization: source.sourceOrganization ?? "",
         fetchedAt: source.fetchedAt,
         injectionStatus: source.injectionStatus as any,
       },
@@ -64,7 +72,7 @@ export async function POST(req: NextRequest) {
         organizationId: session.organizationId,
         claimId: result.claimId,
         evidenceClaimId: null,
-        sourceCaptureId: source.id,
+        sourceCaptureId,
         supportStatus: result.supportStatus,
         evidenceLevel: result.evidenceLevel,
         supportSpan: result.supportSpan as any,

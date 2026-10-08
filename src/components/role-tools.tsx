@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRole } from "./role-context";
+import { useRole, type UserRole } from "./role-context";
 import "./role-tools.css"
 import "./role-tools-rich.css"
 import { RoleToolsRich } from "./role-tools-rich";;

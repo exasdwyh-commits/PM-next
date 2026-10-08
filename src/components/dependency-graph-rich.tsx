@@ -31,7 +31,17 @@ const DEFAULT_NODES: DependencyNode[] = [
   { id: "launch", label: "上市准备", status: "queued", duration: "5天", owner: "市场", dependsOn: ["test"] },
 ];
 
-export function DependencyGraphRich({ category = "health_food", nodes = DEFAULT_NODES, onAutoAdvance }: any) {
+export interface DependencyGraphRichProps {
+  category?: keyof typeof CATEGORY_INFO | string;
+  nodes?: DependencyNode[];
+  onAutoAdvance?: () => void | Promise<void>;
+}
+
+export function DependencyGraphRich({
+  category = "health_food",
+  nodes = DEFAULT_NODES,
+  onAutoAdvance,
+}: DependencyGraphRichProps) {
   const { role } = useRole();
   const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.health_food;
   const [selected, setSelected] = React.useState<string | null>(null);

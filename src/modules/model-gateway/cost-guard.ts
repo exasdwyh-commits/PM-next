@@ -13,6 +13,13 @@ export interface CostGuardInput {
   taskClass?: string;
   estimatedTokens?: number;
   modelProfileKey?: string;
+  /**
+   * 成本预留发生在 ModelPolicy 解析之前，因此没有真实 policy 可记。
+   * 调用方若已完成 policy 解析应透传，否则记cost-guard/reserve 占位，
+   * 便于事后按 policyKey 回溯真实策略（占位值不会与真实 policy 混淆）。
+   */
+  policyKey?: string;
+  policyVersion?: string;
 }
 
 export interface CostGuardResult {
@@ -88,6 +95,8 @@ export async function checkAndCharge(input: CostGuardInput): Promise<CostGuardRe
           agentId: input.agentId || "unknown",
           taskClass: input.taskClass || "UNKNOWN",
           profileKey: input.modelProfileKey || "unknown",
+          policyKey: input.policyKey || "cost-guard/reserve",
+          policyVersion: input.policyVersion || "0",
           status: "RESERVED",
           reservationId,
           estimatedTokens: input.estimatedTokens || 0,
@@ -163,8 +172,14 @@ export async function getUsageOverview(organizationId: string) {
     },
   });
 
-  const usageByDay = await prisma.$queryRaw`
-    SELECT DATE("createdAt") as day, COUNT(*) as count, SUM(cost) as total_cost
+  // PG 的 COUNT/SUM 返回 bigint（JS BigInt），直接进 NextResponse.json 会抛
+  // "Do not know how to serialize a BigInt"。这里在 SQL 侧就转成数值。
+  const usageByDay = await prisma.$queryRaw<
+    { day: Date; count: number; total_cost: number | null }[]
+  >`
+    SELECT DATE("createdAt") as day,
+           COUNT(*)::int as count,
+           COALESCE(SUM(cost), 0)::float8 as total_cost
     FROM "UsageLedger"
     WHERE "organizationId" = ${organizationId}
     AND "createdAt" >= NOW() - INTERVAL '30 days'
@@ -174,7 +189,13 @@ export async function getUsageOverview(organizationId: string) {
   `;
 
   return {
-    quota: { limit, used, remaining: limit - used, rate: Math.round((used / limit) * 100) },
+    quota: {
+      limit,
+      used,
+      remaining: limit - used,
+      // limit 可能为 0（未配置配额时回落到默认值，但仍防御一次）
+      rate: limit > 0 ? Math.round((used / limit) * 100) : 0,
+    },
     recentRuns,
     usageByDay,
   };

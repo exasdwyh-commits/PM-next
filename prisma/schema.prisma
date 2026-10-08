@@ -162,6 +162,7 @@ model User {
   confirmedApplicabilities ArtifactApplicability[] @relation("ApplicabilityConfirmer")
   researchRunsCreated      ResearchRun[]           @relation("ResearchRunCreator")
   researchTasksCreated     ResearchRunTask[]       @relation("ResearchTaskCreator")
+  harnessSamples           HarnessSample[]
 
   // 产品开发工作台与 AI 顾问（蓝图 §7，2026-09-13）
   ownedProducts        Product[]        @relation("ProductOwner")
@@ -922,25 +923,69 @@ enum FeedbackStatus {
   NEEDS_INFO
 }
 
+enum FeedbackType {
+  THUMBS_UP
+  THUMBS_DOWN
+  CORRECTION
+}
+
 model Feedback {
   id                 String         @id @default(uuid())
-  projectId          String
-  targetType         String
-  targetId           String
+  /// 反馈可挂在项目上，也可只属于组织/用户（Kern 对话反馈无项目上下文），故可空
+  projectId          String?
+  targetType         String         @default("kern_message")
+  targetId           String?
   targetVersion      String?
   authorId           String
   content            String
   status             FeedbackStatus @default(OPEN)
   dispositionReason  String?
   revisionWorkItemId String?
+  /// 组织归属：从 project 反推冗余存储，用于跨项目反馈检索与去重
+  organizationId     String?
+  missionId          String?
+  messageId          String?
+  /// 反馈类型（👍 / 👎 / 纠正）；缺省视为 CORRECTION
+  typeFeedback       FeedbackType?
+  topics             String[]
+  /// 来源标识（形如 feedback:<id>），source=null 表示语义去重时不参与来源判定
+  source             String?
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  author  User    @relation(fields: [authorId], references: [id])
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author  User     @relation(fields: [authorId], references: [id])
 
   @@index([projectId])
   @@index([authorId])
+  @@index([organizationId])
+  @@index([organizationId, authorId])
+}
+
+/// 反馈衍生的 Harness 回归样本。只有 Outcome 评估证明变好才允许 Promotion，可回滚。
+model HarnessSample {
+  id             String    @id @default(uuid())
+  organizationId String
+  userId         String
+  query          String
+  expected       String
+  actual         String?
+  topics         String[]
+  source         String?
+  status         String    @default("PENDING")
+  outcome        String?
+  promoted       Boolean   @default(false)
+  promotedAt     DateTime?
+  rolledBackAt   DateTime?
+  evaluatedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([status])
 }
 
 
@@ -1189,9 +1234,14 @@ model IdempotencyRecord {
 // -------------------------------------------------------------
 
 enum ResearchRunStatus {
+  PENDING
   RUNNING
+  ///研究基座 P7：抓取成功且引用全链校验通过
+  SUCCEEDED
   PUBLISHED
   FAILED
+  /// B4 安全边界：无可用源，禁止退化为模型常识
+  BLOCKED
 }
 
 enum ResearchRunTaskStatus {
@@ -1612,6 +1662,8 @@ model AgentRun {
 }
 
 enum ModelRunStatus {
+  /// 成本护栏已预留配额，调用尚未落地
+  RESERVED
   RUNNING
   SUCCEEDED
   FAILED

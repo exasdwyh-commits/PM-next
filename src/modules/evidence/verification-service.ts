@@ -50,15 +50,22 @@ export async function verifyEvidenceClaim(
   if (captures.length !== captureIds.length) {
     throw new NotFoundError("One or more source captures were not found");
   }
+  // evidenceId 可空（未挂到具体 Evidence 的孤立抓取），且 evidence 关系可空；
+  // 这类抓取不参与跨项目/跨组织校验，直接拒绝而不是放行。
+  if (captures.some((capture) => !capture.evidenceId || !capture.evidence)) {
+    throw new ForbiddenError(
+      "Source captures must be attached to an evidence item before verification",
+    );
+  }
   if (
     captures.some(
       (capture) =>
-        capture.evidence.project.organizationId !== session.organizationId ||
-        capture.evidence.project.id !== claim.evidence.project.id
+        capture.evidence!.project.organizationId !== session.organizationId ||
+        capture.evidence!.project.id !== claim.evidence.project.id,
     )
   ) {
     throw new ForbiddenError(
-      "Cross-project or cross-organization source capture verification forbidden"
+      "Cross-project or cross-organization source capture verification forbidden",
     );
   }
 
@@ -66,13 +73,13 @@ export async function verifyEvidenceClaim(
   const result = verifier.verifyClaim(
     { claim: claim.value, claimKind: claim.kind },
     captures.map((capture) => ({
-      evidenceId: capture.evidenceId,
+      evidenceId: capture.evidenceId!,
       sourceCaptureId: capture.id,
       sourceUri: capture.sourceUri,
       httpStatus: capture.httpStatus,
       rawContentPreview: capture.rawContentPreview,
       quarantined: capture.injectionStatus === "QUARANTINED",
-    }))
+    })),
   );
   const verifierRunId = `VERIFY-${crypto.randomUUID()}`;
 
@@ -84,7 +91,10 @@ export async function verifyEvidenceClaim(
           sourceCaptureId: assessment.sourceCaptureId,
           verifierIdentity: result.verifierIdentity,
           supportStatus: assessment.supportStatus,
-          supportSpan: assessment.supportSpan,
+          // Json? 字段不接受裸 null：有 span 存 JSON 字符串，无 span 显式写 DB NULL
+          supportSpan: assessment.supportSpan
+            ? { start: 0, end: assessment.supportSpan.length, text: assessment.supportSpan }
+            : Prisma.DbNull,
           sourceUri: assessment.sourceUri,
           sourceOrganization: assessment.sourceOrganization,
           metadata: json({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/modules/identity/session";
 import { handleApiError } from "@/shared/api-handler";
+import { UnprocessableEntityError } from "@/shared/errors";
 import { executeDesktopAction, describeDesktopRuntime } from "@/modules/desktop-runtime";
 
 export async function GET() {
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { type, input } = body;
 
-    if (!type) throw new Error("缺少 type");
+    if (!type) throw new UnprocessableEntityError("缺少 type");
 
     const action = {
       id: `action_${Date.now()}`,

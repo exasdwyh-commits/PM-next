@@ -35,6 +35,38 @@ export interface CostField {
   step?: string;
 }
 
+/**
+ * calculate 的入参值集合。
+ * 字段既有 number（type: "number" / "percent"），也有 select 带来的 string，
+ * 因此必须声明为联合类型；此前误写为 Record<string, number>，
+ * 会让 values.expressType / values.complianceType 这类下标访问被当成 number，
+ * 引发 TS2367（number 与 string 无重叠）误报并让 select 判断失去类型保护。
+ */
+export type CostModuleValues = Record<string, number | string | undefined>;
+
+/**
+ * 从 values 中安全读取数值字段。
+ * 表单里的 number 字段实际可能传来数字字符串（用户输入/序列化），
+ * 非数值一律按 fallback 处理，避免出现 NaN 污染成本汇总。
+ */
+export function num(values: CostModuleValues | undefined, key: string, fallback = 0): number {
+  const raw = values?.[key];
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (typeof raw === "string") {
+    const parsed = Number(raw.trim());
+    if (raw.trim() !== "" && Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+/**
+ * 从 values 中安全读取 select 字段（字符串）。
+ */
+export function str(values: CostModuleValues | undefined, key: string, fallback = ""): string {
+  const raw = values?.[key];
+  return typeof raw === "string" ? raw : fallback;
+}
+
 export interface CostModuleDef {
   id: string;
   label: string;
@@ -43,7 +75,7 @@ export interface CostModuleDef {
   description: string;
   fields: CostField[];
   // 计算逻辑：输入字段值，输出成本
-  calculate: (values: Record<string, number>, context?: any) => {
+  calculate: (values: CostModuleValues, context?: any) => {
     cost: number;
     breakdown?: Record<string, number>;
     notes?: string[];

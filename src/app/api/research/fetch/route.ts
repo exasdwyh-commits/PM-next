@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/shared/db";
 import { getServerSession } from "@/modules/identity/session";
 import { handleApiError } from "@/shared/api-handler";
+import { UnprocessableEntityError } from "@/shared/errors";
 import { fetchSource, describeSourceFetcher } from "@/modules/research/source-fetch";
 import { checkAndCharge } from "@/modules/model-gateway/cost-guard";
 
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { url, missionId, nodeKey } = body;
 
-    if (!url) throw new Error("缺少 url");
+    if (!url) throw new UnprocessableEntityError("缺少 url");
 
     // Cost guard - research_call
     const guard = await checkAndCharge({

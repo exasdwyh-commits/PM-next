@@ -3,6 +3,15 @@
  * 规则: Research Agent不能自验, caller trustTier非权威, URL重分类, model-only→UNKNOWN, fetchability≠support, 需 support span, 同组织双URL非独立证据, rules-only永不VERIFIED
  */
 
+// 批量评估器（原 verifier.ts 并入本目录，避免 verifier.ts 与 verifier/ 同名遮蔽）
+export {
+  IndependentEvidenceVerifier,
+  type EvidenceLevel,
+  type VerifierClaim,
+  type VerifierSource,
+  type SourceAssessment,
+} from "./batch-verifier";
+
 export interface EvidenceClaim {
   id: string;
   field: string;

@@ -4,11 +4,15 @@
 
 import prisma from "@/shared/db";
 import { rememberForUser } from "@/modules/memory";
-import { KernMemoryKind } from "@prisma/client";
+import { NotFoundError } from "@/shared/errors";
+import { FeedbackType, KernMemoryKind } from "@prisma/client";
 
 export interface FeedbackInput {
   organizationId: string;
   userId: string;
+  projectId?: string | null;
+  targetType?: string;
+  targetId?: string;
   missionId?: string;
   messageId?: string;
   type: "thumbs_up" | "thumbs_down" | "correction";
@@ -26,12 +30,21 @@ export interface FeedbackOutput {
 export async function submitFeedback(input: FeedbackInput): Promise<FeedbackOutput> {
   const feedback = await prisma.feedback.create({
     data: {
+      projectId: input.projectId ?? null,
+      targetType: input.targetType ?? "kern_message",
+      targetId: input.targetId ?? input.messageId ?? null,
+      targetVersion: null,
+      authorId: input.userId,
       organizationId: input.organizationId,
-      userId: input.userId,
       missionId: input.missionId || null,
       messageId: input.messageId || null,
-      type: input.type,
-      content: input.content || null,
+      typeFeedback:
+        input.type === "thumbs_up"
+          ? FeedbackType.THUMBS_UP
+          : input.type === "thumbs_down"
+            ? FeedbackType.THUMBS_DOWN
+            : FeedbackType.CORRECTION,
+      content: input.content || "",
       topics: input.topics || [],
       source: input.source || null,
     },
@@ -79,7 +92,7 @@ export async function submitFeedback(input: FeedbackInput): Promise<FeedbackOutp
 
 export async function evaluateHarnessSample(organizationId: string, sampleId: string, actual: string, outcome: "better" | "worse" | "same") {
   const sample = await prisma.harnessSample.findFirst({ where: { id: sampleId, organizationId } });
-  if (!sample) throw new Error("HarnessSample not found");
+  if (!sample) throw new NotFoundError("HarnessSample not found");
   await prisma.harnessSample.update({ where: { id: sampleId }, data: { actual, outcome, evaluatedAt: new Date() } });
   if (outcome === "better") {
     await prisma.harnessSample.update({ where: { id: sampleId }, data: { promoted: true, promotedAt: new Date() } });
@@ -92,7 +105,11 @@ export async function evaluateHarnessSample(organizationId: string, sampleId: st
 }
 
 export async function listFeedback(organizationId: string, userId: string, take = 50) {
-  return prisma.feedback.findMany({ where: { organizationId, userId }, orderBy: { createdAt: "desc" }, take });
+  return prisma.feedback.findMany({
+    where: { organizationId, authorId: userId },
+    orderBy: { createdAt: "desc" },
+    take,
+  });
 }
 
 export async function deduplicateMemories(organizationId: string, userId: string) {

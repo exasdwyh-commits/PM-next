@@ -81,12 +81,21 @@ export async function disposeFeedback(
     include: { project: true },
   });
 
-  if (!feedback || feedback.project.organizationId !== session.organizationId) {
+  // 组织级反馈（Kern 对话反馈）没有项目归属，无法做OWNER 权限判定，也不能开修订工单
+  if (!feedback || !feedback.projectId || !feedback.project) {
+    throw new NotFoundError("Feedback not found");
+  }
+
+  // 上面已做空值收窄，此处再取一次具名引用，供下方闭包内使用
+  const feedbackProject = feedback.project;
+  const projectId: string = feedback.projectId;
+
+  if (feedbackProject.organizationId !== session.organizationId) {
     throw new NotFoundError("Feedback not found");
   }
 
   // A03: Only Project OWNER can dispose feedback
-  await requireProjectRole(session, feedback.projectId, [Role.OWNER]);
+  await requireProjectRole(session, projectId, [Role.OWNER]);
 
   if (!params.reason) {
     throw new UnprocessableEntityError("Disposition reason is required");
@@ -98,13 +107,13 @@ export async function disposeFeedback(
     if (params.status === FeedbackStatus.ACCEPTED && params.createRevisionWorkItem) {
       const revItem = await tx.workItem.create({
         data: {
-          projectId: feedback.projectId,
+          projectId,
           title: params.revisionWorkItemTitle || `[反馈修订] 响应反馈 ${feedback.id.slice(0, 8)}`,
           target: `针对用户反馈进行方案修订: ${params.reason}`,
           deliverableReq: "修订后的方案或数据分析报告",
           status: WorkItemStatus.TODO,
           executorType: WorkExecutorType.HUMAN,
-          inputRevision: feedback.project.revision,
+          inputRevision: feedbackProject.revision,
         },
       });
       revisionWorkItemId = revItem.id;
