@@ -84,7 +84,7 @@ G2 当前已经正式进入 main，并确保：
 ## 六、正式交付入口
 
 - `README.md`
-- `task_plan.md`
+- `docs/archive/task_plan.md`（2026-10-08 从仓库根目录归档；其内容已被 `docs/KERN_NEXT_PHASE_PLAN.md` 取代）
 - `docs/PROJECT_CLOSEOUT_2026-09-22.md`
 - `docs/FINAL_ACCEPTANCE_2026-09-22.md`
 - `docs/LOCAL_HANDOFF_2026-09-22.md`
