@@ -1,2 +1,14 @@
 # shell scripts must stay LF so Git Bash / WSL can execute them (CRLF breaks `set -o pipefail` line 1)
 *.sh text eol=lf
+
+# 源码统一按 LF 存取，避免 Windows 上编辑/工具写入 CRLF 后，
+# git 把整文件判为改动（实测 services.ts 曾出现 484 行纯行尾 diff，真实改动仅 1 行）
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.json text eol=lf
+*.css  text eol=lf
+*.md   text eol=lf
+*.prisma text eol=lf
+*.sql  text eol=lf
