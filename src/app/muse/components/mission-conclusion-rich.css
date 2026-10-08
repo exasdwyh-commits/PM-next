@@ -1,0 +1,15 @@
+.mission-conclusion-rich { display: grid; gap: 14px; padding: 16px; border: 2px solid #e7e9ef; border-radius: 16px; background: white; animation: fadeInUp 0.4s ease-out both; }
+.mission-conclusion-rich-wrapper { border: 2px solid #e7e9ef; border-radius: 16px; overflow: hidden; background: white; animation: fadeInUp 0.4s ease-out both; }
+.conclusion-header { display: flex; justify-content: space-between; gap: 12px; padding: 14px; border-radius: 12px; flex-wrap: wrap; align-items: flex-start; }
+.conclusion-header h3 { margin: 6px 0 2px; font-size: 14px; }
+.conclusion-header small { font-size: 10px; color: #6b7280; }
+.eyebrow { display: inline-block; padding: 3px 8px; border-radius: 99px; font-size: 10px; font-weight: 700; }
+.category-badge { padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+.boss-summary { padding: 12px; background: #f6f7f9; border-radius: 10px; display: grid; gap: 6px; animation: fadeInUp 0.3s ease-out 0.1s both; }
+.boss-summary strong { font-size: 12px; }
+.boss-summary p { margin: 0; font-size: 11px; line-height: 1.5; color: #4b5563; }
+.selling-points { padding: 12px; background: linear-gradient(135deg, #fff, #f6f7f9); border: 1px solid #e7e9ef; border-radius: 10px; display: grid; gap: 6px; }
+.selling-points strong { font-size: 12px; }
+.selling-points p { margin: 0; font-size: 11px; color: #4b5563; }
+.conclusion-meta-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; font-size: 11px; }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }

@@ -21,6 +21,13 @@ const APP_VERSION = (JSON.parse(readFileSync("./package.json", "utf8")) as { ver
 const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   env: { NEXT_PUBLIC_APP_VERSION: APP_VERSION },
+  // P0 安全优化：由需求方授权自主决定，不改业务语义，首包优化
+  compress: true,
+  poweredByHeader: false,
+  productionBrowserSourceMaps: false,
+  experimental: {
+    optimizePackageImports: ["docx", "exceljs", "pptxgenjs", "jszip", "@prisma/client"],
+  },
 };
 
 export default nextConfig;

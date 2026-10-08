@@ -12,6 +12,11 @@ import { useDesktopNotify } from "./desktop-notify";
 import { Blank, Dock, Rail } from "./components/shell";
 import { ConversationRename } from "./components/conversation-rename";
 import { reducedMotion } from "@/components/motion/motion";
+import { RoleProvider, useRole } from "@/components/role-context";
+import { KernRoleBar } from "./components/kern-role-bar";
+import { DailyBriefing } from "./components/daily-briefing";
+import "@/components/daily-briefing-rich.css";
+import { detectRoleSwitchIntent, inferRoleFromText } from "@/components/kern-role-intelligence";
 import { dedupeMissionCards } from "./conversation-view";
 import { ConclusionDecisions } from "./components/conclusion-decisions";
 
@@ -506,6 +511,26 @@ export default function KernClient({ model }: { model: StudioModel }) {
 
   const send = useCallback(async (override?: string) => {
     const text = (override ?? draft).trim();
+    // --- Kern Role Intelligence: auto-detect role switch from user input ---
+    try {
+      const mod = require("@/components/kern-role-intelligence");
+      const switched = mod.detectRoleSwitchIntent(text);
+      if (switched) {
+        try {
+          localStorage.setItem("kern.kern-role.v1", JSON.stringify({ role: switched, at: Date.now(), reason: `对话指令: ${text.slice(0, 30)}` }));
+        } catch {}
+      } else {
+        const inf = mod.inferRoleFromText(text);
+        if (inf && inf.confidence > 0.6) {
+          try {
+            const existing = JSON.parse(localStorage.getItem("kern.auto-roles.v1") || "[]");
+            existing.push(inf);
+            localStorage.setItem("kern.auto-roles.v1", JSON.stringify(existing.slice(-6)));
+          } catch {}
+        }
+      }
+    } catch {}
+
     if (sendingRef.current || processingRef.current || decisionBusy) {
       if (text) setFeedback({ text: "Kern 还在处理上一条，稍等一下。" });
       return false;
@@ -895,6 +920,8 @@ export default function KernClient({ model }: { model: StudioModel }) {
             <Btn size="sm" v="ghost" onClick={() => setFeedback(null)} aria-label="关闭提示"><I.close /></Btn>
           </div>
         ) : null}
+        <div style={{ padding: '0 16px' }}><DailyBriefing category="health_food" />
+      <KernRoleBar /></div>
         <div className="m-scroll" ref={scrollRef} onScroll={onScroll}>
           <ConclusionDecisions key={conversationId ?? "new"}
             replies={messages.filter(m => m.author === "user" && m.state === "success" && !m.id.startsWith("local-")).flatMap(m => m.blocks.flatMap(b => b.kind === "text" ? [b.text] : []))}

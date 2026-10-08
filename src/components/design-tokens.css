@@ -1,0 +1,283 @@
+/* Design Tokens - 轻量美化档1 - 统一视觉语言 */
+:root {
+  /* Space */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --space-2xl: 24px;
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-full: 999px;
+
+  /* Shadow - 层次 */
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+  --shadow-xl: 0 12px 32px rgba(0,0,0,0.12);
+
+  /* 4类专用色彩 + 彩色阴影 */
+  --cat-regular: #f59e0b;
+  --cat-regular-bg: #fffbeb;
+  --cat-regular-gradient: linear-gradient(135deg,#fffbeb,#fef3c7);
+  --cat-regular-shadow: 0 8px 24px rgba(245,158,11,0.15);
+  --cat-regular-ring: 0 0 0 3px rgba(245,158,11,0.15);
+
+  --cat-health: #7c3aed;
+  --cat-health-bg: #f5f3ff;
+  --cat-health-gradient: linear-gradient(135deg,#f5f3ff,#ede9fe);
+  --cat-health-shadow: 0 8px 24px rgba(124,58,237,0.15);
+  --cat-health-ring: 0 0 0 3px rgba(124,58,237,0.15);
+
+  --cat-cross: #0891b2;
+  --cat-cross-bg: #ecfeff;
+  --cat-cross-gradient: linear-gradient(135deg,#ecfeff,#cffafe);
+  --cat-cross-shadow: 0 8px 24px rgba(8,145,178,0.15);
+  --cat-cross-ring: 0 0 0 3px rgba(8,145,178,0.15);
+
+  --cat-cosmetics: #db2777;
+  --cat-cosmetics-bg: #fdf2f8;
+  --cat-cosmetics-gradient: linear-gradient(135deg,#fdf2f8,#fce7f3);
+  --cat-cosmetics-shadow: 0 8px 24px rgba(219,39,119,0.15);
+  --cat-cosmetics-ring: 0 0 0 3px rgba(219,39,119,0.15);
+
+  /* 角色 */
+  --role-leadership: #0f1116;
+  --role-product: #7c3aed;
+  --role-sales: #db2777;
+
+  /* 中性 */
+  --color-ink: #0f1116;
+  --color-ink-muted: #6b7280;
+  --color-ink-faint: #9099a6;
+  --color-line: #e7e9ef;
+  --color-line-strong: #d1d5db;
+  --color-bg: #ffffff;
+  --color-bg-muted: #f6f7f9;
+  --color-bg-faint: #fafbfc;
+
+  /* Font */
+  --font-sans: ui-sans-system, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-display: 800 20px/1.3 var(--font-sans);
+  --font-title: 700 14px/1.3 var(--font-sans);
+  --font-body: 400 11px/1.6 var(--font-sans);
+  --font-caption: 400 10px/1.4 var(--font-sans);
+  --font-eyebrow: 700 10px/1.2 var(--font-sans);
+
+  /* Motion */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+}
+
+/* Beautified Card - 轻量美化核心 */
+.card-beautified {
+  background: var(--color-bg);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--duration-normal) var(--ease-out);
+  will-change: transform, box-shadow, border-color;
+}
+
+.card-beautified:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-line-strong);
+}
+
+.card-beautified[data-category="regular_food"]:hover {
+  box-shadow: var(--shadow-md), var(--cat-regular-shadow);
+  border-color: var(--cat-regular);
+}
+
+.card-beautified[data-category="health_food"]:hover {
+  box-shadow: var(--shadow-md), var(--cat-health-shadow);
+  border-color: var(--cat-health);
+}
+
+.card-beautified[data-category="cross_border_food"]:hover {
+  box-shadow: var(--shadow-md), var(--cat-cross-shadow);
+  border-color: var(--cat-cross);
+}
+
+.card-beautified[data-category="cosmetics"]:hover {
+  box-shadow: var(--shadow-md), var(--cat-cosmetics-shadow);
+  border-color: var(--cat-cosmetics);
+}
+
+/* Beautified Button */
+.btn-beautified {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-line);
+  background: var(--color-bg);
+  font: var(--font-body);
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition: all var(--duration-fast) var(--ease-out);
+  will-change: transform, box-shadow;
+}
+
+.btn-beautified:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-beautified:active {
+  transform: scale(0.98) translateY(0);
+  box-shadow: var(--shadow-xs);
+}
+
+.btn-beautified.primary {
+  background: var(--color-ink);
+  color: white;
+  border-color: var(--color-ink);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-beautified.primary:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.btn-beautified[data-category="regular_food"].primary {
+  background: var(--cat-regular);
+  border-color: var(--cat-regular);
+  box-shadow: var(--cat-regular-shadow);
+}
+
+.btn-beautified[data-category="health_food"].primary {
+  background: var(--cat-health);
+  border-color: var(--cat-health);
+  box-shadow: var(--cat-health-shadow);
+}
+
+.btn-beautified[data-category="cross_border_food"].primary {
+  background: var(--cat-cross);
+  border-color: var(--cat-cross);
+  box-shadow: var(--cat-cross-shadow);
+}
+
+.btn-beautified[data-category="cosmetics"].primary {
+  background: var(--cat-cosmetics);
+  border-color: var(--cat-cosmetics);
+  box-shadow: var(--cat-cosmetics-shadow);
+}
+
+/* Beautified KPI */
+.kpi-beautified {
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  border: 1px solid var(--color-line);
+  box-shadow: var(--shadow-xs);
+  display: grid;
+  gap: var(--space-xs);
+  animation: fadeInUp var(--duration-slow) var(--ease-out) both;
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.kpi-beautified:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.kpi-beautified .label {
+  font: var(--font-caption);
+  color: var(--color-ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.kpi-beautified .value {
+  font: 800 18px/1.2 var(--font-sans);
+  color: var(--color-ink);
+}
+
+.kpi-beautified .note {
+  font: var(--font-caption);
+  color: var(--color-ink-faint);
+}
+
+/* Typography */
+.eyebrow-beautified {
+  font: var(--font-eyebrow);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  display: inline-block;
+}
+
+.title-beautified {
+  font: var(--font-title);
+  color: var(--color-ink);
+  letter-spacing: -0.01em;
+}
+
+.body-beautified {
+  font: var(--font-body);
+  color: var(--color-ink-muted);
+}
+
+/* Animations - spring */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInUpSpring {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes growWidth {
+  from { width: 0; }
+}
+
+@keyframes drawDonut {
+  from { stroke-dasharray: 0 100; }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Focus ring */
+*:focus-visible {
+  outline: none;
+  box-shadow: var(--cat-health-ring);
+}
+
+/* Scrollbar beautified */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-line-strong);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-faint);
+}

@@ -1,0 +1,29 @@
+.cost-html-report { display: grid; gap: 14px; padding: 16px; border: 1px solid #e7e9ef; border-radius: 16px; background: white; }
+.cost-html-report.empty { padding: 40px; text-align: center; color: #9099a6; font-size: 13px; border-style: dashed; background: #fafbfc; }
+.html-report-header { display: grid; gap: 12px; }
+.html-report-header h4 { margin: 0; font-size: 14px; }
+.html-report-header small { font-size: 11px; color: #6b7280; }
+.html-report-actions { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; }
+.view-tabs { display: flex; gap: 4px; padding: 3px; background: #f0f2f6; border-radius: 999px; }
+.view-tabs button { border: 0; background: transparent; padding: 6px 12px; border-radius: 999px; font-size: 11px; font-weight: 600; cursor: pointer; color: #6b7280; }
+.view-tabs button.active { background: #0f1116; color: white; }
+.export-actions { display: flex; gap: 6px; }
+.export-actions button { padding: 6px 10px; border-radius: 8px; border: 1px solid #e7e9ef; background: white; font-size: 11px; cursor: pointer; }
+.harness-panel { border: 1px solid #e7e9ef; border-radius: 10px; padding: 12px; background: #fafbfc; display: grid; gap: 8px; }
+.harness-panel strong { font-size: 12px; }
+.harness-issues { display: grid; gap: 6px; }
+.issue { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 6px 8px; border-radius: 6px; font-size: 11px; background: white; border: 1px solid #e7e9ef; }
+.issue.error { border-color: #fecaca; background: #fef2f2; }
+.issue.warn { border-color: #fde68a; background: #fffbeb; }
+.issue .level { padding: 2px 6px; border-radius: 99px; font-size: 9px; font-weight: 700; text-transform: uppercase; }
+.issue.error .level { background: #ef4444; color: white; }
+.issue.warn .level { background: #f59e0b; color: white; }
+.issue .id { font-weight: 700; color: #6b7280; font-size: 10px; }
+.issue .desc { flex: 1; }
+.issue small { width: 100%; font-size: 10px; color: #6b7280; }
+.claude-preview { border-radius: 12px; overflow: hidden; background: white; }
+.envelope-preview { border: 1px solid #e7e9ef; border-radius: 12px; padding: 16px; background: white; max-height: 800px; overflow-y: auto; }
+.html-source { border: 1px solid #e7e9ef; border-radius: 12px; background: #0f1116; color: #e5e7eb; padding: 14px; overflow: auto; max-height: 600px; }
+.html-source pre { margin: 0; font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
+.html-report-footer { padding: 8px 0; }
+.html-report-footer small { font-size: 10px; color: #9099a6; line-height: 1.5; }

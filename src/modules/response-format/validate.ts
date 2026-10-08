@@ -210,6 +210,24 @@ export const RULES: Rule[] = [
       return true;
     },
   },
+  {
+    id: "R17",
+    desc: "html Block必须内联样式，无外部依赖，无危险脚本",
+    level: "error",
+    run: (e) => {
+      const htmlBlocks = (e.blocks as any[]).filter((b: any) => b.type === "html");
+      for (const h of htmlBlocks) {
+        const html = (h as any).html as string;
+        if (!html) return "html Block内容为空";
+        if (html.length > 500000) return "html Block过大 " + html.length + " 超过500KB";
+        if (/<script[^>]*src\s*=/i.test(html)) return "html Block禁止外部script src";
+        if (/<iframe[^>]*src\s*=\s*["']https?:/i.test(html)) return "html Block禁止外部iframe";
+        if (/\bon\w+\s*=\s*["']/i.test(html) && /javascript:/i.test(html)) return "html Block禁止javascript:和危险on*";
+        if (!/<style/i.test(html) && !/style\s*=/i.test(html)) return "html Block应包含内联样式";
+      }
+      return true;
+    },
+  },
 ];
 
 export function validate(env: ResponseEnvelope): Issue[] {

@@ -1,0 +1,49 @@
+.product-rnd-rich { display: grid; gap: 14px; padding: 16px; border: 1px solid #e7e9ef; border-radius: 16px; background: white; }
+.product-rnd-rich.leadership { background: #f6f7f9; border-width: 2px; border-style: dashed; }
+.product-rnd-rich.sales { background: linear-gradient(135deg, #fff, #f6f7f9); }
+.rnd-header { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+.rnd-header h4 { margin: 0; font-size: 14px; }
+.rnd-header small { font-size: 11px; color: #6b7280; }
+.category-badge { padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+.progress-bar { height: 8px; background: #f0f2f6; border-radius: 999px; overflow: hidden; position: relative; display: flex; align-items: center; }
+.progress-bar .fill { height: 100%; border-radius: 999px; transition: width 0.5s; animation: growWidth 0.8s ease-out both; }
+.progress-bar span { position: absolute; right: 8px; font-size: 10px; font-weight: 700; }
+.rnd-kpi { display: flex; gap: 12px; font-size: 11px; color: #6b7280; }
+.selling-card { background: white; border: 1px solid #e7e9ef; border-radius: 12px; padding: 12px; display: grid; gap: 6px; }
+.selling-card strong { font-size: 12px; }
+.selling-card p { margin: 0; font-size: 11px; line-height: 1.5; color: #4b5563; }
+.tool-box { display: flex; gap: 8px; }
+.tool-box button { padding: 6px 10px; border-radius: 8px; border: 1px solid #e7e9ef; background: white; font-size: 11px; cursor: pointer; }
+.work-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.work-card { padding: 12px; border: 1px solid #e7e9ef; border-radius: 10px; background: white; display: grid; gap: 6px; animation: fadeInUp 0.4s ease-out both; }
+.work-card.accepted { border-color: #bbf7d0; background: #f0fdf4; }
+.work-card.running { border-color: #fde68a; background: #fffbeb; }
+.work-h { display: flex; justify-content: space-between; align-items: center; }
+.work-h strong { font-size: 12px; }
+.status { padding: 2px 6px; border-radius: 99px; font-size: 9px; font-weight: 700; }
+.status.accepted { background: #f0fdf4; color: #0b7a4f; }
+.status.running { background: #fffbeb; color: #d97706; }
+.work-card small { font-size: 11px; color: #4b5563; }
+.work-meta { display: flex; gap: 8px; font-size: 10px; color: #9099a6; }
+.empty { padding: 20px; text-align: center; color: #9099a6; font-size: 11px; border: 1px dashed #e7e9ef; border-radius: 8px; grid-column: 1 / -1; }
+.evidence-section { border: 1px solid #e7e9ef; border-radius: 12px; padding: 12px; background: #fafbfc; display: grid; gap: 10px; }
+.evidence-section h5 { margin: 0; font-size: 12px; }
+.evidence-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.evidence-card { padding: 10px; border: 1px solid #e7e9ef; border-radius: 8px; background: white; display: grid; gap: 4px; position: relative; animation: fadeInUp 0.3s ease-out both; }
+.evidence-card strong { font-size: 11px; }
+.evidence-card small { font-size: 10px; color: #6b7280; }
+.evidence-card .lvl { position: absolute; top: 6px; right: 6px; padding: 2px 6px; border-radius: 99px; font-size: 9px; font-weight: 700; }
+.evidence-card .lvl.A { background: #f0fdf4; color: #0b7a4f; }
+.evidence-card .lvl.B { background: #f3f0ff; color: #7c3aed; }
+.evidence-card .lvl.C { background: #fffbeb; color: #d97706; }
+.rnd-charts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.chart-card { border: 1px solid #e7e9ef; border-radius: 12px; padding: 12px; background: white; display: grid; gap: 10px; }
+.chart-card h5 { margin: 0; font-size: 11px; }
+.bar { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.bar span { width: 50px; }
+.bar .track { flex: 1; height: 8px; background: #f0f2f6; border-radius: 99px; overflow: hidden; }
+.bar .fill { height: 100%; border-radius: 99px; animation: growWidth 0.8s ease-out both; }
+.donut { display: flex; gap: 12px; align-items: center; }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes growWidth { from { width: 0; } to { width: var(--target-width, 100%); } }
+@media (max-width: 768px) { .work-grid { grid-template-columns: 1fr; } .evidence-grid { grid-template-columns: 1fr; } .rnd-charts { grid-template-columns: 1fr; } }

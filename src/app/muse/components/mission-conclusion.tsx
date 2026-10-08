@@ -10,13 +10,16 @@ import { useEffect, useState } from "react";
 import type { ResponseEnvelope } from "@/modules/response-format/types";
 
 import "../response/response.css";
-import { ResponseView } from "../response/response-view";
+import { ResponseRoleBased } from "../response/response-role-based";
 import { Prose } from "./prose";
+import { MissionConclusionRich } from "./mission-conclusion-rich";
+import "./mission-conclusion-rich.css";
+import { useRole } from "@/components/role-context";
 import { useConclusionDecisions } from "./conclusion-decisions";
 
 type Loaded = { envelope: ResponseEnvelope; renderable: boolean };
 
-export function MissionConclusion({
+export function MissionConclusionOriginal({
   missionId,
   text,
   density = "summary",
@@ -44,8 +47,19 @@ export function MissionConclusion({
   if (!data?.renderable) return fallback;
   const envelope = showAsk ? data.envelope : { ...data.envelope, ask: undefined };
   const choice = envelope.ask ? { missionId, question: envelope.ask.question, demo: envelope.demo, label: "" } : null;
-  return <ResponseView envelope={envelope} defaultDensity={density} fallback={fallback}
+  return <ResponseRoleBased envelope={envelope} defaultDensity={density} fallback={fallback}
     onAsk={decisions && choice ? label => decisions.choose({ ...choice, label }) : undefined}
     askState={decisions && choice ? decisions.state(choice, envelope.ask!.options.map(o => o.label)) : undefined}
   />;
+}
+
+
+export function MissionConclusion(props: any) {
+  try {
+    const { role } = useRole();
+    if (role !== "default") {
+      return <MissionConclusionRich {...props} />;
+    }
+  } catch {}
+  return <MissionConclusionOriginal {...props} />;
 }

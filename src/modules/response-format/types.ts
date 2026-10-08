@@ -148,16 +148,28 @@ export interface ClarifyBlock {
   }[];
 }
 
+/** HTML富可视化Artifact块 - Kern完美结合，Claude风格 */
+export interface HtmlBlock {
+  type: "html";
+  title?: string;
+  full?: boolean;
+  html: string; // 内联样式HTML，无外部依赖
+  height?: number;
+  artifact?: boolean; // 是否作为Artifact在右侧展示
+}
+
 export type Block =
   | ProseBlock | KeypointsBlock | TableBlock | ChartBlock | ChecklistBlock
   | TimelineBlock | DecisionBlock | QaBlock | CalloutBlock | UnknownBlock
-  | EvidenceBlock | CodeBlock | ProgressBlock | ClarifyBlock;
+  | EvidenceBlock | CodeBlock | ProgressBlock | ClarifyBlock | HtmlBlock;
 
 export interface Ask {
   question: string;
   why_you: string;
   options: { label: string; consequence: string }[];
 }
+
+export type AudienceRole = "leadership" | "product" | "sales" | "auto";
 
 export interface Meta {
   model: string;
@@ -166,6 +178,13 @@ export interface Meta {
   quota: { used: number; limit: number | null } | null;
   memoriesUsed: string[];
   sources: number;
+  /** Kern 建议的呈现角色，前端可自动切换 */
+  suggestedRole?: AudienceRole;
+  audience?: AudienceRole;
+  /** Kern 识别到的用户意图对应的角色 */
+  detectedRole?: AudienceRole;
+  roleConfidence?: number;
+  roleReason?: string;
 }
 
 export interface ResponseEnvelope {

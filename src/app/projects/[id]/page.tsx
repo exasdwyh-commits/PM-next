@@ -11,6 +11,7 @@ import { toSessionView } from "@/shared/session-view";
 import { getProjectDetail } from "@/modules/projects/service";
 import { ForbiddenError, NotFoundError } from "@/shared/errors";
 import ProjectDetailClient from "./project-detail-client";
+import { RoleProvider } from "@/components/role-context";
 
 export const dynamic = "force-dynamic";
 
@@ -27,21 +28,17 @@ export default async function ProjectDetailPage({
   try {
     session = await getServerSessionFromContext(headerList, cookieStore);
   } catch (e) {
-    // B01-01: 未登录跳转登录页；匿名不能读取项目数据
     redirect("/login");
   }
 
   let project;
   try {
-    // Share the API's membership checks, public fields and current gate diagnostics.
     project = await getProjectDetail(session, id);
   } catch (error) {
     if (error instanceof ForbiddenError || error instanceof NotFoundError) notFound();
     throw error;
   }
 
-  // B6：开发态身份切换才需要组织成员名单；生产态不下发，避免把同组织用户 id/name/email
-  // 序列化进 RSC 载荷（页面在 mockAuth=false 时本就不渲染该下拉）
   const mockAuth = isMockAuthEnabled();
   const allUsers = mockAuth
     ? await prisma.user.findMany({
@@ -51,11 +48,7 @@ export default async function ProjectDetailPage({
     : [];
 
   const gaps = project.gaps;
-
-  // P1-01: 服务端计算证据覆盖/缺口（仅已核实 FACT；缺口保持 UNKNOWN），跨认证模式可用
   const evidenceInsight = buildEvidenceInsight(project.evidences);
-
-  // P1-02: 服务端合成机会分析与市场验证（同 evidenceInsight，跨认证模式可用）
   const { resolved, gaps: evidenceGaps } = evidenceInsight;
   const constraints = parseProjectRequirements(
     `${project.target} ${project.constraints ?? ""}`
@@ -102,15 +95,17 @@ export default async function ProjectDetailPage({
   };
 
   return (
-    <ProjectDetailClient
-      initialProject={JSON.parse(JSON.stringify(project))}
-      allUsers={JSON.parse(JSON.stringify(allUsers))}
-      currentSession={toSessionView(session)}
-      gaps={gaps}
-      mockAuth={mockAuth}
-      initialEvidenceInsight={JSON.parse(JSON.stringify(evidenceInsight))}
-      initialOpportunity={JSON.parse(JSON.stringify(initialOpportunity))}
-      runtime={getRuntimeStatus()}
-    />
+    <RoleProvider>
+      <ProjectDetailClient
+        initialProject={JSON.parse(JSON.stringify(project))}
+        allUsers={JSON.parse(JSON.stringify(allUsers))}
+        currentSession={toSessionView(session)}
+        gaps={gaps}
+        mockAuth={mockAuth}
+        initialEvidenceInsight={JSON.parse(JSON.stringify(evidenceInsight))}
+        initialOpportunity={JSON.parse(JSON.stringify(initialOpportunity))}
+        runtime={getRuntimeStatus()}
+      />
+    </RoleProvider>
   );
 }

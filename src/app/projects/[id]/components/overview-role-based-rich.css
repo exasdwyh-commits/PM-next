@@ -1,0 +1,52 @@
+.ov-role-rich { display: grid; gap: 16px; padding: 16px; border: 2px solid #e7e9ef; border-radius: 16px; background: white; }
+.ov-role-rich-header { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+.ov-role-rich-header h2 { margin: 6px 0 4px; font-size: 18px; }
+.ov-role-rich-header p { margin: 0; font-size: 12px; color: #6b7280; }
+.ov-eyebrow { display: inline-block; padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+.category-badge-rich { margin-top: 8px; padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; display: inline-block; }
+.ov-kpi-grid-rich { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.kpi-rich { padding: 14px; border-radius: 12px; background: white; border: 1px solid #e7e9ef; display: grid; gap: 4px; animation: fadeInUp 0.4s ease-out both; }
+.kpi-rich.ok { background: #f0fdf4; }
+.kpi-rich.brand { background: #f6f7f9; }
+.kpi-rich.warn { background: #fffbeb; }
+.kpi-rich.bad { background: #fef2f2; }
+.kpi-rich span { font-size: 11px; color: #6b7280; }
+.kpi-rich strong { font-size: 18px; font-weight: 800; }
+.kpi-rich small { font-size: 10px; color: #9099a6; }
+.kpi-bar { height: 4px; background: #f0f2f6; border-radius: 99px; overflow: hidden; margin-top: 4px; }
+.kpi-bar .fill { height: 100%; border-radius: 99px; animation: growWidth 0.8s ease-out both; }
+.ov-charts-rich { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.ov-section { display: grid; gap: 10px; }
+.ov-section h3 { margin: 0; font-size: 13px; }
+.ov-table-wrap { overflow-x: auto; }
+.ov-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.ov-table th { text-align: left; padding: 8px; background: #f6f7f9; font-weight: 700; }
+.ov-table td { padding: 8px; border-top: 1px solid #f0f2f6; }
+.lvl { padding: 2px 6px; border-radius: 99px; font-size: 9px; font-weight: 700; }
+.lvl.A { background: #f0fdf4; color: #0b7a4f; }
+.ov-gaps { padding: 12px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; font-size: 11px; }
+.ov-gaps ul { margin: 6px 0 0 16px; }
+.ov-work-grid-rich { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.work-card-rich { padding: 12px; border: 1px solid #e7e9ef; border-radius: 10px; background: white; display: grid; gap: 6px; animation: fadeInUp 0.4s ease-out both; }
+.work-card-rich .work-h { display: flex; justify-content: space-between; align-items: center; }
+.work-card-rich .work-h strong { font-size: 12px; }
+.work-card-rich small { font-size: 11px; color: #4b5563; }
+.ov-sales-rich { display: grid; gap: 16px; }
+.ov-sales-hero { padding: 16px; border-radius: 12px; display: grid; gap: 8px; }
+.ov-sales-hero h2 { margin: 0; font-size: 16px; }
+.ov-sales-hero p { margin: 0; font-size: 11px; color: #4b5563; line-height: 1.5; }
+.badge { padding: 4px 10px; border-radius: 99px; font-size: 10px; font-weight: 700; display: inline-block; width: fit-content; }
+.ov-sales-points h3 { margin: 0 0 10px; font-size: 13px; }
+.sales-grid-rich { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.sales-card-rich { padding: 12px; border: 1px solid #e7e9ef; border-radius: 10px; background: white; display: flex; gap: 10px; animation: fadeInUp 0.4s ease-out both; }
+.sales-card-rich .icon { font-size: 20px; }
+.sales-card-rich div { display: grid; gap: 2px; }
+.sales-card-rich strong { font-size: 12px; }
+.sales-card-rich small { font-size: 10px; color: #6b7280; }
+.mini-stat { padding: 8px; border: 1px solid #e7e9ef; border-radius: 8px; background: white; text-align: center; display: grid; gap: 2px; }
+.mini-stat strong { font-size: 14px; font-weight: 800; }
+.mini-stat small { font-size: 10px; color: #6b7280; }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes growWidth { from { width: 0; } to { width: var(--target-width, 100%); } }
+@keyframes drawDonut { from { stroke-dasharray: 0 100; } }
+@media (max-width: 768px) { .ov-kpi-grid-rich { grid-template-columns: repeat(2, 1fr); } .ov-charts-rich { grid-template-columns: 1fr; } .ov-work-grid-rich { grid-template-columns: 1fr; } .sales-grid-rich { grid-template-columns: 1fr; } }

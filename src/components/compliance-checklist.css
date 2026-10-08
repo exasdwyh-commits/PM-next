@@ -1,0 +1,33 @@
+.compliance-checklist { display: grid; gap: 12px; padding: 14px; border: 1px solid #e7e9ef; border-radius: 12px; background: white; }
+.compliance-checklist.leadership { background: #f6f7f9; border-style: dashed; }
+.compliance-header { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+.compliance-header h4 { margin: 0; font-size: 14px; }
+.compliance-header small { color: #6b7280; font-size: 11px; }
+.compliance-actions { display: flex; gap: 8px; }
+.compliance-actions select { padding: 6px 10px; border-radius: 8px; border: 1px solid #e7e9ef; font-size: 11px; }
+.compliance-kpi { display: flex; gap: 12px; font-size: 11px; color: #6b7280; }
+.compliance-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.comp-card { padding: 8px; border: 1px solid #e7e9ef; border-radius: 8px; background: white; display: grid; gap: 2px; font-size: 11px; }
+.comp-card.done { background: #e8f6ef; border-color: #bfe6d4; }
+.progress-bar { height: 8px; background: #f0f2f6; border-radius: 999px; overflow: hidden; position: relative; display: flex; align-items: center; }
+.progress-bar .fill { height: 100%; background: #0b7a4f; border-radius: 999px; transition: width .3s; }
+.progress-bar span { position: absolute; right: 8px; font-size: 10px; font-weight: 700; }
+.compliance-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.compliance-item { padding: 10px 12px; border: 1px solid #e7e9ef; border-radius: 10px; background: white; display: grid; gap: 6px; }
+.compliance-item.done { background: #e8f6ef; border-color: #bfe6d4; }
+.compliance-item.required { border-left: 3px solid #b32b23; }
+.compliance-item.optional { border-left: 3px solid #d1d5db; }
+.item-h { display: flex; justify-content: space-between; align-items: center; }
+.item-h label { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
+.item-h .badge { padding: 2px 6px; border-radius: 99px; font-size: 9px; font-weight: 700; }
+.badge.required { background: #fdeeec; color: #b32b23; }
+.badge.optional { background: #f6f7f9; color: #6b7280; }
+.compliance-item p { margin: 0; font-size: 11px; color: #4b525f; line-height: 1.4; }
+.item-meta { display: flex; gap: 8px; flex-wrap: wrap; font-size: 10px; color: #9099a6; }
+.compliance-summary { display: grid; gap: 1px; background: #f0f2f6; border-radius: 8px; overflow: hidden; }
+.summary-row { display: flex; justify-content: space-between; padding: 8px 10px; background: white; font-size: 11px; }
+.summary-row.total { background: #f6f7f9; font-weight: 700; }
+.compliance-sales { background: linear-gradient(135deg, #fff, #f6f7f9); padding: 10px; border-radius: 8px; border: 1px solid #e7e9ef; display: grid; gap: 4px; }
+.compliance-sales strong { font-size: 12px; }
+.compliance-sales p { margin: 0; font-size: 11px; line-height: 1.5; }
+@media (max-width: 720px) { .compliance-grid { grid-template-columns: 1fr; } .compliance-cards { grid-template-columns: 1fr; } }

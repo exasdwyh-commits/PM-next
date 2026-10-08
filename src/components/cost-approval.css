@@ -1,0 +1,27 @@
+.cost-approval { display: grid; gap: 12px; padding: 14px; border: 1px solid #e7e9ef; border-radius: 12px; background: white; }
+.approval-header { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+.approval-header h4 { margin: 0; font-size: 13px; }
+.approval-header small { font-size: 11px; color: #6b7280; }
+.status-badge { padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+.approval-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px; background: #f6f7f9; border-radius: 8px; }
+.approval-actions button { padding: 6px 12px; border-radius: 8px; border: 1px solid #e7e9ef; background: white; font-size: 11px; font-weight: 600; cursor: pointer; }
+.approval-actions button.primary { background: #0f1116; color: white; border-color: #0f1116; }
+.approval-actions button.approve { background: #0b7a4f; color: white; border-color: #0b7a4f; }
+.approval-actions button.reject { background: #b32b23; color: white; border-color: #b32b23; }
+.approval-actions small { font-size: 10px; color: #6b7280; }
+.comment-box { display: grid; gap: 8px; padding: 12px; background: #fafbfc; border: 1px solid #e7e9ef; border-radius: 8px; }
+.comment-box textarea { padding: 8px 10px; border-radius: 6px; border: 1px solid #e7e9ef; font-size: 12px; resize: vertical; }
+.comment-box button { padding: 6px 12px; border-radius: 6px; border: 1px solid #e7e9ef; background: white; font-size: 11px; cursor: pointer; }
+.comment-box button.primary { background: #0f1116; color: white; }
+.approval-timeline { display: grid; gap: 0; position: relative; padding-left: 20px; }
+.approval-timeline::before { content: ""; position: absolute; left: 6px; top: 0; bottom: 0; width: 2px; background: #f0f2f6; }
+.timeline-item { position: relative; padding: 10px 0 10px 20px; animation: fadeInUp 0.4s ease-out both; }
+.timeline-dot { position: absolute; left: -16px; top: 14px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 2px #f0f2f6; }
+.timeline-content { background: white; border: 1px solid #e7e9ef; border-radius: 8px; padding: 10px 12px; display: grid; gap: 6px; }
+.timeline-content strong { font-size: 12px; }
+.timeline-content small { font-size: 10px; color: #6b7280; }
+.timeline-content p { margin: 0; font-size: 11px; line-height: 1.4; background: #f6f7f9; padding: 6px 8px; border-radius: 6px; }
+.empty { padding: 20px; text-align: center; color: #9099a6; font-size: 11px; border: 1px dashed #e7e9ef; border-radius: 8px; }
+.approval-flow { padding: 8px 10px; background: #fafbfc; border-radius: 6px; }
+.approval-flow small { font-size: 10px; color: #6b7280; }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }

@@ -1,0 +1,31 @@
+.bom-import { display: grid; gap: 12px; padding: 14px; border: 1px solid #e7e9ef; border-radius: 12px; background: white; }
+.bom-import.leadership { background: #f6f7f9; border-style: dashed; }
+.bom-header { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+.bom-header h4 { margin: 0; font-size: 14px; }
+.bom-header small { color: #6b7280; font-size: 11px; }
+.bom-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.bom-actions select, .bom-actions button { padding: 6px 10px; border-radius: 8px; border: 1px solid #e7e9ef; background: white; font-size: 11px; cursor: pointer; }
+.bom-kpi { display: flex; gap: 12px; font-size: 12px; }
+.bom-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.bom-card { padding: 8px; border: 1px solid #e7e9ef; border-radius: 8px; background: white; display: flex; justify-content: space-between; font-size: 12px; }
+.csv-import { display: grid; gap: 8px; padding: 12px; background: #f6f7f9; border-radius: 8px; }
+.csv-import textarea { padding: 8px; border-radius: 6px; border: 1px solid #e7e9ef; font-size: 11px; font-family: monospace; }
+.bom-table-wrap { overflow-x: auto; border: 1px solid #e7e9ef; border-radius: 8px; }
+.bom-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.bom-table th { background: #f6f7f9; padding: 6px 8px; text-align: left; font-size: 10px; color: #6b7280; border-bottom: 1px solid #e7e9ef; }
+.bom-table td { padding: 4px 6px; border-bottom: 1px solid #f0f2f6; }
+.bom-table input { width: 100%; padding: 4px 6px; border: 1px solid #e7e9ef; border-radius: 4px; font-size: 11px; }
+.bom-table tfoot td { background: #f6f7f9; font-weight: 700; }
+.warnings { display: grid; gap: 4px; }
+.warnings small { color: #b32b23; font-size: 11px; }
+.bom-sales { background: linear-gradient(135deg, #fff, #f6f7f9); padding: 10px; border-radius: 8px; border: 1px solid #e7e9ef; display: grid; gap: 4px; }
+.bom-sales strong { font-size: 12px; }
+.bom-sales p { margin: 0; font-size: 11px; line-height: 1.5; }
+
+.excel-drop { border: 2px dashed #e7e9ef; border-radius: 12px; padding: 20px; background: #fafbfc; display: grid; place-items: center; transition: all 0.2s; cursor: pointer; }
+.excel-drop.drag-over { border-color: #0f1116; background: #f0f2f6; transform: scale(1.01); }
+.excel-preview { border: 1px solid #e7e9ef; border-radius: 12px; padding: 12px; background: #f6f7f9; display: grid; gap: 10px; }
+.excel-preview h5 { margin: 0; font-size: 12px; }
+.preview-table-wrap { border: 1px solid #e7e9ef; border-radius: 8px; overflow: hidden; background: white; }
+.excel-preview button { padding: 6px 12px; border-radius: 6px; border: 1px solid #e7e9ef; background: white; font-size: 11px; cursor: pointer; }
+.excel-preview button.primary { background: #0f1116; color: white; border-color: #0f1116; }

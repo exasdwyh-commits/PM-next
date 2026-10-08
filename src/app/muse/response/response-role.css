@@ -1,0 +1,92 @@
+/* Role-Based Response - 三角色 */
+.rb-response { background: white; border: 1px solid #e7e9ef; border-radius: 18px; overflow: hidden; box-shadow: 0 4px 16px rgba(16,20,32,.07); }
+.rb-role-switch { display: flex; gap: 6px; padding: 10px 14px; background: #f6f7f9; border-bottom: 1px solid #e7e9ef; flex-wrap: wrap; align-items: center; }
+.rb-role-switch button { padding: 6px 14px; border-radius: 999px; border: 1px solid #e7e9ef; background: white; font-size: 12px; font-weight: 600; cursor: pointer; }
+.rb-role-switch button.active { background: #0f1116; color: white; border-color: #0f1116; }
+.rb-role-switch .spacer { flex: 1; }
+.rb-density { display: inline-flex; background: #e7e9ef; border-radius: 999px; padding: 2px; gap: 2px; }
+.rb-density button { padding: 4px 10px; border-radius: 999px; border: 0; background: transparent; font-size: 11px; cursor: pointer; }
+.rb-density button[aria-pressed="true"] { background: white; box-shadow: 0 1px 2px rgba(0,0,0,.05); font-weight: 600; }
+.rb-header { padding: 20px 24px 16px; display: grid; gap: 8px; }
+.rb-header h1 { margin: 0; font-size: 22px; line-height: 1.4; font-weight: 700; font-family: "Source Han Serif SC", serif; }
+.rb-meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 11px; color: #6b7280; }
+.rb-meta .badge { padding: 2px 8px; border-radius: 999px; font-weight: 600; border: 1px solid; }
+.rb-meta .badge.high { background: #e8f6ef; color: #0b7a4f; border-color: #bfe6d4; }
+.rb-meta .badge.medium { background: #fdf3e2; color: #9a5b06; border-color: #f2ddb6; }
+.rb-meta .badge.low { background: #fdeeec; color: #b32b23; border-color: #f6cdc8; }
+.rb-meta .role-hint { background: #0f1116; color: white; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
+.rb-blocks { padding: 0 24px 24px; display: grid; gap: 20px; }
+
+/* Leadership */
+.rb-kp-lead { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.rb-kp-lead li { display: flex; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #f6f7f9; border: 1px solid #f0f2f6; }
+.rb-kp-lead li .icon { font-size: 16px; }
+.rb-table-lead { display: grid; gap: 8px; }
+.rb-table-lead .rb-card { padding: 10px 12px; border: 1px solid #e7e9ef; border-radius: 10px; display: grid; gap: 4px; }
+.rb-table-lead .rb-card strong { font-size: 14px; }
+.rb-chart-lead { border: 1px solid #e7e9ef; border-radius: 10px; padding: 12px; }
+.rb-bars-mini { display: grid; gap: 6px; margin-top: 8px; }
+.rb-bars-mini div { display: grid; grid-template-columns: 60px 1fr; gap: 8px; align-items: center; font-size: 12px; }
+.rb-bars-mini i { height: 6px; background: #2563eb; border-radius: 999px; display: block; }
+.rb-dec-lead { padding: 12px; border: 1px solid #cfe0fd; background: #eaf1fe; border-radius: 12px; display: grid; gap: 6px; }
+.rb-other-lead { font-size: 12px; color: #999; padding: 8px; background: #fafbfc; border-radius: 8px; }
+
+/* Product */
+.rb-table-wrap { border: 1px solid #e7e9ef; border-radius: 10px; overflow: hidden; }
+.rb-table-full { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rb-table-full th { background: #f6f7f9; padding: 8px 12px; font-size: 11px; text-transform: uppercase; color: #6b7280; text-align: left; border-bottom: 1px solid #e7e9ef; }
+.rb-table-full td { padding: 8px 12px; border-bottom: 1px solid #f0f2f6; }
+.rb-table-full tr.pick { background: #eaf1fe; }
+.rb-table-full .num { text-align: right; font-variant-numeric: tabular-nums; }
+.badge.fact { background: #e8f6ef; color: #0b7a4f; padding: 2px 6px; border-radius: 99px; font-size: 10px; }
+.badge.inference { background: #fdf3e2; color: #9a5b06; padding: 2px 6px; border-radius: 99px; font-size: 10px; }
+.badge.unknown { background: #f0f2f6; color: #6b7280; padding: 2px 6px; border-radius: 99px; font-size: 10px; }
+.rb-checklist-full { display: grid; gap: 10px; }
+.rb-check-item { border: 1px solid #e7e9ef; border-radius: 10px; padding: 12px; }
+.rb-check-h { display: flex; gap: 8px; align-items: center; }
+.rb-check-h span { width: 20px; height: 20px; background: #eaf1fe; color: #1d4ed8; border-radius: 6px; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+.rb-check-grid { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: #6b7280; margin-top: 6px; }
+.rb-timeline-full { display: grid; gap: 0; padding-left: 20px; border-left: 1px solid #e7e9ef; }
+.rb-tl-item { display: grid; gap: 2px; padding: 10px 0; border-bottom: 1px solid #f0f2f6; }
+.rb-tl-item .when { font-size: 11px; font-weight: 700; color: #1d4ed8; }
+.rb-qa-full { display: grid; gap: 8px; }
+.rb-qa-row { display: grid; grid-template-columns: auto 1fr; gap: 10px; padding: 10px 12px; border: 1px solid #e7e9ef; border-radius: 8px; }
+.rb-ev-full { display: grid; gap: 8px; }
+.rb-ev-item { display: grid; grid-template-columns: auto 1fr; gap: 10px; padding: 10px; border: 1px solid #e7e9ef; border-radius: 8px; }
+.rb-ev-item .n { width: 20px; height: 20px; background: #eaf1fe; color: #1d4ed8; border-radius: 6px; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+.rb-progress-full { border: 1px solid #e7e9ef; border-radius: 10px; overflow: hidden; }
+.rb-progress-h { display: flex; gap: 10px; padding: 10px 12px; background: #f6f7f9; align-items: center; }
+.rb-progress-h .track { flex: 1; height: 6px; background: #e7e9ef; border-radius: 999px; overflow: hidden; }
+.rb-progress-h .track i { display: block; width: 100%; height: 100%; background: #2563eb; transform-origin: left; }
+.rb-progress-full .step { display: grid; grid-template-columns: auto 1fr; gap: 10px; padding: 8px 12px; border-bottom: 1px solid #f0f2f6; }
+.rb-progress-full .dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; margin-top: 6px; }
+
+/* Sales */
+.rb-sales-badge { font-size: 10px; font-weight: 800; background: #0f1116; color: white; padding: 3px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em; width: fit-content; }
+.rb-sales-prose { border: 1px solid #f2ddb6; background: linear-gradient(180deg, #fdf3e2, white); border-radius: 12px; padding: 14px; display: grid; gap: 8px; }
+.rb-sales-kp { display: grid; gap: 10px; }
+.rb-sales-card { border: 1px solid #e7e9ef; border-radius: 12px; padding: 12px; display: grid; gap: 6px; background: linear-gradient(135deg, #fff, #f6f7f9); }
+.rb-sales-icon { font-size: 20px; }
+.rb-sales-table { display: grid; gap: 8px; }
+.rb-table-sales { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rb-table-sales th { background: #0f1116; color: white; padding: 8px 12px; text-align: left; font-size: 11px; }
+.rb-table-sales td { padding: 8px 12px; border-bottom: 1px solid #f0f2f6; }
+.rb-table-sales tr.pick { background: #e8f6ef; font-weight: 600; }
+.rb-sales-chart { border: 1px solid #e7e9ef; border-radius: 12px; padding: 14px; display: grid; gap: 10px; background: linear-gradient(180deg, #eaf1fe, white); }
+.rb-bars-sales { display: grid; gap: 8px; }
+.rb-bars-sales .bar { display: grid; grid-template-columns: 60px 1fr auto; gap: 8px; align-items: center; font-size: 12px; }
+.rb-bars-sales .track { height: 8px; background: #f0f2f6; border-radius: 999px; overflow: hidden; }
+.rb-bars-sales .track i { height: 100%; background: linear-gradient(90deg, #2563eb, #7c6cf5); display: block; border-radius: 999px; }
+.rb-sales-dec { border: 1px solid #bfe6d4; background: linear-gradient(180deg, #e8f6ef, white); border-radius: 12px; padding: 14px; display: grid; gap: 10px; }
+.rb-sales-recommend ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.6; }
+.rb-sales-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.rb-sales-tools button { padding: 6px 12px; border-radius: 999px; border: 1px solid #e7e9ef; background: white; font-size: 11px; font-weight: 600; cursor: pointer; }
+.rb-sales-callout { border: 1px solid #f2ddb6; background: #fdf3e2; border-radius: 10px; padding: 12px; display: grid; gap: 6px; }
+.rb-sales-other { border: 1px dashed #e7e9ef; border-radius: 10px; padding: 12px; display: grid; gap: 6px; }
+.rb-ask { border: 1px solid #f2ddb6; background: #fdf3e2; border-radius: 14px; padding: 16px; display: grid; gap: 10px; margin-top: 16px; }
+.rb-ask .q { font-weight: 700; margin: 0; }
+.rb-ask .why { font-size: 12px; color: #9a5b06; margin: 0; }
+.rb-ask .opts { display: grid; gap: 8px; }
+.rb-ask .opt { padding: 10px 12px; border: 1px solid #e7e9ef; border-radius: 10px; background: white; text-align: left; display: grid; gap: 2px; }
+.rb-failed { padding: 16px; background: #fdeeec; border: 1px solid #f6cdc8; border-radius: 12px; color: #b32b23; }
+@media (max-width: 640px) { .rb-blocks { padding: 0 16px 16px; } .rb-header { padding: 16px; } }

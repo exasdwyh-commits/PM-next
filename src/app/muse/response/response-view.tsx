@@ -317,6 +317,26 @@ function BlockView({ b, onRef }: { b: Block; onRef: (n: number) => void }) {
         </Section>
       );
 
+    case "html":
+      return (
+        <Section title={(b as any).title || "🎨 富可视化Artifact"} full={(b as any).full}>
+          <div className="kr-html-artifact" style={{ border: "1px solid #e7e9ef", borderRadius: "12px", overflow: "hidden", background: "white" }}>
+            {(b as any).artifact ? (
+              <div style={{ padding: "8px 12px", background: "#fafbfc", borderBottom: "1px solid #e7e9ef", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <small style={{ fontSize: "11px", color: "#6b7280" }}>🎨 富可视化 · 通过harness R17 · {(b as any).html?.length || 0}字符</small>
+                <span style={{ background: "#0f1116", color: "white", padding: "2px 8px", borderRadius: "99px", fontSize: "10px" }}>Artifact</span>
+              </div>
+            ) : null}
+            <iframe
+              srcDoc={(b as any).html}
+              title={(b as any).title || "富可视化"}
+              sandbox="allow-same-origin allow-scripts"
+              style={{ width: "100%", height: `${(b as any).height || 600}px`, border: 0, background: "white" }}
+            />
+          </div>
+        </Section>
+      );
+
     default:
       return null;
   }

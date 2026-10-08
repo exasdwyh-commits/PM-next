@@ -1,0 +1,13 @@
+.role-switch-wrap { display: grid; gap: 6px; }
+.role-switch { display: inline-flex; gap: 2px; padding: 3px; background: #f0f2f6; border-radius: 999px; }
+.role-switch button { border: 0; background: transparent; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; cursor: pointer; color: #6b7280; transition: all .15s; }
+.role-switch button.is-active { background: #0f1116; color: white; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+.role-switch.is-compact button { padding: 4px 8px; font-size: 11px; }
+.role-source-hint { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #9099a6; }
+.role-source-hint .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.role-source-hint .dot.manual { background: #0f1116; }
+.role-source-hint .dot.auto { background: #2563eb; }
+.role-source-hint .dot.kern { background: #7c3aed; }
+.role-source-hint .dot.default { background: #d1d5db; }
+.role-clear { border: 0; background: transparent; color: #2563eb; font-size: 11px; cursor: pointer; padding: 0 4px; }
+.role-clear:hover { text-decoration: underline; }

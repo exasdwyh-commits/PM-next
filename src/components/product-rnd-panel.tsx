@@ -1,8 +1,11 @@
 "use client";
 
 import * as React from "react";
+import { ProductRndPanelRich } from "./product-rnd-panel-rich";
+import "./product-rnd-panel-rich.css";
+import { useRole } from "./role-context";
 import { Badge, Button, Empty, Panel, Thinking } from "@/components/ui";
-import { ExecutiveReportView } from "@/components/executive-report";
+import { ExecutiveReportRoleBased } from "@/components/executive-report-role-based";
 import { identityHeaders } from "@/shared/client-identity";
 import type { ExecutiveReportPayload } from "@/shared/executive-report-types";
 import { labelAgentTaskStatus } from "@/shared/status-labels";
@@ -80,7 +83,7 @@ function stageStateFromTasks(tasks: ProductRndTaskRow[]): StageState {
   return "pending";
 }
 
-export function ProductRndPanel({
+export function ProductRndPanelOriginal({
   projectId,
   workItemId,
   mockAuth,
@@ -380,7 +383,7 @@ export function ProductRndPanel({
           )}
 
           <div className="hermes-rnd-report-wrap">
-            <ExecutiveReportView
+            <ExecutiveReportRoleBased
               report={report}
               onOpenDecisions={onOpenDecisions}
               onOpenEvidence={onOpenEvidence}
@@ -399,4 +402,15 @@ export function ProductRndPanel({
       )}
     </Panel>
   );
+}
+
+
+export function ProductRndPanel(props: any) {
+  try {
+    const { role } = useRole();
+    if (role !== "default") {
+      return <ProductRndPanelRich {...props} />;
+    }
+  } catch {}
+  return <ProductRndPanelOriginal {...props} />;
 }

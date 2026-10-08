@@ -1,0 +1,54 @@
+.role-tools { display: grid; gap: 12px; padding: 14px; border-radius: 12px; border: 1px solid #e7e9ef; }
+.role-tools.leadership { background: #f6f7f9; border-style: dashed; }
+.role-tools.product { background: white; }
+.role-tools.sales { background: linear-gradient(135deg, #fff, #f6f7f9); border-color: #e7e9ef; }
+
+.role-tools h4 { margin: 0; font-size: 13px; font-weight: 700; }
+
+.tools-grid { display: grid; gap: 8px; }
+.tools-grid.leadership { grid-template-columns: repeat(3, 1fr); }
+.tools-grid.product { grid-template-columns: repeat(3, 1fr); }
+.tools-grid.sales { grid-template-columns: repeat(2, 1fr); }
+.tools-grid.compact { grid-template-columns: repeat(2, 1fr); }
+
+.tool-btn { 
+  display: flex; 
+  align-items: center; 
+  gap: 8px; 
+  padding: 10px 12px; 
+  border-radius: 10px; 
+  border: 1px solid #e7e9ef; 
+  background: white; 
+  cursor: pointer; 
+  text-align: left;
+  transition: all .15s;
+}
+.tool-btn:hover { border-color: #0f1116; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.tool-btn.primary { background: #0f1116; color: white; border-color: #0f1116; }
+.tool-btn.leadership { padding: 8px 10px; font-size: 12px; justify-content: center; }
+.tool-btn.leadership .icon { font-size: 14px; }
+.tool-btn.product .icon { font-size: 18px; }
+.tool-btn.sales .icon { font-size: 18px; }
+.tool-btn.sales.primary { background: linear-gradient(135deg, #0f1116, #1b1f27); }
+
+.tool-info { display: grid; gap: 2px; }
+.tool-info strong { font-size: 12px; font-weight: 600; }
+.tool-info small { font-size: 10px; color: #6b7280; line-height: 1.3; }
+
+.tools-hint { font-size: 11px; color: #6b7280; }
+.sales-script-hint { 
+  background: white; 
+  border: 1px solid #e7e9ef; 
+  border-radius: 10px; 
+  padding: 10px 12px; 
+  display: grid; 
+  gap: 4px; 
+}
+.sales-script-hint strong { font-size: 12px; }
+.sales-script-hint p { margin: 0; font-size: 11px; background: #f6f7f9; padding: 6px 8px; border-radius: 6px; }
+.sales-script-hint small { font-size: 10px; color: #6b7280; }
+
+@media (max-width: 720px) {
+  .tools-grid.product, .tools-grid.sales { grid-template-columns: 1fr; }
+  .tools-grid.leadership { grid-template-columns: repeat(2, 1fr); }
+}

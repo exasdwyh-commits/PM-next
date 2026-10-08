@@ -2,6 +2,8 @@ import { ExecutionStoppedError } from "@/modules/worker/claim";
 import { lockRunExecutionTx, type ConversationExecution } from "@/modules/worker/run-claim";
 import { RunMode } from "@prisma/client";
 import { recallForPrompt } from "@/modules/memory";
+import { recallRolePreference } from "@/modules/memory/role-preference";
+import { inferRoleFromText } from "./role-intelligence";
 import prisma from "@/shared/db";
 import { NotFoundError, UnprocessableEntityError } from "@/shared/errors";
 import type { SessionContext } from "@/modules/identity/session";
@@ -332,7 +334,14 @@ export async function executeKernConversationTurn(
     );
     const selectionPrompt = buildKernConversationSelectionPrompt(runtimeSelection);
     const memoryPrompt = await recallForPrompt(session, text).catch(() => "");
-    const assistantPersona = [basePersona, memoryPrompt, selectionPrompt]
+    const rolePreference = await recallRolePreference(session).catch(() => null);
+    const roleInference = inferRoleFromText(text);
+    const rolePrompt = rolePreference
+      ? `## 用户角色偏好（记忆）\n- 偏好角色：${rolePreference.role} (${rolePreference.confidence > 0.8 ? "高置信度" : "中等置信度"})\n- 记忆内容：${rolePreference.content}\n- 当前推断：${roleInference ? `${roleInference.role} (${Math.round(roleInference.confidence * 100)}%) - ${roleInference.reason}` : "无"}\n- 要求：按偏好角色呈现，领导层要一页看懂直观，产品研发要专业严谨可信度第一工具丰富，销售营销要卖点突出工具型。\n- 输出时在 meta.suggestedRole 中标记建议角色，前端会自动切换。`
+      : roleInference
+        ? `## 检测到角色意图\n- 推断角色：${roleInference.role} (${Math.round(roleInference.confidence * 100)}%)\n- 原因：${roleInference.reason}\n- 要求：按此角色呈现，并在 meta.suggestedRole 中标记。`
+        : "";
+    const assistantPersona = [basePersona, memoryPrompt, rolePrompt, selectionPrompt]
       .filter((value): value is string => Boolean(value))
       .join("\n\n");
     const llmMessages: AdvisorLLMMessage[] = assistantPersona

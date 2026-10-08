@@ -22,6 +22,7 @@ import {
   type ReportSource,
 } from "../supervisor/report-format";
 import type { Block, ResponseEnvelope } from "./types";
+import { inferRoleFromText } from "@/modules/assistant-runtime/role-intelligence";
 
 /** 从结论正文里抠出某个小节的条目（"主要风险"、"反对理由" 等）。 */
 export function extractList(conclusion: string | null | undefined, heading: RegExp): string[] {
@@ -211,6 +212,19 @@ export function envelopeFromMission(r: MissionReport, opts: FromMissionOptions):
       quota: r.demo ? null : opts.quota,
       memoriesUsed: r.meta.memoriesUsed,
       sources,
+      // --- Role Intelligence: Kern 根据目标和结论自动建议角色 ---
+      ...(() => {
+        const roleInf = inferRoleFromText(r.goal + " " + (r.conclusion || ""));
+        if (roleInf) {
+          return {
+            suggestedRole: roleInf.role,
+            detectedRole: roleInf.role,
+            roleConfidence: roleInf.confidence,
+            roleReason: roleInf.reason,
+          };
+        }
+        return {};
+      })(),
     },
   };
 }

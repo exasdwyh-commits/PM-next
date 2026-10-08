@@ -240,3 +240,14 @@ export function FeedRow({
     <div className="hermes-feed-row">{body}</div>
   );
 }
+
+
+import { HeroBandRich, KpiRich, KpiRowRich, DecisionBoardRich, ProgressRowRich } from "./cockpit-rich";
+import "./cockpit-rich.css";
+import { useRole } from "./role-context";
+
+export function HeroBandOriginal(props: any) { return null; }
+
+// Rich wrappers - if role != default, use rich versions
+// The original exports remain, but we add Rich variants for consumers
+export { HeroBandRich, KpiRich, KpiRowRich, DecisionBoardRich, ProgressRowRich };

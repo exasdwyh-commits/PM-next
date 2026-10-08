@@ -13,6 +13,12 @@ import { Notice } from "@/components/notice";
 import { useTabInk, useTabSwap } from "@/components/motion/tabs";
 import { useReasonDialog } from "@/components/reason-dialog";
 import { identityHeaders } from "@/shared/client-identity";
+import { OverviewRoleBased } from "./components/overview-role-based";
+import { CostCalculatorModular } from "@/components/cost-calculator-modular";
+import "@/components/cost-calculator-modular.css";
+import "@/components/role-tools.css";
+import { RoleProvider } from "@/components/role-context";
+import "@/components/role-switch.css";
 import { fmtDateTime, fmtTime } from "@/shared/datetime";
 import type { RuntimeStatus } from "@/shared/runtime-status";
 import { PROJECT_WORKSPACE_TABS, prepareArtifactSubmission, preparePacketBudget, projectStagesForMode } from "./project-workspace";
@@ -91,7 +97,7 @@ export default function ProjectDetailClient({
   const [currentGaps, setCurrentGaps] = useState(gaps);
   const [activeUserId, setActiveUserId] = useState(currentSession?.userId || initialProject.ownerId);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"overview" | "rnd" | "tasks" | "evidence" | "decisions" | "records">("overview");
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"overview" | "rnd" | "cost" | "tasks" | "evidence" | "decisions" | "records">("overview");
   const [saving, setSaving] = useState(false);
   const savingRef = React.useRef(false);
   const messageTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -839,6 +845,10 @@ export default function ProjectDetailClient({
 
         <div ref={workspacePanelRef} id="project-workspace-panel" role="tabpanel" aria-labelledby={`project-tab-${activeWorkspaceTab}`} tabIndex={0}>
         {activeWorkspaceTab === "overview" && (
+          <OverviewRoleBased project={project} gaps={currentGaps} evidenceInsight={evidenceInsight} opportunity={opportunity} onTabChange={setActiveWorkspaceTab} />
+                  )}
+
+        {activeWorkspaceTab === "overview-old" && (
           <div className="hermes-workspace-overview">
             <Panel
               eyebrow="NEXT ACTION"
@@ -925,6 +935,12 @@ export default function ProjectDetailClient({
           </Panel>
         )}
         </>)}
+
+        {activeWorkspaceTab === "cost" && (
+          <div className="hermes-workspace-cost">
+            <CostCalculatorModular productName={project.title} productCategory={project.category || "保健品"} />
+          </div>
+        )}
 
         {activeWorkspaceTab === "evidence" && (<>
         {/* P1-01: 证据覆盖与缺口（统一证据结构：仅已核实 FACT 计入结论，缺口保持 UNKNOWN） */}

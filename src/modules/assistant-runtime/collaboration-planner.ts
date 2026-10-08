@@ -1,4 +1,5 @@
 import type { AssistantReflexShadowResult } from "./reflex";
+import { detectRoleSwitchIntent, inferRoleFromText, expertsForRole, type UserRole } from "./role-intelligence";
 
 export type KernCouncilMode =
   | "SOLO"
@@ -95,6 +96,22 @@ export function buildKernCollaborationPlanShadow(input: {
     if (pattern.test(text)) add(code, reason);
   }
 
+  // --- Role Intelligence: 根据角色自动选择专家 ---
+  const roleSwitch = detectRoleSwitchIntent(text);
+  const roleInference = inferRoleFromText(text);
+  const detectedRole: UserRole | null = roleSwitch || (roleInference?.role as UserRole) || null;
+  if (detectedRole) {
+    const roleExperts = expertsForRole(detectedRole);
+    for (const code of roleExperts) {
+      if (!experts.has(code)) {
+        add(code, `ROLE_${detectedRole.toUpperCase()}_${code}`);
+      }
+    }
+    reasons.push(`DETECTED_ROLE_${detectedRole.toUpperCase()}`);
+    if (roleInference) reasons.push(`ROLE_CONFIDENCE_${Math.round(roleInference.confidence * 100)}`);
+  }
+
+
   const explicitFullRnd =
     input.productBound &&
     /(?:完整|全面|正式|系统).{0,8}(?:产品研发|研发评估|开品评估)|(?:产品研发|研发评估).{0,8}(?:完整|全面|正式|系统)/.test(text);
@@ -133,7 +150,14 @@ export function buildKernCollaborationPlanShadow(input: {
     /(最新|现在|当前|数据|证据|研究|竞品|法规)/.test(text);
 
   let mode: KernCouncilMode;
-  if (explicitFullRnd) mode = "FULL_RND";
+  // Role-based mode: leadership -> SOLO, product -> COUNCIL, sales -> PAIR
+  if (detectedRole === "leadership" && experts.size <= 2) {
+    mode = "SOLO";
+    reasons.push("ROLE_LEADERSHIP_SOLO");
+  } else if (detectedRole === "sales" && experts.size <= 3) {
+    mode = "PAIR";
+    reasons.push("ROLE_SALES_PAIR");
+  } else if (explicitFullRnd) mode = "FULL_RND";
   else if (explicitRedTeam) mode = "RED_TEAM";
   else if (experts.size >= 3 || (complexity === "HARD" && experts.size >= 2)) mode = "COUNCIL";
   else if (experts.size === 2) mode = "PAIR";

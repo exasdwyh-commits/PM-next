@@ -1,0 +1,85 @@
+.cost-modular { display: grid; gap: 16px; }
+.cost-header { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+.cost-header .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #6b7280; }
+.cost-header h2 { margin: 4px 0; font-size: 20px; font-weight: 700; }
+.cost-header p { margin: 0; color: #4b525f; font-size: 13px; }
+.template-switch { display: grid; gap: 4px; }
+.template-switch label { font-size: 11px; color: #6b7280; font-weight: 600; }
+.template-switch select { padding: 6px 10px; border-radius: 8px; border: 1px solid #e7e9ef; font-size: 12px; }
+
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.kpi { padding: 12px; border-radius: 12px; border: 1px solid #e7e9ef; display: grid; gap: 4px; }
+.kpi.ok { background: #e8f6ef; border-color: #bfe6d4; }
+.kpi.bad { background: #fdeeec; border-color: #f6cdc8; }
+.kpi.warn { background: #fdf3e2; border-color: #f2ddb6; }
+.kpi.brand { background: #eaf1fe; border-color: #cfe0fd; }
+.kpi span { font-size: 11px; color: #6b7280; font-weight: 600; }
+.kpi strong { font-size: 20px; font-weight: 800; }
+.kpi small { font-size: 11px; color: #6b7280; }
+
+.cost-summary { background: #f6f7f9; padding: 12px; border-radius: 10px; display: grid; gap: 6px; }
+.cost-summary h4 { margin: 0; font-size: 13px; }
+.cost-summary p { margin: 0; font-size: 13px; line-height: 1.6; }
+
+.cost-modules-lead { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.mod-card { display: flex; align-items: center; gap: 8px; padding: 10px; border: 1px solid #e7e9ef; border-radius: 10px; background: white; }
+.mod-card strong { flex: 1; font-size: 12px; }
+
+.modules-grid { display: grid; gap: 12px; }
+.module-card { border: 1px solid #e7e9ef; border-radius: 12px; padding: 14px; background: white; display: grid; gap: 12px; }
+.module-card.disabled { opacity: 0.5; background: #f6f7f9; }
+.module-h { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.module-title { display: grid; gap: 2px; }
+.module-title .icon { font-size: 16px; }
+.module-title strong { font-size: 14px; }
+.module-title small { font-size: 11px; color: #6b7280; }
+.toggle { display: flex; align-items: center; gap: 4px; font-size: 11px; }
+.fields-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.field { display: grid; gap: 4px; }
+.field span { font-size: 11px; font-weight: 600; }
+.field span i { color: #b32b23; }
+.field span small { font-weight: 400; color: #6b7280; }
+.field input, .field select { padding: 6px 8px; border-radius: 6px; border: 1px solid #e7e9ef; font-size: 12px; }
+.field .hint { font-size: 10px; color: #9099a6; }
+.module-result { background: #f6f7f9; padding: 10px; border-radius: 8px; display: grid; gap: 6px; }
+.module-result strong { font-size: 12px; }
+.breakdown { display: flex; gap: 8px; flex-wrap: wrap; font-size: 11px; color: #6b7280; }
+.note { font-size: 11px; color: #b32b23; }
+
+.cost-result-full { border: 1px solid #e7e9ef; border-radius: 12px; padding: 14px; background: white; display: grid; gap: 10px; }
+.cost-result-full h3 { margin: 0; font-size: 14px; }
+.result-table { display: grid; gap: 1px; background: #f0f2f6; border-radius: 8px; overflow: hidden; }
+.result-table .row { display: flex; justify-content: space-between; padding: 8px 10px; background: white; font-size: 12px; }
+.result-table .row.total { background: #f6f7f9; font-weight: 700; }
+.result-table .row.profit { background: #e8f6ef; font-weight: 700; }
+
+.cost-sales { display: grid; gap: 16px; }
+.sales-hero { padding: 16px; border-radius: 14px; background: linear-gradient(135deg, #0f1116, #1b1f27); color: white; display: grid; gap: 8px; }
+.sales-hero .badge { background: rgba(255,255,255,0.15); padding: 3px 8px; border-radius: 99px; font-size: 10px; font-weight: 800; width: fit-content; }
+.sales-hero h2 { margin: 0; font-size: 18px; }
+.sales-hero p { margin: 0; font-size: 12px; opacity: 0.7; }
+.sales-points { display: grid; gap: 10px; }
+.point { display: grid; grid-template-columns: auto 1fr; gap: 12px; padding: 12px; border: 1px solid #e7e9ef; border-radius: 12px; background: linear-gradient(135deg, #fff, #f6f7f9); }
+.point .icon { font-size: 20px; }
+.point strong { display: block; font-size: 13px; }
+.point small { display: block; font-size: 11px; color: #6b7280; margin-top: 2px; }
+.cost-modules-sales { display: grid; gap: 10px; }
+.mod-card-sales { display: grid; grid-template-columns: auto 1fr; gap: 12px; padding: 12px; border: 1px solid #e7e9ef; border-radius: 12px; background: white; }
+.sales-tools { border: 1px solid #e7e9ef; border-radius: 12px; padding: 14px; background: #fafbfc; display: grid; gap: 12px; }
+.sales-tools h4 { margin: 0; font-size: 13px; }
+.tool-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.tool-grid button { padding: 8px; border-radius: 8px; border: 1px solid #e7e9ef; background: white; font-size: 11px; cursor: pointer; }
+.tool-grid button.primary { background: #0f1116; color: white; border-color: #0f1116; }
+.script { background: white; border: 1px solid #e7e9ef; border-radius: 10px; padding: 12px; display: grid; gap: 8px; }
+.script h4 { margin: 0; font-size: 12px; }
+.script p { margin: 0; font-size: 12px; line-height: 1.6; background: #f6f7f9; padding: 8px 10px; border-radius: 8px; }
+
+.cost-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.cost-actions button { padding: 8px 14px; border-radius: 8px; border: 1px solid #e7e9ef; background: white; font-size: 12px; cursor: pointer; }
+.cost-actions button.primary { background: #0f1116; color: white; border-color: #0f1116; }
+
+.cost-sub-tabs { display: flex; gap: 6px; padding: 4px; background: #f0f2f6; border-radius: 999px; width: fit-content; }
+.cost-sub-tabs button { border: 0; background: transparent; padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; cursor: pointer; color: #6b7280; }
+.cost-sub-tabs button.active { background: #0f1116; color: white; }
+
+@media (max-width: 720px) { .kpi-grid { grid-template-columns: 1fr 1fr; } .fields-grid { grid-template-columns: 1fr; } .cost-modules-lead { grid-template-columns: 1fr; } }

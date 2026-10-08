@@ -1,0 +1,61 @@
+.ov-role { display: grid; gap: 16px; }
+.ov-role-header { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+.ov-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #6b7280; }
+.ov-role-header h2 { margin: 4px 0; font-size: 20px; font-weight: 700; }
+.ov-role-header p { margin: 0; color: #4b525f; font-size: 13px; }
+.ov-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.ov-kpi-grid .kpi { padding: 12px; border-radius: 12px; border: 1px solid #e7e9ef; display: grid; gap: 4px; }
+.kpi.ok { background: #e8f6ef; border-color: #bfe6d4; }
+.kpi.bad { background: #fdeeec; border-color: #f6cdc8; }
+.kpi.warn { background: #fdf3e2; border-color: #f2ddb6; }
+.kpi.brand { background: #eaf1fe; border-color: #cfe0fd; }
+.kpi span { font-size: 11px; color: #6b7280; font-weight: 600; }
+.kpi strong { font-size: 20px; font-weight: 800; }
+.kpi small { font-size: 11px; color: #6b7280; }
+.ov-action { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 12px 0; }
+.ov-action-item { background: #f6f7f9; padding: 10px 12px; border-radius: 10px; display: grid; gap: 4px; }
+.ov-action-item span { font-size: 11px; color: #9099a6; font-weight: 600; text-transform: uppercase; }
+.ov-action-item p { margin: 0; font-size: 13px; font-weight: 500; }
+.ov-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.ov-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.chart-card { border: 1px solid #e7e9ef; border-radius: 12px; padding: 14px; background: white; }
+.chart-card h4 { margin: 0 0 12px; font-size: 13px; font-weight: 700; }
+.chart-card .donut { display: flex; gap: 12px; align-items: center; }
+.chart-card .bar { display: grid; grid-template-columns: 60px 1fr auto; gap: 8px; align-items: center; font-size: 12px; margin-bottom: 8px; }
+.chart-card .track { height: 6px; background: #f0f2f6; border-radius: 999px; overflow: hidden; }
+.chart-card .track i { display: block; height: 100%; border-radius: 999px; }
+.ov-section { border: 1px solid #e7e9ef; border-radius: 12px; padding: 14px; background: white; display: grid; gap: 12px; }
+.ov-section h3 { margin: 0; font-size: 14px; font-weight: 700; }
+.ov-table-wrap { border: 1px solid #e7e9ef; border-radius: 10px; overflow: hidden; }
+.ov-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ov-table th { background: #f6f7f9; padding: 8px 10px; text-align: left; font-size: 11px; color: #6b7280; border-bottom: 1px solid #e7e9ef; }
+.ov-table td { padding: 8px 10px; border-bottom: 1px solid #f0f2f6; }
+.lvl.A { background: #0b7a4f; color: white; padding: 2px 6px; border-radius: 99px; font-size: 10px; }
+.ov-gaps { background: #f6f7f9; padding: 10px 12px; border-radius: 8px; font-size: 12px; }
+.ov-work-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.work-card { border: 1px solid #f0f2f6; border-radius: 10px; padding: 10px 12px; background: #fafbfc; display: grid; gap: 4px; }
+.work-h { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.work-h strong { font-size: 13px; }
+.ov-tools { border: 1px solid #e7e9ef; border-radius: 12px; padding: 14px; background: white; display: grid; gap: 10px; }
+.ov-tools h4 { margin: 0; font-size: 13px; }
+.tool-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tool-grid button { padding: 8px; border-radius: 8px; border: 1px solid #e7e9ef; background: white; font-size: 11px; cursor: pointer; }
+.ov-sales { display: grid; gap: 16px; }
+.ov-sales-hero { padding: 16px; border-radius: 14px; background: linear-gradient(135deg, #0f1116, #1b1f27); color: white; display: grid; gap: 8px; }
+.ov-sales-hero .badge { background: rgba(255,255,255,0.15); padding: 3px 8px; border-radius: 99px; font-size: 10px; font-weight: 800; width: fit-content; }
+.ov-sales-hero h2 { margin: 0; font-size: 18px; }
+.ov-sales-hero p { margin: 0; font-size: 12px; opacity: 0.7; }
+.ov-sales-points h3, .ov-sales-tools h3 { margin: 0; font-size: 14px; font-weight: 700; }
+.sales-grid { display: grid; gap: 10px; }
+.sales-card { display: grid; grid-template-columns: auto 1fr; gap: 12px; padding: 12px; border: 1px solid #e7e9ef; border-radius: 12px; background: linear-gradient(135deg, #fff, #f6f7f9); }
+.sales-card .icon { font-size: 20px; }
+.sales-card strong { display: block; font-size: 13px; }
+.sales-card small { display: block; font-size: 11px; color: #6b7280; margin-top: 2px; }
+.ov-sales-tools { border: 1px solid #e7e9ef; border-radius: 12px; padding: 14px; background: #fafbfc; display: grid; gap: 12px; }
+.ov-sales-tools .tool-grid button.primary { background: #0f1116; color: white; border-color: #0f1116; }
+.sales-script { background: white; border: 1px solid #e7e9ef; border-radius: 10px; padding: 12px; display: grid; gap: 8px; }
+.sales-script h4 { margin: 0; font-size: 12px; }
+.sales-script p { margin: 0; font-size: 12px; line-height: 1.6; background: #f6f7f9; padding: 8px 10px; border-radius: 8px; }
+.script-actions { display: flex; gap: 8px; }
+.script-actions button { padding: 6px 10px; border-radius: 8px; border: 1px solid #e7e9ef; background: white; font-size: 11px; cursor: pointer; }
+@media (max-width: 720px) { .ov-kpi-grid { grid-template-columns: 1fr 1fr; } .ov-action { grid-template-columns: 1fr; } .ov-charts { grid-template-columns: 1fr; } .ov-work-grid { grid-template-columns: 1fr; } .tool-grid { grid-template-columns: 1fr 1fr; } }

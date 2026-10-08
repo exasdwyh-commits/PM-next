@@ -1,6 +1,7 @@
 export const PROJECT_WORKSPACE_TABS = [
   ["overview", "概览"],
   ["rnd", "AI 研发"],
+  ["cost", "成本"],
   ["tasks", "工作项"],
   ["evidence", "证据"],
   ["decisions", "决策"],

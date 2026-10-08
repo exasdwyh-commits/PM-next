@@ -1,0 +1,32 @@
+.supplier-quote { display: grid; gap: 12px; padding: 14px; border: 1px solid #e7e9ef; border-radius: 12px; background: white; }
+.supplier-quote.leadership { background: #f6f7f9; border-style: dashed; }
+.quote-header { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+.quote-header h4 { margin: 0; font-size: 14px; }
+.quote-header small { color: #6b7280; font-size: 11px; }
+.quote-header select { padding: 6px 10px; border-radius: 8px; border: 1px solid #e7e9ef; font-size: 11px; }
+.quote-kpi { display: flex; gap: 8px; flex-wrap: wrap; }
+.kpi-card { padding: 8px 10px; border: 1px solid #e7e9ef; border-radius: 8px; background: white; display: grid; gap: 2px; font-size: 11px; }
+.quote-add { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; padding: 10px; background: #f6f7f9; border-radius: 8px; }
+.quote-add input { padding: 6px 8px; border-radius: 6px; border: 1px solid #e7e9ef; font-size: 11px; }
+.quote-add button { padding: 6px 10px; border-radius: 6px; border: 0; background: #0f1116; color: white; font-size: 11px; cursor: pointer; }
+.quote-grouped { display: grid; gap: 12px; }
+.product-group { border: 1px solid #e7e9ef; border-radius: 10px; padding: 12px; display: grid; gap: 10px; background: #fafbfc; }
+.group-h { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.group-h strong { font-size: 13px; }
+.group-h small { font-size: 11px; color: #6b7280; }
+.recommended { background: #0f1116; color: white; padding: 2px 8px; border-radius: 99px; font-size: 10px; font-weight: 700; }
+.quotes-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.quote-card { padding: 10px; border: 1px solid #e7e9ef; border-radius: 8px; background: white; display: grid; gap: 6px; position: relative; }
+.quote-card.selected { border-color: #0f1116; background: #f6f7f9; }
+.quote-card.recommended { border-color: #0b7a4f; }
+.quote-h { display: flex; justify-content: space-between; align-items: center; }
+.quote-h strong { font-size: 12px; }
+.quote-h label { font-size: 11px; display: flex; align-items: center; gap: 4px; }
+.quote-details { display: flex; gap: 8px; flex-wrap: wrap; font-size: 10px; color: #6b7280; }
+.imported { background: #eaf1fe; color: #2563eb; padding: 1px 6px; border-radius: 99px; font-size: 9px; }
+.notes { font-size: 10px; color: #0b7a4f; background: #e8f6ef; padding: 2px 6px; border-radius: 4px; }
+.remove { position: absolute; top: 6px; right: 6px; border: 0; background: transparent; color: #b32b23; font-size: 10px; cursor: pointer; }
+.quote-sales { background: linear-gradient(135deg, #fff, #f6f7f9); padding: 10px; border-radius: 8px; border: 1px solid #e7e9ef; display: grid; gap: 4px; }
+.quote-sales strong { font-size: 12px; }
+.quote-sales p { margin: 0; font-size: 11px; line-height: 1.5; }
+@media (max-width: 720px) { .quote-add { grid-template-columns: 1fr 1fr; } .quotes-grid { grid-template-columns: 1fr; } }

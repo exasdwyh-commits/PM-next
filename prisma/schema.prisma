@@ -22,6 +22,8 @@ model Organization {
   members  OrganizationMember[]
   projects Project[]
   products Product[]
+  costScenarios        CostScenario[]
+
 
   // 产品开发工作台与 AI 顾问（蓝图 §7，2026-09-13）
   analysisRuns     AnalysisRun[]
@@ -195,6 +197,13 @@ model User {
   // Transactional business-event outbox
   businessEventsCreated BusinessEvent[] @relation("BusinessEventCreator")
 
+  costScenariosCreated  CostScenario[]       @relation("CostScenarioCreator")
+  costScenarioComments  CostScenarioComment[]
+  costScenarioVersions  CostScenarioVersion[] @relation("CostScenarioVersionCreator")
+  costScenarioApprovalsRequested CostScenarioApproval[] @relation("ApprovalRequester")
+  costScenarioApprovalsReceived  CostScenarioApproval[] @relation("ApprovalApprover")
+
+
   kernMemories KernMemory[]
   kernCredentials KernCredential[]
   kernConnectors  KernConnector[]
@@ -268,6 +277,7 @@ model Project {
   /// 从产品入库时由 createDevelopmentProduct 在同一事务内写入。
   productId        String?
   ownerId          String
+  costScenarios      CostScenario[]
   decisionMakerId  String?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
@@ -2866,3 +2876,123 @@ model PmWorkerHeartbeat {
 
   @@index([heartbeatAt])
 }
+
+
+// ── 4类专用成本方案 - P0-1 后端持久化 ──
+
+enum CostCategory {
+  regular_food
+  health_food
+  cross_border_food
+  cosmetics
+  custom
+}
+
+enum CostScenarioStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+model CostScenario {
+  id                     String             @id @default(uuid())
+  organizationId         String
+  projectId              String?
+  name                   String
+  category               CostCategory       @default(health_food)
+  productName            String
+  status                 CostScenarioStatus @default(DRAFT)
+  moduleValues           Json               @default("{}")
+  bomItems               Json               @default("[]")
+  supplierQuotes         Json               @default("[]")
+  complianceItems        Json               @default("[]")
+  totalMaterialCost      Float              @default(0)
+  totalManufacturingCost Float              @default(0)
+  totalPackagingCost     Float              @default(0)
+  totalLogisticsCost     Float              @default(0)
+  totalComplianceCost    Float              @default(0)
+  totalChannelCost       Float              @default(0)
+  totalCost              Float              @default(0)
+  suggestedRetailPrice   Float              @default(0)
+  profitMargin           Float              @default(0)
+  notes                  String?
+  tags                   String[]           @default([])
+  isFavorite             Boolean            @default(false)
+  createdBy              String
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  project                Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  organization           Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator                User               @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  comments               CostScenarioComment[]
+  versions               CostScenarioVersion[]
+  approvals              CostScenarioApproval[]
+
+  @@index([organizationId, projectId])
+  @@index([category])
+  @@index([status])
+  @@index([createdBy])
+  @@index([createdAt])
+}
+
+model CostScenarioComment {
+  id             String       @id @default(uuid())
+  scenarioId     String
+  organizationId String
+  userId         String
+  content        String
+  mentions       String[]     @default([])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  scenario       CostScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([scenarioId])
+  @@index([organizationId])
+}
+
+model CostScenarioVersion {
+  id             String       @id @default(uuid())
+  scenarioId     String
+  version        Int
+  moduleValues   Json
+  bomItems       Json
+  supplierQuotes Json
+  complianceItems Json
+  totalCost      Float
+  changeNote     String?
+  createdBy      String
+  createdAt      DateTime     @default(now())
+
+  scenario       CostScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  creator        User         @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@unique([scenarioId, version])
+  @@index([scenarioId])
+}
+
+model CostScenarioApproval {
+  id             String             @id @default(uuid())
+  scenarioId     String
+  organizationId String
+  requestedBy    String
+  approverId     String?
+  status         CostScenarioStatus @default(PENDING_APPROVAL)
+  comment        String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  scenario       CostScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  requester      User         @relation("ApprovalRequester", fields: [requestedBy], references: [id], onDelete: Cascade)
+  approver       User?        @relation("ApprovalApprover", fields: [approverId], references: [id], onDelete: SetNull)
+
+  @@index([scenarioId])
+  @@index([organizationId])
+  @@index([status])
+}
+
+// Extend existing models with relations

@@ -4,6 +4,9 @@ import React from "react";
 import { cx } from "@/components/ui";
 import Icon from "@/components/icons";
 import { fmtDateTime } from "@/shared/datetime";
+import ChallengeReportCardRich from "./challenge-report-card-rich";
+import "./challenge-report-card-rich.css";
+import { useRole } from "./role-context";
 
 interface ChallengeReportCardProps {
   report: {
@@ -107,7 +110,7 @@ function buildReviewPacketFromReport(report: ChallengeReportCardProps["report"])
 }
 
 
-export default function ChallengeReportCard({ report }: ChallengeReportCardProps) {
+export function ChallengeReportCardOriginal({ report }: ChallengeReportCardProps) {
   const risk = RISK_CONFIG[report.overallRisk];
   const rec = RECOMMENDATION_CONFIG[report.recommendation];
   const generatedDate = fmtDateTime(report.generatedAt);
@@ -227,4 +230,15 @@ export default function ChallengeReportCard({ report }: ChallengeReportCardProps
       )}
     </div>
   );
+}
+
+
+export default function ChallengeReportCard(props: ChallengeReportCardProps) {
+  try {
+    const { role } = useRole();
+    if (role !== "default") {
+      return <ChallengeReportCardRich {...props} />;
+    }
+  } catch {}
+  return <ChallengeReportCardOriginal {...props} />;
 }

@@ -4,6 +4,8 @@ import prisma from "@/shared/db";
 import { UnprocessableEntityError } from "@/shared/errors";
 import { getUsage, UsageLimitError } from "@/modules/usage";
 import { extractExplicitMemory, rememberForUser } from "@/modules/memory";
+import { detectRolePreferenceIntent, rememberRolePreference } from "@/modules/memory/role-preference";
+import { inferRoleFromText } from "./role-intelligence";
 import type { SessionContext } from "@/modules/identity/session";
 import { executeKernConversationTurn } from "./conversation-engine";
 import { buildDepartmentAssistantContext } from "./context-builder";
@@ -113,6 +115,9 @@ export async function sendDepartmentAssistantMessage(
   let mission: { missionTaskId: string; created: boolean; nodeCount: number } | null = null;
   let missionError: string | null = null;
   let briefCreated: { messageId: string; stage: string } | null = null;
+
+  // --- Role Preference Memory: 记住角色偏好 ---
+  let rolePreferenceSaved: { role: string; id: string } | null = null;
 
   // “记住…” is stored as a user-visible preference, immediately.
   let memorySaved: { id: string } | null = null;

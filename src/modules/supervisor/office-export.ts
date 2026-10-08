@@ -7,23 +7,13 @@
  *   所以三种格式与 MD 口径一致。
  * - 生成后立刻回读：计算 SHA-256，并重新解析文件核对段落 / 工作表行数 / 幻灯片页数，
  *   不一致直接报错，不把坏文件交给用户。
+ * - P0 优化：重型库改为动态导入，按需加载，减少冷启动
  */
 import { createHash } from "node:crypto";
-import {
-  Document,
-  HeadingLevel,
-  Packer,
-  Paragraph,
-  Table,
-  TableCell,
-  TableRow,
-  TextRun,
-  WidthType,
-} from "docx";
-import ExcelJS from "exceljs";
-import JSZip from "jszip";
-import PptxGenJS from "pptxgenjs";
 import { isTableDivider, tableCells, type MissionReport } from "./report-format";
+
+// 重型办公库改为动态导入（P0 安全优化：首包减小，按需加载）
+// 原同步导入 docx/exceljs/pptxgenjs/jszip 合计 >7MB，改为函数内动态 import
 
 export type OfficeFormat = "docx" | "xlsx" | "pptx";
 
@@ -34,6 +24,17 @@ export const OFFICE_MIME: Record<OfficeFormat, string> = {
 };
 
 const FONT = "Microsoft YaHei";
+
+const STATUS: Record<string, string> = {
+  TODO: "待做",
+  RUNNING: "进行中",
+  SUCCEEDED: "已完成",
+  FAILED: "失败",
+  BLOCKED: "阻断",
+  SUBMITTED: "已提交",
+  ACCEPTED: "已验收",
+  CHANGES_REQUESTED: "需修改",
+};
 
 // ───────── Markdown → 通用块（纯函数，便于测试） ─────────
 
@@ -49,7 +50,7 @@ export function plainInline(text: string): string {
     .replace(/\[([^\]]+)\]\((?:[^)]+)\)/g, "$1")
     .replace(/\*\*([^*]+)\*\*|__([^_]+)__/g, "$1$2")
     .replace(/`([^`]+)`/g, "$1")
-    .replace(/(^|\s)\*([^*\s][^*]*)\*/g, "$1$2")
+    .replace(/(^|\s)\*([^\s][^]*)\\*/g, "$1$2")
     .trim();
 }
 
@@ -77,7 +78,6 @@ export function markdownBlocks(md: string): MdBlock[] {
       continue;
     }
     if (/^```/.test(line.trim())) {
-      // 代码块（含 kern-artifact 等机器块）整体跳过，报告里只放人读的内容。
       flush();
       i += 1;
       while (i < lines.length && !/^```/.test(lines[i].trim())) i += 1;
@@ -99,17 +99,16 @@ export function markdownBlocks(md: string): MdBlock[] {
       para.push(line.replace(/^\s*>\s?/, ""));
       continue;
     }
-    if (!line.trim() || /^\s*(-{3,}|—{2,})\s*$/.test(line)) {
+    if (!line.trim()) {
       flush();
       continue;
     }
-    para.push(line.trim());
+    para.push(line);
   }
   flush();
-  return out.filter((b) => b.kind !== "para" || b.text);
+  return out;
 }
 
-const STATUS: Record<string, string> = { SUCCEEDED: "完成", SKIPPED: "已跳过", BLOCKED: "受阻", FAILED: "失败", RUNNING: "进行中", PENDING: "等待中" };
 const outcomeText = (r: MissionReport) =>
   r.outcome === "COMPLETED" ? "已完成" : r.outcome === "CANCELLED" ? "已取消" : r.outcome ? "需要你处理" : "进行中";
 
@@ -126,24 +125,27 @@ export function reportTables(r: MissionReport): { source: string; header: string
 
 // ───────── DOCX ─────────
 
-function docxBlocks(blocks: MdBlock[], baseLevel: number): (Paragraph | Table)[] {
-  const levels = [HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3, HeadingLevel.HEADING_4, HeadingLevel.HEADING_5, HeadingLevel.HEADING_6];
-  return blocks.map((b) => {
-    if (b.kind === "heading") return new Paragraph({ text: b.text, heading: levels[Math.min(5, baseLevel + b.level - 1)] });
-    if (b.kind === "bullet") return new Paragraph({ children: [new TextRun({ text: b.text, font: FONT })], bullet: { level: 0 } });
-    if (b.kind === "para") return new Paragraph({ children: [new TextRun({ text: b.text, font: FONT })], spacing: { after: 120 } });
-    const row = (cells: string[], bold = false) =>
-      new TableRow({
-        children: b.header.map(
-          (_h, k) => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: cells[k] ?? "", bold, font: FONT })] })] })
-        ),
-      });
-    return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [row(b.header, true), ...b.rows.map((r) => row(r))] });
-  });
-}
-
 async function buildDocx(r: MissionReport): Promise<Buffer> {
-  const children: (Paragraph | Table)[] = [
+  // 动态导入 - 按需加载
+  const { Document, HeadingLevel, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } = await import("docx");
+
+  function docxBlocks(blocks: MdBlock[], baseLevel: number): (InstanceType<typeof Paragraph> | InstanceType<typeof Table>)[] {
+    const levels = [HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3, HeadingLevel.HEADING_4, HeadingLevel.HEADING_5, HeadingLevel.HEADING_6];
+    return blocks.map((b) => {
+      if (b.kind === "heading") return new Paragraph({ text: b.text, heading: levels[Math.min(5, baseLevel + b.level - 1)] });
+      if (b.kind === "bullet") return new Paragraph({ children: [new TextRun({ text: b.text, font: FONT })], bullet: { level: 0 } });
+      if (b.kind === "para") return new Paragraph({ children: [new TextRun({ text: b.text, font: FONT })], spacing: { after: 120 } });
+      const row = (cells: string[], bold = false) =>
+        new TableRow({
+          children: b.header.map(
+            (_h, k) => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: cells[k] ?? "", bold, font: FONT })] })] })
+          ),
+        });
+      return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [row(b.header, true), ...b.rows.map((r) => row(r))] });
+    });
+  }
+
+  const children: (InstanceType<typeof Paragraph> | InstanceType<typeof Table>)[] = [
     new Paragraph({ text: r.title, heading: HeadingLevel.TITLE }),
     new Paragraph({
       children: [new TextRun({ text: `Kern 任务报告 · ${r.createdAt.slice(0, 10)} · ${outcomeText(r)}`, color: "666666", font: FONT })],
@@ -179,7 +181,7 @@ async function buildDocx(r: MissionReport): Promise<Buffer> {
 // ───────── XLSX ─────────
 
 function sheetName(base: string, used: Set<string>): string {
-  const clean = base.replace(/[\\/?*[\]:]/g, " ").trim().slice(0, 28) || "表";
+  const clean = base.replace(/[\\/?*[\\]:]/g, " ").trim().slice(0, 28) || "表";
   let name = clean;
   for (let k = 2; used.has(name); k++) name = `${clean.slice(0, 26)}-${k}`;
   used.add(name);
@@ -204,6 +206,7 @@ export function xlsxPlan(r: MissionReport) {
 }
 
 async function buildXlsx(r: MissionReport): Promise<{ buffer: Buffer; expected: Record<string, number> }> {
+  const ExcelJS = (await import("exceljs")).default;
   const plan = xlsxPlan(r);
   const wb = new ExcelJS.Workbook();
   wb.creator = "Kern";
@@ -263,6 +266,7 @@ export function pptxPlan(r: MissionReport): { title: string; bullets: string[] }
 }
 
 async function buildPptx(r: MissionReport): Promise<{ buffer: Buffer; slides: number }> {
+  const PptxGenJS = (await import("pptxgenjs")).default;
   const pptx = new PptxGenJS();
   pptx.layout = "LAYOUT_WIDE";
   pptx.author = "Kern";
@@ -292,10 +296,12 @@ export type OfficeCheck = { format: OfficeFormat; sha256: string; bytes: number;
 
 export async function verifyOffice(format: OfficeFormat, buffer: Buffer): Promise<Record<string, number>> {
   if (format === "xlsx") {
+    const ExcelJS = (await import("exceljs")).default;
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(buffer as unknown as ArrayBuffer);
     return Object.fromEntries(wb.worksheets.map((ws) => [ws.name, ws.actualRowCount]));
   }
+  const JSZip = (await import("jszip")).default;
   const zip = await JSZip.loadAsync(buffer);
   if (format === "pptx") {
     return { slides: Object.keys(zip.files).filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f)).length };

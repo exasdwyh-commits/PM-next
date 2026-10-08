@@ -1,0 +1,36 @@
+.challenge-rich { display: grid; gap: 14px; padding: 16px; border: 2px solid #e7e9ef; border-radius: 16px; background: white; animation: fadeInUp 0.4s ease-out both; }
+.challenge-rich.leadership { background: #f6f7f9; border-style: dashed; }
+.challenge-rich.sales { border-width: 2px; }
+.challenge-header-rich { display: flex; justify-content: space-between; gap: 12px; padding: 12px; border-radius: 12px; flex-wrap: wrap; align-items: flex-start; }
+.challenge-header-rich h3 { margin: 6px 0 2px; font-size: 14px; }
+.challenge-header-rich small { font-size: 10px; color: #6b7280; }
+.eyebrow { display: inline-block; padding: 3px 8px; border-radius: 99px; font-size: 10px; font-weight: 700; }
+.category-badge { padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+.risk-badge { padding: 6px 12px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+.boss-summary { padding: 12px; background: #f6f7f9; border-radius: 10px; display: grid; gap: 6px; }
+.boss-summary strong { font-size: 12px; }
+.boss-summary p { margin: 0; font-size: 11px; color: #4b5563; line-height: 1.5; }
+.selling-card { padding: 12px; background: white; border: 1px solid #e7e9ef; border-radius: 10px; display: grid; gap: 6px; }
+.selling-card strong { font-size: 12px; }
+.selling-card p { margin: 0; font-size: 11px; color: #4b5563; line-height: 1.5; }
+.challenge-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.challenge-kpi-grid .kpi { padding: 10px; border: 1px solid #e7e9ef; border-radius: 8px; background: white; text-align: center; display: grid; gap: 2px; animation: fadeInUp 0.4s ease-out both; }
+.challenge-kpi-grid .kpi strong { font-size: 16px; font-weight: 800; }
+.challenge-kpi-grid .kpi small { font-size: 10px; color: #6b7280; }
+.challenge-body-rich { display: grid; gap: 12px; }
+.challenge-section-rich { padding: 12px; border: 1px solid #e7e9ef; border-radius: 10px; background: white; display: grid; gap: 8px; animation: fadeInUp 0.4s ease-out both; }
+.challenge-section-rich .section-title { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; }
+.challenge-section-rich .section-title.is-danger { color: #ef4444; }
+.challenge-section-rich .section-title.is-warn { color: #f59e0b; }
+.challenge-section-rich .section-title.is-ok { color: #0b7a4f; }
+.challenge-section-rich .count { margin-left: auto; background: #f6f7f9; padding: 2px 6px; border-radius: 99px; font-size: 10px; }
+.challenge-section-rich ul { margin: 0; padding-left: 16px; font-size: 11px; line-height: 1.6; color: #4b5563; }
+.challenge-mvp { padding: 12px; background: #fafbfc; border: 1px solid #e7e9ef; border-radius: 10px; display: grid; gap: 6px; }
+.mvp-label { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; }
+.mvp-content { font-size: 11px; color: #4b5563; line-height: 1.5; }
+.header-left { display: flex; gap: 10px; align-items: flex-start; }
+.challenge-title { font-size: 13px; font-weight: 700; }
+.challenge-sub { font-size: 11px; color: #6b7280; margin-top: 2px; }
+.challenge-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 768px) { .challenge-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
