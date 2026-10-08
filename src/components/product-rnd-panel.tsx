@@ -382,13 +382,15 @@ export function ProductRndPanelOriginal({
             </div>
           )}
 
-          <div className="hermes-rnd-report-wrap">
-            <ExecutiveReportRoleBased
-              report={report}
-              onOpenDecisions={onOpenDecisions}
-              onOpenEvidence={onOpenEvidence}
-            />
-          </div>
+          {report && (
+            <div className="hermes-rnd-report-wrap">
+              <ExecutiveReportRoleBased
+                report={report}
+                onOpenDecisions={onOpenDecisions}
+                onOpenEvidence={onOpenEvidence}
+              />
+            </div>
+          )}
 
           <details className="hermes-details">
             <summary>运行说明</summary>
@@ -407,8 +409,8 @@ export function ProductRndPanelOriginal({
 
 export function ProductRndPanel(props: any) {
   try {
-    const { role } = useRole();
-    if (role !== "default") {
+    const { role, source } = useRole();
+    if (source !== "default") {
       return <ProductRndPanelRich {...props} />;
     }
   } catch {}

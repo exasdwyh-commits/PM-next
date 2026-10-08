@@ -111,7 +111,7 @@ export function CostCalculatorModular({
   const catInfo = CATEGORY_INFO[template.id] || { compliance: "", notes: "" };
 
   return (
-    <CostCalculatorPerformance category={selectedCategory || "health_food"}>
+    <CostCalculatorPerformance category={template.id || "health_food"}>
     
     <div className="cost-modular" data-role={role}>
       <div className="cost-header">

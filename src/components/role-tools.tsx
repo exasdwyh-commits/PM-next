@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRole } from "./role-context";
+import { useRole, type UserRole } from "./role-context";
 import "./role-tools.css"
 import "./role-tools-rich.css"
 import { RoleToolsRich } from "./role-tools-rich";;
@@ -16,7 +16,7 @@ export interface ToolDef {
   primary?: boolean;
   // 工具的角色化表现
   leadershipVariant?: { hidden?: boolean; label?: string; icon?: string };
-  salesVariant?: { label?: string; icon?: string; desc?: string };
+  salesVariant?: { hidden?: boolean; label?: string; icon?: string; desc?: string };
 }
 
 const ALL_TOOLS: ToolDef[] = [
@@ -204,8 +204,8 @@ export function ToolButton({ toolId, role, onClick }: { toolId: string; role?: U
 
 export function RoleTools(props: any) {
   try {
-    const { role } = require("./role-context").useRole();
-    if (role !== "default") {
+    const { role, source } = require("./role-context").useRole();
+    if (source !== "default") {
       return <RoleToolsRich {...props} category={props.category || "health_food"} />;
     }
   } catch {}

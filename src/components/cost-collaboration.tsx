@@ -121,8 +121,8 @@ export function CostCollaborationOriginal({
 
 export function CostCollaboration(props: any) {
   try {
-    const { role } = useRole();
-    if (role !== "default") {
+    const { role, source } = useRole();
+    if (source !== "default") {
       return <CostCollaborationRich {...props} category={props.category || props.scenario?.category || "health_food"} />;
     }
   } catch {}

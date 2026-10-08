@@ -43,7 +43,7 @@ export interface CostModuleDef {
   description: string;
   fields: CostField[];
   // 计算逻辑：输入字段值，输出成本
-  calculate: (values: Record<string, number>, context?: any) => {
+  calculate: (values: Record<string, any>, context?: any) => {
     cost: number;
     breakdown?: Record<string, number>;
     notes?: string[];
@@ -87,6 +87,7 @@ export interface ModularCostResult {
     cost: number;
     breakdown?: Record<string, number>;
     notes?: string[];
+    values?: Record<string, number | string>;
   }[];
   // 汇总
   totalMaterialCost: number;
@@ -94,8 +95,21 @@ export interface ModularCostResult {
   totalPackagingCost: number;
   totalLogisticsCost: number;
   totalChannelCost: number;
+  totalComplianceCost: number;
   totalOverhead: number;
   totalCost: number;
+  // 分项成本明细（HTML / Office 报告直接消费）
+  breakdown: {
+    totalMaterial: number;
+    totalManufacturing: number;
+    totalPackaging: number;
+    totalLogistics: number;
+    totalChannel: number;
+    totalCompliance: number;
+    totalCost: number;
+  };
+  // 风险提示（HTML / Office 报告直接消费）
+  warnings: string[];
   // 兼容旧引擎
   layer1Material: number;
   layer2Packaging: number;

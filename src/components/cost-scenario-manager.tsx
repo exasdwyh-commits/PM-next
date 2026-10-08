@@ -206,7 +206,7 @@ export function CostScenarioManager({
       {scenarioSubTab === "collab" && (
         <div style={{ display: "grid", gap: 12 }}>
           {selectedScenarioForDetail ? (
-            <CostCollaboration scenario={selectedScenarioForDetail} comments={[]} onAddComment={(content) => alert(`评论：${content}`)} />
+            <CostCollaboration scenario={selectedScenarioForDetail} comments={[]} onAddComment={(content: string) => alert(`评论：${content}`)} />
           ) : (
             <div style={{ padding: 20, textAlign: "center", color: "#6b7280", fontSize: 12, border: "1px dashed #e7e9ef", borderRadius: 8 }}>
               请先在列表中选择一个方案

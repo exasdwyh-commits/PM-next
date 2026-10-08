@@ -56,8 +56,8 @@ export function MissionConclusionOriginal({
 
 export function MissionConclusion(props: any) {
   try {
-    const { role } = useRole();
-    if (role !== "default") {
+    const { role, source } = useRole();
+    if (source !== "default") {
       return <MissionConclusionRich {...props} />;
     }
   } catch {}

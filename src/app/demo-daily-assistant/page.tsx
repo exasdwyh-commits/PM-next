@@ -56,7 +56,7 @@ export default function DemoDailyAssistantPage() {
 
         {active === "daily" && <DailyBriefingRich data={mockDailyData} onAction={(a) => console.log("action", a)} />}
         {active === "product" && <ProductRndCockpitRich project={{ title: mockDailyData.projectTitle }} category={category} onOptimize={() => console.log("optimize")} />}
-        {active === "marketing" && <MarketingLandingRich category={category} productName={mockDailyData.projectTitle.replace("项目", "")} onExport={(f) => console.log("export", f)} />}
+        {active === "marketing" && <MarketingLandingRich category={category} productName={mockDailyData.projectTitle.replace("项目", "")} onExport={(f: unknown) => console.log("export", f)} />}
       </div>
     </RoleProvider>
   );

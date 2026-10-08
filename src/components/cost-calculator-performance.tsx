@@ -22,24 +22,24 @@ export const MemoKpiCard = React.memo(function MemoKpiCard({ label, value, color
 });
 
 // Lazy loaded heavy chart
-export const LazyChart = React.lazy(() => Promise.resolve({
-  default: function LazyChartInner({ data, color }: any) {
-    return (
-      <div className="lazy-chart" style={{ borderColor: `${color}20` } as any}>
-        <h5>📊 成本分布 · 懒加载</h5>
-        <div className="bars">
-          {Object.entries(data || {}).map(([k, v]: any, i: number) => (
-            <div key={k} className="bar" style={{ animationDelay: `${i * 60}ms` }}>
-              <span>{k}</span>
-              <div className="track"><div className="fill" style={{ width: `${Math.min(v / 10, 100)}%`, background: color }}></div></div>
-              <small>¥{v}</small>
-            </div>
-          ))}
-        </div>
+function LazyChartInner({ data, color }: any) {
+  return (
+    <div className="lazy-chart" style={{ borderColor: `${color}20` } as any}>
+      <h5>📊 成本分布 · 懒加载</h5>
+      <div className="bars">
+        {Object.entries(data || {}).map(([k, v]: any, i: number) => (
+          <div key={k} className="bar" style={{ animationDelay: `${i * 60}ms` }}>
+            <span>{k}</span>
+            <div className="track"><div className="fill" style={{ width: `${Math.min(v / 10, 100)}%`, background: color }}></div></div>
+            <small>¥{v}</small>
+          </div>
+        ))}
       </div>
-    );
-  }
-}));
+    </div>
+  );
+}
+
+export const LazyChart = React.lazy(() => Promise.resolve({ default: LazyChartInner }));
 
 // Virtualized evidence list (windowing)
 export function VirtualEvidenceList({ evidences, category = "health_food" }: any) {

@@ -103,7 +103,7 @@ export function costResultToEnvelope(input: HtmlReportInput): ResponseEnvelope {
     rows: result.modules.map(m => {
       const pct = result.breakdown.totalCost > 0 ? (m.cost / result.breakdown.totalCost * 100).toFixed(1) + "%" : "0%";
       return {
-        cells: [m.label, `¥${m.cost.toFixed(2)}`, pct, m.breakdown || "-"],
+        cells: [m.label, `¥${m.cost.toFixed(2)}`, pct, m.breakdown ? JSON.stringify(m.breakdown) : "-"],
       };
     }),
   });

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/shared/db";
-import { getSession } from "@/modules/identity/session";
+import { getServerSession } from "@/modules/identity/session";
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const session = await getSession(req);
+    const session = await getServerSession(req);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const scenarioId = params.id;
     const versions = await prisma.costScenarioVersion.findMany({
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const session = await getSession(req);
+    const session = await getServerSession(req);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const scenarioId = params.id;
     const body = await req.json();

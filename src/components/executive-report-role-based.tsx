@@ -155,10 +155,10 @@ export function ExecutiveReportRoleBased({
             </small>
           )}
         </div>
-        <div className="err-kpi-summary">
-          <Count value={report.conclusions?.length || 0} label="结论" />
-          <Count value={report.risks?.length || 0} label="风险" tone="bad" />
-          <Count value={report.unknowns?.length || 0} label="缺口" tone="warn" />
+        <div className="err-kpi-grid">
+          <div className="kpi ok"><strong>{report.conclusions?.length || 0}</strong><small>结论</small></div>
+          <div className="kpi bad"><strong>{report.risks?.length || 0}</strong><small>风险</small></div>
+          <div className="kpi warn"><strong>{report.unknowns?.length || 0}</strong><small>缺口</small></div>
         </div>
       </div>
 

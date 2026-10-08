@@ -106,6 +106,27 @@ export function calculateModularCost(
   const supplyPriceFloor = totalCost * (1 + targetMargin);
   const supplyPriceSuggested = retailPrice > 0 ? retailPrice * 0.6 : supplyPriceFloor * 1.2;
 
+  // 风险提示：供 HTML / Office 报告展示（基于已计算出的真实数据推导）
+  const warnings: string[] = [];
+  if (totalCost <= 0) {
+    warnings.push("总成本为 0，请检查各成本模块的输入值");
+  }
+  if (retailPrice <= 0) {
+    warnings.push("未设置零售价，无法测算毛利与盈亏平衡");
+  } else {
+    if (netMarginRate < 10) {
+      warnings.push(`毛利率仅 ${netMarginRate.toFixed(1)}%，低于 10% 警戒线`);
+    } else if (netMarginRate < 20) {
+      warnings.push(`毛利率 ${netMarginRate.toFixed(1)}%，建议提升至 20% 以上`);
+    }
+  }
+  if (totalCost > 0 && totalChannel / totalCost > 0.3) {
+    warnings.push(`渠道成本占比 ${((totalChannel / totalCost) * 100).toFixed(1)}%（>30%），建议复核渠道结构`);
+  }
+  if (totalCompliance <= 0) {
+    warnings.push("未计入合规成本，总成本可能被低估");
+  }
+
   return {
     modules: moduleResults,
     totalMaterialCost: totalMaterial,
@@ -113,7 +134,18 @@ export function calculateModularCost(
     totalPackagingCost: totalPackaging,
     totalLogisticsCost: totalLogistics,
     totalChannelCost: totalChannel,
+    totalComplianceCost: totalCompliance,
     totalOverhead: totalOverhead,
+    breakdown: {
+      totalMaterial,
+      totalManufacturing,
+      totalPackaging,
+      totalLogistics,
+      totalChannel,
+      totalCompliance,
+      totalCost,
+    },
+    warnings,
     totalCost,
     layer1Material,
     layer2Packaging,

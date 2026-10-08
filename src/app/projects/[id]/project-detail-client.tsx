@@ -97,7 +97,7 @@ export default function ProjectDetailClient({
   const [currentGaps, setCurrentGaps] = useState(gaps);
   const [activeUserId, setActiveUserId] = useState(currentSession?.userId || initialProject.ownerId);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"overview" | "rnd" | "cost" | "tasks" | "evidence" | "decisions" | "records">("overview");
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"overview" | "overview-old" | "rnd" | "cost" | "tasks" | "evidence" | "decisions" | "records">("overview");
   const [saving, setSaving] = useState(false);
   const savingRef = React.useRef(false);
   const messageTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -923,7 +923,7 @@ export default function ProjectDetailClient({
             activeUserId={activeUserId}
             canOperate={isOwner || isDecisionMaker}
             onChanged={reloadProject}
-            onNotice={(text, type) =>
+            onNotice={(text: string, type?: string) =>
               showMsg(text, type === "error" ? "error" : "success")
             }
             onOpenDecisions={() => setActiveWorkspaceTab("decisions")}

@@ -5,11 +5,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/shared/db";
-import { getSession } from "@/modules/identity/session";
+import { getServerSession } from "@/modules/identity/session";
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const session = await getSession(req);
+    const session = await getServerSession(req);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const scenario = await prisma.costScenario.findFirst({
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const session = await getSession(req);
+    const session = await getServerSession(req);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
@@ -114,7 +114,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const session = await getSession(req);
+    const session = await getServerSession(req);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const existing = await prisma.costScenario.findFirst({

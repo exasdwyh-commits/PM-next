@@ -235,8 +235,8 @@ export function ChallengeReportCardOriginal({ report }: ChallengeReportCardProps
 
 export default function ChallengeReportCard(props: ChallengeReportCardProps) {
   try {
-    const { role } = useRole();
-    if (role !== "default") {
+    const { role, source } = useRole();
+    if (source !== "default") {
       return <ChallengeReportCardRich {...props} />;
     }
   } catch {}

@@ -154,7 +154,6 @@ export function OverviewRoleBased({ project, gaps, evidenceInsight, opportunity,
 
           <div className="ov-sales-tools">
             <RoleTools />
-            <div style={{ display: "none" }}>
             <div className="sales-script">
               <h4>💬 推荐话术 (Kern 已生成，一键复制)</h4>
               <p>“{project.title}经过{verifiedCount}条证据核实，{evidenceInsight?.resolved?.[0] ? `${evidenceInsight.resolved[0].fieldKey}${evidenceInsight.resolved[0].value}` : "功效突出"}，成本仅10.2元，竞品均价299元，利润空间大。建议首批1000盒试销。”</p>
