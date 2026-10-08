@@ -30,7 +30,7 @@ export function CostExport({
       ``,
       `模块明细`,
       `模块,字段,值,说明`,
-      ...result.modules.map(m => `${m.moduleId},${m.label},${Object.values(m.values || {}).join("|")},${m.breakdown || ""}`),
+      ...result.modules.map(m => `${m.moduleId},${m.label},${Object.values(m.breakdown || {}).join("|")},${m.breakdown || ""}`),
       ``,
       `BOM`,
       `名称,数量,单位,单价,成本,供应商`,

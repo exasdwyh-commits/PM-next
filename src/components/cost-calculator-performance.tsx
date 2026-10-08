@@ -21,7 +21,7 @@ export const MemoKpiCard = React.memo(function MemoKpiCard({ label, value, color
   );
 });
 
-// Lazy loaded heavy chart
+// Lazy loaded heavy chart - fixed generic never
 function LazyChartInner({ data, color }: any) {
   return (
     <div className="lazy-chart" style={{ borderColor: `${color}20` } as any}>

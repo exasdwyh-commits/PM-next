@@ -1,0 +1,44 @@
+.project-tracking-rich{border:1px solid #e7e9ef;border-radius:16px;overflow:hidden;background:white;box-shadow:0 4px 20px rgba(0,0,0,0.06);margin:16px 0}
+.tracking-header{display:flex;justify-content:space-between;padding:20px;background:linear-gradient(135deg,#f5f3ff,#ede9fe)}
+.tracking-header .eyebrow{font-size:11px;padding:4px 10px;border-radius:20px;font-weight:700}
+.tracking-header h2{margin:8px 0 4px;font-size:17px;font-weight:800}
+.tracking-header small{color:#6b7280;font-size:12px}
+.tracking-kpi{display:flex;gap:12px}
+.kpi-mini{background:white;padding:8px 12px;border-radius:10px;text-align:center;min-width:60px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.kpi-mini strong{display:block;font-size:18px;font-weight:800}
+.kpi-mini small{font-size:10px;color:#6b7280}
+.tracking-tabs{display:flex;gap:8px;padding:12px 20px;border-bottom:1px solid #e7e9ef;background:#f9fafb}
+.tracking-tabs button{padding:6px 14px;border-radius:8px;border:1px solid #e7e9ef;background:white;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s}
+.tracking-tabs button.is-active{background:#7c3aed;color:white;border-color:#7c3aed}
+.tracking-timeline{padding:20px}
+.timeline-grid{display:flex;flex-direction:column;gap:12px}
+.timeline-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;animation:fadeInUp 0.5s ease-out both;transition:all 0.2s}
+.timeline-item:hover{transform:translateX(4px)}
+.timeline-item .dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.item-content{flex:1}
+.item-content strong{font-size:13px;display:block}
+.item-content small{font-size:11px;color:#6b7280}
+.status-badge{font-size:10px;padding:3px 8px;border-radius:12px;font-weight:700}
+.critical-path{margin-top:16px;padding:12px 16px;border:1px solid #e7e9ef;border-radius:10px;font-size:12px;line-height:1.5}
+.tracking-list{padding:20px}
+.list-header{margin-bottom:12px}
+.task-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.task-card{border:1px solid #e7e9ef;border-radius:10px;padding:12px;background:white;animation:fadeInUp 0.4s ease-out both}
+.task-card strong{font-size:13px;display:block;margin-bottom:4px}
+.task-card small{font-size:11px;color:#6b7280;display:block;margin-bottom:8px}
+.task-meta{display:flex;justify-content:space-between;align-items:center}
+.task-meta .status{font-size:10px;padding:2px 6px;border-radius:8px;background:#f3f4f6}
+.task-meta .status.done{background:#ecfdf5;color:#0b7a4f}
+.task-meta .status.running{background:#fffbeb;color:#f59e0b}
+.task-meta button{font-size:11px;padding:4px 10px;border:none;border-radius:6px;color:white;cursor:pointer}
+.tracking-actions{display:flex;gap:8px;padding:16px 20px;border-top:1px solid #e7e9ef;flex-wrap:wrap}
+.tracking-actions button{padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s}
+.tracking-actions .primary{border:none;color:white}
+.tracking-actions .outline{border:1px solid #e7e9ef;background:white}
+.tracking-insight{margin:0 20px 20px;padding:12px 16px;background:#fafafb;border-radius:10px}
+.tracking-insight strong{font-size:12px;display:block;margin-bottom:6px}
+.tracking-insight p{font-size:11px;color:#6b7280;line-height:1.5;margin:0 0 8px}
+.insight-chips{display:flex;gap:6px;flex-wrap:wrap}
+.insight-chips span{font-size:10px;padding:3px 8px;border-radius:12px;font-weight:600}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:768px){.tracking-header{flex-direction:column;gap:12px}.task-grid{grid-template-columns:1fr}}

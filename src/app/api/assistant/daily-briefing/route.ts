@@ -1,17 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/shared/db";
 import { getServerSession } from "@/modules/identity/session";
+import { handleApiError } from "@/shared/api-handler";
 import { generateDailyBriefing } from "@/modules/assistant-runtime/capabilities/daily-briefing";
 
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(req);
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
     const { searchParams } = new URL(req.url);
     const projectId = searchParams.get("projectId") || undefined;
     const category = searchParams.get("category") || "health_food";
     const role = searchParams.get("role") || "product";
+
+    const memories = await prisma.kernMemory.findMany({
+      where: { organizationId: session.organizationId, userId: session.userId, forgottenAt: null },
+      orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
+      take: 20,
+    });
 
     const briefing = await generateDailyBriefing({
       organizationId: session.organizationId,
@@ -19,22 +24,26 @@ export async function GET(req: NextRequest) {
       projectId,
       category,
       role,
+      memories,
     }, prisma);
 
-    return NextResponse.json({ briefing });
+    return NextResponse.json({ briefing, memoryCount: memories.length });
   } catch (e) {
-    console.error("GET daily-briefing error", e);
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+    return handleApiError(e, req);
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(req);
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
     const body = await req.json();
     const { projectId, category = "health_food", role = "product" } = body;
+
+    const memories = await prisma.kernMemory.findMany({
+      where: { organizationId: session.organizationId, userId: session.userId, forgottenAt: null },
+      orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
+      take: 20,
+    });
 
     const briefing = await generateDailyBriefing({
       organizationId: session.organizationId,
@@ -42,11 +51,11 @@ export async function POST(req: NextRequest) {
       projectId,
       category,
       role,
+      memories,
     }, prisma);
 
-    return NextResponse.json({ briefing });
+    return NextResponse.json({ briefing, memoryCount: memories.length });
   } catch (e) {
-    console.error("POST daily-briefing error", e);
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+    return handleApiError(e, req);
   }
 }

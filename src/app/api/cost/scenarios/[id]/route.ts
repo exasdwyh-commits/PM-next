@@ -6,12 +6,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/shared/db";
 import { getServerSession } from "@/modules/identity/session";
+import { handleApiError } from "@/shared/api-handler";
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(req);
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
     const scenario = await prisma.costScenario.findFirst({
       where: {
         id: params.id,
@@ -50,8 +49,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(req);
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
     const body = await req.json();
     const existing = await prisma.costScenario.findFirst({
       where: { id: params.id, organizationId: session.organizationId },
@@ -115,8 +112,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(req);
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
     const existing = await prisma.costScenario.findFirst({
       where: { id: params.id, organizationId: session.organizationId },
     });

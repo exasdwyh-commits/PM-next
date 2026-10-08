@@ -923,7 +923,7 @@ export default function ProjectDetailClient({
             activeUserId={activeUserId}
             canOperate={isOwner || isDecisionMaker}
             onChanged={reloadProject}
-            onNotice={(text: string, type?: string) =>
+            onNotice={(text, type) =>
               showMsg(text, type === "error" ? "error" : "success")
             }
             onOpenDecisions={() => setActiveWorkspaceTab("decisions")}

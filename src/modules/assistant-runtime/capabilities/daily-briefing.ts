@@ -35,7 +35,7 @@ const CATEGORY_SUGGESTIONS: Record<string, string[]> = {
   cosmetics: ["补充化妆品备案", "优化玻璃瓶包材成本", "准备透明质酸卖点PPT", "核实烟酰胺美白证据"],
 };
 
-export async function generateDailyBriefing(input: DailyBriefingInput, prisma: any): Promise<DailyBriefingOutput> {
+export async function generateDailyBriefing(input: DailyBriefingInput & { memories?: any[] }, prisma: any): Promise<DailyBriefingOutput> {
   const category = input.category || "health_food";
   
   // 查询项目数据
@@ -82,7 +82,20 @@ export async function generateDailyBriefing(input: DailyBriefingInput, prisma: a
   const totalWork = workItems.length;
   const workRate = totalWork ? Math.round((doneWork / totalWork) * 100) : 0;
 
-  const suggestions = CATEGORY_SUGGESTIONS[category] || CATEGORY_SUGGESTIONS.health_food;
+  let suggestions = CATEGORY_SUGGESTIONS[category] || CATEGORY_SUGGESTIONS.health_food;
+
+  // 上下文记忆个性化
+  if (input.memories && input.memories.length > 0) {
+    const prefs = input.memories.filter((m: any) => m.kind === "PREFERENCE" || m.content?.includes("偏好")).slice(0, 2);
+    if (prefs.length > 0) {
+      suggestions = [`基于记忆偏好 ${prefs[0].content.slice(0, 20)}，${suggestions[0]}`, ...suggestions.slice(1)];
+    }
+    // 纠正记忆影响风险
+    const corrections = input.memories.filter((m: any) => m.kind === "CORRECTION").slice(0, 1);
+    if (corrections.length > 0) {
+      suggestions.push(`注意纠正：${corrections[0].content.slice(0, 30)}`);
+    }
+  }
 
   // 风险预警逻辑
   let risks = 0;

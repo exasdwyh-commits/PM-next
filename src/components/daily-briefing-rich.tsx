@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRole, type UserRole } from "./role-context";
+import { useRole } from "./role-context";
 import "./daily-briefing-rich.css";
 
 const CATEGORY_INFO: Record<string, { icon: string; name: string; color: string; gradient: string; selling: string[] }> = {
@@ -30,14 +30,11 @@ export interface DailyBriefingData {
 
 export function DailyBriefingRich({ data, onAction }: { data: DailyBriefingData; onAction?: (action: string) => void }) {
   const { role, setManualRole } = useRole();
-  // 领导视图内的角色切换条：role 在上方 if 分支被窄化为 "leadership"，
-  // 三个按钮的高亮判断需要原始角色，故显式取宽类型
-  const activeRole = role as UserRole;
   const category = data.category || "health_food";
   const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.health_food;
   const timeGreeting = new Date().getHours() < 12 ? "早上好" : new Date().getHours() < 18 ? "下午好" : "晚上好";
 
-  if (role === "leadership") {
+  if ((role as string) === "leadership") {
     return (
       <div className="daily-briefing-rich leadership" style={{ borderColor: catInfo.color }}>
         <div className="briefing-header" style={{ background: catInfo.gradient }}>
@@ -73,16 +70,16 @@ export function DailyBriefingRich({ data, onAction }: { data: DailyBriefingData;
         <div className="role-switch-hint">
           <small>💡 领导视角极简，专注结论。试试说"切换到研发视角"或"切换到销售视角"，或手动：</small>
           <div className="role-switch">
-            <button className={activeRole === "leadership" ? "is-active" : ""} onClick={() => setManualRole("leadership")}>👔 领导</button>
-            <button className={activeRole === "product" ? "is-active" : ""} onClick={() => setManualRole("product")}>🔬 研发</button>
-            <button className={activeRole === "sales" ? "is-active" : ""} onClick={() => setManualRole("sales")}>💼 销售</button>
+            <button className={(role as string) === "leadership" ? "is-active" : ""} onClick={() => setManualRole("leadership")}>👔 领导</button>
+            <button className={(role as string) === "product" ? "is-active" : ""} onClick={() => setManualRole("product")}>🔬 研发</button>
+            <button className={(role as string) === "sales" ? "is-active" : ""} onClick={() => setManualRole("sales")}>💼 销售</button>
           </div>
         </div>
       </div>
     );
   }
 
-  if (role === "sales") {
+  if ((role as string) === "sales") {
     return (
       <div className="daily-briefing-rich sales" style={{ background: catInfo.gradient, borderColor: catInfo.color }}>
         <div className="briefing-header">

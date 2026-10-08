@@ -5,13 +5,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/modules/identity/session";
+import { handleApiError } from "@/shared/api-handler";
 import { buildKernExpertPrompt, buildKernOrchestratorPrompt } from "@/modules/kern-prompts";
 
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(req);
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
     const body = await req.json();
     const { goal, category = "health_food", role = "product", productName = "未命名产品", agentCode } = body;
 
@@ -70,8 +69,6 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(req);
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
     const { searchParams } = new URL(req.url);
     const category = searchParams.get("category") || "health_food";
     const role = searchParams.get("role") || "product";

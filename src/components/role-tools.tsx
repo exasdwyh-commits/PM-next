@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRole, type UserRole } from "./role-context";
+import { useRole } from "./role-context";
 import "./role-tools.css"
 import "./role-tools-rich.css"
 import { RoleToolsRich } from "./role-tools-rich";;
@@ -16,7 +16,7 @@ export interface ToolDef {
   primary?: boolean;
   // 工具的角色化表现
   leadershipVariant?: { hidden?: boolean; label?: string; icon?: string };
-  salesVariant?: { hidden?: boolean; label?: string; icon?: string; desc?: string };
+  salesVariant?: { label?: string; icon?: string; desc?: string; hidden?: boolean };
 }
 
 const ALL_TOOLS: ToolDef[] = [
@@ -50,7 +50,7 @@ export function RoleToolsOriginal({
   compact?: boolean;
   showLabel?: boolean;
 }) {
-  const { role } = useRole();
+  const { role, source } = useRole();
 
   const visibleTools = React.useMemo(() => {
     return ALL_TOOLS.filter(tool => {
@@ -164,7 +164,7 @@ export function RoleToolsOriginal({
 
 // 单独的工具按钮，用于嵌入到其他组件
 export function ToolButton({ toolId, role, onClick }: { toolId: string; role?: UserRole; onClick?: () => void }) {
-  const { role: currentRole } = useRole();
+  const { role: currentRole, source } = useRole();
   const effectiveRole = role || currentRole;
   const tool = ALL_TOOLS.find(t => t.id === toolId);
   if (!tool) return null;

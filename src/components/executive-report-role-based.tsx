@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import type { ExecutiveReportPayload } from "@/shared/executive-report-types";
-import { Count, Tag } from "@/components/kx";
+import { Tag } from "@/components/kx";
 import { useRole } from "@/components/role-context";
 import { inferRoleFromText } from "@/components/kern-role-intelligence";
 import "./executive-report-role.css";
@@ -133,7 +133,7 @@ export function ExecutiveReportRoleBased({
 
   // 自动从报告内容推断角色
   React.useEffect(() => {
-    const text = JSON.stringify(report).slice(0, 2000);
+    const text = JSON.stringify(report || {}).slice(0, 2000);
     const inf = inferRoleFromText(text);
     if (inf) setAutoInference(inf);
   }, [report, setAutoInference]);
@@ -155,10 +155,10 @@ export function ExecutiveReportRoleBased({
             </small>
           )}
         </div>
-        <div className="err-kpi-grid">
-          <div className="kpi ok"><strong>{report.conclusions?.length || 0}</strong><small>结论</small></div>
-          <div className="kpi bad"><strong>{report.risks?.length || 0}</strong><small>风险</small></div>
-          <div className="kpi warn"><strong>{report.unknowns?.length || 0}</strong><small>缺口</small></div>
+        <div className="err-kpi-summary">
+          <div className="kpi ok"><span>✅ 结论</span><strong>{report.conclusions?.length || 0}</strong></div>
+          <div className="kpi bad"><span>⚠️ 风险</span><strong>{report.risks?.length || 0}</strong></div>
+          <div className="kpi warn"><span>❓ 缺口</span><strong>{report.unknowns?.length || 0}</strong></div>
         </div>
       </div>
 
