@@ -36,6 +36,7 @@ yarn-error.log*
 .next-fixed/
 .next-local-test/
 .next-kernel/
+.next-fresh/
 tsconfig.tsbuildinfo
 
 # 本地运行期数据（上传目录 / 迁移前备份）
