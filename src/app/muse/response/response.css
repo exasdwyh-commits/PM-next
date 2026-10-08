@@ -544,3 +544,20 @@
 /* 进度块 */
 .muse .kr-prog { border-radius: var(--k-r); background: var(--k-surface); }
 .muse .kr-prog-track i { background: var(--k-brand); }
+
+/* Reading controls: section links reveal details and retain keyboard focus. */
+.kr-response .kr-report-nav { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:12px 0 18px; margin-bottom:24px; border-bottom:1px solid var(--line); }
+.kr-report-nav > span { font-size:12px; color:var(--ink-500); margin-right:6px; }
+.kr-report-nav button { border:1px solid var(--line); background:var(--sunk); border-radius:8px; color:var(--ink-700); padding:8px 12px; min-height:44px; font:inherit; font-size:13px; cursor:pointer; }
+.kr-report-nav button:hover { border-color:var(--brand-line); color:var(--brand-ink); background:var(--brand-soft); }
+.kr-report-nav button:focus-visible,.kr-block-entry:focus-visible { outline:2px solid var(--brand); outline-offset:4px; }
+.kr-block-entry { margin-bottom:28px; scroll-margin-top:80px; }
+.kr-block-entry:last-child { margin-bottom:0; }
+.kr-response .kr-confbar { padding-left:0; }
+.kr-response .kr-seg button { min-height:38px; }
+.kr-response .kr-h h2 { color:var(--ink-600); font-size:13px; letter-spacing:.03em; }
+.kr-response .kr-ask { margin-top:8px; }
+@media(max-width:640px) { .kr-response .kr-seg button { min-height:44px; } .kr-report-nav { gap:6px; } }
+@media print { .kr-response .kr-report-nav { display:none; } .kr-block-entry { break-inside:avoid; } }
+
+.kr-response .kr-ev-i:focus-visible { outline:2px solid var(--brand); outline-offset:3px; }

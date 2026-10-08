@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import "./muse.css";
+import "@/components/workspace/workspace-improvements.css";
 import KernClient from "./muse-client";
 import { getServerSessionFromContext } from "@/modules/identity/session";
 import { buildKernViewModel } from "@/modules/muse/read-model";
@@ -35,5 +36,5 @@ export default async function KernPage({
     initialDraft: sp?.query ?? null,
   });
 
-  return <KernClient model={JSON.parse(JSON.stringify(model))} />;
+  return <KernClient key={`${session.organizationId}:${session.userId}`} preferenceScope={{ organizationId: session.organizationId, userId: session.userId }} model={JSON.parse(JSON.stringify(model))} />;
 }

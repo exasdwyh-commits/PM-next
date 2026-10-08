@@ -70,7 +70,7 @@ test("project detail stays a focused product workspace", () => {
   assert.ok(detail.includes("PROJECT_WORKSPACE_TABS"), "workspace must render the shared tab definitions");
   assert.deepEqual(PROJECT_WORKSPACE_TABS, [
     ["overview", "概览"], ["rnd", "AI 研发"], ["tasks", "工作项"],
-    ["evidence", "证据"], ["decisions", "决策"], ["records", "记录"],
+    ["cost", "成本情景"], ["evidence", "证据"], ["decisions", "决策"], ["records", "记录"],
   ]);
   assert.ok(detail.includes('onOpenDecisions={() => setActiveWorkspaceTab("decisions")}'));
   assert.ok(detail.includes('onOpenEvidence={() => setActiveWorkspaceTab("evidence")}'));

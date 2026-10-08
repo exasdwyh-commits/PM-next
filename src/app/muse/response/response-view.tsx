@@ -10,7 +10,7 @@
  * 规范见 docs/KERN_RESPONSE_SPEC.md。
  */
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 
 import { inline, Prose, SourceRefContext } from "@/app/muse/components/prose";
 
@@ -231,7 +231,7 @@ function BlockView({ b, onRef }: { b: Block; onRef: (n: number) => void }) {
         <Section title={b.title ?? "来源"} full>
           <div className="kr-ev">
             {b.items.map((it) => (
-              <div className="kr-ev-i" id={`ref-${it.n}`} key={it.n}>
+              <div className="kr-ev-i" id={`ref-${it.n}`} key={it.n} tabIndex={-1} aria-label={`来源 ${it.n}：${it.title}`}>
                 <span className="n">{it.n}</span>
                 <div>
                   <div className="ti">{it.title}</div>
@@ -338,6 +338,7 @@ export function ResponseView({
   onAsk?: (label: string) => void;
   askState?: { busy?: boolean; disabled?: boolean; selected?: string; error?: string };
 }) {
+  const article = useRef<HTMLElement>(null);
   const [density, setDensity] = useState<"summary" | "full">(defaultDensity);
   const issues = useMemo(() => validate(envelope), [envelope]);
   const blocked = issues.filter((i) => i.level === "error");
@@ -345,7 +346,18 @@ export function ResponseView({
   const jumpToRef = (n: number) => {
     setDensity("full");
     requestAnimationFrame(() => {
-      document.getElementById(`ref-${n}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      const source = article.current?.querySelector<HTMLElement>(`[id="ref-${n}"]`);
+      source?.focus({ preventScroll: true });
+      source?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "center" });
+    });
+  };
+
+  const jumpToBlock = (index: number) => {
+    setDensity("full");
+    requestAnimationFrame(() => {
+      const block = article.current?.querySelector<HTMLElement>(`[data-report-block="${index}"]`);
+      block?.focus({ preventScroll: true });
+      block?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
     });
   };
 
@@ -370,7 +382,7 @@ export function ResponseView({
   const { meta } = envelope;
   return (
     <SourceRefContext.Provider value={jumpToRef}>
-    <article className="kr-response" data-density={density}>
+    <article ref={article} className="kr-response" data-density={density}>
       {envelope.demo ? (
         <div className="kr-demo-bar">演示数据 · 不代表真实调研结论，不写入业务数据，不消耗额度</div>
       ) : null}
@@ -393,7 +405,12 @@ export function ResponseView({
             </div>
           </div>
 
-          {envelope.blocks.map((b, i) => <BlockView key={i} b={b} onRef={jumpToRef} />)}
+          {envelope.blocks.filter(block => block.title).length > 1 && <nav className="kr-report-nav" aria-label="报告章节">
+            <span>跳至</span>{envelope.blocks.map((block, index) => block.title ? <button type="button" key={index} onClick={() => jumpToBlock(index)}>{block.title}</button> : null)}
+          </nav>}
+          {envelope.blocks.map((b, i) => <div key={i} className={`kr-block-entry${"full" in b && b.full ? " kr-only-full" : ""}`} data-report-block={i} tabIndex={-1} aria-label={b.title}>
+            <BlockView b={b} onRef={jumpToRef} />
+          </div>)}
 
           {envelope.ask ? (
             <section className="kr-block">

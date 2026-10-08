@@ -13,6 +13,8 @@ import { Blank, Dock, Rail } from "./components/shell";
 import { ConversationRename } from "./components/conversation-rename";
 import { reducedMotion } from "@/components/motion/motion";
 import { dedupeMissionCards } from "./conversation-view";
+import { WorkBrief } from "./components/work-brief";
+import { PerspectiveSelector, useWorkPerspective } from "@/components/workspace/perspective-selector";
 import { ConclusionDecisions } from "./components/conclusion-decisions";
 
 const ConnectorSheet = dynamic(() => import("./components/sheets").then(module => module.ConnectorSheet));
@@ -156,7 +158,8 @@ function persistPending(key: string, item: PendingSend | null) {
   } catch { /* 内存保留同一标识，服务器记录仍可在刷新后恢复。 */ }
 }
 
-export default function KernClient({ model }: { model: StudioModel }) {
+export default function KernClient({ model, preferenceScope }: { model: StudioModel; preferenceScope: { organizationId: string; userId: string } }) {
+  const perspective = useWorkPerspective(preferenceScope.organizationId, preferenceScope.userId);
   const router = useRouter();
   const { brief, employees, runtime } = model;
   const [conversationId, setConversationId] = useState<string | null>(model.activeConversationId);
@@ -901,7 +904,11 @@ export default function KernClient({ model }: { model: StudioModel }) {
             disabled={sending || Boolean(processing) || Boolean(decisionBusy)} send={send}>
           <div className="m-lane">
             {conversationId === null && !sending && messages.length === 0 ? (
-              <Blank seeds={brief.suggestions} attention={brief.attention} userName={model.user.name} onSeed={updateDraft} onOpen={pickConversation} />
+              <>
+                <Blank seeds={brief.suggestions} attention={brief.attention} userName={model.user.name} onSeed={updateDraft} onOpen={pickConversation}
+                  perspective={<PerspectiveSelector role={perspective.role} onSelect={perspective.select} />}
+                  summary={<WorkBrief attention={brief.attention} role={perspective.role} />} />
+              </>
             ) : (
               <>
                 {displayedMessages.map((message, index) => (
