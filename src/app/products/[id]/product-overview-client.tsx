@@ -127,6 +127,12 @@ export default function ProductOverviewClient({
   }, [searchParams]);
 
   const p = overview.product;
+  const [costWorkItemId, setCostWorkItemId] = React.useState("");
+  const costTargets: { id: string; title: string; projectId: string; projectTitle: string }[] = p.projects.flatMap((project: any) =>
+    (project.workItems ?? []).map((item: any) => ({ id: item.id, title: item.title, projectId: project.id, projectTitle: project.title }))
+  );
+  const costWorkItem = costTargets.find(item => item.id === costWorkItemId);
+
   const dims: any[] = overview.dimensions ?? [];
   const scorecard = overview.scorecard;
   const plan = overview.launchPlan;
@@ -171,10 +177,11 @@ export default function ProductOverviewClient({
     currency: string;
     expenseBase: string;
   }) => {
+    if (!costWorkItem) throw new Error("请先选择成本成果记录到的工作项。");
     const res = await fetch(`/api/products/${p.id}/cost-scenarios`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...scenario, workItemId: p.projects?.[0]?.id }),
+      body: JSON.stringify({ ...scenario, workItemId: costWorkItem.id }),
     });
     const body = await res.json().catch(() => null);
     if (!res.ok) throw new Error(body?.message || "情景保存失败，请重试。");
@@ -746,15 +753,24 @@ export default function ProductOverviewClient({
   // ── 第三层：成本先给适用口径结果 + 主要成本来源；无真实输入时准确写「暂不能计算」 ──
   const costTab = (
     <div className="hermes-stack">
+      <label className="hermes-label">
+        成本成果记录到
+        <select className="hermes-select" value={costWorkItem?.id ?? ""} onChange={event => setCostWorkItemId(event.target.value)}>
+          <option value="">请选择关联项目的工作项</option>
+          {costTargets.map(item => <option key={item.id} value={item.id}>{item.projectTitle} · {item.title}</option>)}
+        </select>
+        <span className="hermes-note">{costTargets.length === 0 ? "暂无可用工作项，先到关联项目创建工作项；当前可试算。" : "选择后才能保存，新情景将记录在所选工作项下。"}</span>
+      </label>
+      {costWorkItem && <Link href={`/projects/${costWorkItem.projectId}`}>打开成本成果所属项目：{costWorkItem.projectTitle}</Link>}
       <CostCalculator
         key={p.id}
         targetCost={currentVersion?.targetCost ?? null}
         currency={currentVersion?.currency ?? null}
         versionTag={currentVersion?.versionTag ?? null}
-        workItemId={p.projects?.[0]?.id}
+        workItemId={costWorkItem?.id}
         productId={p.id}
         savedScenarios={savedScenarios}
-        onSaveScenario={handleSaveScenario}
+        onSaveScenario={costWorkItem ? handleSaveScenario : undefined}
         scenariosLoading={scenariosLoading}
         scenariosError={scenariosError}
         onRetryScenarios={() => void loadScenarios()}

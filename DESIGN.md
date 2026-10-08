@@ -2,9 +2,9 @@
 
 ## Source of truth
 - Status: Active
-- Last refreshed: 2026-09-20
-- Primary product surfaces: 工作台、仪表盘、产品中心、AI 顾问、机会与知识中心、审批与追溯。
-- Evidence reviewed: `README.md`、`src/app/dashboard/*`、`src/app/globals.css`、`src/app/theme/quiet-enterprise.css`、`src/components/ui.tsx`、现有浏览器验收与截图产物。
+- Last refreshed: 2026-10-08
+- Primary product surfaces: `/muse` 对话与真实任务流程；产品/项目工作区；`/manage` 管理、证据与审批。
+- Evidence reviewed: `README.md`、`docs/FRONTEND_V3_CONVERSATION_FIRST.md`、`src/app/muse/*`、`src/app/globals.css`、`src/app/theme/kern-design.css`、`src/components/ui.tsx`、现有浏览器验收与截图产物。
 
 ## Brand
 - Personality: 冷静、专业、证据驱动；像高级产品团队的决策操作台，而不是泛用聊天机器人。
@@ -12,7 +12,7 @@
 - Avoid: 紫色渐变、装饰性光晕、无意义指标墙、卡片套卡片、把每一项内容都做成高亮 CTA、AI 生成感的插画堆砌。
 
 ## Product goals
-- Goals: 让食品新品团队在一个清晰工作区中发现机会、形成证据、作出打样门决策并持续追踪交付。
+- Goals: 让产品团队在一个清晰工作区中发现机会、形成证据、作出打样门决策并持续追踪交付。
 - Non-goals: 把业务工作台做成营销落地页；用炫技动效替代信息可读性；让 AI 在未说明依据时替用户拍板。
 - Success signals: 用户能在首屏判断“当前最重要的事、为什么重要、下一步谁来做”；关键决策可在两次交互内进入详情或处理。
 
@@ -22,8 +22,8 @@
 - Key contexts of use: 桌面端深度工作为主；会议/现场查看需在平板和手机上快速读懂状态与待办。
 
 ## Information architecture
-- Primary navigation: 工作台作为日常入口；产品与项目承载对象详情；AI 顾问承载建议和审查；机会、知识、追溯与设置提供支撑。
-- Core routes/screens: Dashboard、Products、Projects、Advisor、Opportunities、Knowledge、Trace、Settings。
+- Primary navigation: Kern 对话作为日常入口；产品与项目承载对象详情；管理工作台承载审查；机会、知识、追溯与设置提供支撑。
+- Core routes/screens: Muse、Manage、Products、Projects（概览 / AI 研发 / 工作项 / 成本情景 / 证据 / 决策 / 记录）。
 - Content hierarchy: 页面结论/关键动作 → 风险与进度 → 支撑证据与历史。一个页面只允许一个主要行动。
 
 ## Design principles
@@ -34,7 +34,7 @@
 - Tradeoffs: 允许少量有意义的环境层与微动效，但不牺牲加载、对比度、表格扫描效率或可访问性。
 
 ## Visual language
-- Color: 延续 Quiet Enterprise 的冷灰白基底、墨蓝文本和蓝色动作强调；绿色/琥珀/红色只表达状态，不充当装饰。所有新色必须先进入 `quiet-enterprise.css`。
+- Color: 延续 Quiet Enterprise 的冷灰白基底、墨蓝文本和蓝色动作强调；绿色/琥珀/红色只表达状态，不充当装饰。使用 `kern-design.css` 的 `--k-*` 语义令牌，兼容浅色与深色。
 - Typography: 中文正文使用系统无衬线；关键页面标题使用现有中文衬线标题栈，营造编辑式、权威而非科技玩具化的气质。
 - Spacing/layout rhythm: 以 8px 基础节奏；页面首屏减少并列卡片，优先一条明确的主叙事线与一条行动队列。
 - Shape/radius/elevation: 继承现有 9–14px 圆角与 hair/card/lift 三级表面深度；高层浮面只用于可操作内容。
@@ -43,9 +43,9 @@
 
 ## Components
 - Existing components to reuse: `src/components/ui.tsx` 的基础控件，以及现有的 dashboard、产品、顾问与可视化组件。
-- New/changed components: 决策摘要、AI 建议卡、证据/可信度条、风险行动队列、页面级空状态应逐步归并为可复用模式。
+- New/changed components: 工作视角切换、当前工作摘要、项目下一步与依赖列表、分组成本表单、报告阅读层级。摘要不重复待办清单；指标使用真实数量，不把证据覆盖率称为可信度。
 - Variants and states: 每个高价值模块必须覆盖 loading、empty、error、success、disabled 与 AI-processing 状态；状态不能只靠颜色传达。
-- Token/component ownership: `src/app/theme/quiet-enterprise.css` 是颜色、排版、几何的唯一令牌来源；组件不得新增临时硬编码色值。
+- Token/component ownership: `src/app/theme/kern-design.css` 是当前令牌来源，quiet-enterprise 保留兼容映射；组件不得新增临时硬编码色值。
 
 ## Accessibility
 - Target standard: WCAG 2.1 AA。
@@ -74,12 +74,13 @@
 
 ## Implementation constraints
 - Framework/styling system: Next.js 15、React 19、TypeScript、Tailwind CSS；保持现有服务端/客户端边界。
-- Design-token constraints: 新增或变更视觉值先写入 `quiet-enterprise.css`；复用现有 `ui.tsx` 与主题类，避免页面级视觉分叉。
+- Design-token constraints: 复用 `kern-design.css` 的语义令牌；复用现有 `ui.tsx` 与主题类，避免页面级视觉分叉。
 - Performance constraints: 首屏避免重型图表和纯装饰媒体；动效不得阻塞交互；图片必须有明确内容价值。
 - Compatibility constraints: 不破坏现有鉴权、审计、证据和审批业务语义。
 - Test/screenshot expectations: 每轮高频页面改造提供桌面和 390px 视口验收；检查空、错、加载和键盘焦点状态。
 
 ## Open questions
-- [ ] 首轮视觉基准应以工作台、产品中心还是 AI 顾问为主？默认按工作台 → 产品中心 → AI 顾问推进。
+- [x] 用户已明确 `/muse` 是主入口，优先对话首页 → 项目工作区 → 成本与报告。
 - [ ] 是否有现成品牌摄影、包装图或品牌手册可作为真实视觉资产？若无，先以数据和产品对象建立识别度。
-- [ ] 管理层和执行层是否需要不同的默认仪表盘密度？
+- [x] 工作视角由用户手动选择，按组织与账号保存；调整摘要顺序和下一步，不改变权限。
+- 真实任务流程复用 mission-timeline 与 SSE；静态项目依赖列表必须明确区分执行中、已提交、已验收。

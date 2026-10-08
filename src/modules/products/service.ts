@@ -411,6 +411,7 @@ export async function getProductOverview(session: SessionContext, productId: str
       owner: { select: { id: true, name: true, email: true } },
       versions: { orderBy: { createdAt: "desc" } },
       projects: {
+        orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
         select: {
           id: true,
           title: true,
@@ -418,6 +419,7 @@ export async function getProductOverview(session: SessionContext, productId: str
           revision: true,
           updatedAt: true,
           productVersionId: true,
+          workItems: { select: { id: true, title: true, status: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
           evidences: {
             select: {
               id: true,

@@ -18,6 +18,9 @@ export const COST_ENGINE_VERSION = "1.0";
 
 export interface SaveCostScenarioParams {
   workItemId: string;
+  projectId: string;
+  productId: string;
+  inputRevision: number;
   productVersionId?: string | null;
   scenarioName: string;
   costInput: CostInput;
@@ -79,10 +82,12 @@ export async function saveCostScenario(
     title: params.scenarioName,
     workItemId: params.workItemId,
     submissionId: params.submissionId ?? null,
-    inputRevision: 1,
+    inputRevision: params.inputRevision,
     businessInput,
     envelope: {
       organizationId: params.organizationId,
+      projectId: params.projectId,
+      productId: params.productId,
       productVersionId: params.productVersionId ?? null,
       sourceRefs: [],
       dataNature: "REAL",

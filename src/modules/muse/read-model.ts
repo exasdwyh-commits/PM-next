@@ -174,6 +174,7 @@ async function loadAttention(
     select: { id: true, goal: true, contextSnapshot: true },
   });
   const signals: AttentionSignal[] = [];
+  let unavailable = false;
   // KX-51b/53：各任务未回答的提问数（一个任务聚合成一条「需要你」）。
   const askRows = missions.length
     ? await prisma.kernMissionEvent.findMany({
@@ -228,7 +229,7 @@ async function loadAttention(
     });
   }
   // KX-35：等你确认的本机命令（WAITING_HUMAN + desktopConfirmation.PENDING）。
-  const desktopWaiting = await getDesktopOverview(session, { limit: 20 }).catch(() => null);
+  const desktopWaiting = await getDesktopOverview(session, { limit: 20 }).catch(() => { unavailable = true; return null; });
   for (const t of desktopWaiting?.tasks ?? []) {
     if (!t.confirmation || !t.action) continue;
     signals.push({
@@ -252,7 +253,7 @@ async function loadAttention(
       take: 8,
       select: { id: true, title: true, dueDate: true, status: true },
     })
-    .catch(() => []);
+    .catch(() => { unavailable = true; return []; });
   const nowIso = new Date().toISOString();
   for (const m of milestones) {
     signals.push({
@@ -265,7 +266,7 @@ async function loadAttention(
       now: nowIso,
     });
   }
-  return buildAttentionBrief(signals);
+  return { ...buildAttentionBrief(signals), unavailable };
 }
 
 export async function buildKernViewModel(
@@ -476,6 +477,7 @@ export async function buildKernViewModel(
     : [];
 
   const attention = await loadAttention(session, proposals).catch(() => ({
+    unavailable: true,
     needsYou: [],
     inProgress: [],
     handledQuietly: 0,

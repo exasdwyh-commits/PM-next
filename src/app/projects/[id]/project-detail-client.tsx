@@ -5,6 +5,9 @@ const TENANT_UI = getTenantPack().tenant.ui;
 import React, { useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { ProjectBrief } from "@/components/workspace/project-brief";
+import { PerspectiveSelector, useWorkPerspective } from "@/components/workspace/perspective-selector";
+import ProjectCostWorkspace from "./project-cost-workspace";
 import AppShell from "@/components/app-shell";
 import { Panel, PageHeading, Badge, Empty, Modal } from "@/components/ui";
 import { StepTrack, GateLine, type StepItem, type GateNode } from "@/components/viz";
@@ -90,8 +93,9 @@ export default function ProjectDetailClient({
   const [project, setProject] = useState(initialProject);
   const [currentGaps, setCurrentGaps] = useState(gaps);
   const [activeUserId, setActiveUserId] = useState(currentSession?.userId || initialProject.ownerId);
+  const perspective = useWorkPerspective(currentSession?.organizationId ?? initialProject.organizationId, activeUserId);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"overview" | "rnd" | "tasks" | "evidence" | "decisions" | "records">("overview");
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"overview" | "rnd" | "tasks" | "cost" | "evidence" | "decisions" | "records">("overview");
   const [saving, setSaving] = useState(false);
   const savingRef = React.useRef(false);
   const messageTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -770,12 +774,7 @@ export default function ProjectDetailClient({
         {/* Project Header Card + Stage Progression Pipeline */}
         <Panel
           eyebrow={`模式 · ${labelProjectMode(project.mode)}`}
-          title={
-            <>
-              {project.title} <small>r{project.revision}</small>
-            </>
-          }
-          sub={project.target}
+          title="阶段与协作"
           actions={
             <div className="hermes-inline">
               <span className="hermes-chip">负责人 {project.owner?.name || "未指定"}</span>
@@ -788,7 +787,7 @@ export default function ProjectDetailClient({
         </Panel>
 
         {/* Gaps & Readiness Alert */}
-        {currentGaps.length > 0 && (
+        {currentGaps.length > 0 && activeWorkspaceTab !== "overview" && (
           <div className="hermes-panel" style={{ borderColor: "var(--warn-line)", background: "var(--warn-bg)" }}>
             <div className="hermes-panel-head is-stacked">
               <span className="hermes-section-label" style={{ color: "var(--warn-ink)" }}>
@@ -838,68 +837,16 @@ export default function ProjectDetailClient({
         </div>
 
         <div ref={workspacePanelRef} id="project-workspace-panel" role="tabpanel" aria-labelledby={`project-tab-${activeWorkspaceTab}`} tabIndex={0}>
+        {activeWorkspaceTab === "cost" && <ProjectCostWorkspace key={`${project.id}:${activeUserId}:${project.productId ?? "unlinked"}`} productId={project.productId} tasks={project.workItems} mockAuth={mockAuth} activeUserId={activeUserId} />}
         {activeWorkspaceTab === "overview" && (
           <div className="hermes-workspace-overview">
-            <Panel
-              eyebrow="NEXT ACTION"
-              title="现在最重要的事"
-              sub={
-                currentGaps.length > 0
-                  ? `还有 ${currentGaps.length} 个研发/决策缺口需要先解决`
-                  : productRndWorkItem?.id
-                    ? "研发工作流已经建立，可以查看 AI 团队进度与管理报告"
-                    : "当前没有研发阻断，可以继续安排下一项工作"
-              }
-              actions={
-                productRndWorkItem?.id ? (
-                  <button type="button" className="hermes-primary-btn hermes-btn-sm" onClick={() => setActiveWorkspaceTab("rnd")}>
-                    查看 AI 研发
-                    <Icon name="arrow" size={14} />
-                  </button>
-                ) : (
-                  <button type="button" className="hermes-primary-btn hermes-btn-sm" onClick={() => setActiveWorkspaceTab("tasks")}>
-                    查看工作项
-                    <Icon name="arrow" size={14} />
-                  </button>
-                )
-              }
-            >
-              <div className="hermes-workspace-summary">
-                <button type="button" onClick={() => setActiveWorkspaceTab("tasks")}>
-                  <span>工作项</span>
-                  <strong>{project.workItems.length}</strong>
-                  <small>执行与交付</small>
-                </button>
-                <button type="button" onClick={() => setActiveWorkspaceTab("evidence")}>
-                  <span>已核实证据</span>
-                  <strong>{project.evidences.filter((e: any) => e.verifyStatus === "VERIFIED").length}</strong>
-                  <small>共 {project.evidences.length} 条依据</small>
-                </button>
-                <button type="button" onClick={() => setActiveWorkspaceTab("decisions")}>
-                  <span>待裁决</span>
-                  <strong>{project.decisionPackets.filter((p: any) => p.status === "IN_REVIEW").length}</strong>
-                  <small>共 {project.decisionPackets.length} 个决策包</small>
-                </button>
-                <button type="button" onClick={() => setActiveWorkspaceTab("records")}>
-                  <span>协作反馈</span>
-                  <strong>{project.feedbackItems?.length ?? 0}</strong>
-                  <small>修订与留痕</small>
-                </button>
-              </div>
-              {currentGaps.length > 0 ? (
-                <div className="hermes-overview-gaps">
-                  <strong>优先补齐</strong>
-                  <ul>
-                    {currentGaps.slice(0, 4).map((gap, index) => <li key={index}>{gap}</li>)}
-                  </ul>
-                  {currentGaps.length > 4 ? <span>另有 {currentGaps.length - 4} 项未展开</span> : null}
-                </div>
-              ) : (
-                <div className="hermes-note">
-                  当前没有研发打样门阻断。继续推进前仍需以最新证据和正式门禁结果为准。
-                </div>
-              )}
-            </Panel>
+            <PerspectiveSelector role={perspective.role} onSelect={perspective.select} />
+            <ProjectBrief tasks={project.workItems} gaps={currentGaps}
+              verifiedEvidence={project.evidences.filter((item: any) => item.verifyStatus === "VERIFIED").length}
+              decisions={project.decisionPackets.filter((item: any) => item.status === "IN_REVIEW").length}
+              totalEvidence={project.evidences.length} hasRnd={Boolean(productRndWorkItem?.id)}
+              role={perspective.role} onOpen={setActiveWorkspaceTab} />
+
           </div>
         )}
 

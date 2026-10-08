@@ -10,6 +10,7 @@ import { getRuntimeStatus, isMockAuthEnabled } from "@/shared/runtime-status";
 import { toSessionView } from "@/shared/session-view";
 import { getProjectDetail } from "@/modules/projects/service";
 import { ForbiddenError, NotFoundError } from "@/shared/errors";
+import "@/components/workspace/workspace-improvements.css";
 import ProjectDetailClient from "./project-detail-client";
 
 export const dynamic = "force-dynamic";

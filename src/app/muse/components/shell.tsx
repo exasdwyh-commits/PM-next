@@ -1,6 +1,6 @@
 "use client";
 /** Kern 对话外壳：最近会话、输入坞、空态。 */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { ConversationControlOption, ConversationControls, ConversationRuntimeConfig, ConversationSummary, RuntimeStatus, StudioModel } from "../types";
 import { I } from "./kit";
 import { Bento } from "@/components/kx";
@@ -538,6 +538,8 @@ export function Blank({
   seeds,
   attention,
   userName,
+  summary,
+  perspective,
   onSeed,
   onOpen,
 }: {
@@ -550,7 +552,10 @@ export function Blank({
     inProgress: { id: string; title: string; why: string; conversationId: string | null }[];
     handledQuietly: number;
     completedRecently?: number;
+    unavailable?: boolean;
   };
+  summary?: ReactNode;
+  perspective?: ReactNode;
   userName?: string;
   onSeed: (p: string) => void;
   onOpen?: (conversationId: string) => void;
@@ -587,7 +592,7 @@ export function Blank({
         <div>
           <h2 suppressHydrationWarning>{greeting()}{userName ? `，${userName.replace(/\s*[（(].*$/, "")}` : ""}</h2>
           <p>
-            {needs.length ? `有 ${needs.length} 件事需要你。` : "目前没有需要你操心的事。"}
+            {attention?.unavailable ? "部分工作状态待更新。" : needs.length ? `有 ${needs.length} 件事需要你。` : "目前没有需要你处理的事。"}
             {attention?.completedRecently ? `过去一天完成了 ${attention.completedRecently} 项工作。` : ""}
             {doing.length
               ? `Kern 正在推进 ${doing.length} 项工作。`
@@ -597,8 +602,11 @@ export function Blank({
         </div>
       </header>
 
+      {perspective}
+      {summary}
+
       {needs.length > 0 && (
-        <section className="m-home-sec" aria-label="需要你">
+        <section id="home-needs" className="m-home-sec" aria-label="需要你">
           <div className="m-home-sec-head">
             <h3>需要你{live.length !== needs.length ? `（剩 ${live.length} 项）` : ""}</h3>
             {snoozed.length > 0 ? (
@@ -626,7 +634,7 @@ export function Blank({
       )}
 
       {doing.length > 0 && (
-        <section className="m-home-sec" aria-label="Kern 正在做">
+        <section id="home-doing" className="m-home-sec" aria-label="Kern 正在做">
           <h3>Kern 正在做</h3>
           {doing.map((item) => (
             <button key={item.id} type="button" className="m-row is-live" onClick={() => open({ href: null, conversationId: item.conversationId })}>

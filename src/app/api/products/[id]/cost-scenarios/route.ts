@@ -151,6 +151,9 @@ export async function POST(
     const result = await prisma.$transaction((tx) =>
       saveCostScenario(tx, {
         workItemId: workItem.id,
+        projectId: workItem.project.id,
+        productId,
+        inputRevision: workItem.inputRevision,
         productVersionId,
         scenarioName: String(scenarioName),
         costInput,
