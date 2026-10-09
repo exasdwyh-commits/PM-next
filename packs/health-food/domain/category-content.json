@@ -1,0 +1,81 @@
+{
+  "_note": "按品类的营销与合规内容。src/ 里的组件与能力模块都从这里读，不各自留一份副本。",
+  "_complianceNote": "合规措辞此前散在 3 个文件、3 种写法（SC合规 / SC资质+标签合规 / SC认证 + 标签审核）。它们长度与用途不同，强行统一会让某一处显示变化，故按 short/summary/requirements 三档保留各自原措辞。",
+  "_sellingNote": "selling 是完整卖点集。overview-role-based 与 daily-briefing 的卡片区原本只取前 3 条，迁移后用 slice(0,3) 显式表达，不再另存一份短版。",
+  "regular_food": {
+    "selling": ["性价比高", "日常刚需", "SC合规", "口感好"],
+    "price": "39.9",
+    "costSummary": "10.2",
+    "costBreakdown": "原料0.98+加工1.2+包装1.1+物流4.1+渠道35% 零售39.9",
+    "costNotes": "普通食品，成本较低，重点在原料和包装",
+    "formula": "面粉+糖+油 基础配方",
+    "compliance": {
+      "short": "SC合规",
+      "summary": "SC资质+标签合规",
+      "requirements": "SC认证 + 标签审核"
+    },
+    "salesPitch": "性价比日常刚需",
+    "tools": [
+      { "id": "cost", "label": "成本计算器", "icon": "💰", "desc": "SC合规成本 39.9元竞品" },
+      { "id": "compliance", "label": "SC合规", "icon": "📦", "desc": "SC资质+标签合规" },
+      { "id": "sales-ppt", "label": "销售PPT", "icon": "📽️", "desc": "性价比卖点PPT" }
+    ]
+  },
+  "health_food": {
+    "selling": ["蓝帽子认证", "多酚功效", "软糖剂型", "低糖健康"],
+    "price": "199",
+    "costSummary": "10.2",
+    "costBreakdown": "原料8.05+配方0.8+软糖1.5+制造1.8+检测1.2+合规2.5+包装2.4+物流4.2+渠道42% 零售199",
+    "costNotes": "保健食品，原料贵、检测多、备案费高(5-20万)，需摊销",
+    "formula": "多酚+低聚果糖+软糖基质",
+    "compliance": {
+      "short": "蓝帽子认证",
+      "summary": "蓝帽子+功能声称+检测报告",
+      "requirements": "蓝帽子备案/注册 + 功能声称 + 多项检测"
+    },
+    "salesPitch": "蓝帽子认证多酚功效",
+    "tools": [
+      { "id": "cost", "label": "成本计算器", "icon": "💰", "desc": "蓝帽子成本 199元竞品" },
+      { "id": "compliance", "label": "蓝帽子合规", "icon": "💊", "desc": "蓝帽子+功能声称" },
+      { "id": "sales-ppt", "label": "销售PPT", "icon": "📽️", "desc": "多酚功效卖点PPT" }
+    ]
+  },
+  "cross_border_food": {
+    "selling": ["进口原料", "跨境背书", "保税仓发货", "国际品质"],
+    "price": "129",
+    "costSummary": "15.5",
+    "costBreakdown": "进口原料12+国际物流3.5+关税12%+报关1.2+清关0.8+合规1.5+包装2+物流5.5+渠道45% 零售129",
+    "costNotes": "跨境食品，国际物流+关税+清关，税率10-15%",
+    "formula": "进口多酚+跨境基质",
+    "compliance": {
+      "short": "进口资质+跨境标签",
+      "summary": "进口资质+跨境标签+报关单",
+      "requirements": "进口备案 + 关税 + 中文标签 + 保税仓"
+    },
+    "salesPitch": "进口原料跨境背书",
+    "tools": [
+      { "id": "cost", "label": "跨境成本", "icon": "💰", "desc": "保税仓成本 129元竞品" },
+      { "id": "compliance", "label": "跨境合规", "icon": "🌍", "desc": "进口资质+跨境标签" },
+      { "id": "sales-ppt", "label": "销售PPT", "icon": "📽️", "desc": "进口背书卖点PPT" }
+    ]
+  },
+  "cosmetics": {
+    "selling": ["透明质酸", "烟酰胺美白", "玻璃瓶高级感", "安全温和"],
+    "price": "299",
+    "costSummary": "28.5",
+    "costBreakdown": "原料15+配方1.2+制造2.5+灌装1.0+包装8+2+1+5玻璃瓶+检测1.5+安全1+功效1+合规3+物流5+易碎0.5+渠道58% 零售299",
+    "costNotes": "化妆品，包材贵(玻璃瓶)、检测多(5项+)、备案费高",
+    "formula": "透明质酸+烟酰胺+精华基质",
+    "compliance": {
+      "short": "备案+功效宣称",
+      "summary": "备案+功效宣称+安全评估",
+      "requirements": "化妆品备案/注册 + 功效/安全检测 + 宣称"
+    },
+    "salesPitch": "透明质酸烟酰胺成分",
+    "tools": [
+      { "id": "cost", "label": "化妆品成本", "icon": "💰", "desc": "透明质酸成本 299元竞品" },
+      { "id": "compliance", "label": "化妆品备案", "icon": "💄", "desc": "备案+功效宣称" },
+      { "id": "sales-ppt", "label": "销售PPT", "icon": "📽️", "desc": "成分卖点PPT" }
+    ]
+  }
+}

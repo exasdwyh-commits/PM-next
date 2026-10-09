@@ -6,6 +6,7 @@
  */
 import hfTenant from "../../../packs/health-food/tenant.json";
 import hfCategories from "../../../packs/health-food/domain/categories.json";
+import hfCategoryContent from "../../../packs/health-food/domain/category-content.json";
 import hfLexicon from "../../../packs/health-food/domain/lexicon.json";
 import hfRegulatory from "../../../packs/health-food/domain/regulatory.json";
 import hfClaims from "../../../packs/health-food/domain/claims.json";
@@ -15,6 +16,7 @@ export const TENANT_PACKS: Record<string, TenantPack> = {
   "health-food": {
     tenant: hfTenant,
     categories: hfCategories,
+    categoryContent: hfCategoryContent,
     lexicon: hfLexicon,
     regulatory: hfRegulatory,
     claims: hfClaims,
