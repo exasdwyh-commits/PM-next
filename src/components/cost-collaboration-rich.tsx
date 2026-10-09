@@ -7,13 +7,7 @@ import "./cost-collaboration-rich.css";
 import { useRole } from "./role-context";
 import { useReasonDialog } from "./reason-dialog";
 import { fmtDate } from "@/shared/datetime";
-
-const CATEGORY_INFO: Record<string, { icon: string; name: string; color: string }> = {
-  regular_food: { icon: "🍪", name: "普通食品", color: "#f59e0b" },
-  health_food: { icon: "💊", name: "保健食品", color: "#7c3aed" },
-  cross_border_food: { icon: "🌍", name: "跨境食品", color: "#0891b2" },
-  cosmetics: { icon: "💄", name: "化妆品", color: "#db2777" },
-};
+import { categoryMeta } from "@/modules/tenant";
 
 export interface Comment {
   id: string;
@@ -33,7 +27,7 @@ export function CostCollaborationRich({
   category?: string;
 }) {
   const { role } = useRole();
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.health_food;
+  const catInfo = categoryMeta(category);
   const [comments, setComments] = React.useState<Comment[]>([]);
   const [versions, setVersions] = React.useState<any[]>([]);
   const [newComment, setNewComment] = React.useState("");

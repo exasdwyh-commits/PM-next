@@ -1,17 +1,11 @@
 "use client";
 
 import * as React from "react";
+import { categoryMeta } from "@/modules/tenant";
 import "./glass-card.css";
 
-const CATEGORY_INFO: Record<string, { icon: string; name: string; color: string; gradient: string; shadow: string }> = {
-  regular_food: { icon: "🍪", name: "普通食品", color: "#f59e0b", gradient: "linear-gradient(135deg,#fffbeb,#fef3c7)", shadow: "0 8px 24px rgba(245,158,11,0.15)" },
-  health_food: { icon: "💊", name: "保健食品", color: "#7c3aed", gradient: "linear-gradient(135deg,#f5f3ff,#ede9fe)", shadow: "0 8px 24px rgba(124,58,237,0.15)" },
-  cross_border_food: { icon: "🌍", name: "跨境食品", color: "#0891b2", gradient: "linear-gradient(135deg,#ecfeff,#cffafe)", shadow: "0 8px 24px rgba(8,145,178,0.15)" },
-  cosmetics: { icon: "💄", name: "化妆品", color: "#db2777", gradient: "linear-gradient(135deg,#fdf2f8,#fce7f3)", shadow: "0 8px 24px rgba(219,39,119,0.15)" },
-};
-
 export function GlassCard({ children, category = "health_food", hover3d = false, magnetic = false, className = "", style = {} as any, ...props }: any) {
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.health_food;
+  const catInfo = categoryMeta(category);
   const ref = React.useRef<HTMLDivElement>(null);
   const [mousePos, setMousePos] = React.useState({ x: 0, y: 0 });
 

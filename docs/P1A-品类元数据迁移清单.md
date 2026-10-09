@@ -14,6 +14,19 @@
 原计划「20 个组件机械替换、风险低」**不成立**——其中 1 个装着监管知识（机械替换会功能损坏），
 4 个含业务字段，4 个渐变色与收口模块不一致（迁移会改视觉）。
 
+### 进度与真实基线（2026-10-09 实测）
+
+| 阶段 | 违规行数 | 说明 |
+|---|---|---|
+| S1 前 | 289 | ⚠️ **这是低估** —— 守卫词表当时漏了 `classifications` |
+| 词表修复后（未做 S1） | **342** | 补上分类名后显出 53 处此前不可见 |
+| **S1 后（当前）** | **303** | S1 净减 39 处 |
+
+**基线被修正这件事必须说清**：此前所有基于「289 处」的判断都建立在坏词表上。
+`categories.classifications` 里的中文品类名此前**完全不在守卫词表内**——
+实测 `src/` 下有 **81 处「化妆品」从未被捕获**（分布在 40 个文件）。
+守卫已修（见 §5），此后的数字才可信。
+
 ## 1. 五类判定
 
 ### 类 1 · 纯外观且色值完全一致 —— **13 个，可直接迁移（零风险）**
@@ -98,40 +111,57 @@ const CATEGORY_INFO: Record<string, { icon; name; color;
 - `icon` / `name` / `color` → 可走 `categoryMeta()`
 - `tools[]`（每个分类推荐哪些工具，含「SC合规成本 39.9元竞品」这类文案）→ 另一套下沉
 
-## 2. 执行顺序建议
+## 2. 执行顺序与进度
 
-| 阶段 | 范围 | 预期效果 |
-|---|---|---|
-| S1 | 类 1 的 13 个 | 行业词减少约一半，`tenant-neutral-guard` 违规数显著下降 |
-| S2 | 类 5 的 1 个（手工拆分） | 再降一点 |
-| S3 | 类 2 的 4 个（拆业务字段到 pack） | 需先设计 pack 的 `copy` 结构 |
-| S4 | 类 3 的 4 个 | **先做设计决策**，不要盲改 |
-| — | 类 4 的 1 个 | 本轮不动，改为下沉 `regulatory.json` |
+| 阶段 | 范围 | 状态 | 效果 |
+|---|---|---|---|
+| **S1** | 类 1 的 13 个 | ✅ **已完成** | 违规 342 → **303**（净减 39 行） |
+| S2 | 类 5 的 1 个（`role-tools-rich` 手工拆分） | ⏳ 待做 | 再降一点 |
+| S3 | 类 2 的 4 个（拆业务字段到 pack） | ⏳ 待做 | **需先设计 pack 的 `copy` 结构** |
+| S4 | 类 3 的 4 个 | ⏳ 待做 | **先做设计决策**，不要盲改 |
+| — | 类 4 的 1 个（`cost-calculator-modular`） | 不动 | 改为下沉 `regulatory.json` |
 
-**先做 S1**：13 个文件、零风险、可立即验证，是干净的收益。
 S3/S4 都要先有设计决策，不要合并进同一批改动。
 
-## 3. 前置条件（未满足则 S1 也做不了）
+### S1 已完成，做法与两处必须留意的细节
 
-`categoryMeta()` 目前**编译不过**，三处接线缺两处：
+迁移脚本以「删除本地 `CATEGORY_INFO` 定义 → 用 `categoryMeta()` 替换使用点 →
+在 import 区插入 `import { categoryMeta } from "@/modules/tenant"`」三步走，
+并内置**残留守卫**（替换后若仍有 `CATEGORY_INFO` 字样则拒绝写入）。
+dry-run 13/13 就绪后才实际写入。
 
-| # | 文件 | 缺什么 | 状态 |
+两处不看代码就一定会做错的地方：
+
+1. **`product-rnd-panel-rich.tsx` 的 fallback 是 `regular_food`**，而 `categoryMeta()`
+   的默认 fallback 是 `health_food`。必须写成 `categoryMeta(category, "regular_food")`，
+   否则该文件的兜底品类会从「普通食品」变成「保健食品」——**行为变了但测试不会报**。
+2. **`dependency-graph-rich.tsx` 在类型层引用了它**：
+   `category?: keyof typeof CATEGORY_INFO | string`。删定义会编译失败。
+   已改为 `CategoryKey | string`——因为 `CATEGORY_INFO` 是 `Record<string, T>`，
+   `keyof typeof` 它本就等于 `string`，两者**类型上完全等价**，不是行为变更。
+   import 相应变为 `import { categoryMeta, type CategoryKey } from "@/modules/tenant";`
+
+## 3. 前置条件（已全部满足）
+
+`categoryMeta()` 的三处接线已补齐，`tsc --noEmit` **exit 0**（commit `4c66b34`）：
+
+| # | 文件 | 内容 | 状态 |
 |---|---|---|---|
-| 1 | `src/modules/tenant/types.ts` | `categories.classifications` 字段 | ✅ 已补（2026-10-09 16:52，另一流程） |
-| 2 | `packs/health-food/domain/categories.json` | `classifications` 数据 | ❌ 未做 → 当前 typecheck 报错点 |
-| 3 | `src/modules/tenant/index.ts` | `export { categoryMeta, ... } from "./category-meta"` | ❌ 未做 |
+| 1 | `src/modules/tenant/types.ts` | `categories.classifications` 字段 | ✅ |
+| 2 | `packs/health-food/domain/categories.json` | `classifications` 数据 | ✅ |
+| 3 | `src/modules/tenant/index.ts` | `export { categoryMeta, ... } from "./category-meta"` | ✅ |
 
 ⚠️ **接线 #2 必须同步补数据，不能只补类型**：`categoryName()` 的兜底是
 `classifications[resolved] ?? resolved` —— pack 里没有该键时，
 UI 会从显示「保健食品」变成显示英文键名 `health_food`，**那是功能回退**。
+本次 `classifications` 取值就是原 `CATEGORY_INFO` 的 `name`
+（`普通食品` / `保健食品` / `跨境食品` / `化妆品`），故为**行为零变化**——
+`tenant-pack` 用例「health-food 与抽离前写死值一致」在 S1 之后仍然通过。
 
-`classifications` 的取值就是原 `CATEGORY_INFO` 的 `name`（`普通食品` / `保健食品` /
-`跨境食品` / `化妆品`），因此补齐后是行为零变化。
+## 4. 与「全清全部违规」的关系
 
-## 4. 与「全清 289 处」的关系
-
-本清单只覆盖 `CATEGORY_INFO` 这条线（约 24 文件）。`tenant-neutral-guard` 实测
-**289 处 / 130 文件**的其余部分分三类，**不在 P1-A 范围**：
+本清单只覆盖 `CATEGORY_INFO` 这条线（24 文件）。`tenant-neutral-guard` 当前实测
+**303 处违规行**的其余部分分三类，**不在 P1-A 范围**：
 
 - `cost-engine` 的品类模板 / 合规清单（业务数据，需真下沉 pack）
 - `kern-prompts` 的提示词内容（**定性存疑**，见 `KERN_TENANT_PACK_PLAN.md` §4 P3-6：
@@ -141,3 +171,38 @@ UI 会从显示「保健食品」变成显示英文键名 `health_food`，**那�
 > 计划书已写明：中立守卫是**词表黑名单**，只能证明「已知行业词不在 `src/`」，
 > **不能证明内核真中立——真正的证明是 P3 的第二个 pack 能跑通。**
 > 因此不要为刷绿守卫去做纯词表清理。
+
+## 5. 守卫自身的修复（本次一并做）
+
+`tests/tenant-neutral-guard.test.ts` 的扫描词表原先**只取**
+`lexicon.{forms,claims,ingredients}` + `company.industry` + `defaults.categoryName`，
+**没有取 `categories.classifications`**。后果：
+
+- 四个分类显示名（`普通食品`/`保健食品`/`跨境食品`/`化妆品`）**全部不在词表内**；
+- 其中只有 **`化妆品`** 未被 `EXTRA` 与 lexicon 覆盖，属**完全不可见**——
+  实测 `src/` 下 **81 处「化妆品」从未被捕获**，分布在 40 个文件
+  （`cost-engine/registry.ts` 10 处、`kern-orchestrator-prompt.ts` 7 处、`compliance-checklist.ts` 6 处……）。
+
+已把 `classifications` 并入词表。这不是「为了让守卫更严」，而是**修一个测量错误**：
+修之前所有基于违规数的判断都建立在漏报的基线上。
+
+### 写这段时踩到的坑（已记入代码注释）
+
+`Object.values(...)` **必须用 `...` 展开**。写成数组字面量里的一个元素会得到
+`(string | string[])[]`，运行时把**整个数组对象**塞进 `Set`——词表「看起来补了，实则没补」。
+tsc 会报 `TS2345` 抓到它（若漏掉 typecheck，则会安静地一直漏报）。
+正确写法：
+
+```ts
+[...p.lexicon.forms, ...,
+ ...Object.values(p.categories.classifications ?? {})].forEach((w) => w && set.add(w));
+```
+
+### 守卫的计数语义（影响后续降幅预期）
+
+命中判定是 `W.find((x) => l.includes(x))` —— **每行只记第一个命中的词**。
+所以：
+
+- 同一行有多个行业词，违规数也只 +1，报告里只会显示其中一个；
+- 逐行修复会出现「删掉一个词、该行仍因另一个词红」的阶梯下降，**降幅比直觉慢**；
+- 评估进度应看**违规行数**，不要按词数估算。

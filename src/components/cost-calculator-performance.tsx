@@ -2,13 +2,7 @@
 
 import * as React from "react";
 import { useRole } from "./role-context";
-
-const CATEGORY_INFO: Record<string, { icon: string; name: string; color: string }> = {
-  regular_food: { icon: "🍪", name: "普通食品", color: "#f59e0b" },
-  health_food: { icon: "💊", name: "保健食品", color: "#7c3aed" },
-  cross_border_food: { icon: "🌍", name: "跨境食品", color: "#0891b2" },
-  cosmetics: { icon: "💄", name: "化妆品", color: "#db2777" },
-};
+import { categoryMeta } from "@/modules/tenant";
 
 // Memoized KPI card
 export const MemoKpiCard = React.memo(function MemoKpiCard({ label, value, color, idx }: any) {
@@ -43,7 +37,7 @@ export const LazyChart = React.lazy(() => Promise.resolve({ default: LazyChartIn
 
 // Virtualized evidence list (windowing)
 export function VirtualEvidenceList({ evidences, category = "health_food" }: any) {
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.health_food;
+  const catInfo = categoryMeta(category);
   const [visibleCount, setVisibleCount] = React.useState(10);
   const observerRef = React.useRef<IntersectionObserver | null>(null);
   const lastRef = React.useRef<HTMLDivElement | null>(null);
@@ -78,7 +72,7 @@ export function VirtualEvidenceList({ evidences, category = "health_food" }: any
 // Performance wrapper
 export function CostCalculatorPerformance({ children, category = "health_food" }: any) {
   const { role } = useRole();
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.health_food;
+  const catInfo = categoryMeta(category);
   const [isClient, setIsClient] = React.useState(false);
 
   React.useEffect(() => setIsClient(true), []);

@@ -2,18 +2,12 @@
 
 import * as React from "react";
 import { useRole } from "./role-context";
+import { categoryMeta } from "@/modules/tenant";
 import "./collaboration-planner-rich.css";
-
-const CATEGORY_INFO: Record<string, { icon: string; name: string; color: string }> = {
-  regular_food: { icon: "🍪", name: "普通食品", color: "#f59e0b" },
-  health_food: { icon: "💊", name: "保健食品", color: "#7c3aed" },
-  cross_border_food: { icon: "🌍", name: "跨境食品", color: "#0891b2" },
-  cosmetics: { icon: "💄", name: "化妆品", color: "#db2777" },
-};
 
 export function CollaborationPlannerRich({ plan, steps = [], category = "health_food" }: any) {
   const { role } = useRole();
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.health_food;
+  const catInfo = categoryMeta(category);
   const doneCount = steps.filter((s: any) => s.status === "done" || s.status === "SUCCEEDED").length;
   const totalCount = steps.length;
   const progress = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;

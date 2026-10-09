@@ -16,8 +16,15 @@ function words(): string[] {
   const set = new Set<string>(EXTRA);
   for (const id of listTenantPacks()) {
     const p = getTenantPack(id);
+    // 品类显示名也是租户行业词，且是「换租户必改」的那一类，必须进词表。
+    // 2026-10-09：此前漏了 classifications，导致「化妆品」完全不在词表内 ——
+    // 实测 src/ 下有 81 处「化妆品」从未被捕获（分布在 40 个文件）。
+    // ⚠️ `Object.values(...)` 必须用 `...` 展开：写成数组字面量里的一个元素会得到
+    // (string | string[])[], 运行时把**整个数组对象**塞进 Set，词表看似补了实则没补。
+    // 用 `?? {}` 容错：新 pack 尚未补该字段时不应让守卫崩掉（此时只少一类词，不误报）。
     [...p.lexicon.forms, ...p.lexicon.claims, ...p.lexicon.ingredients,
-      p.tenant.company.industry, p.tenant.defaults.categoryName].forEach((w) => w && set.add(w));
+      p.tenant.company.industry, p.tenant.defaults.categoryName,
+      ...Object.values(p.categories.classifications ?? {})].forEach((w) => w && set.add(w));
   }
   return [...set];
 }

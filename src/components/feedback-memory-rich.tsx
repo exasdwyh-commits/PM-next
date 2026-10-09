@@ -2,18 +2,12 @@
 
 import * as React from "react";
 import { useRole } from "./role-context";
+import { categoryMeta } from "@/modules/tenant";
 import "./feedback-memory-rich.css";
-
-const CATEGORY_INFO: Record<string, { icon: string; name: string; color: string; gradient: string }> = {
-  regular_food: { icon: "🍪", name: "普通食品", color: "#f59e0b", gradient: "linear-gradient(135deg,#fffbeb,#fef3c7)" },
-  health_food: { icon: "💊", name: "保健食品", color: "#7c3aed", gradient: "linear-gradient(135deg,#f5f3ff,#ede9fe)" },
-  cross_border_food: { icon: "🌍", name: "跨境食品", color: "#0891b2", gradient: "linear-gradient(135deg,#ecfeff,#cffafe)" },
-  cosmetics: { icon: "💄", name: "化妆品", color: "#db2777", gradient: "linear-gradient(135deg,#fdf2f8,#fce7f3)" },
-};
 
 export function FeedbackMemoryRich({ category = "health_food", onFeedback }: any) {
   const { role } = useRole();
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.health_food;
+  const catInfo = categoryMeta(category);
   const [feedbackType, setFeedbackType] = React.useState<"thumbs_up" | "thumbs_down" | "correction">("thumbs_up");
   const [content, setContent] = React.useState("");
   const [submitted, setSubmitted] = React.useState(false);

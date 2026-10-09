@@ -5,14 +5,8 @@ import Link from "next/link";
 import Icon from "./icons";
 import { cx } from "./ui";
 import { useRole } from "./role-context";
+import { categoryMeta } from "@/modules/tenant";
 import "./cockpit-rich.css";
-
-const CATEGORY_INFO: Record<string, { icon: string; name: string; color: string; gradient: string }> = {
-  regular_food: { icon: "🍪", name: "普通食品", color: "#f59e0b", gradient: "linear-gradient(135deg,#fffbeb,#fef3c7)" },
-  health_food: { icon: "💊", name: "保健食品", color: "#7c3aed", gradient: "linear-gradient(135deg,#f5f3ff,#ede9fe)" },
-  cross_border_food: { icon: "🌍", name: "跨境食品", color: "#0891b2", gradient: "linear-gradient(135deg,#ecfeff,#cffafe)" },
-  cosmetics: { icon: "💄", name: "化妆品", color: "#db2777", gradient: "linear-gradient(135deg,#fdf2f8,#fce7f3)" },
-};
 
 function HeroRidgeRich({ color }: { color: string }) {
   return (
@@ -26,7 +20,7 @@ function HeroRidgeRich({ color }: { color: string }) {
 }
 
 export function HeroBandRich({ eyebrow, mark, tagline, intro, quote, category = "health_food" }: any) {
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.health_food;
+  const catInfo = categoryMeta(category);
   const { role } = useRole();
   return (
     <header className="hermes-hero-rich" data-role={role} style={{ background: catInfo.gradient, borderColor: catInfo.color } as any}>
@@ -43,7 +37,7 @@ export function HeroBandRich({ eyebrow, mark, tagline, intro, quote, category = 
 }
 
 export function KpiRich({ label, value, note, tone, emphasis, category = "health_food", idx = 0 }: any) {
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.health_food;
+  const catInfo = categoryMeta(category);
   return (
     <div className={cx("hermes-kpi-rich", tone && `is-${tone}`, emphasis && `is-${emphasis}`)} style={{ animationDelay: `${idx * 80}ms`, borderColor: tone ? undefined : `${catInfo.color}20` } as any}>
       <strong>{value}</strong>
@@ -55,12 +49,12 @@ export function KpiRich({ label, value, note, tone, emphasis, category = "health
 }
 
 export function KpiRowRich({ children, category = "health_food" }: any) {
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.health_food;
+  const catInfo = categoryMeta(category);
   return <div className="hermes-kpi-row-rich" style={{ borderColor: `${catInfo.color}20` } as any}>{children}</div>;
 }
 
 export function DecisionBoardRich({ index, title, summary, columns, actions, meta, category = "health_food" }: any) {
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.health_food;
+  const catInfo = categoryMeta(category);
   const { role } = useRole();
 
   if (role === "leadership") {
@@ -98,7 +92,7 @@ export function DecisionBoardRich({ index, title, summary, columns, actions, met
 }
 
 export function ProgressRowRich({ name, sub, href, pill, monogram, category = "health_food", idx = 0 }: any) {
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.health_food;
+  const catInfo = categoryMeta(category);
   const mark = monogram ?? (typeof name === "string" ? name.trim().slice(0, 1) : "");
   return (
     <Link href={href} className="hermes-progress-row-rich" style={{ animationDelay: `${idx * 60}ms`, borderLeft: `3px solid ${catInfo.color}` } as any}>

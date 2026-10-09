@@ -3,14 +3,8 @@
 import * as React from "react";
 import { useRole } from "./role-context";
 import { fmtDate } from "@/shared/datetime";
+import { categoryMeta } from "@/modules/tenant";
 import "./product-rnd-panel-rich.css";
-
-const CATEGORY_INFO: Record<string, { icon: string; name: string; color: string }> = {
-  regular_food: { icon: "🍪", name: "普通食品", color: "#f59e0b" },
-  health_food: { icon: "💊", name: "保健食品", color: "#7c3aed" },
-  cross_border_food: { icon: "🌍", name: "跨境食品", color: "#0891b2" },
-  cosmetics: { icon: "💄", name: "化妆品", color: "#db2777" },
-};
 
 export function ProductRndPanelRich({ project, workItems = [], evidences = [] }: any) {
   const { role } = useRole();
@@ -22,7 +16,7 @@ export function ProductRndPanelRich({ project, workItems = [], evidences = [] }:
     return "regular_food";
   }, [project]);
 
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.regular_food;
+  const catInfo = categoryMeta(category, "regular_food");
   const doneCount = workItems.filter((w: any) => w.status === "ACCEPTED").length;
   const totalCount = workItems.length;
   const progress = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
