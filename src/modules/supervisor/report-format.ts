@@ -137,14 +137,27 @@ export function answerFor(report: Pick<MissionReport, "constraints">, pattern: R
   return report.constraints.find((c) => pattern.test(c.question))?.answer ?? null;
 }
 
-const STATUS_LABEL: Record<string, string> = {
+/**
+ * 报告步骤状态 → 展示文案。MD / DOCX / XLSX / PPTX **共用这一张表**，
+ * office-export 不要再开平行表 —— 开过一次，结果 PPTX 把 `SKIPPED` 裸枚举
+ * 印到了标题上，而同一份报告的 MD 显示「已跳过」，四格式口径不一致。
+ *
+ * 前六项是 `MissionNodeStatus` 的全集（report steps 的真实来源，见 takeaway.ts）；
+ * 后面的是治理/工作项态，steps 目前不产生，补上只为兜住裸枚举外泄。
+ */
+export const STATUS_LABEL: Record<string, string> = {
+  PENDING: "等待中",
+  ACTIVE: "进行中",
   SUCCEEDED: "完成",
-  SKIPPED: "已跳过",
   BLOCKED: "受阻",
   FAILED: "失败",
+  SKIPPED: "已跳过",
+  TODO: "待做",
   RUNNING: "进行中",
-  PENDING: "等待中",
   READY: "等待中",
+  SUBMITTED: "已提交",
+  ACCEPTED: "已验收",
+  CHANGES_REQUESTED: "需修改",
 };
 
 /** Full Markdown report (what 「导出 MD」 downloads and the PDF view prints). */

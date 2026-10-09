@@ -10,7 +10,7 @@
  * - P0 优化：重型库改为动态导入，按需加载，减少冷启动
  */
 import { createHash } from "node:crypto";
-import { isTableDivider, tableCells, type MissionReport } from "./report-format";
+import { isTableDivider, STATUS_LABEL, tableCells, type MissionReport } from "./report-format";
 
 // 重型办公库改为动态导入（P0 安全优化：首包减小，按需加载）
 // 原同步导入 docx/exceljs/pptxgenjs/jszip 合计 >7MB，改为函数内动态 import
@@ -25,16 +25,9 @@ export const OFFICE_MIME: Record<OfficeFormat, string> = {
 
 const FONT = "Microsoft YaHei";
 
-const STATUS: Record<string, string> = {
-  TODO: "待做",
-  RUNNING: "进行中",
-  SUCCEEDED: "已完成",
-  FAILED: "失败",
-  BLOCKED: "阻断",
-  SUBMITTED: "已提交",
-  ACCEPTED: "已验收",
-  CHANGES_REQUESTED: "需修改",
-};
+// 步骤状态文案复用 report-format 的 STATUS_LABEL（MD 导出同一张表）。
+// 这里原本有一份自己的 STATUS，词表与 MD 对不上，且漏了 SKIPPED/PENDING/ACTIVE，
+// 于是 PPTX 标题直接印出裸枚举 SKIPPED —— 见 tests/kern-office-export.test.ts OX2。
 
 // ───────── Markdown → 通用块（纯函数，便于测试） ─────────
 
@@ -163,7 +156,7 @@ async function buildDocx(r: MissionReport): Promise<Buffer> {
   children.push(...(r.conclusion?.trim() ? docxBlocks(markdownBlocks(r.conclusion), 2) : [new Paragraph("（这次没有形成综合结论）")]));
   children.push(new Paragraph({ text: "各步骤产出", heading: HeadingLevel.HEADING_1 }));
   for (const s of r.steps) {
-    children.push(new Paragraph({ text: `${s.label}（${s.agent} · ${STATUS[s.status] ?? s.status}）`, heading: HeadingLevel.HEADING_2 }));
+    children.push(new Paragraph({ text: `${s.label}（${s.agent} · ${STATUS_LABEL[s.status] ?? s.status}）`, heading: HeadingLevel.HEADING_2 }));
     children.push(...(s.output?.trim() ? docxBlocks(markdownBlocks(s.output), 3) : [new Paragraph("（暂无产出）")]));
   }
   children.push(new Paragraph({ text: "关于这次任务", heading: HeadingLevel.HEADING_1 }));
@@ -200,7 +193,7 @@ export function xlsxPlan(r: MissionReport) {
       ...(r.demo ? [["说明", "演示数据：以下为示例，不代表真实调研结论"]] : []),
       ...r.constraints.map((c) => [`约束 · ${c.question}`, c.answer]),
     ],
-    steps: r.steps.map((s) => [s.label, s.agent, STATUS[s.status] ?? s.status, plainInline((s.output ?? "").replace(/\s+/g, " ")).slice(0, 500)]),
+    steps: r.steps.map((s) => [s.label, s.agent, STATUS_LABEL[s.status] ?? s.status, plainInline((s.output ?? "").replace(/\s+/g, " ")).slice(0, 500)]),
     tables,
   };
 }
@@ -260,7 +253,7 @@ export function pptxPlan(r: MissionReport): { title: string; bullets: string[] }
   }
   for (const s of r.steps) {
     const pts = keyPoints(s.output);
-    slides.push({ title: `${s.label} · ${STATUS[s.status] ?? s.status}`, bullets: pts.length ? pts : ["（暂无产出）"] });
+    slides.push({ title: `${s.label} · ${STATUS_LABEL[s.status] ?? s.status}`, bullets: pts.length ? pts : ["（暂无产出）"] });
   }
   return slides;
 }
