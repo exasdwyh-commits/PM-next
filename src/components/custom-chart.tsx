@@ -1,17 +1,11 @@
 "use client";
 
 import * as React from "react";
+import { categoryMeta } from "@/modules/tenant";
 import "./custom-chart.css";
 
-const CATEGORY_INFO: Record<string, { color: string; gradient: string; shadow: string }> = {
-  regular_food: { color: "#f59e0b", gradient: "linear-gradient(135deg,#f59e0b,#d97706)", shadow: "0 8px 24px rgba(245,158,11,0.15)" },
-  health_food: { color: "#7c3aed", gradient: "linear-gradient(135deg,#7c3aed,#db2777)", shadow: "0 8px 24px rgba(124,58,237,0.15)" },
-  cross_border_food: { color: "#0891b2", gradient: "linear-gradient(135deg,#0891b2,#0e7490)", shadow: "0 8px 24px rgba(8,145,178,0.15)" },
-  cosmetics: { color: "#db2777", gradient: "linear-gradient(135deg,#db2777,#7c3aed)", shadow: "0 8px 24px rgba(219,39,119,0.15)" },
-};
-
 export function CustomDonut({ value, total = 100, category = "health_food", size = 100, label }: any) {
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.health_food;
+  const catInfo = categoryMeta(category, "health_food", { tint: "deep" });
   const percentage = Math.round((value / total) * 100);
   const circumference = 2 * Math.PI * 15.9;
   const strokeDasharray = `${(percentage / 100) * circumference} ${circumference}`;
@@ -47,7 +41,7 @@ export function CustomDonut({ value, total = 100, category = "health_food", size
 }
 
 export function CustomBarRace({ data, category = "health_food" }: { data: { label: string; value: number }[]; category?: string }) {
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.health_food;
+  const catInfo = categoryMeta(category, "health_food", { tint: "deep" });
   const max = Math.max(...data.map(d => d.value));
   const [animated, setAnimated] = React.useState(false);
 
@@ -80,7 +74,7 @@ export function CustomBarRace({ data, category = "health_food" }: { data: { labe
 }
 
 export function CustomWaterfall({ data, category = "health_food" }: { data: { label: string; value: number; type: "cost" | "profit" }[]; category?: string }) {
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.health_food;
+  const catInfo = categoryMeta(category, "health_food", { tint: "deep" });
   let cumulative = 0;
 
   return (
@@ -104,7 +98,7 @@ export function CustomWaterfall({ data, category = "health_food" }: { data: { la
 }
 
 export function CustomRadar({ data, category = "health_food" }: { data: { label: string; value: number }[]; category?: string }) {
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.health_food;
+  const catInfo = categoryMeta(category, "health_food", { tint: "deep" });
   const size = 120;
   const center = size / 2;
   const radius = 45;

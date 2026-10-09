@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Panel, Badge } from "@/components/ui";
 import { useRole } from "@/components/role-context";
+import { categoryMeta, categoryContent } from "@/modules/tenant";
 import { inferRoleFromPage } from "@/components/kern-role-intelligence";
 import "@/components/role-switch.css";
 import { RoleTools } from "@/components/role-tools";
@@ -10,13 +11,6 @@ import { labelWorkItemStatus } from "@/shared/status-labels";
 import "@/components/role-tools.css";
 import "./overview-role.css";
 import "./overview-role-based-rich.css";
-
-const CATEGORY_INFO: Record<string, { icon: string; name: string; color: string; gradient: string; selling: string[] }> = {
-  regular_food: { icon: "🍪", name: "普通食品", color: "#f59e0b", gradient: "linear-gradient(135deg,#fffbeb,#fef3c7)", selling: ["性价比高","日常刚需","SC合规"] },
-  health_food: { icon: "💊", name: "保健食品", color: "#7c3aed", gradient: "linear-gradient(135deg,#f5f3ff,#ede9fe)", selling: ["蓝帽子认证","多酚功效","软糖剂型"] },
-  cross_border_food: { icon: "🌍", name: "跨境食品", color: "#0891b2", gradient: "linear-gradient(135deg,#ecfeff,#cffafe)", selling: ["进口原料","跨境背书","保税仓发货"] },
-  cosmetics: { icon: "💄", name: "化妆品", color: "#db2777", gradient: "linear-gradient(135deg,#fdf2f8,#fce7f3)", selling: ["透明质酸","烟酰胺美白","玻璃瓶高级感"] },
-};
 
 function getCategoryFromProject(project: any): string {
   const text = `${project?.title || ""} ${project?.target || ""}`.toLowerCase();
@@ -29,7 +23,10 @@ function getCategoryFromProject(project: any): string {
 export function OverviewRoleBasedRich({ project, gaps, evidenceInsight, opportunity, onTabChange }: any) {
   const { role, source, reason, setManualRole, setAutoInference } = useRole();
   const category = getCategoryFromProject(project);
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.health_food;
+  const catInfo = categoryMeta(category);
+  // 本组件的卖点区原本只取前 3 条；pack 存完整 4 条，此处显式截取以保持
+  // 下标取模（`selling[i % selling.length]`）与迁移前完全一致——数组长度变了索引行为就会变。
+  const selling = categoryContent(category).selling.slice(0, 3);
   const verifiedCount = project.evidences?.filter((e: any) => e.verifyStatus === "VERIFIED").length || 0;
   const totalEvidence = project.evidences?.length || 0;
   const workItems = project.workItems || [];
@@ -92,7 +89,7 @@ export function OverviewRoleBasedRich({ project, gaps, evidenceInsight, opportun
               <h4>📊 证据可信度 · {catInfo.name}</h4>
               <div className="donut">
                 <svg viewBox="0 0 42 42" width="100" height="100"><circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#f0f2f6" strokeWidth="3" /><circle cx="21" cy="21" r="15.9" fill="transparent" stroke={catInfo.color} strokeWidth="3.5" strokeDasharray={`${evidenceRate} ${100 - evidenceRate}`} strokeDashoffset="25" strokeLinecap="round" style={{ animation: "drawDonut 1s ease-out both" } as any} /><text x="21" y="22" textAnchor="middle" fontSize="7" fontWeight="700">{evidenceRate}%</text></svg>
-                <div><strong>{verifiedCount}条已核实</strong><small>共{totalEvidence}条 · Kern已核验 · {catInfo.name}专用</small><div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>{catInfo.selling.map(s => <span key={s} style={{ padding: "2px 6px", borderRadius: 99, background: `${catInfo.color}15`, color: catInfo.color, fontSize: 10 }}>{s}</span>)}</div></div>
+                <div><strong>{verifiedCount}条已核实</strong><small>共{totalEvidence}条 · Kern已核验 · {catInfo.name}专用</small><div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>{selling.map(s => <span key={s} style={{ padding: "2px 6px", borderRadius: 99, background: `${catInfo.color}15`, color: catInfo.color, fontSize: 10 }}>{s}</span>)}</div></div>
               </div>
             </div>
             <div className="chart-card">
@@ -159,7 +156,7 @@ export function OverviewRoleBasedRich({ project, gaps, evidenceInsight, opportun
           <div className="ov-sales-hero" style={{ background: catInfo.gradient, border: `1px solid ${catInfo.color}30` }}>
             <span className="badge" style={{ background: catInfo.color, color: "white" }}>🔥 销售视角 · {catInfo.icon} {catInfo.name} · Kern调用 marketing_agent + cost_bom_agent</span>
             <h2>{project.title} · 卖点一页看懂</h2>
-            <p>{project.target} · 已核实{verifiedCount}条证据，{workRate}%工作完成 · Kern已提炼卖点 · {catInfo.selling.join(" · ")}</p>
+            <p>{project.target} · 已核实{verifiedCount}条证据，{workRate}%工作完成 · Kern已提炼卖点 · {selling.join(" · ")}</p>
           </div>
 
           <div className="ov-sales-points">
@@ -168,13 +165,13 @@ export function OverviewRoleBasedRich({ project, gaps, evidenceInsight, opportun
               {(evidenceInsight?.resolved || []).slice(0, 4).map((r: any, i: number) => (
                 <div key={i} className="sales-card-rich" style={{ animationDelay: `${i * 100}ms`, borderLeft: `3px solid ${catInfo.color}` }}>
                   <span className="icon">{catInfo.icon}</span>
-                  <div><strong>{r.fieldKey}: {r.value} {r.unit || ""}</strong><small>客户价值：{r.mechanism || "功效突出"} · {catInfo.selling[i % catInfo.selling.length]}</small><small>📎 依据：{r.source} · 可写入话术</small></div>
+                  <div><strong>{r.fieldKey}: {r.value} {r.unit || ""}</strong><small>客户价值：{r.mechanism || "功效突出"} · {selling[i % selling.length]}</small><small>📎 依据：{r.source} · 可写入话术</small></div>
                 </div>
               ))}
               {(!evidenceInsight?.resolved || evidenceInsight.resolved.length === 0) && (
                 <>
-                  <div className="sales-card-rich" style={{ borderLeft: `3px solid ${catInfo.color}` }}><span className="icon">{catInfo.icon}</span><div><strong>低糖多酚，健康趋势</strong><small>客户价值：符合健康消费趋势 · {catInfo.selling[0]}</small></div></div>
-                  <div className="sales-card-rich" style={{ borderLeft: `3px solid ${catInfo.color}` }}><span className="icon">💰</span><div><strong>成本10.2元，竞品299元</strong><small>客户价值：高利润空间 · {catInfo.selling[1]}</small></div></div>
+                  <div className="sales-card-rich" style={{ borderLeft: `3px solid ${catInfo.color}` }}><span className="icon">{catInfo.icon}</span><div><strong>低糖多酚，健康趋势</strong><small>客户价值：符合健康消费趋势 · {selling[0]}</small></div></div>
+                  <div className="sales-card-rich" style={{ borderLeft: `3px solid ${catInfo.color}` }}><span className="icon">💰</span><div><strong>成本10.2元，竞品299元</strong><small>客户价值：高利润空间 · {selling[1]}</small></div></div>
                 </>
               )}
             </div>

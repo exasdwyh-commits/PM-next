@@ -11,6 +11,7 @@ import type { ComplianceItem } from "./compliance-checklist";
 import type { ResponseEnvelope, Block } from "@/modules/response-format/types";
 import { fmtDate } from "@/shared/datetime";
 
+import { categoryMeta } from "@/modules/tenant";
 export interface HtmlReportInput {
   category: string;
   productName: string;
@@ -20,13 +21,6 @@ export interface HtmlReportInput {
   complianceItems: ComplianceItem[];
   role: "leadership" | "product" | "sales";
 }
-
-const CATEGORY_INFO: Record<string, { icon: string; name: string; color: string; gradient: string }> = {
-  regular_food: { icon: "🍪", name: "普通食品", color: "#f59e0b", gradient: "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)" },
-  health_food: { icon: "💊", name: "保健食品", color: "#7c3aed", gradient: "linear-gradient(135deg, #f3f0ff 0%, #e9d5ff 100%)" },
-  cross_border_food: { icon: "🌍", name: "跨境食品", color: "#0891b2", gradient: "linear-gradient(135deg, #ecfeff 0%, #a5f3fc 100%)" },
-  cosmetics: { icon: "💄", name: "化妆品", color: "#db2777", gradient: "linear-gradient(135deg, #fdf2f8 0%, #fbcfe8 100%)" },
-};
 
 const ROLE_CONCLUSION: Record<string, Record<string, string>> = {
   regular_food: {
@@ -53,7 +47,7 @@ const ROLE_CONCLUSION: Record<string, Record<string, string>> = {
 
 export function costResultToEnvelope(input: HtmlReportInput): ResponseEnvelope {
   const { category, productName, result, bomItems, supplierQuotes, complianceItems, role } = input;
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.regular_food;
+  const catInfo = categoryMeta(category, "regular_food", { tint: "report" });
   const conclusion = ROLE_CONCLUSION[category]?.[role] || ROLE_CONCLUSION.regular_food.leadership;
   
   const blocks: Block[] = [];
@@ -215,7 +209,7 @@ export function costResultToEnvelope(input: HtmlReportInput): ResponseEnvelope {
 
 export function generateCostHtmlReport(input: HtmlReportInput): string {
   const { category, productName, result, bomItems, supplierQuotes, complianceItems, role } = input;
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.regular_food;
+  const catInfo = categoryMeta(category, "regular_food", { tint: "report" });
   const conclusion = ROLE_CONCLUSION[category]?.[role] || ROLE_CONCLUSION.regular_food.leadership;
   
   const totalCost = result.breakdown.totalCost;

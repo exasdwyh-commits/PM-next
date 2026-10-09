@@ -2,47 +2,15 @@
 
 import * as React from "react";
 import { useRole } from "./role-context";
+import { categoryMeta, categoryContent } from "@/modules/tenant";
 import "./role-tools.css";
 import "./role-tools-rich.css";
 
-const CATEGORY_INFO: Record<string, { icon: string; name: string; color: string; tools: { id: string; label: string; icon: string; desc: string }[] }> = {
-  regular_food: {
-    icon: "🍪", name: "普通食品", color: "#f59e0b",
-    tools: [
-      { id: "cost", label: "成本计算器", icon: "💰", desc: "SC合规成本 39.9元竞品" },
-      { id: "compliance", label: "SC合规", icon: "📦", desc: "SC资质+标签合规" },
-      { id: "sales-ppt", label: "销售PPT", icon: "📽️", desc: "性价比卖点PPT" },
-    ]
-  },
-  health_food: {
-    icon: "💊", name: "保健食品", color: "#7c3aed",
-    tools: [
-      { id: "cost", label: "成本计算器", icon: "💰", desc: "蓝帽子成本 199元竞品" },
-      { id: "compliance", label: "蓝帽子合规", icon: "💊", desc: "蓝帽子+功能声称" },
-      { id: "sales-ppt", label: "销售PPT", icon: "📽️", desc: "多酚功效卖点PPT" },
-    ]
-  },
-  cross_border_food: {
-    icon: "🌍", name: "跨境食品", color: "#0891b2",
-    tools: [
-      { id: "cost", label: "跨境成本", icon: "💰", desc: "保税仓成本 129元竞品" },
-      { id: "compliance", label: "跨境合规", icon: "🌍", desc: "进口资质+跨境标签" },
-      { id: "sales-ppt", label: "销售PPT", icon: "📽️", desc: "进口背书卖点PPT" },
-    ]
-  },
-  cosmetics: {
-    icon: "💄", name: "化妆品", color: "#db2777",
-    tools: [
-      { id: "cost", label: "化妆品成本", icon: "💰", desc: "透明质酸成本 299元竞品" },
-      { id: "compliance", label: "化妆品备案", icon: "💄", desc: "备案+功效宣称" },
-      { id: "sales-ppt", label: "销售PPT", icon: "📽️", desc: "成分卖点PPT" },
-    ]
-  },
-};
-
 export function RoleToolsRich({ category = "health_food", onToolClick, compact = false, showLabel = true }: any) {
   const { role } = useRole();
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.health_food;
+  const catInfo = categoryMeta(category);
+  // 工具清单与销售话术按品类不同，属租户内容，从 pack 读（src/ 不留副本）。
+  const content = categoryContent(category);
 
   const allTools = [
     { id: "cost", label: "成本计算器", icon: "💰", desc: "核算BOM、加工、包材、物流", roles: ["product"], primary: true },
@@ -95,14 +63,14 @@ export function RoleToolsRich({ category = "health_food", onToolClick, compact =
     <div className="role-tools-rich sales" style={{ background: `linear-gradient(135deg, white, ${catInfo.color}08)` }}>
       {showLabel && <h4>💼 销售工具箱 · {catInfo.icon} {catInfo.name} · 一键生成 · Kern可调用</h4>}
       <div className={`tools-grid-rich sales ${compact ? "compact" : ""}`}>
-        {catInfo.tools.map((tool, idx) => (
+        {content.tools.map((tool, idx) => (
           <button key={tool.id} className="tool-btn-rich sales primary" style={{ animationDelay: `${idx * 80}ms`, background: catInfo.color, color: "white" }} onClick={() => onToolClick?.(tool.id)}>
             <span className="icon">{tool.icon}</span>
             <div className="tool-info"><strong>{tool.label}</strong><small>{tool.desc}</small></div>
           </button>
         ))}
-        {visibleTools.filter(t => !catInfo.tools.find(ct => ct.id === t.id)).slice(0, 3).map((tool, idx) => (
-          <button key={tool.id} className="tool-btn-rich sales" style={{ animationDelay: `${(catInfo.tools.length + idx) * 80}ms`, borderColor: catInfo.color }} onClick={() => onToolClick?.(tool.id)}>
+        {visibleTools.filter(t => !content.tools.find(ct => ct.id === t.id)).slice(0, 3).map((tool, idx) => (
+          <button key={tool.id} className="tool-btn-rich sales" style={{ animationDelay: `${(content.tools.length + idx) * 80}ms`, borderColor: catInfo.color }} onClick={() => onToolClick?.(tool.id)}>
             <span className="icon">{tool.icon}</span>
             <div className="tool-info"><strong>{tool.label}</strong><small>{tool.desc}</small></div>
           </button>
@@ -110,7 +78,7 @@ export function RoleToolsRich({ category = "health_food", onToolClick, compact =
       </div>
       <div className="sales-script-hint" style={{ borderColor: catInfo.color }}>
         <strong>💬 {catInfo.name}销售话术已就绪 · {catInfo.icon}</strong>
-        <p>“{catInfo.name}经过核实，{category === "health_food" ? "蓝帽子认证多酚功效" : category === "cosmetics" ? "透明质酸烟酰胺成分" : category === "cross_border_food" ? "进口原料跨境背书" : "性价比日常刚需"}，成本优势明显，竞品高价，利润空间大。”</p>
+        <p>“{catInfo.name}经过核实，{content.salesPitch}，成本优势明显，竞品高价，利润空间大。”</p>
         <small>一键复制 · {catInfo.name}专用 · Kern生成</small>
       </div>
     </div>

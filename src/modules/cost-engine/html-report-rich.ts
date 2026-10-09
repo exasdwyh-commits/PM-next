@@ -13,6 +13,7 @@ import { fmtDate } from "@/shared/datetime";
 import { generateAnimatedKpiHtml, generateProfitGaugeHtml, KPI_ANIMATIONS_CSS, KPI_JS } from "./visualizations/animated-kpi";
 import { generateWaterfallChartHtml, generateDonutChartHtml, generateBarRaceHtml, CHART_ANIMATIONS_CSS } from "./visualizations/charts";
 
+import { categoryMeta } from "@/modules/tenant";
 export interface RichHtmlReportInput {
   category: string;
   productName: string;
@@ -23,16 +24,9 @@ export interface RichHtmlReportInput {
   role: "leadership" | "product" | "sales";
 }
 
-const CATEGORY_INFO: Record<string, { icon: string; name: string; color: string; gradient: string; light: string }> = {
-  regular_food: { icon: "🍪", name: "普通食品", color: "#f59e0b", gradient: "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)", light: "#fffbeb" },
-  health_food: { icon: "💊", name: "保健食品", color: "#7c3aed", gradient: "linear-gradient(135deg, #f3f0ff 0%, #e9d5ff 100%)", light: "#f3f0ff" },
-  cross_border_food: { icon: "🌍", name: "跨境食品", color: "#0891b2", gradient: "linear-gradient(135deg, #ecfeff 0%, #a5f3fc 100%)", light: "#ecfeff" },
-  cosmetics: { icon: "💄", name: "化妆品", color: "#db2777", gradient: "linear-gradient(135deg, #fdf2f8 0%, #fbcfe8 100%)", light: "#fdf2f8" },
-};
-
 export function costResultToRichEnvelope(input: RichHtmlReportInput): ResponseEnvelope {
   const { category, productName, result, bomItems, supplierQuotes, complianceItems, role } = input;
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.regular_food;
+  const catInfo = categoryMeta(category, "regular_food", { tint: "report" });
   
   const blocks: Block[] = [];
 
@@ -165,7 +159,7 @@ export function costResultToRichEnvelope(input: RichHtmlReportInput): ResponseEn
 
 export function generateRichHtmlReport(input: RichHtmlReportInput): string {
   const { category, productName, result, bomItems, supplierQuotes, complianceItems, role } = input;
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.regular_food;
+  const catInfo = categoryMeta(category, "regular_food", { tint: "report" });
   
   const totalCost = result.breakdown.totalCost;
   const retail = totalCost * 2.5;

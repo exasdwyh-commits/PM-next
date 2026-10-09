@@ -2,14 +2,8 @@
 
 import * as React from "react";
 import { useRole } from "./role-context";
+import { categoryMeta, categoryContent } from "@/modules/tenant";
 import "./daily-briefing-rich.css";
-
-const CATEGORY_INFO: Record<string, { icon: string; name: string; color: string; gradient: string; selling: string[] }> = {
-  regular_food: { icon: "🍪", name: "普通食品", color: "#f59e0b", gradient: "linear-gradient(135deg,#fffbeb,#fef3c7)", selling: ["性价比高","日常刚需","SC合规"] },
-  health_food: { icon: "💊", name: "保健食品", color: "#7c3aed", gradient: "linear-gradient(135deg,#f5f3ff,#ede9fe)", selling: ["蓝帽子认证","多酚功效","软糖剂型"] },
-  cross_border_food: { icon: "🌍", name: "跨境食品", color: "#0891b2", gradient: "linear-gradient(135deg,#ecfeff,#cffafe)", selling: ["进口原料","跨境背书","保税仓发货"] },
-  cosmetics: { icon: "💄", name: "化妆品", color: "#db2777", gradient: "linear-gradient(135deg,#fdf2f8,#fce7f3)", selling: ["透明质酸","烟酰胺美白","玻璃瓶高级感"] },
-};
 
 export interface DailyBriefingData {
   todos: number;
@@ -31,7 +25,9 @@ export interface DailyBriefingData {
 export function DailyBriefingRich({ data, onAction }: { data: DailyBriefingData; onAction?: (action: string) => void }) {
   const { role, setManualRole } = useRole();
   const category = data.category || "health_food";
-  const catInfo = CATEGORY_INFO[category] || CATEGORY_INFO.health_food;
+  const catInfo = categoryMeta(category);
+  // 同 overview-role-based：本组件原本只展示前 3 条卖点，显式截取以保持数组长度一致。
+  const selling = categoryContent(category).selling.slice(0, 3);
   const timeGreeting = new Date().getHours() < 12 ? "早上好" : new Date().getHours() < 18 ? "下午好" : "晚上好";
 
   if ((role as string) === "leadership") {
@@ -47,7 +43,7 @@ export function DailyBriefingRich({ data, onAction }: { data: DailyBriefingData;
         </div>
 
         <div className="kpi-grid">
-          <div className="kpi ok" style={{ animationDelay: "0ms" }}><span>✅ 已核实证据</span><strong>{data.verifiedCount}/{data.totalEvidence}</strong><small>{data.evidenceRate}%可信 · {catInfo.selling[0]}</small><div className="kpi-bar"><div className="fill" style={{ width: `${data.evidenceRate}%`, background: catInfo.color }}></div></div></div>
+          <div className="kpi ok" style={{ animationDelay: "0ms" }}><span>✅ 已核实证据</span><strong>{data.verifiedCount}/{data.totalEvidence}</strong><small>{data.evidenceRate}%可信 · {selling[0]}</small><div className="kpi-bar"><div className="fill" style={{ width: `${data.evidenceRate}%`, background: catInfo.color }}></div></div></div>
           <div className="kpi brand" style={{ animationDelay: "80ms" }}><span>📝 工作进度</span><strong>{data.doneWork}/{data.totalWork}</strong><small>{data.workRate}%完成</small><div className="kpi-bar"><div className="fill" style={{ width: `${data.workRate}%`, background: "#2563eb" }}></div></div></div>
           <div className="kpi warn" style={{ animationDelay: "160ms" }}><span>📍 待决策</span><strong>{data.decisions}</strong><small>需拍板 · {data.suggestions?.[0]?.slice(0, 12) || "今日处理"}</small></div>
           <div className="kpi bad" style={{ animationDelay: "240ms" }}><span>⚠️ 缺口/风险</span><strong>{data.gaps + data.risks}</strong><small>{data.gaps}缺口+{data.risks}风险</small></div>
@@ -55,7 +51,7 @@ export function DailyBriefingRich({ data, onAction }: { data: DailyBriefingData;
 
         <div className="boss-summary" style={{ borderLeft: `3px solid ${catInfo.color}` }}>
           <strong>💡 老板一句话结论 · {catInfo.icon} {catInfo.name}</strong>
-          <p>{data.projectTitle || "多酚软糖项目"}还有{data.gaps}个缺口需解决，{data.decisions}项待决策，证据可信度{data.evidenceRate}%，{catInfo.selling.join("、")}，建议今日推进{data.suggestions?.[0] || "成本优化"}，可进入下一阶段。</p>
+          <p>{data.projectTitle || "多酚软糖项目"}还有{data.gaps}个缺口需解决，{data.decisions}项待决策，证据可信度{data.evidenceRate}%，{selling.join("、")}，建议今日推进{data.suggestions?.[0] || "成本优化"}，可进入下一阶段。</p>
           <div className="suggestion-chips">
             {data.suggestions?.slice(0, 3).map((s, i) => <span key={i} style={{ background: `${catInfo.color}15`, color: catInfo.color }}>{s}</span>)}
           </div>
@@ -85,13 +81,13 @@ export function DailyBriefingRich({ data, onAction }: { data: DailyBriefingData;
         <div className="briefing-header">
           <span className="badge" style={{ background: catInfo.color, color: "white" }}>💼 销售视角 · {catInfo.icon} {catInfo.name} · 每日简报 · {timeGreeting}</span>
           <h2>{data.projectTitle || "多酚软糖"} · 销售简报 · {data.verifiedCount}条证据已核实 · {data.workRate}%完成</h2>
-          <p>今日待办{data.todos}项 · 待决策{data.decisions}项 · 缺口{data.gaps}个 · {catInfo.selling.join(" · ")} · Kern已提炼卖点</p>
+          <p>今日待办{data.todos}项 · 待决策{data.decisions}项 · 缺口{data.gaps}个 · {selling.join(" · ")} · Kern已提炼卖点</p>
         </div>
 
         <div className="selling-points">
           <h3>💎 今日核心卖点 · {catInfo.name}专用</h3>
           <div className="sales-grid">
-            <div className="sales-card" style={{ borderLeft: `3px solid ${catInfo.color}` }}><span className="icon">{catInfo.icon}</span><div><strong>{catInfo.selling[0]}，{catInfo.selling[1]}</strong><small>客户价值：{catInfo.selling[0]}符合趋势 · 已核实{data.verifiedCount}条证据</small><small>📎 依据：lab_test · 可写入话术</small></div></div>
+            <div className="sales-card" style={{ borderLeft: `3px solid ${catInfo.color}` }}><span className="icon">{catInfo.icon}</span><div><strong>{selling[0]}，{selling[1]}</strong><small>客户价值：{selling[0]}符合趋势 · 已核实{data.verifiedCount}条证据</small><small>📎 依据：lab_test · 可写入话术</small></div></div>
             <div className="sales-card" style={{ borderLeft: `3px solid ${catInfo.color}` }}><span className="icon">💰</span><div><strong>成本10.2元，竞品{category === "health_food" ? "199" : category === "cosmetics" ? "299" : category === "cross_border_food" ? "129" : "39.9"}元</strong><small>客户价值：高利润空间 · {data.workRate}%工作完成</small><small>📎 依据：cost_bom_agent · 可写入报价单</small></div></div>
           </div>
         </div>
@@ -105,7 +101,7 @@ export function DailyBriefingRich({ data, onAction }: { data: DailyBriefingData;
 
         <div className="script-hint" style={{ borderLeft: `3px solid ${catInfo.color}` }}>
           <strong>💬 今日推荐话术 · {catInfo.icon} {catInfo.name}</strong>
-          <p>&quot;{data.projectTitle || "多酚软糖"}经过{data.verifiedCount}条证据核实，{catInfo.selling[0]}{catInfo.selling[1]}，成本仅10.2元，竞品均价{category === "health_food" ? "199" : "299"}元，利润空间大。建议首批1000盒试销。&quot;</p>
+          <p>&quot;{data.projectTitle || "多酚软糖"}经过{data.verifiedCount}条证据核实，{selling[0]}{selling[1]}，成本仅10.2元，竞品均价{category === "health_food" ? "199" : "299"}元，利润空间大。建议首批1000盒试销。&quot;</p>
           <small>一键复制 · {catInfo.name}专用 · Kern生成 · {timeGreeting}可用</small>
         </div>
       </div>
@@ -136,7 +132,7 @@ export function DailyBriefingRich({ data, onAction }: { data: DailyBriefingData;
           <h4>📊 证据可信度 · {catInfo.name}</h4>
           <div className="donut">
             <svg viewBox="0 0 42 42" width="100" height="100"><circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#f0f2f6" strokeWidth="3" /><circle cx="21" cy="21" r="15.9" fill="transparent" stroke={catInfo.color} strokeWidth="3.5" strokeDasharray={`${data.evidenceRate} ${100 - data.evidenceRate}`} strokeDashoffset="25" strokeLinecap="round" style={{ animation: "drawDonut 1s ease-out both" } as any} /><text x="21" y="22" textAnchor="middle" fontSize="7" fontWeight="700">{data.evidenceRate}%</text></svg>
-            <div><strong>{data.verifiedCount}条已核实</strong><small>共{data.totalEvidence}条 · Kern已核验 · A/B级{data.verifiedCount} · {catInfo.name}专用</small><div className="selling-chips">{catInfo.selling.map(s => <span key={s} style={{ background: `${catInfo.color}15`, color: catInfo.color }}>{s}</span>)}</div></div>
+            <div><strong>{data.verifiedCount}条已核实</strong><small>共{data.totalEvidence}条 · Kern已核验 · A/B级{data.verifiedCount} · {catInfo.name}专用</small><div className="selling-chips">{selling.map(s => <span key={s} style={{ background: `${catInfo.color}15`, color: catInfo.color }}>{s}</span>)}</div></div>
           </div>
         </div>
         <div className="chart-card">
