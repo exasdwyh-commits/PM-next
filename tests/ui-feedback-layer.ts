@@ -368,6 +368,7 @@ async function main() {
       authorId: leader.id,
       content: "QA 初始反馈内容",
       status: "OPEN",
+      topics: [],
     },
   });
 

@@ -337,7 +337,7 @@ async function main() {
     },
   });
   const feedbackA = await prisma.feedback.create({
-    data: { projectId: projectA.id, targetType: "PROJECT", targetId: projectA.id, authorId: viewerA.id, content: `${MARK} 反馈` },
+    data: { projectId: projectA.id, targetType: "PROJECT", targetId: projectA.id, authorId: viewerA.id, content: `${MARK} 反馈`, topics: [] },
   });
   const runA = await prisma.researchRun.create({
     data: {

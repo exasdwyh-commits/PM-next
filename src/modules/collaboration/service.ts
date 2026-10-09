@@ -11,6 +11,8 @@ export interface CreateFeedbackParams {
   targetId: string;
   targetVersion?: string;
   content: string;
+  /** 主题标签（V2 起为 Feedback 必填列，缺省视为无标签） */
+  topics?: string[];
 }
 
 export async function createFeedback(session: SessionContext, params: CreateFeedbackParams) {
@@ -48,6 +50,8 @@ export async function createFeedback(session: SessionContext, params: CreateFeed
       authorId: session.userId,
       content: params.content,
       status: FeedbackStatus.OPEN,
+      // V2：Feedback.topics 为必填列（迁移 20261008173000 已 DROP DEFAULT），缺省给空数组
+      topics: params.topics ?? [],
     },
   });
 

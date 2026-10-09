@@ -341,6 +341,7 @@ async function main() {
       targetId: project.id,
       authorId: viewerA.id,
       content: "夹具反馈",
+      topics: [],
     },
   });
 
