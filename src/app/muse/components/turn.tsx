@@ -6,7 +6,8 @@ import { KernGraphCard } from "./graph";
 import { MissionCard } from "./mission";
 import { BriefCard } from "./brief";
 import { MissionConclusion } from "./mission-conclusion";
-import { Prose } from "./prose";
+import { RichText } from "../rich/rich-text";
+import { useKernHost } from "../rich/reader-context";
 import { Btn, Card, CardHead, CONF, I, Node, StateTag, Tag, TONE } from "./kit";
 import { HoldToConfirm } from "@/components/motion/hold-to-confirm";
 import { useEnterOnce } from "@/components/motion/react";
@@ -33,24 +34,45 @@ export function Plan({ steps, employees }: { steps: PlanStep[]; employees: Emplo
 }
 
 /** 等待回复：只在请求真实进行中时出现；不模拟逐字生成，也不编造进度。灰条只是中性占位，不代表进度。 */
-export function Working({ text }: { text: string }) {
+export function Working({ text, since }: { text: string; since?: string | null }) {
   const [visible, setVisible] = useState(true);
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const update = () => setVisible(document.visibilityState !== "hidden");
     update();
     document.addEventListener("visibilitychange", update);
     return () => document.removeEventListener("visibilitychange", update);
   }, []);
+  useEffect(() => {
+    if (!since || !visible) return;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [since, visible]);
+  const started = since ? Date.parse(since) : NaN;
+  const elapsed = Number.isFinite(started) ? Math.max(0, Math.floor((now - started) / 1000)) : null;
+  const waiting = text.includes("等待");
   return (
-    <div className="m-working" data-motion={visible && !text.includes("等待") ? "running" : "still"} role="status" aria-live="polite">
+    <div className="m-working" data-motion={visible && !waiting ? "running" : "still"} role="status" aria-live="polite">
       <span className="m-working-network" aria-hidden="true">
         <span className="m-working-point"><I.source /></span>
         <svg viewBox="0 0 72 24"><path d="M0 12h72" /><path className="m-working-signal" d="M0 12h72" /></svg>
         <span className="m-working-core"><I.spark /></span>
       </span>
       <span className="m-working-copy"><strong>Kern</strong><span>{text}</span></span>
+      {elapsed !== null ? (
+        // Only the label is announced on change; the ticking number is hidden from the live region.
+        <span className="m-working-elapsed" aria-hidden="true">{waiting ? "已等待" : "已用时"} {fmtElapsed(elapsed)}</span>
+      ) : null}
     </div>
   );
+}
+
+function fmtElapsed(seconds: number) {
+  if (seconds < 60) return `${seconds} 秒`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m} 分 ${String(s).padStart(2, "0")} 秒`;
 }
 
 export function Sources({ refs, onOpen }: { refs: EvidenceRef[]; onOpen: (r: EvidenceRef) => void }) {
@@ -108,12 +130,30 @@ export function CheckIn({ d, onOpenSource, onResolve }: { d: Decision; onOpenSou
   );
 }
 
-function Block({ b, employees, onOpenSource, missionAttached = false }: { b: MessageBlock; employees: Employee[]; onOpenSource: (r: EvidenceRef) => void; missionAttached?: boolean }) {
+/** Mission report in the stream + one click into the shared reading pane (same surface as artifacts). */
+function ConclusionBlock({ missionId, text }: { missionId: string; text: string }) {
+  const host = useKernHost();
+  return (
+    <div className="kxr-conclusion">
+      <MissionConclusion missionId={missionId} text={text} />
+      {host ? (
+        <div className="kxr-fold">
+          <button type="button" className="kxr-fold-btn" data-v="read" onClick={(e) => host.openReader({ kind: "mission", missionId, text, title: "任务报告" }, e.currentTarget)}>
+            阅读模式
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function Block({ b, employees, onOpenSource, missionAttached = false, messageId }: { b: MessageBlock; employees: Employee[]; onOpenSource: (r: EvidenceRef) => void; missionAttached?: boolean; messageId: string }) {
   switch (b.kind) {
     case "text":
-      return <Prose text={b.text} />;
+      // Plain replies render as Prose (RichText falls through); kern-ui blocks and artifacts get rich renderers.
+      return <RichText text={b.text} artifacts={b.artifacts ?? []} messageId={messageId} />;
     case "conclusion":
-      return <MissionConclusion missionId={b.ref} text={b.text} />;
+      return <ConclusionBlock missionId={b.ref} text={b.text} />;
     case "graph":
       return <KernGraphCard graph={b.graph} />;
     case "mission":
@@ -224,10 +264,10 @@ export function Turn({ m, employees, onOpenSource, onRetry, enter = false }: { m
       </div>
       {m.blocks.map((b, i) => enter ? (
         <span key={i} className="m-block-in" style={{ animationDelay: `${Math.min(i, 8) * 90}ms` }}>
-          <Block b={b} employees={employees} onOpenSource={onOpenSource} missionAttached={m.blocks.some(block => block.kind === "mission")} />
+          <Block b={b} messageId={m.id} employees={employees} onOpenSource={onOpenSource} missionAttached={m.blocks.some(block => block.kind === "mission")} />
         </span>
       ) : (
-        <Block key={i} b={b} employees={employees} onOpenSource={onOpenSource} missionAttached={m.blocks.some(block => block.kind === "mission")} />
+        <Block key={i} b={b} messageId={m.id} employees={employees} onOpenSource={onOpenSource} missionAttached={m.blocks.some(block => block.kind === "mission")} />
       ))}
       {m.state === "error" && onRetry ? (
         <div className="m-turn-retry"><Btn size="sm" v="ghost" onClick={onRetry}>重试</Btn></div>

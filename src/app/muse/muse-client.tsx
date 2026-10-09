@@ -19,6 +19,9 @@ import "@/components/daily-briefing-rich.css";
 import { detectRoleSwitchIntent, inferRoleFromText } from "@/components/kern-role-intelligence";
 import { dedupeMissionCards } from "./conversation-view";
 import { ConclusionDecisions } from "./components/conclusion-decisions";
+import { KernHostContext, type KernHost, type ReaderItem } from "./rich/reader-context";
+import { ReaderPane } from "./rich/reader-pane";
+import "./rich/rich.css";
 
 const ConnectorSheet = dynamic(() => import("./components/sheets").then(module => module.ConnectorSheet));
 const LibrarySheet = dynamic(() => import("./components/sheets").then(module => module.LibrarySheet));
@@ -32,10 +35,27 @@ const TrustSheet = dynamic(() => import("./components/sheets").then(module => mo
 const VaultSheet = dynamic(() => import("./components/sheets").then(module => module.VaultSheet));
 
 import { isMissionConclusionCitation } from "@/modules/supervisor/report-format";
+import { artifactCitations, describeMarkers, isArtifactCitation } from "@/modules/artifacts/protocol";
+import { richTextToMarkdown } from "@/modules/artifacts/rich-blocks";
+
+/** V2 /muse follows the OS colour scheme (muse.css uses prefers-color-scheme); rich.css and the reader key off data-theme. */
+function useSystemTheme(): "light" | "dark" {
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const update = () => setDark(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  return dark ? "dark" : "light";
+}
 
 function conclusionBlock(text: string, citations: unknown[]): MessageBlock {
   const ref = citations.map(isMissionConclusionCitation).find((id): id is string => !!id);
-  return ref ? { kind: "conclusion", ref, text } : { kind: "text", text };
+  if (ref) return { kind: "conclusion", ref, text };
+  const artifacts = artifactCitations(citations);
+  return artifacts.length ? { kind: "text", text, artifacts } : { kind: "text", text };
 }
 
 type SheetState =
@@ -76,6 +96,7 @@ function fromApiMessage(message: ApiMessage): Message {
     if (readKernGraphCitation(raw)) return [];
     if (raw && typeof raw === "object" && (raw as Record<string, unknown>).kind === "kern-brief") return [];
     if (raw && typeof raw === "object" && (raw as Record<string, unknown>).kind === "kern-mission") return [];
+    if (isArtifactCitation(raw)) return [];
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
     const item = raw as Record<string, unknown>;
     const ref = typeof item.ref === "string" ? item.ref : null;
@@ -145,7 +166,7 @@ function persistDrafts(drafts: Map<string, string>) {
 }
 
 type PendingSend = { clientMessageId: string; conversationId: string; text: string; runId?: string };
-type MessageExecution = { runId: string; status: string; clientMessageId: string; error?: string | null };
+type MessageExecution = { runId: string; status: string; clientMessageId: string; createdAt?: string; error?: string | null };
 const PENDING_KEY = "kern.muse.pending.v1";
 function loadPending(key: string): PendingSend | null {
   try {
@@ -173,6 +194,8 @@ export default function KernClient({ model }: { model: StudioModel }) {
   );
   const [sending, setSending] = useState(false);
   const [processing, setProcessing] = useState<string | null>(null);
+  // When the active run was accepted (server time) — drives an honest elapsed timer, never a progress bar.
+  const [processingSince, setProcessingSince] = useState<string | null>(null);
   const processingRef = useRef(false);
   const pendingSendRef = useRef<PendingSend | null>(null);
   const completedRunRef = useRef<string | null>(null);
@@ -187,6 +210,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
   const [conversationBusy, setConversationBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [away, setAway] = useState(false);
   /** 用户是否停在底部附近：只有这时新回复才自动滚到底；在读历史时改为显示「有新消息」。 */
   const stickRef = useRef(true);
   const lastTopRef = useRef(0);
@@ -273,7 +297,9 @@ export default function KernClient({ model }: { model: StudioModel }) {
     const lines = [`# ${conversation.title}`, ""];
     for (const m of messages) {
       const text = m.blocks
-        .map((b) => ("text" in b && typeof b.text === "string" ? b.text.trim() : ""))
+        .map((b) => (b.kind === "text" && b.artifacts?.length
+          ? richTextToMarkdown(b.text, (id, v) => describeMarkers(`[[kern-artifact:${id}@${v}]]`, b.artifacts ?? [])).trim()
+          : "text" in b && typeof b.text === "string" ? richTextToMarkdown(b.text).trim() : ""))
         .filter(Boolean)
         .join("\n\n");
       if (!text) continue;
@@ -342,7 +368,10 @@ export default function KernClient({ model }: { model: StudioModel }) {
     const box = scrollRef.current;
     if (!box) return;
     const top = box.scrollTop;
-    const nearBottom = box.scrollHeight - top - box.clientHeight < 120;
+    const distance = box.scrollHeight - top - box.clientHeight;
+    const nearBottom = distance < 120;
+    // Far enough up that the latest reply is out of sight → offer a quiet way back (no new content implied).
+    setAway(distance > box.clientHeight * 0.8);
     if (nearBottom) {
       stickRef.current = true;
       setUnread(false);
@@ -405,6 +434,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
           router.refresh();
         }
         processingRef.current = Boolean(active);
+        setProcessingSince(active?.createdAt ?? null);
         setProcessing(active ? (active.status === "QUEUED" ? (data.workerReady ? "消息已保存，等待执行…" : "消息已保存，等待后台执行器启动…") : "Kern 正在处理这条消息…") : null);
         const pendingSend = pendingSendRef.current;
         const own = pendingSend && executions.find(run => run.clientMessageId === pendingSend.clientMessageId);
@@ -609,6 +639,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
         setMessages((current) => current.map(message => message.id === mine.id ? fromApiMessage(data.message as ApiMessage) : message));
         const busy = data.execution.status === "QUEUED" || data.execution.status === "RUNNING";
         processingRef.current = busy;
+        setProcessingSince(busy ? (data.execution.createdAt ?? new Date().toISOString()) : null);
         setProcessing(busy ? (data.workerReady ? "消息已保存，等待执行…" : "消息已保存，等待后台执行器启动…") : null);
       }
       return true;
@@ -819,8 +850,60 @@ export default function KernClient({ model }: { model: StudioModel }) {
     [conversationBusy, pickConversation, router]
   );
 
+  // ───────── reading pane + rich-reply host (kern-rich/v1) ─────────
+  const theme = useSystemTheme();
+  const [reader, setReader] = useState<ReaderItem | null>(null);
+  const readerOpenerRef = useRef<HTMLElement | null>(null);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const openReader = useCallback((item: ReaderItem, opener?: HTMLElement | null) => {
+    readerOpenerRef.current = opener ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    setReader(item);
+  }, []);
+  const closeReader = useCallback(() => {
+    setReader(null);
+    const opener = readerOpenerRef.current;
+    readerOpenerRef.current = null;
+    if (opener?.isConnected) window.requestAnimationFrame(() => opener.focus({ preventScroll: true }));
+  }, []);
+  // Switching conversation closes the pane (its content belongs to the previous thread).
+  useEffect(() => { setReader(null); }, [conversationId]);
+  const prefill = useCallback((text: string) => {
+    const current = draftRef.current.trim();
+    updateDraft(current ? `${current}\n${text}` : text);
+    if (window.matchMedia("(max-width: 1099px)").matches) setReader(null);
+    window.requestAnimationFrame(() => {
+      const ta = document.querySelector<HTMLTextAreaElement>(".m-dock textarea");
+      if (!ta) return;
+      ta.focus();
+      ta.setSelectionRange(ta.value.length, ta.value.length);
+    });
+  }, [updateDraft]);
+  const artifactIndex = useMemo(() => {
+    const index = new Map<string, NonNullable<ReturnType<KernHost["artifact"]>>>();
+    for (const m of messages) for (const b of m.blocks) if (b.kind === "text") for (const a of b.artifacts ?? []) {
+      const known = index.get(a.ref);
+      if (!known || (a.status === "READY" && a.version >= known.version) || known.status === "FAILED") index.set(a.ref, a);
+    }
+    return index;
+  }, [messages]);
+  const hostBusy = sending || Boolean(processing) || Boolean(decisionBusy);
+  const host = useMemo<KernHost>(() => ({
+    reader, openReader, closeReader, prefill,
+    send: (text: string) => send(text),
+    busy: hostBusy,
+    artifact: (id: string) => artifactIndex.get(id) ?? null,
+  }), [reader, openReader, closeReader, prefill, send, hostBusy, artifactIndex]);
+  const lookupMessage = useCallback((id: string) => {
+    const m = messages.find((x) => x.id === id);
+    const b = m?.blocks.find((x) => x.kind === "text" || x.kind === "conclusion");
+    if (!b || !("text" in b)) return null;
+    return { text: b.text, artifacts: b.kind === "text" ? b.artifacts ?? [] : [] };
+  }, [messages]);
+
   return (
-    <div className="muse" data-rail={railOpen ? "open" : undefined}>
+    <KernHostContext.Provider value={host}>
+    <div className="muse" data-theme={theme} data-rail={railOpen ? "open" : undefined} data-reader={reader ? "open" : undefined}>
       <Rail
         user={model.user}
         conversations={brief.conversations}
@@ -949,7 +1032,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
                     onResolve={resolve}
                   />
                 ))}
-                {sending || processing ? <Working text={processing || "正在保存消息…"} /> : null}
+                {sending || processing ? <Working text={processing || "正在保存消息…"} since={processing ? processingSince : null} /> : null}
               </>
             )}
           </div>
@@ -959,6 +1042,10 @@ export default function KernClient({ model }: { model: StudioModel }) {
         {unread ? (
           <button type="button" className="m-jump" onClick={jumpToLatest}>
             有新消息 <span aria-hidden>↓</span>
+          </button>
+        ) : away ? (
+          <button type="button" className="m-jump" data-v="quiet" onClick={jumpToLatest} aria-label="回到最新消息">
+            回到最新 <span aria-hidden>↓</span>
           </button>
         ) : null}
         <Dock
@@ -974,6 +1061,9 @@ export default function KernClient({ model }: { model: StudioModel }) {
           onTrust={() => setSheet({ kind: "trust" })}
         />
       </main>
+
+      {reader ? <ReaderPane key={reader.kind === "artifact" ? `a:${reader.id}` : reader.kind === "message" ? `m:${reader.messageId}` : `t:${reader.missionId}`}
+        item={reader} theme={theme} lookupMessage={lookupMessage} onClose={closeReader} /> : null}
 
       {sheet?.kind === "trail" ? (
         <TrailSheet
@@ -1012,5 +1102,6 @@ export default function KernClient({ model }: { model: StudioModel }) {
         />
       ) : null}
     </div>
+    </KernHostContext.Provider>
   );
 }
