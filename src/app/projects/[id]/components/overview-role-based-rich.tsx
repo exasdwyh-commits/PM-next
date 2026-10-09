@@ -26,7 +26,8 @@ export function OverviewRoleBasedRich({ project, gaps, evidenceInsight, opportun
   const catInfo = categoryMeta(category);
   // 本组件的卖点区原本只取前 3 条；pack 存完整 4 条，此处显式截取以保持
   // 下标取模（`selling[i % selling.length]`）与迁移前完全一致——数组长度变了索引行为就会变。
-  const selling = categoryContent(category).selling.slice(0, 3);
+  const content = categoryContent(category);
+  const selling = content.selling.slice(0, 3);
   const verifiedCount = project.evidences?.filter((e: any) => e.verifyStatus === "VERIFIED").length || 0;
   const totalEvidence = project.evidences?.length || 0;
   const workItems = project.workItems || [];
@@ -171,7 +172,7 @@ export function OverviewRoleBasedRich({ project, gaps, evidenceInsight, opportun
               {(!evidenceInsight?.resolved || evidenceInsight.resolved.length === 0) && (
                 <>
                   <div className="sales-card-rich" style={{ borderLeft: `3px solid ${catInfo.color}` }}><span className="icon">{catInfo.icon}</span><div><strong>低糖多酚，健康趋势</strong><small>客户价值：符合健康消费趋势 · {selling[0]}</small></div></div>
-                  <div className="sales-card-rich" style={{ borderLeft: `3px solid ${catInfo.color}` }}><span className="icon">💰</span><div><strong>成本10.2元，竞品299元</strong><small>客户价值：高利润空间 · {selling[1]}</small></div></div>
+                  <div className="sales-card-rich" style={{ borderLeft: `3px solid ${catInfo.color}` }}><span className="icon">💰</span><div><strong>成本{content.costSummary}元，竞品{content.price}元</strong><small>客户价值：高利润空间 · {selling[1]}</small></div></div>
                 </>
               )}
             </div>

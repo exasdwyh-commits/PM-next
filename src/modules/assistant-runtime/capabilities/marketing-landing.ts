@@ -2,6 +2,8 @@
  * Marketing Landing Capability - P6 营销落地
  */
 
+import { categoryContent } from "@/modules/tenant";
+
 export interface MarketingLandingInput {
   organizationId: string;
   productName: string;
@@ -26,15 +28,17 @@ export interface MarketingLandingOutput {
   qa: { q: string; a: string }[];
 }
 
-const CATEGORY_DATA: Record<string, any> = {
-  regular_food: { selling: ["性价比高","日常刚需","SC合规","口感好"], cost: "10.2", price: "39.9", compliance: "SC资质+标签合规" },
-  health_food: { selling: ["蓝帽子认证","多酚功效","软糖剂型","低糖健康"], cost: "10.2", price: "199", compliance: "蓝帽子+功能声称+检测报告" },
-  cross_border_food: { selling: ["进口原料","跨境背书","保税仓发货","国际品质"], cost: "15.5", price: "129", compliance: "进口资质+跨境标签+报关单" },
-  cosmetics: { selling: ["透明质酸","烟酰胺美白","玻璃瓶高级感","安全温和"], cost: "28.5", price: "299", compliance: "备案+功效宣称+安全评估" },
-};
+// 品类数据不再自留副本——原先与 packs/<id>/domain/category-content.json 逐字重复，
+// 改为读取 pack，换租户时只需改 pack 一处。
 
 export async function generateMarketingLanding(input: MarketingLandingInput): Promise<MarketingLandingOutput> {
-  const cat = CATEGORY_DATA[input.category || "health_food"] || CATEGORY_DATA.health_food;
+  const packContent = categoryContent(input.category || "health_food");
+  const cat = {
+    selling: packContent.selling,
+    cost: packContent.costSummary,
+    price: packContent.price,
+    compliance: packContent.compliance.summary,
+  };
   const profit = Math.round((1 - parseFloat(cat.cost) / parseFloat(cat.price)) * 100);
 
   return {

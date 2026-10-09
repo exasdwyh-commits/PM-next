@@ -10,6 +10,7 @@ import type { BomItem } from "@/modules/cost-engine/bom-import";
 import type { SupplierQuote } from "@/modules/cost-engine/supplier-quote";
 import type { ComplianceItem } from "@/modules/cost-engine/compliance-checklist";
 import { Notice, type NoticeMessage } from "./notice";
+import { categoryMeta } from "@/modules/tenant";
 import "./cost-html-report.css";
 
 export function CostHtmlReport({
@@ -99,7 +100,7 @@ export function CostHtmlReport({
         <div>
           <h4>🎨 Claude风格可视化报告 · HTML格式</h4>
           <small>
-            {category === "regular_food" ? "🍪普通食品" : category === "health_food" ? "💊保健食品" : category === "cross_border_food" ? "🌍跨境食品" : "💄化妆品"} · {productName} · {role}视角 · 
+            {categoryMeta(category).icon}{categoryMeta(category).name} · {productName} · {role}视角 · 
             {validation ? (validation.filter(v => v.level === "error").length === 0 ? "✅ 通过harness校验" : `❌ ${validation.filter(v=>v.level==="error").length}个error`) : "校验中"} · 
             {envelope.blocks.length}个Block
           </small>

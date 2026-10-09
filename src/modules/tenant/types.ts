@@ -59,6 +59,8 @@ export interface CategoryContent {
    * 强行统一会让某一处显示发生变化，故按用途分档保留各自原措辞。
    */
   compliance: { short: string; summary: string; requirements: string };
+  /** 合规简称，用于 UI 内联短语（如「蓝帽子合规可作为卖点」）。 */
+  complianceShortName: string;
   /** 销售话术里的卖点句。 */
   salesPitch: string;
   /** 该品类推荐的工具卡片。 */

@@ -27,7 +27,11 @@ export function DailyBriefingRich({ data, onAction }: { data: DailyBriefingData;
   const category = data.category || "health_food";
   const catInfo = categoryMeta(category);
   // 同 overview-role-based：本组件原本只展示前 3 条卖点，显式截取以保持数组长度一致。
-  const selling = categoryContent(category).selling.slice(0, 3);
+  const content = categoryContent(category);
+  const selling = content.selling.slice(0, 3);
+  // 价格与成本原为写死的三元，且第 104 行只有两个分支——普通食品会显示
+  // 「竞品均价299元」（实际 39.9）、「成本10.2元」（跨品类共用一个值）。
+  // 按用户确认改读 pack，两处均以 pack 数据为准。
   const timeGreeting = new Date().getHours() < 12 ? "早上好" : new Date().getHours() < 18 ? "下午好" : "晚上好";
 
   if ((role as string) === "leadership") {
@@ -88,7 +92,7 @@ export function DailyBriefingRich({ data, onAction }: { data: DailyBriefingData;
           <h3>💎 今日核心卖点 · {catInfo.name}专用</h3>
           <div className="sales-grid">
             <div className="sales-card" style={{ borderLeft: `3px solid ${catInfo.color}` }}><span className="icon">{catInfo.icon}</span><div><strong>{selling[0]}，{selling[1]}</strong><small>客户价值：{selling[0]}符合趋势 · 已核实{data.verifiedCount}条证据</small><small>📎 依据：lab_test · 可写入话术</small></div></div>
-            <div className="sales-card" style={{ borderLeft: `3px solid ${catInfo.color}` }}><span className="icon">💰</span><div><strong>成本10.2元，竞品{category === "health_food" ? "199" : category === "cosmetics" ? "299" : category === "cross_border_food" ? "129" : "39.9"}元</strong><small>客户价值：高利润空间 · {data.workRate}%工作完成</small><small>📎 依据：cost_bom_agent · 可写入报价单</small></div></div>
+            <div className="sales-card" style={{ borderLeft: `3px solid ${catInfo.color}` }}><span className="icon">💰</span><div><strong>成本{content.costSummary}元，竞品{content.price}元</strong><small>客户价值：高利润空间 · {data.workRate}%工作完成</small><small>📎 依据：cost_bom_agent · 可写入报价单</small></div></div>
           </div>
         </div>
 
@@ -101,7 +105,7 @@ export function DailyBriefingRich({ data, onAction }: { data: DailyBriefingData;
 
         <div className="script-hint" style={{ borderLeft: `3px solid ${catInfo.color}` }}>
           <strong>💬 今日推荐话术 · {catInfo.icon} {catInfo.name}</strong>
-          <p>&quot;{data.projectTitle || "多酚软糖"}经过{data.verifiedCount}条证据核实，{selling[0]}{selling[1]}，成本仅10.2元，竞品均价{category === "health_food" ? "199" : "299"}元，利润空间大。建议首批1000盒试销。&quot;</p>
+          <p>&quot;{data.projectTitle || "多酚软糖"}经过{data.verifiedCount}条证据核实，{selling[0]}{selling[1]}，成本仅{content.costSummary}元，竞品均价{content.price}元，利润空间大。建议首批1000盒试销。&quot;</p>
           <small>一键复制 · {catInfo.name}专用 · Kern生成 · {timeGreeting}可用</small>
         </div>
       </div>

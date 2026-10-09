@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRole } from "./role-context";
 import { getComplianceChecklist, calculateComplianceCost, getComplianceForRole, type ComplianceItem } from "@/modules/cost-engine/compliance-checklist";
+import { categoryMeta, categoryContent, categoryKeys } from "@/modules/tenant";
 import "./compliance-checklist.css";
 
 export function ComplianceChecklist({
@@ -57,15 +58,15 @@ export function ComplianceChecklist({
     <div className="compliance-checklist" data-role={role}>
       <div className="compliance-header">
         <div>
-          <h4>📋 合规清单 · {category === "regular_food" ? "普通食品" : category === "health_food" ? "保健食品" : category === "cross_border_food" ? "跨境食品" : "化妆品"}</h4>
+          <h4>📋 合规清单 · {categoryMeta(category).name}</h4>
           <small>进度 {doneCount}/{items.length} ({progress}%) · 必需 {cost.requiredCount}项 · 费用 ¥{cost.totalCost.toLocaleString()} · 周期 {cost.totalDays}天</small>
         </div>
         <div className="compliance-actions">
           <select value={category} onChange={e => setItems(getComplianceChecklist(e.target.value))}>
-            <option value="regular_food">🍪 普通食品</option>
-            <option value="health_food">💊 保健食品</option>
-            <option value="cross_border_food">🌍 跨境食品</option>
-            <option value="cosmetics">💄 化妆品</option>
+            {categoryKeys().map((k) => {
+              const m = categoryMeta(k);
+              return <option key={k} value={k}>{m.icon} {m.name}</option>;
+            })}
           </select>
           <select value={filter} onChange={e => setFilter(e.target.value as any)}>
             <option value="all">全部</option>
@@ -103,7 +104,7 @@ export function ComplianceChecklist({
       {role === "sales" && (
         <div className="compliance-sales">
           <strong>💼 销售视角：合规卖点</strong>
-          <p>已完成 {doneCount}/{items.length} 项合规，{cost.requiredCount}项必需已{items.filter(i => i.required && i.status === "done").length === cost.requiredCount ? "全部完成" : "部分完成"}，{category === "health_food" ? "蓝帽子" : category === "cosmetics" ? "备案" : "SC/进口备案"}合规可作为卖点。</p>
+          <p>已完成 {doneCount}/{items.length} 项合规，{cost.requiredCount}项必需已{items.filter(i => i.required && i.status === "done").length === cost.requiredCount ? "全部完成" : "部分完成"}，{categoryContent(category).complianceShortName}合规可作为卖点。</p>
         </div>
       )}
     </div>

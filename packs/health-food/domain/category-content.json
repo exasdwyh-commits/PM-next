@@ -14,6 +14,7 @@
       "summary": "SC资质+标签合规",
       "requirements": "SC认证 + 标签审核"
     },
+    "complianceShortName": "SC/进口备案",
     "salesPitch": "性价比日常刚需",
     "tools": [
       { "id": "cost", "label": "成本计算器", "icon": "💰", "desc": "SC合规成本 39.9元竞品" },
@@ -33,6 +34,7 @@
       "summary": "蓝帽子+功能声称+检测报告",
       "requirements": "蓝帽子备案/注册 + 功能声称 + 多项检测"
     },
+    "complianceShortName": "蓝帽子",
     "salesPitch": "蓝帽子认证多酚功效",
     "tools": [
       { "id": "cost", "label": "成本计算器", "icon": "💰", "desc": "蓝帽子成本 199元竞品" },
@@ -52,6 +54,7 @@
       "summary": "进口资质+跨境标签+报关单",
       "requirements": "进口备案 + 关税 + 中文标签 + 保税仓"
     },
+    "complianceShortName": "SC/进口备案",
     "salesPitch": "进口原料跨境背书",
     "tools": [
       { "id": "cost", "label": "跨境成本", "icon": "💰", "desc": "保税仓成本 129元竞品" },
@@ -71,6 +74,7 @@
       "summary": "备案+功效宣称+安全评估",
       "requirements": "化妆品备案/注册 + 功效/安全检测 + 宣称"
     },
+    "complianceShortName": "备案",
     "salesPitch": "透明质酸烟酰胺成分",
     "tools": [
       { "id": "cost", "label": "化妆品成本", "icon": "💰", "desc": "透明质酸成本 299元竞品" },

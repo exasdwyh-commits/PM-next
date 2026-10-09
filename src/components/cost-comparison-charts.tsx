@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import type { CostScenario } from "@/modules/cost-engine/scenario";
+import { categoryMeta } from "@/modules/tenant";
 import "./cost-comparison-charts.css";
 
 export function CostComparisonCharts({
@@ -47,7 +48,7 @@ export function CostComparisonCharts({
               <div key={scenario.id} className="scenario-bar-group" style={{ animationDelay: `${idx * 100}ms` }}>
                 <div className="scenario-label">
                   <strong>{scenario.name}</strong>
-                  <small>{scenario.category === "regular_food" ? "🍪普通" : scenario.category === "health_food" ? "💊保健" : scenario.category === "cross_border_food" ? "🌍跨境" : "💄化妆"} · ¥{scenario.totalCost.toFixed(2)}</small>
+                  <small>{categoryMeta(scenario.category).icon}{categoryMeta(scenario.category).name.slice(0, 2)} · ¥{scenario.totalCost.toFixed(2)}</small>
                 </div>
                 <div className="bars">
                   {metrics.slice(0, 6).map(m => {

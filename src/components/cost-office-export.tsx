@@ -7,6 +7,7 @@ import type { BomItem } from "@/modules/cost-engine/bom-import";
 import type { SupplierQuote } from "@/modules/cost-engine/supplier-quote";
 import type { ComplianceItem } from "@/modules/cost-engine/compliance-checklist";
 import { generateRichHtmlReport, type RichHtmlReportInput } from "@/modules/cost-engine/html-report-rich";
+import { categoryMeta } from "@/modules/tenant";
 import "./cost-office-export.css";
 
 export function CostOfficeExport({
@@ -126,7 +127,7 @@ export function CostOfficeExport({
         <div className="config-preview" style={{ borderColor: currentRoleInfo.color }}>
           <div className="preview-header" style={{ background: currentRoleInfo.color, color: "white" }}>
             <span>{currentRoleInfo.icon} {currentRoleInfo.name}版预览</span>
-            <small>{category === "regular_food" ? "🍪普通食品" : category === "health_food" ? "💊保健食品" : category === "cross_border_food" ? "🌍跨境食品" : "💄化妆品"} · {productName}</small>
+            <small>{categoryMeta(category).icon}{categoryMeta(category).name} · {productName}</small>
           </div>
           <div className="preview-body">
             {exportRole === "leadership" && (

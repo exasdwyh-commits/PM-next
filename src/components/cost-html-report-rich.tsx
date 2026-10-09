@@ -10,6 +10,7 @@ import type { ModularCostResult } from "@/modules/cost-engine/modules/types";
 import type { BomItem } from "@/modules/cost-engine/bom-import";
 import type { SupplierQuote } from "@/modules/cost-engine/supplier-quote";
 import type { ComplianceItem } from "@/modules/cost-engine/compliance-checklist";
+import { categoryMeta } from "@/modules/tenant";
 import "./cost-html-report.css";
 import "./kern-artifact-panel.css";
 
@@ -90,7 +91,7 @@ export function CostHtmlReportRich({
         <div>
           <h4>🎨 Kern完美结合 · 富可视化Artifact · 15组件+8动效</h4>
           <small>
-            {category === "regular_food" ? "🍪普通食品" : category === "health_food" ? "💊保健食品" : category === "cross_border_food" ? "🌍跨境食品" : "💄化妆品"} · {productName} · {role}视角 · 
+            {categoryMeta(category).icon}{categoryMeta(category).name} · {productName} · {role}视角 · 
             {isValid ? "✅ 通过harness R1-R17" : `❌ ${validation?.filter(v=>v.level==="error").length}个error`} · 
             {envelope.blocks.length}个Block · 动画{showAnimation ? "开启" : "关闭"} · Claude风格
           </small>

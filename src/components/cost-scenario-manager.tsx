@@ -8,6 +8,7 @@ import { CostApproval } from "./cost-approval";
 import { CostCollaboration } from "./cost-collaboration";
 import { Notice, type NoticeMessage } from "./notice";
 import { fmtDate } from "@/shared/datetime";
+import { categoryMeta } from "@/modules/tenant";
 import "./cost-approval.css";
 import "./cost-collaboration.css";
 import "./cost-comparison-charts.css";
@@ -173,7 +174,7 @@ export function CostScenarioManager({
           <div key={s.id} className={`scenario-card ${selectedIds.includes(s.id) ? "selected" : ""} ${s.category}`}>
             <div className="s-h">
               <label><input type="checkbox" checked={selectedIds.includes(s.id)} onChange={() => toggleSelect(s.id)} /><strong>{s.name}</strong></label>
-              <span className={`cat ${s.category}`}>{s.category === "regular_food" ? "🍪普通" : s.category === "health_food" ? "💊保健" : s.category === "cross_border_food" ? "🌍跨境" : "💄化妆"}</span>
+              <span className={`cat ${s.category}`}>{categoryMeta(s.category).icon}{categoryMeta(s.category).name.slice(0, 2)}</span>
             </div>
             <div className="s-meta"><span>{s.productName}</span><span>{fmtDate(s.updatedAt)}</span></div>
             <div className="s-kpi"><span>成本 ¥{s.totalCost.toFixed(2)}</span><span>零售 ¥{s.suggestedRetailPrice.toFixed(0)}</span><span>利润 {(s.profitMargin*100).toFixed(0)}%</span></div>
