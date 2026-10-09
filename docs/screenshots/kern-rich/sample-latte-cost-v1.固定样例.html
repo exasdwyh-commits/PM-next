@@ -1,0 +1,37 @@
+<!doctype html>
+<!-- Kern 成果「单杯拿铁成本拆解」 v1 · 2026-10-09T03:17:42.349Z · 离线副本，样式、数据与交互均已内联 -->
+<html lang="zh-CN"><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob:; media-src data: blob:; font-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-src 'none'; object-src 'none'"><meta name="generator" content="Kern kern-rich/v1"><meta name="kern-artifact" content="d395e360-7d12-425b-b331-f58b54b4e55c@v1"><script>window.kern={ask:function(t){try{var d=document.createElement('div');d.textContent='离线副本：请回到 Kern 继续修改（'+String(t).slice(0,80)+'）';d.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);padding:10px 14px;border-radius:10px;background:#201831;color:#fff;font:13px system-ui;z-index:2147483647';document.body.appendChild(d);setTimeout(function(){d.remove()},2600)}catch(e){}}};</script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>单杯拿铁成本</title><style>
+:root{color-scheme:light dark;--bg:#fbfaff;--card:#fff;--ink:#201831;--ink2:#5b4f6b;--ink3:#8a7f99;--line:#e7e0f0;--brand:#7c3aed;--brand2:#c0269b;--soft:#f1e9ff;--ok:#15803d;--okbg:#e8f7ee;--warn:#b45309;--warnbg:#fef5e7;--bad:#dc2626;--badbg:#fef0f0}
+@media (prefers-color-scheme:dark){:root{--bg:#15111f;--card:#211b2f;--ink:#f4effa;--ink2:#cfc3de;--ink3:#9d8db0;--line:#3c304e;--brand:#a78bfa;--brand2:#f0abdf;--soft:#352349;--ok:#4ade80;--okbg:#14301f;--warn:#fbbf24;--warnbg:#3a2a10;--bad:#f87171;--badbg:#3b1a1a}}
+*{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:var(--ink);font:15px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;padding:22px}
+h1{font-size:22px;margin:0 0 4px;letter-spacing:-.02em}.sub{color:var(--ink3);font-size:13px;margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:0 10px 30px -22px rgba(56,34,90,.4)}
+.tag{display:inline-block;padding:1px 7px;border-radius:6px;font-size:11.5px;font-weight:600}
+.fact{background:var(--okbg);color:var(--ok)}.infer{background:var(--soft);color:var(--brand)}.assume{background:var(--warnbg);color:var(--warn)}.unknown{box-shadow:inset 0 0 0 1px var(--line);color:var(--ink3)}
+button{font:inherit;cursor:pointer}
+.seg{display:inline-flex;padding:3px;border-radius:12px;background:var(--soft);gap:2px}.seg button{border:0;background:transparent;color:var(--ink2);padding:7px 14px;border-radius:9px;min-height:36px}.seg button[aria-pressed=true]{background:var(--card);color:var(--ink);font-weight:650;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.src{margin-top:18px;color:var(--ink3);font-size:12.5px}.src li{margin:2px 0}
+.ask{margin-top:14px;border:1px solid var(--line);background:var(--card);color:var(--brand);border-radius:10px;padding:8px 14px;min-height:40px}
+@media (max-width:520px){body{padding:14px}h1{font-size:19px}}
+
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 14px}.kpi b{display:block;font-size:30px;letter-spacing:-.03em;font-variant-numeric:tabular-nums}.kpi span{color:var(--ink3);font-size:13px}
+.row{display:grid;grid-template-columns:110px minmax(0,1fr) 72px;gap:12px;align-items:center;margin:10px 0;font-size:14px}.bar{height:12px;border-radius:99px;background:var(--soft);overflow:hidden}.bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--brand),var(--brand2));transition:width .4s}
+.row small{grid-column:2/4;color:var(--ink3);margin-top:-8px}.val{text-align:right;font-variant-numeric:tabular-nums;font-weight:650}
+label{display:flex;gap:10px;align-items:center;font-size:14px;margin-top:14px;flex-wrap:wrap}input[type=range]{flex:1;min-width:160px;accent-color:var(--brand)}
+@media (max-width:520px){.kpis{grid-template-columns:1fr 1fr}.row{grid-template-columns:84px minmax(0,1fr) 60px}}
+</style></head><body>
+<h1>单杯拿铁成本拆解</h1><p class="sub">全部单价来自你的消息；成本与毛利由这些数字计算。拖动滑块只是情景试算，<b>不是</b>新数据。</p>
+<div class="kpis"><div class="card kpi"><span>单杯成本</span><b id="total">—</b><span class="tag infer">计算</span></div><div class="card kpi"><span>售价</span><b id="price">22.00</b><span class="tag fact">用户提供</span></div><div class="card kpi"><span>毛利率</span><b id="margin">—</b><span class="tag infer">计算</span></div></div>
+<div class="card"><div id="rows"></div>
+<label>情景：牛奶单价 <input id="milk" type="range" min="10" max="24" step="0.5" value="16"><output id="milkv">16.0 元/升</output></label>
+<p class="sub" id="note" style="margin:6px 0 0">当前为你给的原始数据。</p></div>
+<button class="ask" type="button" onclick="window.kern&&window.kern.ask('按当前滑块的牛奶单价，帮我重新评估定价')">把这个情景交给 Kern</button>
+<ol class="src"><li>[1] 用户消息：豆量与豆价、奶量与奶价、包材、人工、售价。</li></ol>
+<script>
+var items=[{"label":"咖啡豆","value":2.88,"calc":"18 克 × 160 元/公斤"},{"label":"牛奶","value":3.2,"calc":"200 毫升 × 16 元/升"},{"label":"杯子杯盖吸管","value":0.6,"calc":"每套 0.6 元"},{"label":"人工","value":2.5,"calc":"每杯 2.5 元"}];var price=22;
+function fmt(n){return n.toFixed(2)}
+function render(){var milk=parseFloat(document.getElementById('milk').value);var list=items.map(function(i){return i.label==='牛奶'?{label:i.label,value:0.2*milk,calc:'200 毫升 × '+milk.toFixed(1)+' 元/升'}:i});var total=list.reduce(function(a,b){return a+b.value},0);var max=Math.max.apply(null,list.map(function(i){return i.value}));
+document.getElementById('rows').innerHTML=list.map(function(i){return '<div class="row"><span>'+i.label+'</span><span class="bar"><i style="width:'+(i.value/max*100)+'%"></i></span><span class="val">'+fmt(i.value)+'</span><small>'+i.calc+'</small></div>'}).join('');
+document.getElementById('total').textContent=fmt(total);document.getElementById('margin').textContent=((price-total)/price*100).toFixed(1)+'%';document.getElementById('milkv').textContent=milk.toFixed(1)+' 元/升';document.getElementById('note').textContent=milk===16?'当前为你给的原始数据。':'情景试算：牛奶单价改为 '+milk.toFixed(1)+' 元/升（假设）。'}
+document.getElementById('milk').addEventListener('input',render);render();
+</script></body></html>

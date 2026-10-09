@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- Kern 成果「官网改版排期」 v1 · 2026-10-09T03:17:42.366Z · 离线副本，样式、数据与交互均已内联 -->
+<html lang="zh-CN"><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob:; media-src data: blob:; font-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-src 'none'; object-src 'none'"><meta name="generator" content="Kern kern-rich/v1"><meta name="kern-artifact" content="a5141de0-c8c6-419a-ba40-c70ed1f6878f@v1"><script>window.kern={ask:function(t){try{var d=document.createElement('div');d.textContent='离线副本：请回到 Kern 继续修改（'+String(t).slice(0,80)+'）';d.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);padding:10px 14px;border-radius:10px;background:#201831;color:#fff;font:13px system-ui;z-index:2147483647';document.body.appendChild(d);setTimeout(function(){d.remove()},2600)}catch(e){}}};</script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>官网改版排期</title><style>
+:root{color-scheme:light dark;--bg:#fbfaff;--card:#fff;--ink:#201831;--ink2:#5b4f6b;--ink3:#8a7f99;--line:#e7e0f0;--brand:#7c3aed;--brand2:#c0269b;--soft:#f1e9ff;--ok:#15803d;--okbg:#e8f7ee;--warn:#b45309;--warnbg:#fef5e7;--bad:#dc2626;--badbg:#fef0f0}
+@media (prefers-color-scheme:dark){:root{--bg:#15111f;--card:#211b2f;--ink:#f4effa;--ink2:#cfc3de;--ink3:#9d8db0;--line:#3c304e;--brand:#a78bfa;--brand2:#f0abdf;--soft:#352349;--ok:#4ade80;--okbg:#14301f;--warn:#fbbf24;--warnbg:#3a2a10;--bad:#f87171;--badbg:#3b1a1a}}
+*{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:var(--ink);font:15px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;padding:22px}
+h1{font-size:22px;margin:0 0 4px;letter-spacing:-.02em}.sub{color:var(--ink3);font-size:13px;margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:0 10px 30px -22px rgba(56,34,90,.4)}
+.tag{display:inline-block;padding:1px 7px;border-radius:6px;font-size:11.5px;font-weight:600}
+.fact{background:var(--okbg);color:var(--ok)}.infer{background:var(--soft);color:var(--brand)}.assume{background:var(--warnbg);color:var(--warn)}.unknown{box-shadow:inset 0 0 0 1px var(--line);color:var(--ink3)}
+button{font:inherit;cursor:pointer}
+.seg{display:inline-flex;padding:3px;border-radius:12px;background:var(--soft);gap:2px}.seg button{border:0;background:transparent;color:var(--ink2);padding:7px 14px;border-radius:9px;min-height:36px}.seg button[aria-pressed=true]{background:var(--card);color:var(--ink);font-weight:650;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.src{margin-top:18px;color:var(--ink3);font-size:12.5px}.src li{margin:2px 0}
+.ask{margin-top:14px;border:1px solid var(--line);background:var(--card);color:var(--brand);border-radius:10px;padding:8px 14px;min-height:40px}
+@media (max-width:520px){body{padding:14px}h1{font-size:19px}}
+
+.gantt{position:relative;margin-top:14px}.scale{display:grid;grid-template-columns:repeat(8,1fr);margin-left:92px;color:var(--ink3);font-size:11.5px;border-bottom:1px solid var(--line);padding-bottom:4px}
+.g{display:grid;grid-template-columns:80px minmax(0,1fr);gap:12px;align-items:center;margin:12px 0}.g button{all:unset;cursor:pointer;display:block;width:100%;height:30px;border-radius:9px;position:relative}
+.track{position:relative;height:30px}.blk{position:absolute;top:0;bottom:0;border-radius:9px;display:flex;align-items:center;padding:0 10px;font-size:12px;color:#fff;white-space:nowrap;overflow:hidden}
+.done{background:var(--ok)}.blocked{background:var(--bad)}.todo{background:var(--line);color:var(--ink2)}.active{background:linear-gradient(90deg,var(--brand),var(--brand2))}
+.g[data-sel=true] .blk{outline:3px solid var(--soft);outline-offset:2px}
+.detail{margin-top:12px}.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--ink3);margin-top:10px}.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.filter{margin-top:6px}
+@media (max-width:520px){.scale{margin-left:72px}.g{grid-template-columns:60px minmax(0,1fr)}}
+</style></head><body>
+<h1>官网改版排期</h1><p class="sub">日期、依赖与状态来自你的消息；“设计”因品牌素材未到标为受阻。</p>
+<div class="seg filter" role="group" aria-label="筛选"><button aria-pressed="true" data-f="all">全部</button><button aria-pressed="false" data-f="open">未完成</button><button aria-pressed="false" data-f="blocked">受阻</button></div>
+<div class="card gantt"><div class="scale"><span>10/12</span><span>10/19</span><span>10/26</span><span>11/02</span><span>11/09</span><span>11/16</span><span>11/23</span><span>11/30</span></div><div id="rows"></div>
+<div class="legend"><span><i class="done"></i>已完成</span><span><i class="blocked"></i>受阻</span><span><i class="todo"></i>未开始</span></div></div>
+<div class="card detail" id="detail" aria-live="polite">点一个阶段查看依赖。</div>
+<button class="ask" type="button" onclick="window.kern&&window.kern.ask('品牌素材如果再晚一周到，排期要怎么调整？')">问 Kern：素材再晚一周怎么办</button>
+<ol class="src"><li>[1] 用户消息：五个阶段的日期、依赖、状态与受阻原因。</li></ol>
+<script>
+var P=[{"phase":"调研","when":"10/12–10/18","status":"done","depends":[]},{"phase":"设计","when":"10/19–11/01","status":"blocked","depends":["调研"],"note":"品牌素材未到"},{"phase":"开发","when":"11/02–11/22","status":"todo","depends":["设计"]},{"phase":"测试","when":"11/23–11/29","status":"todo","depends":["开发"]},{"phase":"发布","when":"11/30","status":"todo","depends":["测试"]}];var start=new Date(2026,9,12).getTime(),end=new Date(2026,11,7).getTime(),day=864e5;
+function range(w){var p=w.split('–');function d(s){var a=s.split('/');return new Date(2026,+a[0]-1,+a[1]).getTime()}var s=d(p[0]),e=p[1]?d(p[1])+day:d(p[0])+day;return[s,e]}
+var LBL={done:'已完成',blocked:'受阻',todo:'未开始',active:'进行中'};var f='all';
+function render(){document.getElementById('rows').innerHTML=P.map(function(p,i){if(f==='open'&&p.status==='done')return'';if(f==='blocked'&&p.status!=='blocked')return'';var r=range(p.when),l=(r[0]-start)/(end-start)*100,w=(r[1]-r[0])/(end-start)*100;return '<div class="g" data-i="'+i+'"><span>'+p.phase+'</span><div class="track"><button aria-label="'+p.phase+' '+p.when+' '+LBL[p.status]+'"><span class="blk '+p.status+'" style="left:'+l+'%;width:'+Math.max(w,3)+'%">'+p.when+'</span></button></div></div>'}).join('');
+document.querySelectorAll('.g').forEach(function(g){g.querySelector('button').addEventListener('click',function(){document.querySelectorAll('.g').forEach(function(x){x.setAttribute('data-sel',String(x===g))});var p=P[+g.getAttribute('data-i')];document.getElementById('detail').innerHTML='<b>'+p.phase+'</b> · '+p.when+' · '+LBL[p.status]+(p.depends.length?'<br>依赖：'+p.depends.join('、'):'')+(p.note?'<br><span class="tag unknown">阻塞</span> '+p.note:'')})})}
+document.querySelectorAll('[data-f]').forEach(function(b){b.addEventListener('click',function(){f=b.getAttribute('data-f');document.querySelectorAll('[data-f]').forEach(function(x){x.setAttribute('aria-pressed',String(x===b))});render()})});render();
+</script></body></html>
