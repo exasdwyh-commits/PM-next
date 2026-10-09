@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRole } from "./role-context";
+import { labelModelRunStatus } from "@/shared/status-labels";
 import "./billing-dashboard-rich.css";
 
 const CATEGORY_INFO: Record<string, { icon: string; name: string; color: string; gradient: string }> = {
@@ -83,7 +84,7 @@ export function BillingDashboardRich({ quota, recentRuns, usageByDay, category =
               <div key={run.id} className={`run-item ${run.status.toLowerCase()}`} style={{ animationDelay: `${idx * 80}ms`, borderLeft: `3px solid ${run.status === "SUCCEEDED" ? "#0b7a4f" : run.status === "RUNNING" ? "#f59e0b" : "#dc2626"}` } as any}>
                 <div className="run-header">
                   <strong>{run.taskClass}</strong>
-                  <span className={`status ${run.status.toLowerCase()}`}>{run.status}</span>
+                  <span className={`status ${run.status.toLowerCase()}`}>{labelModelRunStatus(run.status)}</span>
                 </div>
                 <small>Mission {run.missionId?.slice(0, 12)} · {run.profileKey} · {run.estimatedTokens}→{run.actualTokens || "?"} tokens · {new Date(run.startedAt).toLocaleTimeString()}</small>
               </div>

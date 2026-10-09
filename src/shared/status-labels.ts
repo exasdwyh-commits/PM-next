@@ -313,6 +313,29 @@ export const DATA_GAP_STATUS_LABELS: Record<string, string> = {
   FILLED: "已补证",
 };
 
+/**
+ * 模型运行状态（Prisma `enum ModelRunStatus`）。
+ * 与 AGENT_RUN_STATUS_LABELS 取值相近但不同义：ModelRun 多了 RESERVED（已预留配额、未真正发起），
+ * 且这里的措辞要体现「计费」语义，不能直接复用 AgentRun 那一套。
+ */
+export const MODEL_RUN_STATUS_LABELS: Record<string, string> = {
+  RESERVED: "已预留",
+  RUNNING: "运行中",
+  SUCCEEDED: "已成功",
+  FAILED: "已失败",
+};
+
+/**
+ * 项目时间线条目状态（项目跟踪视图的 timeline[].status）。
+ * 与 AgentRun / WorkItem 等状态都是"进行到哪一步"的语义，但取值是小写三态，
+ * 单独登记，避免界面露出 done / running / queued 英文。
+ */
+export const PROJECT_TIMELINE_STATUS_LABELS: Record<string, string> = {
+  done: "已完成",
+  running: "进行中",
+  queued: "待开始",
+};
+
 /** 顾问提议状态 */
 export const ACTION_PROPOSAL_STATUS_LABELS: Record<string, string> = {
   DRAFT: "草稿",
@@ -529,6 +552,8 @@ export const labelArtifactReviewStatus = (k?: string | null) => labelOf(ARTIFACT
 export const labelArtifactApplicabilityStatus = (k?: string | null) => labelOf(ARTIFACT_APPLICABILITY_STATUS_LABELS, k);
 export const labelResearchRunStatus = (k?: string | null) => labelOf(RESEARCH_RUN_STATUS_LABELS, k);
 export const labelDataGapStatus = (k?: string | null) => labelOf(DATA_GAP_STATUS_LABELS, k);
+export const labelModelRunStatus = (k?: string | null) => labelOf(MODEL_RUN_STATUS_LABELS, k);
+export const labelProjectTimelineStatus = (k?: string | null) => labelOf(PROJECT_TIMELINE_STATUS_LABELS, k);
 export const labelActionProposalStatus = (k?: string | null) => labelOf(ACTION_PROPOSAL_STATUS_LABELS, k);
 export const labelOpportunityType = (k?: string | null) => labelOf(OPPORTUNITY_TYPE_LABELS, k);
 export const labelOpportunityElement = (k?: string | null) => labelOf(OPPORTUNITY_ELEMENT_LABELS, k);

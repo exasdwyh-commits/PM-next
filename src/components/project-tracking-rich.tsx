@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRole } from "./role-context";
+import { labelProjectTimelineStatus } from "@/shared/status-labels";
 import "./project-tracking-rich.css";
 import { DependencyGraphRich } from "./dependency-graph-rich";
 
@@ -99,7 +100,7 @@ export function ProjectTrackingRich({ tracking, category = "health_food", onActi
                 <strong>{t.label}</strong>
                 <small>{t.desc}</small>
                 <div className="task-meta">
-                  <span className={`status ${t.status}`}>{t.status}</span>
+                  <span className={`status ${t.status}`}>{labelProjectTimelineStatus(t.status)}</span>
                   <button style={{ background: catInfo.color, color: "white" }} onClick={() => onAction?.(t.key)}>推进</button>
                 </div>
               </div>

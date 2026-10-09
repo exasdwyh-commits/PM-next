@@ -68,8 +68,10 @@ test("product remains the primary business object", () => {
 test("project detail stays a focused product workspace", () => {
   const detail = read("src/app/projects/[id]/project-detail-client.tsx");
   assert.ok(detail.includes("PROJECT_WORKSPACE_TABS"), "workspace must render the shared tab definitions");
+  // V2（bc49697）在 AI 研发与工作项之间新增「成本」页签，由 CostCalculatorModular 实际渲染。
+  assert.ok(detail.includes("CostCalculatorModular"), "cost tab must render the cost calculator");
   assert.deepEqual(PROJECT_WORKSPACE_TABS, [
-    ["overview", "概览"], ["rnd", "AI 研发"], ["tasks", "工作项"],
+    ["overview", "概览"], ["rnd", "AI 研发"], ["cost", "成本"], ["tasks", "工作项"],
     ["evidence", "证据"], ["decisions", "决策"], ["records", "记录"],
   ]);
   assert.ok(detail.includes('onOpenDecisions={() => setActiveWorkspaceTab("decisions")}'));
@@ -83,7 +85,9 @@ test("R&D UI exposes business stages rather than raw agent plumbing", () => {
   }
   assert.ok(rnd.includes("BLOCKED"));
   assert.ok(rnd.includes("WAITING_HUMAN"));
-  assert.ok(rnd.includes("<ExecutiveReportView"));
+  // V2（bc49697）把管理报告区换成了按角色自适应的 ExecutiveReportRoleBased，
+  // 不再直接内联 ExecutiveReportView；断言锁定「管理报告仍然真实渲染」而非具体组件名。
+  assert.ok(rnd.includes("<ExecutiveReportRoleBased"));
 });
 
 test("executive report keeps the decision dock beside the evidence and stays honest about unknowns", () => {

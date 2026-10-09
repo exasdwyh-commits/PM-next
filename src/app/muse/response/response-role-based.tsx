@@ -16,6 +16,8 @@ import { inline, Prose, SourceRefContext } from "@/app/muse/components/prose";
 import type { Block, ResponseEnvelope } from "@/modules/response-format/types";
 import { CONFIDENCE_LABEL, TRUST_LABEL } from "@/modules/response-format/types";
 import { validate } from "@/modules/response-format/validate";
+import { labelOf } from "@/shared/status-labels";
+import { CLAIM_LABEL } from "@/modules/response-format/types";
 import { useRole, useKernRoleIntelligence } from "@/components/role-context";
 import { inferRoleFromEnvelope } from "@/components/kern-role-intelligence";
 import "./response-role.css";
@@ -90,7 +92,7 @@ function ProductBlock({ b, onRef }: { b: Block; onRef: (n: number) => void }) {
             <thead><tr><th>结论</th><th>类型</th><th>可信度</th><th>来源</th></tr></thead>
             <tbody>
               {b.items.map((it, i) => (
-                <tr key={i}><td><Inline text={it.text} onRef={onRef} /></td><td><span className={`badge ${it.kind}`}>{it.kind}</span></td><td>{it.kind === "fact" ? "A级" : it.kind === "inference" ? "B级" : "UNKNOWN"}</td><td>待追溯</td></tr>
+                <tr key={i}><td><Inline text={it.text} onRef={onRef} /></td><td><span className={`badge ${it.kind}`}>{labelOf(CLAIM_LABEL, it.kind)}</span></td><td>{it.kind === "fact" ? "A级" : it.kind === "inference" ? "B级" : "UNKNOWN"}</td><td>待追溯</td></tr>
               ))}
             </tbody>
           </table>

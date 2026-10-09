@@ -6,6 +6,7 @@ import { useRole } from "@/components/role-context";
 import { inferRoleFromPage } from "@/components/kern-role-intelligence";
 import "@/components/role-switch.css";
 import { RoleTools } from "@/components/role-tools";
+import { labelWorkItemStatus } from "@/shared/status-labels";
 import "@/components/role-tools.css";
 import "./overview-role.css";
 
@@ -114,7 +115,7 @@ export function OverviewRoleBased({ project, gaps, evidenceInsight, opportunity,
             <div className="ov-work-grid">
               {workItems.slice(0, 6).map((w: any) => (
                 <div key={w.id} className="work-card">
-                  <div className="work-h"><strong>{w.title}</strong><Badge tone={w.status === "ACCEPTED" ? "ok" : w.status === "SUBMITTED" ? "warn" : "neutral"}>{w.status}</Badge></div>
+                  <div className="work-h"><strong>{w.title}</strong><Badge tone={w.status === "ACCEPTED" ? "ok" : w.status === "SUBMITTED" ? "warn" : "neutral"}>{labelWorkItemStatus(w.status)}</Badge></div>
                   <small>交付：{w.deliverableReq?.slice(0, 40)}</small>
                   {w.dependencies?.length > 0 && <small>依赖：{w.dependencies.length}项前置</small>}
                 </div>
