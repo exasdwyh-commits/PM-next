@@ -5,6 +5,7 @@ import type { CostScenario } from "@/modules/cost-engine/scenario";
 import "./cost-collaboration.css";
 import "./cost-collaboration-rich.css";
 import { useRole } from "./role-context";
+import { useReasonDialog } from "./reason-dialog";
 
 const CATEGORY_INFO: Record<string, { icon: string; name: string; color: string }> = {
   regular_food: { icon: "🍪", name: "普通食品", color: "#f59e0b" },
@@ -38,6 +39,8 @@ export function CostCollaborationRich({
   const [mentionSearch, setMentionSearch] = React.useState("");
   const [showMentions, setShowMentions] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+  // 版本变更说明用理由对话框收集（替代原生 prompt；取消时 resolve(null)）
+  const [askReason, reasonDialog] = useReasonDialog();
   const mockUsers = ["张三-产品", "李四-研发", "王五-领导", "赵六-销售", "钱七-合规"];
 
   const fetchComments = React.useCallback(async () => {
@@ -128,6 +131,7 @@ export function CostCollaborationRich({
 
   return (
     <div className="cost-collaboration-rich product" style={{ borderColor: catInfo.color }}>
+      {reasonDialog}
       <div className="collab-header">
         <div>
           <h4>💬 协作 · {scenario.name} · {catInfo.icon} {catInfo.name} · 富可视化 · 持久化</h4>
@@ -185,7 +189,13 @@ export function CostCollaborationRich({
           )}
         </div>
         <button className="outline" style={{ marginTop: 8, fontSize: 11 }} onClick={async () => {
-          const note = prompt("版本变更说明：");
+          const note = await askReason({
+            title: "保存为新版本",
+            label: "请输入版本变更说明",
+            placeholder: "例如：调整了原料单价与包材成本…",
+            confirmText: "保存新版本",
+          });
+          // 取消 / Esc / 点遮罩 → null：不触发任何写操作
           if (!note) return;
           await fetch(`/api/cost/scenarios/${scenario.id}/versions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ changeNote: note }) });
           fetchVersions();

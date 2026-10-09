@@ -80,9 +80,17 @@ const MARK = CROSS_TENANT_MARKER;
  * 2026-09-29（KX-64 系统通知）：+1 路由（/api/attention），+1 方法（GET）。只含本人数据，跨租户不可见。
  * 2026-09-29（KX-71 统一能力目录）：+1 路由（/api/capabilities），+1 方法（GET）。只含本人 / 本组织可见项。
  * 2026-09-29（KX-74 每周复盘）：+1 路由（/api/reviews/weekly），+2 方法（GET / POST）。只读写本人数据。
+ * 2026-10-09（V2 收敛补登记）：+25 路由、+48 方法，基线 92→117 / 128→176。
+ *   背景：V2 交付新增 23 条 API 路由，但矩阵未同步，`test:source-guards` 的 AC1 一直红，
+ *   且 `acceptance-authz-matrix` 的 1.1/1.3/1.4 也随之失配 —— 这批新接口此前零权限覆盖。
+ *   本次把缺口补齐，并对每条写明鉴权口径（部分为 validationFirst 先校验后鉴权；
+ *   部分标记 publicByOmission，即实现漏了 getServerSession，属待收敛的开放面，
+ *   清单见 authz-route-coverage.test.ts 的 PUBLIC_BY_OMISSION 与 AC6 双向断言）。
+ *   同批顺带补登两条**本就存在**的历史缺口：/api/feedback（3 方法）与 /api/feedback/{id}/disposition
+ *   —— 它们在 main 上就有源码，矩阵却一直没登记，属遗留幽灵缺口，非 V2 引入。
  */
-const BASELINE_ROUTES = 92;
-const BASELINE_METHODS = 128;
+const BASELINE_ROUTES = 117;
+const BASELINE_METHODS = 176;
 
 let passed = 0;
 const failures: string[] = [];

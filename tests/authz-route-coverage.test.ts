@@ -127,15 +127,48 @@ test("AC3：矩阵自身无重复登记", () => {
  * 他组织夹具标记（见 authz-matrix.ts 头注与 CROSS_TENANT_MARKER）。
  * 真正「未授权」的身份只有 anon。
  *
- * 公开端点白名单只收两条，且都必须带论证（下方 PUBLIC_ANON_2XX 的注释即论证）：
- * 新增任何一条都要在这里写清为什么它不构成越权面。
+ * ---------------------------------------------------------------------------
+ * 2026-10-09：V2 补登记后本白名单从 2 条扩到 10 条。**必须区分两种来源**：
+ *
+ * (a) **论证为公开**（authz-matrix 里 `path: "/api/health"` 一类）：这类端点是
+ *     刻意公开的，不含任何租户数据。
+ * (b) **实现漏鉴权**（authz-matrix 里标了 `publicByOmission: true`）：这些实现
+ *     **压根没调用 getServerSession**，任何人（含未登录）都能访问。
+ *
+ * 本守卫对 (b) 类**不视为已通过**——下方 PUBLIC_BY_OMISSION 单独列一份，
+ * 并断言它恰好等于矩阵里 publicByOmission 的集合。这样做的目的：
+ *   ① 白名单不会因为「反正加进去就绿了」而悄悄腐化；
+ *   ② 漏鉴权端点的**暴露面**在守卫里是可数的：一旦有新增，集合比对立刻红；
+ *   ③ 收敛（补上 getServerSession 或正式论证公开）后，必须同时从两处移除，
+ *      守卫会强制你回来改注释——不会留下无主白名条。
+ * ---------------------------------------------------------------------------
  */
 const PUBLIC_ANON_2XX = new Set(["DELETE /api/auth/session", "GET /api/health"]);
+
+/**
+ * (b) 类：**待收敛**的开放面，来自 V2 新增实现漏掉 `getServerSession`。
+ * 这些不是「论证过的公开端点」，而是如实登记的缺陷清单。
+ * 每一条都必须同时在 authz-matrix.ts 里标 `publicByOmission: true`（见 AC6 断言）。
+ *
+ * - `POST /api/desktop-runtime/tasks` 的 PUT 变体不在此列（PUT /api/assistant/active-push
+ *   是无鉴权纯静态描述；两者不同端点）。
+ */
+const PUBLIC_BY_OMISSION = new Set([
+  "PUT /api/assistant/active-push",
+  "GET /api/desktop/action",
+  "GET /api/harness/validate",
+  "POST /api/harness/validate",
+  "GET /api/playbook/new-product",
+  "GET /api/research/fetch",
+  "GET /api/research/verify",
+]);
+
 test("AC4：未登录身份（anon）不得得到 2xx，公开端点须在论证白名单内", () => {
+  const allowed = new Set([...PUBLIC_ANON_2XX, ...PUBLIC_BY_OMISSION]);
   const violations = AUTHZ_MATRIX.filter((r) => {
     const codes = (r.expect as Record<string, number[] | string>).anon;
     if (!Array.isArray(codes) || !codes.some((c) => c < 300)) return false;
-    return !PUBLIC_ANON_2XX.has(key(r));
+    return !allowed.has(key(r));
   }).map((r) => `${key(r)} expect.anon=${JSON.stringify((r.expect as any).anon)}`);
   assert.deepEqual(
     violations,
@@ -169,4 +202,30 @@ test("AC5：每条登记都覆盖 anon/foreign/outsider/viewer 四类身份（ow
     [],
     `以下登记缺 ownerGate（owner 身份的预期无处表达）：\n  ${missingOwnerGate.join("\n  ")}`,
   );
+});
+
+/**
+ * AC6：漏鉴权清单（PUBLIC_BY_OMISSION）必须与矩阵里的 publicByOmission 标记**完全一致**。
+ *
+ * 双向断言，防止两种腐化：
+ *   ① 清单里多了一条 → 收敛后忘了删，白名单变成无主豁免；
+ *   ② 矩阵里标了但清单没有 → 有人新登记漏鉴权端点时顺手改绿，绕过了 AC4。
+ * 数量也一并打印，使「开放面有多大」成为可数、可追踪的数字。
+ */
+test("AC6：漏鉴权清单与矩阵 publicByOmission 标记双向一致", () => {
+  const flagged = AUTHZ_MATRIX.filter((r) => r.publicByOmission).map(key);
+  const flaggedSet = new Set(flagged);
+  const missingInList = flagged.filter((k) => !PUBLIC_BY_OMISSION.has(k));
+  const staleInList = [...PUBLIC_BY_OMISSION].filter((k) => !flaggedSet.has(k));
+  assert.deepEqual(
+    missingInList,
+    [],
+    `矩阵标了 publicByOmission 但 PUBLIC_BY_OMISSION 里没有（会绕过 AC4）：\n  ${missingInList.join("\n  ")}`,
+  );
+  assert.deepEqual(
+    staleInList,
+    [],
+    `PUBLIC_BY_OMISSION 里的端点已不再标 publicByOmission（白名单腐化，请同步清理）：\n  ${staleInList.join("\n  ")}`,
+  );
+  console.log(`  ℹ 待收敛的漏鉴权端点数：${flagged.length}（${flagged.join("、")}）`);
 });

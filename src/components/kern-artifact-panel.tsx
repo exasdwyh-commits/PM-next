@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Notice, type NoticeMessage } from "./notice";
 import "./kern-artifact-panel.css";
 
 export interface Artifact {
@@ -25,6 +26,7 @@ export function KernArtifactPanel({
 }) {
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [isCollapsed, setIsCollapsed] = React.useState(false);
+  const [msg, setMsg] = React.useState<NoticeMessage | null>(null);
 
   const handleDownload = () => {
     if (!artifact) return;
@@ -40,7 +42,7 @@ export function KernArtifactPanel({
   const handleCopy = async () => {
     if (!artifact) return;
     await navigator.clipboard.writeText(artifact.html);
-    alert("富可视化HTML已复制");
+    setMsg({ tone: "ok", text: "富可视化HTML已复制" });
   };
 
   const handlePrint = () => {
@@ -74,6 +76,7 @@ export function KernArtifactPanel({
 
   return (
     <div className={`kern-artifact-panel ${isFullscreen ? "fullscreen" : ""} ${isCollapsed ? "collapsed" : ""}`}>
+      <Notice msg={msg} onClose={() => setMsg(null)} />
       <div className="artifact-header">
         <div className="artifact-title">
           <span className="artifact-icon">🎨</span>

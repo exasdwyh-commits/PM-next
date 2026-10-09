@@ -9,6 +9,7 @@ import type { ModularCostResult } from "@/modules/cost-engine/modules/types";
 import type { BomItem } from "@/modules/cost-engine/bom-import";
 import type { SupplierQuote } from "@/modules/cost-engine/supplier-quote";
 import type { ComplianceItem } from "@/modules/cost-engine/compliance-checklist";
+import { Notice, type NoticeMessage } from "./notice";
 import "./cost-html-report.css";
 
 export function CostHtmlReport({
@@ -28,6 +29,7 @@ export function CostHtmlReport({
 }) {
   const { role } = useRole();
   const [viewMode, setViewMode] = React.useState<"claude" | "envelope" | "html">("claude");
+  const [msg, setMsg] = React.useState<NoticeMessage | null>(null);
   const [htmlContent, setHtmlContent] = React.useState("");
 
   const input: HtmlReportInput | null = React.useMemo(() => {
@@ -74,7 +76,7 @@ export function CostHtmlReport({
   const handleCopyHtml = async () => {
     if (!htmlContent) return;
     await navigator.clipboard.writeText(htmlContent);
-    alert("HTML已复制，可直接粘贴到浏览器或Claude");
+    setMsg({ tone: "ok", text: "HTML已复制，可直接粘贴到浏览器或Claude" });
   };
 
   const handlePrint = () => {
@@ -92,6 +94,7 @@ export function CostHtmlReport({
 
   return (
     <div className="cost-html-report" data-role={role}>
+      <Notice msg={msg} onClose={() => setMsg(null)} />
       <div className="html-report-header">
         <div>
           <h4>🎨 Claude风格可视化报告 · HTML格式</h4>

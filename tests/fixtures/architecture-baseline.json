@@ -2,6 +2,14 @@
   "note": "KX-70 分层守卫基线：只许减少、不许新增；每条须带论证 why（见 tests/helpers/architecture-layers.ts 的 BaselineEntry）。还掉一条后运行 `npm run arch:baseline` 重写本文件，旧论证会自动保留，新条目留空待补。",
   "layerViolations": [
     {
+      "key": "src/modules/cost-engine/html-report-rich.ts -> modules/response-format",
+      "why": "与 html-report.ts 同源：同样只 import type 取 ResponseEnvelope / Block，无运行时调用。消除路径同上，两者应一并迁移到 shared/contracts，届时可整条还清。"
+    },
+    {
+      "key": "src/modules/cost-engine/html-report.ts -> modules/response-format",
+      "why": "只引 response-format/types 的 ResponseEnvelope / Block 两个类型（import type），零运行时耦合，故不是真的调用了上层服务。根因是响应契约类型物理上放在 L2 模块里，而 L5 的报表生成器要用同一套类型来产出 Envelope。消除路径：把 types 抽成 shared/contracts 或 modules/kern-contracts（已归 L5），两端都往下引。"
+    },
+    {
       "key": "src/modules/cost-engine/scenarios.ts -> modules/work",
       "why": "成本场景落盘复用 work 的 structured-artifacts 写入客户端与 artifact-schema 版本常量（L5 引 L4），不另建第二套 artifact 写入。消除路径：把写入客户端下沉到 shared。"
     },
@@ -22,6 +30,10 @@
       "why": "直接复用 advisor/llm 的 createAdvisorLLMClient 与 advisor/context 类型（L3 引 L2），与上一条同源。消除路径：同上，LLM 接入与授权上下文下沉后消除。"
     },
     {
+      "key": "src/modules/product-rnd/playbook.ts -> modules/supervisor",
+      "why": "product-rnd 的 playbook 在运行时调 supervisor/research-integration 的 executeResearchNode 来跑研究节点，是真实调用（非类型）。这是「领域流程编排复用 Kern 的任务执行能力」，与基线里已有的 product-development -> advisor 同性质。消除路径：把研究节点的执行下沉为底座能力（executor），由 playbook 通过注册表或事件触发，而非直调 supervisor。"
+    },
+    {
       "key": "src/modules/schedule/service.ts -> modules/muse",
       "why": "定时执行前读 muse 的注意力 read-model（loadAttentionForUser）做触发判断（L4 引 L2）。消除路径：注意力状态改走事件或注册表推送而非直接读模型。"
     },
@@ -32,6 +44,18 @@
   ],
   "appDbFiles": [
     {
+      "key": "src/app/api/assistant/active-push/route.ts",
+      "why": "V2 新增 Route Handler 沿用仓库既有的「app 层直接 import @/shared/db」历史写法（与 /api/attachments 等存量同源），未走模块服务。这些路由大多只做一次简单查询/写入（如按 organizationId 列表或落一条记录），没有可复用的领域逻辑可下沉。AL3 的意义是保证**新增不再扩大**：本文件登记在案，下一次改动这些路由时应顺带迁移到模块服务，长期目标是清空整份 appDbFiles 基线。"
+    },
+    {
+      "key": "src/app/api/assistant/daily-briefing/route.ts",
+      "why": "V2 新增 Route Handler 沿用仓库既有的「app 层直接 import @/shared/db」历史写法（与 /api/attachments 等存量同源），未走模块服务。这些路由大多只做一次简单查询/写入（如按 organizationId 列表或落一条记录），没有可复用的领域逻辑可下沉。AL3 的意义是保证**新增不再扩大**：本文件登记在案，下一次改动这些路由时应顺带迁移到模块服务，长期目标是清空整份 appDbFiles 基线。"
+    },
+    {
+      "key": "src/app/api/assistant/project-tracking/route.ts",
+      "why": "V2 新增 Route Handler 沿用仓库既有的「app 层直接 import @/shared/db」历史写法（与 /api/attachments 等存量同源），未走模块服务。这些路由大多只做一次简单查询/写入（如按 organizationId 列表或落一条记录），没有可复用的领域逻辑可下沉。AL3 的意义是保证**新增不再扩大**：本文件登记在案，下一次改动这些路由时应顺带迁移到模块服务，长期目标是清空整份 appDbFiles 基线。"
+    },
+    {
       "key": "src/app/api/attachments/[id]/route.ts",
       "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
     },
@@ -40,8 +64,40 @@
       "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
     },
     {
+      "key": "src/app/api/billing/route.ts",
+      "why": "V2 新增 Route Handler 沿用仓库既有的「app 层直接 import @/shared/db」历史写法（与 /api/attachments 等存量同源），未走模块服务。这些路由大多只做一次简单查询/写入（如按 organizationId 列表或落一条记录），没有可复用的领域逻辑可下沉。AL3 的意义是保证**新增不再扩大**：本文件登记在案，下一次改动这些路由时应顺带迁移到模块服务，长期目标是清空整份 appDbFiles 基线。"
+    },
+    {
+      "key": "src/app/api/cost/scenarios/[id]/approval/route.ts",
+      "why": "V2 新增 Route Handler 沿用仓库既有的「app 层直接 import @/shared/db」历史写法（与 /api/attachments 等存量同源），未走模块服务。这些路由大多只做一次简单查询/写入（如按 organizationId 列表或落一条记录），没有可复用的领域逻辑可下沉。AL3 的意义是保证**新增不再扩大**：本文件登记在案，下一次改动这些路由时应顺带迁移到模块服务，长期目标是清空整份 appDbFiles 基线。"
+    },
+    {
+      "key": "src/app/api/cost/scenarios/[id]/comments/route.ts",
+      "why": "V2 新增 Route Handler 沿用仓库既有的「app 层直接 import @/shared/db」历史写法（与 /api/attachments 等存量同源），未走模块服务。这些路由大多只做一次简单查询/写入（如按 organizationId 列表或落一条记录），没有可复用的领域逻辑可下沉。AL3 的意义是保证**新增不再扩大**：本文件登记在案，下一次改动这些路由时应顺带迁移到模块服务，长期目标是清空整份 appDbFiles 基线。"
+    },
+    {
+      "key": "src/app/api/cost/scenarios/[id]/route.ts",
+      "why": "V2 新增 Route Handler 沿用仓库既有的「app 层直接 import @/shared/db」历史写法（与 /api/attachments 等存量同源），未走模块服务。这些路由大多只做一次简单查询/写入（如按 organizationId 列表或落一条记录），没有可复用的领域逻辑可下沉。AL3 的意义是保证**新增不再扩大**：本文件登记在案，下一次改动这些路由时应顺带迁移到模块服务，长期目标是清空整份 appDbFiles 基线。"
+    },
+    {
+      "key": "src/app/api/cost/scenarios/[id]/versions/route.ts",
+      "why": "V2 新增 Route Handler 沿用仓库既有的「app 层直接 import @/shared/db」历史写法（与 /api/attachments 等存量同源），未走模块服务。这些路由大多只做一次简单查询/写入（如按 organizationId 列表或落一条记录），没有可复用的领域逻辑可下沉。AL3 的意义是保证**新增不再扩大**：本文件登记在案，下一次改动这些路由时应顺带迁移到模块服务，长期目标是清空整份 appDbFiles 基线。"
+    },
+    {
+      "key": "src/app/api/cost/scenarios/compare/route.ts",
+      "why": "V2 新增 Route Handler 沿用仓库既有的「app 层直接 import @/shared/db」历史写法（与 /api/attachments 等存量同源），未走模块服务。这些路由大多只做一次简单查询/写入（如按 organizationId 列表或落一条记录），没有可复用的领域逻辑可下沉。AL3 的意义是保证**新增不再扩大**：本文件登记在案，下一次改动这些路由时应顺带迁移到模块服务，长期目标是清空整份 appDbFiles 基线。"
+    },
+    {
+      "key": "src/app/api/cost/scenarios/route.ts",
+      "why": "V2 新增 Route Handler 沿用仓库既有的「app 层直接 import @/shared/db」历史写法（与 /api/attachments 等存量同源），未走模块服务。这些路由大多只做一次简单查询/写入（如按 organizationId 列表或落一条记录），没有可复用的领域逻辑可下沉。AL3 的意义是保证**新增不再扩大**：本文件登记在案，下一次改动这些路由时应顺带迁移到模块服务，长期目标是清空整份 appDbFiles 基线。"
+    },
+    {
       "key": "src/app/api/evidences/[id]/verify/route.ts",
       "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/api/feedback/route.ts",
+      "why": "V2 新增 Route Handler 沿用仓库既有的「app 层直接 import @/shared/db」历史写法（与 /api/attachments 等存量同源），未走模块服务。这些路由大多只做一次简单查询/写入（如按 organizationId 列表或落一条记录），没有可复用的领域逻辑可下沉。AL3 的意义是保证**新增不再扩大**：本文件登记在案，下一次改动这些路由时应顺带迁移到模块服务，长期目标是清空整份 appDbFiles 基线。"
     },
     {
       "key": "src/app/api/health/details/route.ts",
@@ -54,6 +110,10 @@
     {
       "key": "src/app/api/memory/route.ts",
       "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/api/playbook/new-product/route.ts",
+      "why": "V2 新增 Route Handler 沿用仓库既有的「app 层直接 import @/shared/db」历史写法（与 /api/attachments 等存量同源），未走模块服务。这些路由大多只做一次简单查询/写入（如按 organizationId 列表或落一条记录），没有可复用的领域逻辑可下沉。AL3 的意义是保证**新增不再扩大**：本文件登记在案，下一次改动这些路由时应顺带迁移到模块服务，长期目标是清空整份 appDbFiles 基线。"
     },
     {
       "key": "src/app/api/products/[id]/cost-scenarios/route.ts",
@@ -82,6 +142,18 @@
     {
       "key": "src/app/api/projects/route.ts",
       "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
+    },
+    {
+      "key": "src/app/api/research/fetch/route.ts",
+      "why": "V2 新增 Route Handler 沿用仓库既有的「app 层直接 import @/shared/db」历史写法（与 /api/attachments 等存量同源），未走模块服务。这些路由大多只做一次简单查询/写入（如按 organizationId 列表或落一条记录），没有可复用的领域逻辑可下沉。AL3 的意义是保证**新增不再扩大**：本文件登记在案，下一次改动这些路由时应顺带迁移到模块服务，长期目标是清空整份 appDbFiles 基线。"
+    },
+    {
+      "key": "src/app/api/research/verify/route.ts",
+      "why": "V2 新增 Route Handler 沿用仓库既有的「app 层直接 import @/shared/db」历史写法（与 /api/attachments 等存量同源），未走模块服务。这些路由大多只做一次简单查询/写入（如按 organizationId 列表或落一条记录），没有可复用的领域逻辑可下沉。AL3 的意义是保证**新增不再扩大**：本文件登记在案，下一次改动这些路由时应顺带迁移到模块服务，长期目标是清空整份 appDbFiles 基线。"
+    },
+    {
+      "key": "src/app/api/worker/status/route.ts",
+      "why": "V2 新增 Route Handler 沿用仓库既有的「app 层直接 import @/shared/db」历史写法（与 /api/attachments 等存量同源），未走模块服务。这些路由大多只做一次简单查询/写入（如按 organizationId 列表或落一条记录），没有可复用的领域逻辑可下沉。AL3 的意义是保证**新增不再扩大**：本文件登记在案，下一次改动这些路由时应顺带迁移到模块服务，长期目标是清空整份 appDbFiles 基线。"
     },
     {
       "key": "src/app/api/workforce/tasks/route.ts",

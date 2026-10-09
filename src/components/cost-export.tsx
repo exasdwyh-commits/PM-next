@@ -4,6 +4,7 @@ import * as React from "react";
 import type { ModularCostResult } from "@/modules/cost-engine/modules/types";
 import type { BomItem } from "@/modules/cost-engine/bom-import";
 import type { SupplierQuote } from "@/modules/cost-engine/supplier-quote";
+import { Notice, type NoticeMessage } from "./notice";
 
 export function CostExport({
   result,
@@ -16,6 +17,8 @@ export function CostExport({
   bomItems?: BomItem[];
   supplierQuotes?: SupplierQuote[];
 }) {
+  const [msg, setMsg] = React.useState<NoticeMessage | null>(null);
+
   const handleExportCsv = () => {
     if (!result) return;
     const lines = [
@@ -62,7 +65,7 @@ export function CostExport({
 BOM ${bomItems.length}种 供应商${supplierQuotes.length}家
 告警：${result.warnings[0] || "无"}`;
     await navigator.clipboard.writeText(summary);
-    alert("已复制到剪贴板");
+    setMsg({ tone: "ok", text: "已复制到剪贴板" });
   };
 
   if (!result) return null;
@@ -72,6 +75,7 @@ BOM ${bomItems.length}种 供应商${supplierQuotes.length}家
       <button onClick={handleExportCsv}>📤 导出CSV</button>
       <button onClick={handleCopySummary}>📋 复制摘要</button>
       <button onClick={() => window.print()}>🖨️ 打印</button>
+      <Notice msg={msg} onClose={() => setMsg(null)} />
     </div>
   );
 }

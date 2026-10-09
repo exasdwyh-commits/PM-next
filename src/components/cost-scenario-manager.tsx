@@ -6,6 +6,7 @@ import { loadScenarios, saveScenario, deleteScenario, duplicateScenario, compare
 import { CostComparisonCharts } from "./cost-comparison-charts";
 import { CostApproval } from "./cost-approval";
 import { CostCollaboration } from "./cost-collaboration";
+import { Notice, type NoticeMessage } from "./notice";
 import "./cost-approval.css";
 import "./cost-collaboration.css";
 import "./cost-comparison-charts.css";
@@ -27,6 +28,7 @@ export function CostScenarioManager({
   const [scenarioSubTab, setScenarioSubTab] = React.useState<"list" | "approval" | "collab">("list");
   const [selectedScenarioForDetail, setSelectedScenarioForDetail] = React.useState<CostScenario | null>(null);
   const [saveName, setSaveName] = React.useState("");
+  const [msg, setMsg] = React.useState<NoticeMessage | null>(null);
 
   React.useEffect(() => {
     const load = async () => {
@@ -123,6 +125,7 @@ export function CostScenarioManager({
 
   return (
     <div className="scenario-manager" data-role={role}>
+      <Notice msg={msg} onClose={() => setMsg(null)} />
       <div className="scenario-header">
         <div>
           <h4>💾 成本方案管理 · 模块化</h4>
@@ -189,7 +192,7 @@ export function CostScenarioManager({
       {scenarioSubTab === "approval" && (
         <div style={{ display: "grid", gap: 12 }}>
           {selectedScenarioForDetail ? (
-            <CostApproval scenario={selectedScenarioForDetail} approvals={[]} onSubmit={() => alert("已提交审批，产品审核→领导审批")} onApprove={() => alert("已批准")} onReject={() => alert("已驳回")} />
+            <CostApproval scenario={selectedScenarioForDetail} approvals={[]} onSubmit={() => setMsg({ tone: "ok", text: "已提交审批，产品审核→领导审批" })} onApprove={() => setMsg({ tone: "ok", text: "已批准" })} onReject={() => setMsg({ tone: "ok", text: "已驳回" })} />
           ) : (
             <div style={{ padding: 20, textAlign: "center", color: "#6b7280", fontSize: 12, border: "1px dashed #e7e9ef", borderRadius: 8 }}>
               请先在列表中选择一个方案，点击&quot;📂 加载&quot;旁的选择，选择后在此查看审批流
@@ -206,7 +209,7 @@ export function CostScenarioManager({
       {scenarioSubTab === "collab" && (
         <div style={{ display: "grid", gap: 12 }}>
           {selectedScenarioForDetail ? (
-            <CostCollaboration scenario={selectedScenarioForDetail} comments={[]} onAddComment={(content: string) => alert(`评论：${content}`)} />
+            <CostCollaboration scenario={selectedScenarioForDetail} comments={[]} onAddComment={(content: string) => setMsg({ tone: "ok", text: `评论：${content}` })} />
           ) : (
             <div style={{ padding: 20, textAlign: "center", color: "#6b7280", fontSize: 12, border: "1px dashed #e7e9ef", borderRadius: 8 }}>
               请先在列表中选择一个方案

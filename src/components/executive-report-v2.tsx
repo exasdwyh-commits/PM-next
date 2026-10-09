@@ -6,6 +6,7 @@ import { type ExecutiveReportPayload } from "@/shared/executive-report-types";
 import { Count, Tag, type Tone } from "@/components/kx";
 import "./executive-report-v2.css";
 import { useRole } from "./role-context";
+import { Notice, type NoticeMessage } from "./notice";
 import { ExecutiveReportRich } from "./executive-report-rich";
 import "./executive-report-rich.css";
 
@@ -168,6 +169,7 @@ export function ExecutiveReportV2({
 }) {
   const [exporting, setExporting] = React.useState<string | null>(null);
   const [activeView, setActiveView] = React.useState(viewMode);
+  const [msg, setMsg] = React.useState<NoticeMessage | null>(null);
 
   if (!report) {
     return (
@@ -201,7 +203,8 @@ export function ExecutiveReportV2({
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "导出失败");
+      // 导出失败是错误态：用 danger 提示，常驻直到用户关闭（不自动消失）
+      setMsg({ tone: "danger", text: e instanceof Error ? e.message : "导出失败" });
     } finally {
       setExporting(null);
     }
@@ -209,6 +212,7 @@ export function ExecutiveReportV2({
 
   return (
     <section className="er2" data-testid="executive-report-v2">
+      <Notice msg={msg} onClose={() => setMsg(null)} />
       {/* 视图切换 - 让领导层可切换不同角色视角 */}
       <div className="er2-view-switch">
         <button className={activeView === "leadership" || activeView === "all" ? "is-active" : ""} onClick={() => setActiveView("leadership")}>👔 领导视图 (直观证据式)</button>
