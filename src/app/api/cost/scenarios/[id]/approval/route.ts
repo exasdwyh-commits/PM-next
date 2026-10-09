@@ -42,7 +42,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     return NextResponse.json({ approval }, { status: 201 });
   } catch (error) {
-    console.error(`POST /api/cost/scenarios/${id}/approval error:`, error);
+    console.error(`POST /api/cost/scenarios/[id]/approval error:`, error);
     return NextResponse.json({ error: "Failed to submit approval" }, { status: 500 });
   }
 }
@@ -88,7 +88,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     return NextResponse.json({ approval: updatedApproval });
   } catch (error) {
-    console.error(`PUT /api/cost/scenarios/${id}/approval error:`, error);
+    console.error(`PUT /api/cost/scenarios/[id]/approval error:`, error);
     return NextResponse.json({ error: "Failed to update approval" }, { status: 500 });
   }
 }
@@ -108,7 +108,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     return NextResponse.json({ approvals });
   } catch (error) {
-    console.error(`GET /api/cost/scenarios/${id}/approval error:`, error);
+    console.error(`GET /api/cost/scenarios/[id]/approval error:`, error);
     return NextResponse.json({ error: "Failed to fetch approvals" }, { status: 500 });
   }
 }
