@@ -273,7 +273,16 @@ function tokens(text: string): string[] {
   return [...latin, ...bigrams];
 }
 
-/** 关键词打分：标签命中 3 分、标签部分命中 2 分、标题命中 2 分、描述命中 1 分；不可用条目降权但不剔除。 */
+/**
+ * 关键词打分：标签命中 3 分、标签部分命中 2 分、标题命中 2 分、描述命中 1 分；不可用条目降权但不剔除。
+ *
+ * 子串匹配只对**中文**开放。拉丁词做子串是纯噪音：`ai ⊂ claim` 让「宣称评审」
+ * 白拿 2 分，叠一个「什么」撞进描述就凑够门槛，被顶进「今天 AI 行业有什么值得关注」。
+ * 拉丁只认整词等于标签；短于 3 个字符的拉丁词连标题/描述的子串命中也不算。
+ */
+const CJK_TOKEN = /[\u4e00-\u9fff]/;
+const MIN_LATIN_LEN = 3;
+
 export interface CapabilitySearchHit {
   item: CapabilityEntry;
   score: number;
@@ -294,10 +303,14 @@ export function searchCapabilitiesScored(
       const desc = it.description.toLowerCase();
       let score = 0;
       for (const t of q) {
+        const isCjk = CJK_TOKEN.test(t);
+        const shortLatin = !isCjk && t.length < MIN_LATIN_LEN;
         if (tagSet.includes(t)) score += 3;
-        else if (tagSet.some((g) => g.includes(t))) score += 2;
-        if (label.includes(t)) score += 2;
-        if (desc.includes(t)) score += 1;
+        else if (isCjk && tagSet.some((g) => g.includes(t))) score += 2;
+        if (!shortLatin) {
+          if (label.includes(t)) score += 2;
+          if (desc.includes(t)) score += 1;
+        }
       }
       if (!it.available) score *= 0.5;
       return { item: it, score };

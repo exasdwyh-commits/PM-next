@@ -171,3 +171,19 @@ test("仓库里的能力包可被真实文本命中（三句 demo 文案之一�
   assert.ok(r.skills.some((s) => s.domain === "software"), `期望命中 software 域，实际：${r.skills.map((s) => s.id)}`);
   assert.ok(r.knowledgeScopes.includes("files") || r.knowledgeScopes.includes("project"));
 });
+
+test("拉丁短词只认整词：ai 不许靠子串撞 claim 把宣称评审顶进来", () => {
+  clearCapabilitySkillCache();
+  const r = resolveCapabilities({ text: "今天 AI 行业有什么值得关注", intent: "UNSUPPORTED", limit: 3 });
+  assert.notEqual(r.source, "NONE", `demo 文案之一必须命中，实际原因：${r.reason}`);
+  assert.ok(
+    !r.skills.some((s) => s.id === "nutrition-rd.claim-review"),
+    `宣称评审不该被 ai⊂claim 顶进选中集，实际：${r.skills.map((s) => s.id)}`
+  );
+  assert.equal(
+    r.candidates.find((c) => c.id === "nutrition-rd.claim-review"),
+    undefined,
+    "连候选表都不该进——子串白拿的分必须归零"
+  );
+  assert.equal(r.skills[0]?.id, "research.digest", "这条文案的正解是动态摘要");
+});
