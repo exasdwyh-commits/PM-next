@@ -1,5 +1,6 @@
 /** Muse 对话界面的读模型类型（KX-71 从 app/muse/types.ts 下沉到 muse 模块；页面文件 re-export）。 */
 import type { KernGraphV1 } from "@/modules/visual-intelligence/contracts";
+import type { ArtifactCitation } from "@/modules/artifacts/protocol";
 
 export type AiState = "idle" | "working" | "needs-review" | "success" | "error" | "cancelled";
 export type Tone = "accent" | "ok" | "warn" | "block" | "neutral";
@@ -65,7 +66,8 @@ export interface Decision {
 }
 
 export type MessageBlock =
-  | { kind: "text"; text: string }
+  /** `artifacts`: kern-artifact citations referenced by `[[kern-artifact:id@v]]` markers in `text`. */
+  | { kind: "text"; text: string; artifacts?: ArtifactCitation[] }
   /** A completed mission conclusion: rendered as a ResponseEnvelope, `text` is the Markdown fallback. */
   | { kind: "conclusion"; ref: string; text: string }
   | { kind: "graph"; graph: KernGraphV1 }

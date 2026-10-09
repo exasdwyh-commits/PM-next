@@ -43,6 +43,8 @@ export const UNIT_LAYERS: Record<string, LayerId> = {
   "modules/advisor": 2,
   "modules/muse": 2,
   "modules/response-format": 2,
+  // Kern 富回复协议与可视化成果（kern-ui 块、隔离 HTML Artifact 及其版本）：对话核心的一部分。
+  "modules/artifacts": 2,
   "modules/visual-intelligence": 2,
   "modules/memory": 2,
   "modules/playbooks": 2,

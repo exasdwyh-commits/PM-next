@@ -1559,10 +1559,56 @@ model Conversation {
   messages     Message[]
   runs         AgentRun[]
   proposals    ActionProposal[]
+  artifacts    KernArtifact[]
 
   @@index([organizationId])
   @@index([ownerId])
   @@index([productId])
+}
+
+/// Kern 可视化成果（kern-rich/v1）：同一会话内以 key 稳定标识，每次修改追加一个版本。
+/// HTML 只在隔离 iframe（sandbox=allow-scripts，无同源）中渲染，导出为离线单文件。
+model KernArtifact {
+  id             String   @id @default(uuid())
+  organizationId String
+  ownerId        String
+  conversationId String
+  /// 模型给出的稳定标识（同会话唯一），修改成果时沿用
+  key            String
+  kind           String   @default("other")
+  title          String
+  /// 最新一次成功生成的版本号；0 表示尚无可用版本（只有失败记录）
+  currentVersion Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  conversation Conversation          @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  versions     KernArtifactVersion[]
+
+  @@unique([conversationId, key])
+  @@index([organizationId, ownerId])
+}
+
+model KernArtifactVersion {
+  id          String   @id @default(uuid())
+  artifactId  String
+  version     Int
+  /// 产生该版本的助手消息与运行
+  messageId   String?
+  runId       String?
+  title       String
+  /// READY | FAILED
+  status      String
+  error       String?
+  html        String
+  bytes       Int
+  contentHash String
+  createdAt   DateTime @default(now())
+
+  artifact KernArtifact @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+
+  @@unique([artifactId, version])
+  @@index([messageId])
 }
 
 enum MessageRole {

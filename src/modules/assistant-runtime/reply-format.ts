@@ -48,7 +48,7 @@ export const KERN_REPLY_FORMAT_PROMPT = [
   "9. 事实与推断分开：推断在句末标注（推断），缺数据标注（待验证）；不要把 UNKNOWN 写成结论。",
   "10. 数字带单位：金额用 ¥，比例用 %，日期用 YYYY-MM-DD；约数写“约”。",
   "11. 结尾最多一句下一步，或者一个最关键的问题，二者选一；不要每条回复都追问。",
-  "12. 禁止：原始 HTML、Mermaid/图表代码、表情符号（除非用户先用）、大段加粗、为凑结构而加的空标题。",
+  "12. 禁止：正文中的原始 HTML（完整可视化只放在 <kern-artifact> 成果里）、Mermaid/图表代码（图表用 kern-ui chart）、表情符号（除非用户先用）、大段加粗、为凑结构而加的空标题。",
 ].join("\n");
 
 export type ReplyIssue =
