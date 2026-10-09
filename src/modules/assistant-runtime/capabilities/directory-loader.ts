@@ -3,7 +3,7 @@
  * 单独一个文件，是为了让 directory.ts 保持可以离线单测。
  */
 import type { SessionContext } from "@/modules/identity/session";
-import type { CapabilityDirectory } from "@/modules/kern-contracts";
+import type { CapabilityDirectory, CapabilitySkillDiagnostic } from "@/modules/kern-contracts";
 import { listConnectors } from "@/modules/connectors";
 import { readDesktopPresence } from "@/modules/desktop-runtime/presence";
 import { getKnowledgeOverview } from "@/modules/knowledge/service";
@@ -11,9 +11,11 @@ import { listPlaybooks } from "@/modules/playbooks/service";
 import { BUILTIN_TOOLS, makeAskUserTool, toolsFor } from "@/modules/supervisor/tools";
 import { getWebSearch } from "@/modules/supervisor/web-search";
 import { buildCapabilityDirectory } from "./directory";
+import { loadCapabilitySkills } from "./skill-registry";
 
 export async function loadCapabilityDirectory(session: SessionContext): Promise<CapabilityDirectory> {
   const webSearchConfigured = getWebSearch() !== null;
+  const skillPacks = loadCapabilitySkills();
   const [connectors, playbooks, knowledge] = await Promise.all([
     listConnectors(session),
     listPlaybooks(session),
@@ -46,5 +48,11 @@ export async function loadCapabilityDirectory(session: SessionContext): Promise<
       })),
       confirmedFactsCount: knowledge.stats.confirmedFactsCount,
     },
+    skills: skillPacks.skills,
   });
+}
+
+/** 能力包加载诊断（哪些 SKILL.md 没生效、为什么），给 Inspector 与日志用。 */
+export function capabilitySkillDiagnostics(): CapabilitySkillDiagnostic[] {
+  return loadCapabilitySkills().diagnostics;
 }

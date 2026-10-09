@@ -7,5 +7,6 @@
 export * from "./mission-plan";
 export * from "./tools";
 export * from "./capability";
+export * from "./knowledge";
 export * from "./task-contract";
 export * from "./metrics";

@@ -512,6 +512,14 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
     ownerGate: [200],
   },
+  {
+    path: "/api/capabilities/resolve",
+    method: "GET",
+    authz:
+      "Capability Inspector（KX-73）：只回答「这句话会选哪些能力包、为什么、要不要查知识、证据要求是什么」——纯只读，不执行能力、不写库，响应里也没有任何组织级数据",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+  },
   // ---------- 本机执行（Hermes Desktop Runtime） ----------
   //
   // 这一组的路由都是**用户自作用域**，不是项目作用域：路径里没有项目 id，
@@ -1063,6 +1071,16 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     authz: "知识检索：仅限调用者组织且受控资料范围",
     expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
     ownerGate: [200],
+    crossTenant: true,
+  },
+  {
+    path: "/api/knowledge/synthesize",
+    method: "POST",
+    authz:
+      "Knowledge Router + 综合（KX-73）：只读检索，各 provider 按调用方组织隔离；只有给了 projectId 且具备证据写入权限才写 Evidence——本探测不带 projectId，因此对任何登录身份都是纯读",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    body: { query: "矩阵探测", bindEvidence: false },
     crossTenant: true,
   },
   {

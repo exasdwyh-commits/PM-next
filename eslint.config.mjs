@@ -11,6 +11,8 @@ export default defineConfig([
     ".next/**",
     ".next-verify/**",
     ".next-acc/**",
+    ".next-v2/**",
+    ".next-v3/**",
     "node_modules/**",
     ".tmp-pg/**",
     ".uploads/**",

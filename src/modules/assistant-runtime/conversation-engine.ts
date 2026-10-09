@@ -46,6 +46,7 @@ import { randomUUID } from "node:crypto";
 import { KERN_RICH_PROMPT, describeMarkers, extractArtifacts, readArtifactCitation, type ExtractedArtifact } from "@/modules/artifacts/protocol";
 import { sanitizeRichFences } from "@/modules/artifacts/rich-blocks";
 import { buildArtifactPromptContext, persistReplyArtifacts } from "@/modules/artifacts/service";
+import { buildKernContextLayers } from "./context-layers";
 
 /** Model text → (artifacts pulled out first, so HTML never meets the Markdown harness) → normalised Markdown with validated kern-ui blocks. */
 export function formatModelReply(raw: string): { reply: NormalizedReply; artifacts: ExtractedArtifact[]; richIssues: string[] } {
@@ -361,8 +362,19 @@ export async function executeKernConversationTurn(
         ? `## 检测到角色意图\n- 推断角色：${roleInference.role} (${Math.round(roleInference.confidence * 100)}%)\n- 原因：${roleInference.reason}\n- 要求：按此角色呈现（只调整详略与重点，不在正文输出角色标签或 JSON）。`
         : "";
     const artifactPrompt = await buildArtifactPromptContext(conversationId).catch(() => "");
+    // 能力层 + 知识层（KX-73）：解析本轮该用哪些能力包、去哪些知识域查。
+    // 永不抛错；解析失败时两个层都是空字符串，对话照常走。
+    const contextLayers = await buildKernContextLayers({
+      session,
+      text,
+      intent,
+      explicitSkillIds: runtimeSelection.config.capabilityPackIds ?? null,
+      projectId: null,
+    }).catch(() => null);
+    const capabilityPrompt = contextLayers?.capabilityPrompt ?? "";
+    const knowledgePrompt = contextLayers?.knowledgePrompt ?? "";
     // One output contract for the model: reply-format (in basePersona) + kern-rich/v1 (KERN_RICH_PROMPT).
-    const assistantPersona = [basePersona, KERN_RICH_PROMPT, artifactPrompt, memoryPrompt, rolePrompt, selectionPrompt]
+    const assistantPersona = [basePersona, KERN_RICH_PROMPT, artifactPrompt, memoryPrompt, rolePrompt, capabilityPrompt, knowledgePrompt, selectionPrompt]
       .filter((value): value is string => Boolean(value))
       .join("\n\n");
     const llmMessages: AdvisorLLMMessage[] = assistantPersona

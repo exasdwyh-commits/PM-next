@@ -19,6 +19,7 @@ import { buildTaskContract } from "./contract";
 import type { TaskContract } from "@/modules/kern-contracts";
 import { searchCapabilities } from "@/modules/assistant-runtime/capabilities/directory";
 import { loadCapabilityDirectory } from "@/modules/assistant-runtime/capabilities/directory-loader";
+import { resolveCapabilities } from "@/modules/assistant-runtime/capabilities/resolver";
 import { requiredCompetitorQuestions, validCompetitorSubject, detectCompetitorResearch, competitorSubject, COMPETITOR_DEFAULT_SCOPE } from "./competitor-brief";
 import { getMissionReadiness } from "./readiness";
 
@@ -219,11 +220,17 @@ export function briefContract(brief: Pick<MissionBrief, "plan" | "questions" | "
   return buildTaskContract({ plan: brief.plan, answers, playbookName: brief.playbookRef?.name ?? null, capabilities });
 }
 
-/** KX-71 接线：按目标在能力目录里检索，命中的可用条目写进契约卡「会用到的能力」。失败不影响出卡。 */
+/** KX-71/73 接线：能力包（文件式）走 Capability Resolver，原生/工具/连接器条目走能力目录；两者去重后出卡。失败不影响出卡。 */
 async function suggestCapabilities(session: SessionContext, goal: string): Promise<string[]> {
   try {
+    const resolution = resolveCapabilities({ text: goal, intent: "UNSUPPORTED", limit: 6 });
     const directory = await loadCapabilityDirectory(session);
-    return searchCapabilities(directory.items.filter((i) => i.available), goal, 6).map((i) => i.label);
+    const others = searchCapabilities(
+      directory.items.filter((i) => i.available && !i.capabilityId),
+      goal,
+      6
+    ).map((i) => i.label);
+    return [...new Set([...resolution.skills.map((s) => s.label), ...others])].slice(0, 6);
   } catch {
     return [];
   }

@@ -15,6 +15,12 @@ export interface KernConversationRuntimeConfig {
   advisorCodes: string[] | null;
   skillKeys: string[] | null;
   capabilityKeys: KernCapabilityKey[] | null;
+  /**
+   * 文件式能力包（`capabilities/<域>/<名称>/SKILL.md`）的 id，形如 `<域>.<名称>`。
+   * 与 `capabilityKeys`（原生能力）是两个命名空间：前者圈「用哪套做法」，后者圈「开哪些功能」。
+   * 可选：历史配置里没有这个字段，省略即「不限」。
+   */
+  capabilityPackIds?: string[] | null;
 }
 
 export interface KernConversationControlOption {
@@ -38,6 +44,7 @@ export const DEFAULT_KERN_CONVERSATION_RUNTIME_CONFIG: KernConversationRuntimeCo
   advisorCodes: null,
   skillKeys: null,
   capabilityKeys: null,
+  capabilityPackIds: null,
 };
 
 function record(value: unknown): Record<string, unknown> {
@@ -63,6 +70,7 @@ export function normalizeKernConversationRuntimeConfig(
   const advisorCodes = stringListOrNull(raw.advisorCodes);
   const skillKeys = stringListOrNull(raw.skillKeys);
   const requestedCapabilities = stringListOrNull(raw.capabilityKeys);
+  const capabilityPackIds = stringListOrNull(raw.capabilityPackIds);
   const allowed = new Set(KERN_CAPABILITY_CATALOG.map((item) => item.key));
   const capabilityKeys =
     requestedCapabilities === null
@@ -78,6 +86,7 @@ export function normalizeKernConversationRuntimeConfig(
     advisorCodes,
     skillKeys,
     capabilityKeys,
+    capabilityPackIds,
   };
 }
 
@@ -94,7 +103,7 @@ export async function validateKernConversationRuntimeConfig(
   if (value.modelProfileKey !== undefined && value.modelProfileKey !== null && typeof value.modelProfileKey !== "string") {
     throw new UnprocessableEntityError("模型选择必须为文本或 null");
   }
-  for (const key of ["advisorCodes", "skillKeys", "capabilityKeys"] as const) {
+  for (const key of ["advisorCodes", "skillKeys", "capabilityKeys", "capabilityPackIds"] as const) {
     const selection = value[key];
     if (selection !== undefined && selection !== null && (!Array.isArray(selection) || selection.some((item) => typeof item !== "string" || !item.trim()))) {
       throw new UnprocessableEntityError(`${key} 必须为非空文本数组或 null`, {

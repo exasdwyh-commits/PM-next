@@ -9,7 +9,7 @@
  * 注意：这里只「登记 + 检索」，不执行。执行仍走各自的通道
  * （Capability Registry / supervisor 工具循环 / 连接器运行时 / 做法匹配）。
  */
-import type { CapabilityAccess, CapabilityDirectory, CapabilityEntry, CapabilityKind } from "@/modules/kern-contracts";
+import type { CapabilityAccess, CapabilityDirectory, CapabilityEntry, CapabilityKind, CapabilitySkillDefinition } from "@/modules/kern-contracts";
 import { KERN_CAPABILITY_CATALOG } from "./catalog";
 
 // ---------------------------------------------------------------------------
@@ -57,6 +57,12 @@ export interface CapabilityDirectoryInputs {
   connectors: DirectoryConnectorInput[];
   playbooks: DirectoryPlaybookInput[];
   knowledge: DirectoryKnowledgeInput;
+  /**
+   * 文件式能力包（capabilities/**&#47;SKILL.md）。与 playbooks 同为 `kind: "skill"`：
+   * 前者是「写下来的做法」，后者是「沉淀出来的做法」，靠 `source` 与 `capabilityId` 区分。
+   * 可选，缺省为空——老调用方不必改。
+   */
+  skills?: CapabilitySkillDefinition[];
   now?: Date;
 }
 
@@ -172,6 +178,39 @@ function skillEntries(playbooks: DirectoryPlaybookInput[]): CapabilityEntry[] {
   }));
 }
 
+/** 文件式能力包 → 目录条目。id 形如 `skill:research.knowledge-synthesis`，带 capabilityId 回指完整定义。 */
+export function capabilityPackEntries(skills: CapabilitySkillDefinition[]): CapabilityEntry[] {
+  return skills.map((s) => ({
+    id: `skill:${s.id}`,
+    kind: "skill",
+    label: s.label,
+    description: s.description,
+    input: s.triggers.length
+      ? `相近说法：${s.triggers.slice(0, 4).join("、")}`
+      : "对话里直接描述目标",
+    output: s.outputTypes.length
+      ? s.outputTypes.join(" / ")
+      : "按该能力做法生成的回复或交付物",
+    access: "read",
+    source: `能力包 ${s.domain}（${s.sourcePath}）`,
+    audit: "会话里的 capability 解析记录（/api/capabilities/resolve）与任务时间线",
+    available: true,
+    unavailableReason: null,
+    tags: [
+      s.domain,
+      s.name,
+      s.id,
+      "能力包",
+      "capability",
+      "skill",
+      ...s.triggers,
+      ...s.intents.map((i) => i.toLowerCase()),
+      ...s.outputTypes,
+    ],
+    capabilityId: s.id,
+  }));
+}
+
 function knowledgeEntries(k: DirectoryKnowledgeInput): CapabilityEntry[] {
   const sources = k.sources.map<CapabilityEntry>((s) => ({
     id: `knowledge:${s.id}`,
@@ -216,6 +255,7 @@ export function buildCapabilityDirectory(inputs: CapabilityDirectoryInputs): Cap
     ...toolEntries(inputs.tools, inputs.webSearchConfigured),
     ...pluginEntries(inputs.connectors),
     ...skillEntries(inputs.playbooks),
+    ...capabilityPackEntries(inputs.skills ?? []),
     ...knowledgeEntries(inputs.knowledge),
   ];
   const counts = Object.fromEntries(KINDS.map((k) => [k, 0])) as Record<CapabilityKind, number>;
@@ -234,9 +274,19 @@ function tokens(text: string): string[] {
 }
 
 /** 关键词打分：标签命中 3 分、标签部分命中 2 分、标题命中 2 分、描述命中 1 分；不可用条目降权但不剔除。 */
-export function searchCapabilities(items: CapabilityEntry[], query: string, limit = 8): CapabilityEntry[] {
+export interface CapabilitySearchHit {
+  item: CapabilityEntry;
+  score: number;
+}
+
+/** 带分版本；`searchCapabilities` 是它的薄封装。Resolver 用分数排序与解释「为什么选中」。 */
+export function searchCapabilitiesScored(
+  items: CapabilityEntry[],
+  query: string,
+  limit = 8
+): CapabilitySearchHit[] {
   const q = tokens(query);
-  if (!q.length) return items.slice(0, limit);
+  if (!q.length) return items.slice(0, limit).map((item) => ({ item, score: 0 }));
   const scored = items
     .map((it) => {
       const tagSet = it.tags.map((t) => t.toLowerCase());
@@ -250,11 +300,15 @@ export function searchCapabilities(items: CapabilityEntry[], query: string, limi
         if (desc.includes(t)) score += 1;
       }
       if (!it.available) score *= 0.5;
-      return { it, score };
+      return { item: it, score };
     })
     .filter((s) => s.score > 0)
-    .sort((a, b) => b.score - a.score || a.it.label.localeCompare(b.it.label, "zh"));
-  return scored.slice(0, limit).map((s) => s.it);
+    .sort((a, b) => b.score - a.score || a.item.label.localeCompare(b.item.label, "zh"));
+  return scored.slice(0, limit);
+}
+
+export function searchCapabilities(items: CapabilityEntry[], query: string, limit = 8): CapabilityEntry[] {
+  return searchCapabilitiesScored(items, query, limit).map((s) => s.item);
 }
 
 /** 给模型看的紧凑清单（一行一条），只列可用条目。 */
