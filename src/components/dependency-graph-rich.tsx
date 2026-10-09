@@ -26,7 +26,9 @@ const DEFAULT_NODES: DependencyNode[] = [
 ];
 
 export interface DependencyGraphRichProps {
-  category?: CategoryKey | string;
+  /** 分类键。原先写作 `keyof typeof CATEGORY_INFO | string`，等价于 string——
+   *  CATEGORY_INFO 删除后改为 CategoryKey，而 CategoryKey 现已是 string（分类键由 pack 定义）。 */
+  category?: CategoryKey;
   nodes?: DependencyNode[];
   onAutoAdvance?: () => void | Promise<void>;
 }
