@@ -96,16 +96,16 @@ export function buildKernCollaborationPlanShadow(input: {
     if (pattern.test(text)) add(code, reason);
   }
 
-  // --- Role Intelligence: 根据角色自动选择专家 ---
+  // --- Role Intelligence ---
+  // 角色只是呈现提示（persona 按角色调整详略与重点），只记录建议专家，不计入 experts：
+  // 否则「方案 / 成本 / 风险」这类日常词会把普通对话升级成 COUNCIL/PAIR 任务，
+  // 任务简报随后整条覆盖 Kern 的回复（富回复与成果随之消失）。
   const roleSwitch = detectRoleSwitchIntent(text);
   const roleInference = inferRoleFromText(text);
   const detectedRole: UserRole | null = roleSwitch || (roleInference?.role as UserRole) || null;
   if (detectedRole) {
-    const roleExperts = expertsForRole(detectedRole);
-    for (const code of roleExperts) {
-      if (!experts.has(code)) {
-        add(code, `ROLE_${detectedRole.toUpperCase()}_${code}`);
-      }
+    for (const code of expertsForRole(detectedRole)) {
+      if (!experts.has(code)) reasons.push(`ROLE_SUGGESTS_${code}`);
     }
     reasons.push(`DETECTED_ROLE_${detectedRole.toUpperCase()}`);
     if (roleInference) reasons.push(`ROLE_CONFIDENCE_${Math.round(roleInference.confidence * 100)}`);
@@ -150,13 +150,10 @@ export function buildKernCollaborationPlanShadow(input: {
     /(最新|现在|当前|数据|证据|研究|竞品|法规)/.test(text);
 
   let mode: KernCouncilMode;
-  // Role-based mode: leadership -> SOLO, product -> COUNCIL, sales -> PAIR
-  if (detectedRole === "leadership" && experts.size <= 2) {
+  // Role may only de-escalate (leadership → concise SOLO answer); it never escalates to a mission.
+  if (detectedRole === "leadership" && experts.size <= 2 && !explicitFullRnd && !explicitRedTeam) {
     mode = "SOLO";
     reasons.push("ROLE_LEADERSHIP_SOLO");
-  } else if (detectedRole === "sales" && experts.size <= 3) {
-    mode = "PAIR";
-    reasons.push("ROLE_SALES_PAIR");
   } else if (explicitFullRnd) mode = "FULL_RND";
   else if (explicitRedTeam) mode = "RED_TEAM";
   else if (experts.size >= 3 || (complexity === "HARD" && experts.size >= 2)) mode = "COUNCIL";
@@ -187,7 +184,7 @@ export function buildKernCollaborationPlanShadow(input: {
 
   const source =
     input.reflex.mode === "SHADOW" && reasons.some((reason) => reason.startsWith("REFLEX_"))
-      ? reasons.length > 1
+      ? reasons.filter((reason) => !/^(ROLE_|DETECTED_ROLE_)/.test(reason)).length > 1
         ? "HYBRID"
         : "REFLEX"
       : "DETERMINISTIC";

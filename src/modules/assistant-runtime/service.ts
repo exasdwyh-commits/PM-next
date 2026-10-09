@@ -8,6 +8,20 @@ import { detectRolePreferenceIntent, rememberRolePreference } from "@/modules/me
 import { inferRoleFromText } from "./role-intelligence";
 import type { SessionContext } from "@/modules/identity/session";
 import { executeKernConversationTurn } from "./conversation-engine";
+import { artifactCitations } from "@/modules/artifacts/protocol";
+import { hasRichContent } from "@/modules/artifacts/rich-blocks";
+
+/** kern-rich/v1: when a reply is superseded (brief), keep its artifact markers + citations so versions stay reachable. */
+/**
+ * A reply that already carries a kern-rich/v1 answer (rich blocks or a versioned artifact) is a
+ * finished deliverable — a mission brief may be offered next to it, but must not replace it,
+ * otherwise the artifact version it created would be orphaned and the answer lost.
+ */
+function richAnswerOf(message: { content: string; citations: unknown }) {
+  const citations = Array.isArray(message.citations) ? (message.citations as unknown[]) : [];
+  const rich = hasRichContent(message.content) || artifactCitations(citations).length > 0;
+  return { rich, content: message.content, citations };
+}
 import { buildDepartmentAssistantContext } from "./context-builder";
 import { runDepartmentAssistantReflexShadow } from "./reflex";
 import { buildKernCollaborationPlanShadow } from "./collaboration-planner";
@@ -209,13 +223,20 @@ export async function sendDepartmentAssistantMessage(
             ].filter(Boolean).join("\n\n")
           : "**这件事我来牵头。** 下面是我拟的计划，你确认后团队就开工；也可以先调整，或用演示模式看看效果。";
       const note = note0 + quotaFull;
+      const answer = richAnswerOf(result.message);
       responseMessage = await updateMessage({
         where: { id: result.message.id },
-        data: {
-          // The router's single-turn reply (e.g. an intake form) is superseded by the brief.
-          content: note,
-          citations: JSON.parse(JSON.stringify([briefCitation(result.message.id, brief)])) as Prisma.InputJsonValue,
-        },
+        data: answer.rich
+          ? {
+              // Keep the delivered rich answer (blocks + artifact markers/citations); the brief is an offer.
+              content: `${answer.content}\n\n---\n\n如果要让团队把这件事深入推进，下面是我拟的计划；你确认后才会开工，不确认不会消耗额度。${quotaFull}`,
+              citations: JSON.parse(JSON.stringify([...answer.citations, briefCitation(result.message.id, brief)])) as Prisma.InputJsonValue,
+            }
+          : {
+              // The router's single-turn reply (e.g. an intake form) is superseded by the brief.
+              content: note,
+              citations: JSON.parse(JSON.stringify([briefCitation(result.message.id, brief)])) as Prisma.InputJsonValue,
+            },
       });
     } catch (error: unknown) {
       missionError = error instanceof Error ? error.message : String(error);
