@@ -1003,15 +1003,19 @@ export default function KernClient({ model }: { model: StudioModel }) {
             <Btn size="sm" v="ghost" onClick={() => setFeedback(null)} aria-label="关闭提示"><I.close /></Btn>
           </div>
         ) : null}
-        <div style={{ padding: '0 16px' }}><DailyBriefing category="health_food" />
-      <KernRoleBar /></div>
+        {/* Role bar stays pinned; the daily briefing lives inside the scroll lane of an empty
+            conversation only — pinned above the scroller it squeezed .m-scroll to 0px on mobile. */}
+        <div style={{ padding: '0 16px', flex: 'none' }}><KernRoleBar /></div>
         <div className="m-scroll" ref={scrollRef} onScroll={onScroll}>
           <ConclusionDecisions key={conversationId ?? "new"}
             replies={messages.filter(m => m.author === "user" && m.state === "success" && !m.id.startsWith("local-")).flatMap(m => m.blocks.flatMap(b => b.kind === "text" ? [b.text] : []))}
             disabled={sending || Boolean(processing) || Boolean(decisionBusy)} send={send}>
           <div className="m-lane">
             {conversationId === null && !sending && messages.length === 0 ? (
+              <>
+              <DailyBriefing category="health_food" />
               <Blank seeds={brief.suggestions} attention={brief.attention} userName={model.user.name} onSeed={updateDraft} onOpen={pickConversation} />
+              </>
             ) : (
               <>
                 {displayedMessages.map((message, index) => (

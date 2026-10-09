@@ -12,13 +12,13 @@ export function KernRoleBar() {
       alignItems: "center",
       gap: 10,
       padding: "8px 12px",
-      background: "#f6f7f9",
+      background: "var(--k-glass-sunk, #f6f7f9)",
       borderRadius: 10,
-      border: "1px solid #e7e9ef",
+      border: "1px solid var(--k-line, #e7e9ef)",
       marginBottom: 12,
       flexWrap: "wrap"
     }}>
-      <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280" }}>当前视角</span>
+      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--k-ink-3, #6b7280)" }}>当前视角</span>
       <div className="role-switch" style={{ padding: 2 }}>
         <button className={role === "leadership" ? "is-active" : ""} onClick={() => setManualRole("leadership")} title="直观看的懂，一页看懂结论">👔 领导</button>
         <button className={role === "product" ? "is-active" : ""} onClick={() => setManualRole("product")} title="专业严谨，可信度第一">🔬 研发</button>
