@@ -40,6 +40,18 @@ import {
   resolveKernConversationRuntimeSelection,
 } from "./conversation-config";
 import { resolveExplicitConversationModel } from "./conversation-model";
+import { randomUUID } from "node:crypto";
+import { KERN_RICH_PROMPT, describeMarkers, extractArtifacts, readArtifactCitation, type ExtractedArtifact } from "@/modules/artifacts/protocol";
+import { sanitizeRichFences } from "@/modules/artifacts/rich-blocks";
+import { buildArtifactPromptContext, persistReplyArtifacts } from "@/modules/artifacts/service";
+
+/** Model text → (artifacts pulled out first, so HTML never meets the Markdown harness) → normalised Markdown with validated kern-ui blocks. */
+export function formatModelReply(raw: string): { reply: NormalizedReply; artifacts: ExtractedArtifact[]; richIssues: string[] } {
+  const extracted = extractArtifacts(raw);
+  const reply = normalizeReply(extracted.text);
+  const rich = sanitizeRichFences(reply.text);
+  return { reply: { ...reply, text: rich.text }, artifacts: extracted.artifacts, richIssues: rich.issues };
+}
 
 /**
  * Kern owns the conversational run lifecycle.
@@ -271,15 +283,22 @@ export async function executeKernConversationTurn(
   let historyTurns = 0;
   let conversationHistory: { role: string; content: string }[] = [];
   let replyFormat: NormalizedReply | null = null;
+  let replyArtifacts: ExtractedArtifact[] = [];
+  let richIssues: string[] = [];
   try {
     const historyRows = await prisma.message.findMany({
       where: historyFilter,
       orderBy: { createdAt: "asc" },
-      select: { role: true, content: true },
+      select: { role: true, content: true, citations: true },
     });
     conversationHistory = historyRows.map((message) => ({
       role: message.role,
-      content: message.content,
+      // Persisted artifact markers become readable placeholders; the HTML itself is
+      // supplied once, via the artifact context in the system prompt.
+      content: describeMarkers(
+        message.content,
+        (Array.isArray(message.citations) ? message.citations : []).map(readArtifactCitation).filter((c): c is NonNullable<typeof c> => c !== null)
+      ),
     }));
     historyTurns = conversationHistory.length;
   } catch {
@@ -332,7 +351,8 @@ export async function executeKernConversationTurn(
     );
     const selectionPrompt = buildKernConversationSelectionPrompt(runtimeSelection);
     const memoryPrompt = await recallForPrompt(session, text).catch(() => "");
-    const assistantPersona = [basePersona, memoryPrompt, selectionPrompt]
+    const artifactPrompt = await buildArtifactPromptContext(conversationId).catch(() => "");
+    const assistantPersona = [basePersona, KERN_RICH_PROMPT, artifactPrompt, memoryPrompt, selectionPrompt]
       .filter((value): value is string => Boolean(value))
       .join("\n\n");
     const llmMessages: AdvisorLLMMessage[] = assistantPersona
@@ -367,7 +387,7 @@ export async function executeKernConversationTurn(
 
         modelRunId = gatewayExecution.modelRunId;
         const gatewayResult = gatewayExecution.result;
-        replyFormat = normalizeReply(gatewayResult.text);
+        ({ reply: replyFormat, artifacts: replyArtifacts, richIssues } = formatModelReply(gatewayResult.text));
         result = { ...result, text: replyFormat.text };
         modelOutputUsed = true;
         llmModelId = gatewayResult.resolvedModelId;
@@ -400,7 +420,7 @@ export async function executeKernConversationTurn(
         });
         modelRunId = llmResult.modelRunId;
         actualProvider = llmResult.provider;
-        replyFormat = normalizeReply(llmResult.text);
+        ({ reply: replyFormat, artifacts: replyArtifacts, richIssues } = formatModelReply(llmResult.text));
         result = { ...result, text: replyFormat.text };
         modelOutputUsed = true;
         llmUsage = llmResult.usage;
@@ -438,7 +458,7 @@ export async function executeKernConversationTurn(
         text: result.text,
         ...(result.proposal ? { proposal: result.proposal } : {}),
         ...(replyFormat
-          ? { replyFormat: { version: KERN_REPLY_FORMAT_VERSION, fixed: replyFormat.fixed, issues: replyFormat.issues } }
+          ? { replyFormat: { version: KERN_REPLY_FORMAT_VERSION, fixed: replyFormat.fixed, issues: replyFormat.issues, richIssues, artifacts: replyArtifacts.map((a) => ({ key: a.key, complete: a.complete, error: a.error, bytes: a.html.length })) } }
           : {}),
       } as any,
       status: failed ? "FAILED" : "SUCCEEDED",
@@ -475,13 +495,23 @@ export async function executeKernConversationTurn(
       ]
     : result.citations;
 
+  // Artifacts are versioned in the same transaction as the reply that produced them.
+  const assistantMessageId = randomUUID();
+  const persisted = replyArtifacts.length
+    ? await persistReplyArtifacts(tx, {
+        organizationId: session.organizationId, ownerId: session.userId, conversationId,
+        messageId: assistantMessageId, runId: run.id, content: header + result.text, artifacts: replyArtifacts,
+      })
+    : { content: header + result.text, citations: [] };
+
   const assistantMsg = await tx.message.create({
     data: {
+      id: assistantMessageId,
       conversationId,
       role: "ASSISTANT",
-      content: header + result.text,
+      content: persisted.content,
       runId: run.id,
-      citations: JSON.parse(JSON.stringify(citationsWithReport)),
+      citations: JSON.parse(JSON.stringify([...citationsWithReport, ...persisted.citations])),
     },
   });
 

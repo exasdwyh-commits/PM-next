@@ -26,10 +26,13 @@ import type {
 } from "./types";
 
 import { isMissionConclusionCitation } from "@/modules/supervisor/report-format";
+import { artifactCitations, isArtifactCitation } from "@/modules/artifacts/protocol";
 
 function conclusionBlock(text: string, citations: unknown[]): MessageBlock {
   const ref = citations.map(isMissionConclusionCitation).find((id): id is string => !!id);
-  return ref ? { kind: "conclusion", ref, text } : { kind: "text", text };
+  if (ref) return { kind: "conclusion", ref, text };
+  const artifacts = artifactCitations(citations);
+  return artifacts.length ? { kind: "text", text, artifacts } : { kind: "text", text };
 }
 
 const ACTIVE_TASK_STATUSES: AgentTaskStatus[] = [
@@ -99,7 +102,7 @@ function messageView(row: {
   const hasBrief = citations.some(isBrief);
   const refs = citations
     .map((citation, index) =>
-      readKernGraphCitation(citation) || isMission(citation) || isBrief(citation)
+      readKernGraphCitation(citation) || isMission(citation) || isBrief(citation) || isArtifactCitation(citation)
         ? null
         : evidenceFromCitation(citation, index, row.createdAt)
     )
@@ -552,6 +555,7 @@ export async function buildKernViewModel(
 function plainPreview(content?: string | null): string {
   if (!content) return "";
   return content
+    .replace(/\[\[kern-artifact:[^\]]+\]\]/g, " 〔可视化成果〕 ")
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/^\s{0,3}(#{1,6}|>|[-*+]|\d+\.)\s+/gm, "")
     .replace(/(\*\*|__|\*|`|~~)/g, "")

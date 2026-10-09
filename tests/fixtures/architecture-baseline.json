@@ -120,10 +120,6 @@
       "why": "app 层（Route Handler / Server Component）直接 import 共享 prisma 客户端的历史写法，早于「走模块服务」约定；AL3 保证新文件不再新增，存量逐个迁移到模块服务。"
     },
     {
-      "key": "src/app/api/research/fetch/route.ts",
-      "why": "Arena 交付的抓取接口，fetch 后直接落 EvidenceSourceCapture。消除路径：落库封装下沉到 modules/evidence（同目录已有 source-fetch-executor / source-fetcher），路由只做入参白名单与配额校验。"
-    },
-    {
       "key": "src/app/api/research/verify/route.ts",
       "why": "Arena 交付的独立校验接口，取 capture 后调 verifier 并落 EvidenceVerification。消除路径：下沉到 modules/evidence/verification-service.ts（已有 verifyEvidenceClaim，需补「裸 claim + sourceId」入口），路由只留入参校验。"
     },

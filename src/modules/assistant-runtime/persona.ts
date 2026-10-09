@@ -20,7 +20,7 @@ import { KERN_REPLY_FORMAT_PROMPT } from "./reply-format";
  */
 
 export const DEPARTMENT_ASSISTANT_PERSONA_VERSION =
-  "department-assistant-persona/2026-09-29-v5";
+  "department-assistant-persona/2026-10-09-v6";
 
 const ASSISTANT_TASK_CLASSES = new Set<string>([
   "ASSISTANT_DIALOGUE",

@@ -204,6 +204,29 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     body: { config: { version: "kern-conversation-config/v1", modelProfileKey: null, advisorCodes: null, skillKeys: null, capabilityKeys: null } },
   },
 
+  // ---------- Kern 富回复与 HTML 成果（kern-rich/v1，2026-10-09）：会话本人作用域 ----------
+  {
+    path: "/api/artifacts/{id}",
+    method: "GET",
+    authz: "成果概要与版本列表：组织 + 会话本人，其他人一律 404，不泄露存在性",
+    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
+    ownerGate: [200],
+  },
+  {
+    path: "/api/artifacts/{id}/versions/{version}",
+    method: "GET",
+    authz: "成果某一版本的 HTML：同上（前端只在 sandbox iframe 渲染）",
+    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
+    ownerGate: [200],
+  },
+  {
+    path: "/api/artifacts/{id}/versions/{version}/download",
+    method: "GET",
+    authz: "下载离线 HTML（附件 + CSP sandbox）：同上",
+    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
+    ownerGate: [200],
+  },
+
   // ---------- Kern 个人助理：任务进展与长期记忆（用户自作用域） ----------
   {
     path: "/api/missions/{id}",

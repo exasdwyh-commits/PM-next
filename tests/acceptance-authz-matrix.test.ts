@@ -95,9 +95,12 @@ const MARK = CROSS_TENANT_MARKER;
  *   main 上的实际值是 94 / 131（矩阵当时也是 131 条，AC1 是绿的）。
  *   也就是说基线常量比真实值少了 2 路由 / 3 方法 —— 场景 1.3/1.4 在此次移植前
  *   就已经是红的，与本批新路由无关。此次一并校正到 113 / 170。
+ *
+ * 2026-10-09（Kern 富回复与 HTML 成果）：+3 路由 / +3 方法（/api/artifacts/{id}、
+ *   /api/artifacts/{id}/versions/{version}、…/download，均 GET）。仅会话本人，他人 404。
  */
-const BASELINE_ROUTES = 113;
-const BASELINE_METHODS = 170;
+const BASELINE_ROUTES = 116;
+const BASELINE_METHODS = 173;
 
 let passed = 0;
 const failures: string[] = [];
@@ -366,6 +369,13 @@ async function main() {
   const convA = await prisma.conversation.create({
     data: { organizationId: orgA.id, ownerId: ownerA.id, title: `${MARK} 会话` },
   });
+  // 2026-10-09 Kern 成果（kern-rich/v1）：会话本人可读，他人 404。
+  const artifactA = await prisma.kernArtifact.create({
+    data: {
+      organizationId: orgA.id, ownerId: ownerA.id, conversationId: convA.id, key: "matrix-probe", title: `${MARK} 成果`, currentVersion: 1,
+      versions: { create: { version: 1, title: `${MARK} 成果`, status: "READY", html: "<!doctype html><html><body>probe</body></html>", bytes: 46, contentHash: "probe" } },
+    },
+  });
   const propA = await prisma.actionProposal.create({
     data: {
       organizationId: orgA.id,
@@ -558,6 +568,7 @@ async function main() {
     [/^\/api\/agent-runs\//, agentRunA.id],
     [/^\/api\/attachments\//, evidenceA.id],
     [/^\/api\/conversations\//, convA.id],
+    [/^\/api\/artifacts\//, artifactA.id],
     [/^\/api\/decision-packets\//, packetA.id],
     [/^\/api\/evidences\//, evidenceA.id],
     [/^\/api\/feedback\//, feedbackA.id],
@@ -585,7 +596,8 @@ async function main() {
     if (!template.includes("{")) return template;
     const hit = RESOLVERS.find(([re]) => re.test(template));
     if (!hit) throw new Error(`无法解析路由占位符：${template}`);
-    return template.replace(/\{\w+\}/g, hit[1]);
+    // 成果版本号是数字段，单独展开为 1（其余占位符共用夹具 id）。
+    return template.replace(/\{version\}/g, "1").replace(/\{\w+\}/g, hit[1]);
   };
 
   /**
