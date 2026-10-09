@@ -9,6 +9,7 @@ import type { BomItem } from "./bom-import";
 import type { SupplierQuote } from "./supplier-quote";
 import type { ComplianceItem } from "./compliance-checklist";
 import type { ResponseEnvelope, Block } from "@/modules/response-format/types";
+import { fmtDate } from "@/shared/datetime";
 import { generateAnimatedKpiHtml, generateProfitGaugeHtml, KPI_ANIMATIONS_CSS, KPI_JS } from "./visualizations/animated-kpi";
 import { generateWaterfallChartHtml, generateDonutChartHtml, generateBarRaceHtml, CHART_ANIMATIONS_CSS } from "./visualizations/charts";
 
@@ -354,7 +355,7 @@ export function generateRichHtmlReport(input: RichHtmlReportInput): string {
       <div style="width: 44px; height: 44px; border-radius: 12px; background: ${catInfo.color}; display: flex; align-items: center; justify-content: center; color: white; font-size: 20px; animation: float 3s ease-in-out infinite;">${catInfo.icon}</div>
       <div>
         <h1 style="font-size: 18px; font-weight: 800; margin: 0;">${productName} · 富可视化成本报告</h1>
-        <small style="font-size: 11px; color: #6b7280;">${new Date().toLocaleDateString()} · ${role}视角 · 15组件+8动效 · 通过harness</small>
+        <small style="font-size: 11px; color: #6b7280;">${fmtDate(new Date())} · ${role}视角 · 15组件+8动效 · 通过harness</small>
       </div>
     </div>
     <div style="display: flex; gap: 8px;">

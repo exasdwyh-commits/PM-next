@@ -7,6 +7,7 @@ import { CostComparisonCharts } from "./cost-comparison-charts";
 import { CostApproval } from "./cost-approval";
 import { CostCollaboration } from "./cost-collaboration";
 import { Notice, type NoticeMessage } from "./notice";
+import { fmtDate } from "@/shared/datetime";
 import "./cost-approval.css";
 import "./cost-collaboration.css";
 import "./cost-comparison-charts.css";
@@ -174,7 +175,7 @@ export function CostScenarioManager({
               <label><input type="checkbox" checked={selectedIds.includes(s.id)} onChange={() => toggleSelect(s.id)} /><strong>{s.name}</strong></label>
               <span className={`cat ${s.category}`}>{s.category === "regular_food" ? "🍪普通" : s.category === "health_food" ? "💊保健" : s.category === "cross_border_food" ? "🌍跨境" : "💄化妆"}</span>
             </div>
-            <div className="s-meta"><span>{s.productName}</span><span>{new Date(s.updatedAt).toLocaleDateString()}</span></div>
+            <div className="s-meta"><span>{s.productName}</span><span>{fmtDate(s.updatedAt)}</span></div>
             <div className="s-kpi"><span>成本 ¥{s.totalCost.toFixed(2)}</span><span>零售 ¥{s.suggestedRetailPrice.toFixed(0)}</span><span>利润 {(s.profitMargin*100).toFixed(0)}%</span></div>
             <div className="s-breakdown"><small>原料{ s.totalMaterialCost.toFixed(1)} + 生产{ s.totalManufacturingCost.toFixed(1)} + 包装{ s.totalPackagingCost.toFixed(1)} + 物流{ s.totalLogisticsCost.toFixed(1)} + 合规{ s.totalComplianceCost.toFixed(1)} + 渠道{ s.totalChannelCost.toFixed(1)}</small></div>
             <div className="s-actions">

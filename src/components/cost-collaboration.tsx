@@ -6,6 +6,7 @@ import "./cost-collaboration.css";
 import "./cost-collaboration-rich.css";
 import { CostCollaborationRich } from "./cost-collaboration-rich";
 import { useRole } from "./role-context";
+import { fmtDate } from "@/shared/datetime";
 
 export interface Comment {
   id: string;
@@ -105,12 +106,12 @@ export function CostCollaborationOriginal({
         <div className="version-list">
           <div className="version-item current">
             <span className="version">v{comments.length + 1}</span>
-            <span>当前版本 · {new Date(scenario.updatedAt).toLocaleDateString()} · 总成本¥{scenario.totalCost.toFixed(2)}</span>
+            <span>当前版本 · {fmtDate(scenario.updatedAt)} · 总成本¥{scenario.totalCost.toFixed(2)}</span>
             <span className="badge">当前</span>
           </div>
           <div className="version-item">
             <span className="version">v1</span>
-            <span>初始版本 · {new Date(scenario.createdAt).toLocaleDateString()} · 总成本¥{scenario.totalCost.toFixed(2)}</span>
+            <span>初始版本 · {fmtDate(scenario.createdAt)} · 总成本¥{scenario.totalCost.toFixed(2)}</span>
           </div>
         </div>
       </div>

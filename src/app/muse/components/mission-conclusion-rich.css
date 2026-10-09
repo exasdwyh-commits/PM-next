@@ -13,3 +13,22 @@
 .selling-points p { margin: 0; font-size: 11px; color: #4b5563; }
 .conclusion-meta-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; font-size: 11px; }
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* 降动画降级：本文件内的入场/装饰动画在 reduced-motion 下压平。
+   全局兜底见 src/app/globals.css（含 animation-iteration-count，
+   防止 animation:xxx infinite 被压成高频抖动）。 */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .mission-conclusion-rich,
+  :root:not([data-motion="full"]) .mission-conclusion-rich-wrapper,
+  :root:not([data-motion="full"]) .boss-summary,
+  :root:not([data-motion="full"]) .mission-conclusion-rich::before,
+  :root:not([data-motion="full"]) .mission-conclusion-rich-wrapper::before,
+  :root:not([data-motion="full"]) .boss-summary::before,
+  :root:not([data-motion="full"]) .boss-summary::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+  }
+}

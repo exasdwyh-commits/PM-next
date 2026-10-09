@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import type { ComplianceItem } from "@/modules/cost-engine/compliance-checklist";
+import { fmtDate } from "@/shared/datetime";
 import "./compliance-evidence.css";
 
 export interface ComplianceEvidence {
@@ -105,7 +106,7 @@ export function ComplianceEvidenceManager({
             </div>
             <div className="evidence-info">
               <strong>{ev.fileName}</strong>
-              <small>{formatFileSize(ev.fileSize)} · {new Date(ev.uploadedAt).toLocaleDateString()} · {ev.uploadedBy}</small>
+              <small>{formatFileSize(ev.fileSize)} · {fmtDate(ev.uploadedAt)} · {ev.uploadedBy}</small>
               {ev.notes && <small className="notes">{ev.notes}</small>}
             </div>
             <div className="evidence-actions">

@@ -37,7 +37,7 @@
 .bar { display: flex; align-items: center; gap: 8px; font-size: 11px; }
 .bar span { width: 50px; }
 .track { flex: 1; height: 8px; background: #f0f2f6; border-radius: 99px; overflow: hidden; }
-.track .fill { height: 100%; border-radius: 99px; animation: growWidth 0.8s ease-out both; }
+.track .fill { height: 100%; border-radius: 99px; animation: growWidth .56s ease-out both; }
 .script-grid { display: grid; gap: 12px; }
 .script-card { padding: 14px; border: 1px solid #e7e9ef; border-radius: 10px; background: white; display: grid; gap: 8px; animation: fadeInUp 0.4s ease-out both; position: relative; }
 .script-card strong { font-size: 12px; }
@@ -75,3 +75,32 @@
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes growWidth { from { width: 0; } }
 @media (max-width: 768px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } .selling-grid { grid-template-columns: 1fr; } .evidence-grid { grid-template-columns: 1fr; } .qa-grid { grid-template-columns: 1fr; } }
+
+/* 降动画降级：本文件内的入场/装饰动画在 reduced-motion 下压平。
+   全局兜底见 src/app/globals.css（含 animation-iteration-count，
+   防止 animation:xxx infinite 被压成高频抖动）。 */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .marketing-landing-rich,
+  :root:not([data-motion="full"]) .slide,
+  :root:not([data-motion="full"]) .selling-card,
+  :root:not([data-motion="full"]) .evidence-card,
+  :root:not([data-motion="full"]) .track .fill,
+  :root:not([data-motion="full"]) .script-card,
+  :root:not([data-motion="full"]) .compliance-item,
+  :root:not([data-motion="full"]) .qa-card,
+  :root:not([data-motion="full"]) .marketing-landing-rich::before,
+  :root:not([data-motion="full"]) .slide::before,
+  :root:not([data-motion="full"]) .selling-card::before,
+  :root:not([data-motion="full"]) .evidence-card::before,
+  :root:not([data-motion="full"]) .track .fill::before,
+  :root:not([data-motion="full"]) .script-card::before,
+  :root:not([data-motion="full"]) .compliance-item::before,
+  :root:not([data-motion="full"]) .qa-card::before,
+  :root:not([data-motion="full"]) .qa-card::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+  }
+}

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRole } from "./role-context";
+import { fmtDate } from "@/shared/datetime";
 import "./product-rnd-panel-rich.css";
 
 const CATEGORY_INFO: Record<string, { icon: string; name: string; color: string }> = {
@@ -78,7 +79,7 @@ export function ProductRndPanelRich({ project, workItems = [], evidences = [] }:
             <small>{work.description || work.output?.slice(0, 60) || "AI研发任务"}</small>
             <div className="work-meta">
               <span>{work.agent || "AI Agent"}</span>
-              <span>{work.updatedAt ? new Date(work.updatedAt).toLocaleDateString() : "-"}</span>
+              <span>{work.updatedAt ? fmtDate(work.updatedAt) : "-"}</span>
             </div>
           </div>
         ))}

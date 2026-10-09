@@ -1426,10 +1426,10 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
   {
     path: "/api/assistant/active-push",
     method: "PUT",
-    authz: "读取 cron 配置描述（纯静态文本）：该实现不调用 getServerSession，无鉴权面，也不含任何租户数据",
-    expect: { anon: [200], foreign: [200], outsider: [200], viewer: [200] },
+    authz:
+      "读取 cron 配置描述（纯静态文本）：虽不含租户数据，但仍须登录，与同文件 GET/POST 口径一致（已补 getServerSession）",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
     ownerGate: [200],
-    publicByOmission: true,
   },
   {
     path: "/api/assistant/daily-briefing",
@@ -1522,10 +1522,10 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
   {
     path: "/api/desktop/action",
     method: "GET",
-    authz: "本机动作运行时描述（静态能力清单）：实现不调用 getServerSession，无鉴权面，也不含租户数据",
-    expect: { anon: [200], foreign: [200], outsider: [200], viewer: [200] },
+    authz:
+      "本机动作运行时描述（静态能力清单）：仍须登录，与同文件 POST 口径一致（已补 getServerSession）",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
     ownerGate: [200],
-    publicByOmission: true,
   },
   {
     path: "/api/desktop/action",
@@ -1540,20 +1540,18 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     path: "/api/harness/validate",
     method: "GET",
     authz:
-      "Harness R1-R17 校验（固定样例的自检）⚠️ 违规：实现**完全未调用 getServerSession**，任何未登录请求都能执行该校验并读到结果。已如实登记为 anon 可访问，待产品决定是补鉴权还是论证为公开端点。",
-    expect: { anon: [200], foreign: [200], outsider: [200], viewer: [200] },
+      "Harness R1-R17 校验（固定样例的自检）：须登录，与同文件 POST 口径一致（已补 getServerSession）",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
     ownerGate: [200],
-    publicByOmission: true,
   },
   {
     path: "/api/harness/validate",
     method: "POST",
     authz:
-      "Harness 校验（按传入报告内容评分）⚠️ 违规：同 GET，**完全未调用 getServerSession**，未登录可执行。已如实登记，待决定补鉴权或论证公开。",
-    expect: { anon: [200], foreign: [200], outsider: [200], viewer: [200] },
+      "Harness 校验（按传入报告内容评分）：须登录——本接口接受调用方传入 htmlReport/richReport/costData，属可被消耗的计算面（已补 getServerSession）",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
     ownerGate: [200],
     body: { category: "health_food", role: "product" },
-    publicByOmission: true,
   },
   {
     path: "/api/kern/dispatch",
@@ -1601,10 +1599,9 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
   {
     path: "/api/playbook/new-product",
     method: "GET",
-    authz: "新品做法描述（静态 DAG 文本）：实现不调用 getServerSession，无鉴权面，也不含租户数据",
-    expect: { anon: [200], foreign: [200], outsider: [200], viewer: [200] },
+    authz: "新品做法描述（静态 DAG 文本）：仍须登录，与同文件写入口径一致（已补 getServerSession）",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
     ownerGate: [200],
-    publicByOmission: true,
   },
   {
     path: "/api/playbook/new-product",
@@ -1628,10 +1625,9 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
   {
     path: "/api/research/fetch",
     method: "GET",
-    authz: "抓取器描述（静态能力 / 信任分档文本）：实现不调用 getServerSession，无鉴权面",
-    expect: { anon: [200], foreign: [200], outsider: [200], viewer: [200] },
+    authz: "抓取器描述（静态能力 / 信任分档文本）：仍须登录，与同文件 POST 口径一致（已补 getServerSession）",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
     ownerGate: [200],
-    publicByOmission: true,
   },
   {
     path: "/api/research/fetch",
@@ -1645,10 +1641,9 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
   {
     path: "/api/research/verify",
     method: "GET",
-    authz: "验证器描述（静态能力文本）：实现不调用 getServerSession，无鉴权面",
-    expect: { anon: [200], foreign: [200], outsider: [200], viewer: [200] },
+    authz: "验证器描述（静态能力文本）：仍须登录，与同文件 POST 口径一致（已补 getServerSession）",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
     ownerGate: [200],
-    publicByOmission: true,
   },
   {
     path: "/api/research/verify",

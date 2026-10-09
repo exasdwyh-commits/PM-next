@@ -13,7 +13,7 @@
 .hermes-kpi-rich span { font-size: 11px; color: #6b7280; }
 .hermes-kpi-rich small { font-size: 10px; color: #9099a6; }
 .kpi-bar { height: 4px; background: #f0f2f6; border-radius: 99px; overflow: hidden; margin-top: 4px; }
-.kpi-bar .fill { height: 100%; border-radius: 99px; animation: growWidth 0.8s ease-out both; }
+.kpi-bar .fill { height: 100%; border-radius: 99px; animation: growWidth .56s ease-out both; }
 .hermes-decision-board-rich { border: 2px solid #e7e9ef; border-radius: 16px; overflow: hidden; background: white; display: grid; gap: 0; animation: fadeInUp 0.4s ease-out both; }
 .hermes-decision-board-rich.leadership { background: #f6f7f9; border-style: dashed; }
 .decision-top-rich { display: flex; justify-content: space-between; padding: 10px 14px; background: #f6f7f9; font-size: 11px; font-weight: 700; }
@@ -42,3 +42,26 @@
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes growWidth { from { width: 0; } }
 @media (max-width: 768px) { .hermes-kpi-row-rich { grid-template-columns: repeat(2, 1fr); } .decision-cols-rich { grid-template-columns: 1fr; } }
+
+/* 降动画降级：本文件内的入场/装饰动画在 reduced-motion 下压平。
+   全局兜底见 src/app/globals.css（含 animation-iteration-count，
+   防止 animation:xxx infinite 被压成高频抖动）。 */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .hermes-hero-rich,
+  :root:not([data-motion="full"]) .hermes-kpi-rich,
+  :root:not([data-motion="full"]) .kpi-bar .fill,
+  :root:not([data-motion="full"]) .hermes-decision-board-rich,
+  :root:not([data-motion="full"]) .hermes-progress-row-rich,
+  :root:not([data-motion="full"]) .hermes-hero-rich::before,
+  :root:not([data-motion="full"]) .hermes-kpi-rich::before,
+  :root:not([data-motion="full"]) .kpi-bar .fill::before,
+  :root:not([data-motion="full"]) .hermes-decision-board-rich::before,
+  :root:not([data-motion="full"]) .hermes-progress-row-rich::before,
+  :root:not([data-motion="full"]) .hermes-progress-row-rich::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+  }
+}

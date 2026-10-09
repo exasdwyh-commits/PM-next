@@ -23,3 +23,30 @@
 @keyframes growWidth { from { width: 0; } }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
 @media (max-width: 768px) { .evidence-grid { grid-template-columns: 1fr; } }
+
+/* 降动画降级：本文件内的入场/装饰动画在 reduced-motion 下压平。
+   全局兜底见 src/app/globals.css（含 animation-iteration-count，
+   防止 animation:xxx infinite 被压成高频抖动）。 */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .cost-calc-perf,
+  :root:not([data-motion="full"]) .perf-skeleton,
+  :root:not([data-motion="full"]) .kpi-memo,
+  :root:not([data-motion="full"]) .kpi-bar .fill,
+  :root:not([data-motion="full"]) .bar,
+  :root:not([data-motion="full"]) .track .fill,
+  :root:not([data-motion="full"]) .evidence-card,
+  :root:not([data-motion="full"]) .cost-calc-perf::before,
+  :root:not([data-motion="full"]) .perf-skeleton::before,
+  :root:not([data-motion="full"]) .kpi-memo::before,
+  :root:not([data-motion="full"]) .kpi-bar .fill::before,
+  :root:not([data-motion="full"]) .bar::before,
+  :root:not([data-motion="full"]) .track .fill::before,
+  :root:not([data-motion="full"]) .evidence-card::before,
+  :root:not([data-motion="full"]) .evidence-card::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+  }
+}

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Notice, type NoticeMessage } from "./notice";
+import { fmtTime } from "@/shared/datetime";
 import "./kern-artifact-panel.css";
 
 export interface Artifact {
@@ -82,7 +83,7 @@ export function KernArtifactPanel({
           <span className="artifact-icon">🎨</span>
           <div>
             <strong>{artifact.title}</strong>
-            <small>{artifact.category} · {artifact.role}视角 · {new Date(artifact.timestamp).toLocaleTimeString()} · 富可视化</small>
+            <small>{artifact.category} · {artifact.role}视角 · {fmtTime(artifact.timestamp)} · 富可视化</small>
           </div>
         </div>
         <div className="artifact-actions">

@@ -2,7 +2,7 @@
 .nav-header strong{font-size:18px;font-weight:800;display:block}
 .nav-header small{font-size:11px;color:#6b7280}
 .nav-items{display:flex;flex-direction:column;gap:8px}
-.nav-item{display:flex;gap:10px;padding:10px 12px;border-radius:10px;text-decoration:none;color:#111;transition:all 0.2s;border:1px solid transparent}
+.nav-item{display:flex;gap:10px;padding:10px 12px;border-radius:10px;text-decoration:none;color:#111;transition: var(--m-tr-ui);border:1px solid transparent}
 .nav-item:hover{background:white;box-shadow:0 2px 12px rgba(0,0,0,0.06);transform:translateX(2px)}
 .nav-item.is-active{background:#7c3aed;color:white;border-color:#7c3aed}
 .nav-item.is-active small{color:rgba(255,255,255,0.8)}
@@ -31,3 +31,26 @@
 .nav-footer small{font-size:9px;color:#9ca3af;display:block;line-height:1.4;margin-bottom:4px}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.6;transform:scale(0.9)}}
 @media(max-width:768px){.app-shell-nav{width:100%;min-height:auto;flex-direction:row;flex-wrap:wrap}.nav-items{flex-direction:row;flex-wrap:wrap}.worker-status{width:100%}}
+
+/* 降动画降级：本文件内的入场/装饰动画在 reduced-motion 下压平。
+   全局兜底见 src/app/globals.css（含 animation-iteration-count，
+   防止 animation:xxx infinite 被压成高频抖动）。 */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .nav-item,
+  :root:not([data-motion="full"]) .status-dot.restarting,
+  :root:not([data-motion="full"]) .pulse,
+  :root:not([data-motion="full"]) .nav-item::before,
+  :root:not([data-motion="full"]) .status-dot.restarting::before,
+  :root:not([data-motion="full"]) .pulse::before,
+  :root:not([data-motion="full"]) .pulse::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+  }
+  /* 状态指示灯（pulse infinite）冻结后会停在 opacity .5 的半透明态，
+     比不降更难看懂「在重连」——故给它一个静态高不透明度的确定态。 */
+  :root:not([data-motion="full"]) .status-dot.restarting,
+  :root:not([data-motion="full"]) .pulse { opacity: 1 !important; }
+}

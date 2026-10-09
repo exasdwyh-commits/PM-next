@@ -63,7 +63,61 @@ const INFINITE_ALLOWLIST = new Set([
   "m-flow-breathe", // 仅 ACTIVE 节点；同上，降动画时保留全部状态文字
   "m-working-breathe", // 请求等待组件；请求结束卸载，隐藏页面或等待用户时停止
   "m-working-travel", // 同一真实请求的连接线；同上
+  "pulse", // 状态灯（.status-dot.restarting）与导航活跃点（.pulse）、骨架屏（.perf-skeleton）：
+  //          均表示「正在进行 / 在线」，状态结束即停；降动画时由各文件的 reduced-motion 分支
+  //          给静态不透明态，信息不丢（见 app-shell-nav.css / cost-calculator-performance.css）。
+  "shimmer", // 任务运行中的扫光（.running-bar .fill）与骨架屏（.skeleton）：
+  //            发送/加载结束即卸载元素，降动画时保留静态底纹与文案。
 ]);
+
+/**
+ * ---------------------------------------------------------------------------
+ * 数据条（data bar）豁免：`transition: width|height` 的合法例外
+ *
+ * 背景：MC4 规定「尺寸动画仅限 [data-morph]」。但进度条 / 配额条 / 图表条的
+ * `width` / `height` 过渡**不是形态变形（morph）**，而是**数据更新**的可视化
+ * ——数值从 30% 变到 70% 时，条长跟着走是「把数据画出来」，不是装饰动效。
+ * 把它们统统挂 `[data-morph]` 是语义污染（后续维护者会误以为这是变形动画）。
+ *
+ * 因此单开一类豁免，但**判据必须严格**，只放行同时满足三条的声明：
+ *   ① 属性仅限 `width` / `height`（`top/left/margin/padding` 等一律不放行——
+ *      那些会让元素在布局中挪位，与「把数据画出来」无关）；
+ *   ② 选择器命中下方 DATABAR_PATTERN 的数据条命名；
+ *   ③ 在 DATABAR_ALLOWLIST 里登记，且 `why` 说明「这条为什么是数据而非装饰」。
+ *
+ * 新增前先自问：删掉这个 transition，用户是否还能准确读到数据？
+ * 若答案是「能，只是跳变」→ 那它本就该删（reduced-motion 下少动更好），
+ * 不必进白名单。只有「过渡本身承载了数据语义」时才登记。
+ * ---------------------------------------------------------------------------
+ */
+const DATABAR_PATTERN = /(?:^|[\s.#>:\[,-])(?:[a-z0-9-]*(?:fill|bar|progress|track|quota|gauge)[a-z0-9-]*)(?=$|[\s.#>:\[,{])/i;
+
+/** 数据条白名单：key = `${相对路径} ${选择器}`，value = 论证 why。
+ *  注意：多选器选择器按**源码原样**（含 `\n`）作 key，与 `rules()` 的返回保持一致。 */
+const DATABAR_ALLOWLIST: Record<string, string> = {
+  "src/components/beautified-overrides.css .progress-bar .fill,\n.kpi-bar .fill,\n.track .fill,\n.track i":
+    "配额/进度/占比三类数据条的填充宽度过渡：宽度本身就是被展示的数据，删过渡等于删掉数值变化的可读过程。",
+  "src/components/billing-dashboard-rich.css .quota-bar .fill":
+    "账单配额使用率条：宽度 = 已用配额占比，是纯数据映射，不涉布局重排。",
+  "src/components/compliance-checklist.css .progress-bar .fill":
+    "合规清单完成度条：宽度 = 已完成项占比，属数据展示。",
+  "src/components/custom-chart.css .bar-fill":
+    "条形图柱体宽度：宽度 = 该维度的数值，是图表本体。",
+  "src/components/custom-chart.css .waterfall-bar":
+    "瀑布图柱体高度：高度 = 该环节增减量，是图表本体。",
+  "src/components/dependency-graph-rich.css .node-bar .fill":
+    "依赖图节点完成度条：宽度 = 该节点的进度数据。",
+  "src/components/executive-report-v2.css .er2-bar-fill":
+    "高管报告指标条：宽度 = 指标达成率，属报表数据可视化。",
+  "src/components/product-rnd-panel-rich.css .progress-bar .fill":
+    "研发流程进度条：宽度 = 当前阶段完成百分比。",
+};
+
+function isAllowedDatabar(file: string, selector: string, prop: string): boolean {
+  if (prop !== "width" && prop !== "height") return false;
+  if (!DATABAR_PATTERN.test(selector)) return false;
+  return Object.hasOwn(DATABAR_ALLOWLIST, `${rel(file)} ${selector}`);
+}
 
 function cssFiles(dir: string): string[] {
   const out: string[] = [];
@@ -152,13 +206,44 @@ test("MC3/MC4：transition 写明属性，只动合成层与颜色类；尺寸�
           if (prop === "all") offenders.push(`${rel(f)} ${selector} → transition: all`);
           else if (/^\d*\.?\d+m?s$/.test(prop)) offenders.push(`${rel(f)} ${selector} → 未写属性（等价于 all）：${value}`);
           else if (LAYOUT_PROPS.test(prop)) {
-            if (!selector.includes("[data-morph")) offenders.push(`${rel(f)} ${selector} → 尺寸/位置动画 ${prop}（仅限 [data-morph]）`);
+            if (selector.includes("[data-morph")) continue;
+            if (isAllowedDatabar(f, selector, prop)) continue;
+            offenders.push(`${rel(f)} ${selector} → 尺寸/位置动画 ${prop}（仅限 [data-morph] 或数据条白名单）`);
           } else if (!ALLOWED_PROPS.has(prop)) offenders.push(`${rel(f)} ${selector} → 不在允许清单的属性 ${prop}`);
         }
       }
     }
   }
   assert.deepEqual(offenders, []);
+});
+
+test("MC4b：数据条白名单无腐化——每条都真实命中，且 why 论证充分", () => {
+  const seen = new Set<string>();
+  for (const f of cssFiles(SRC)) {
+    for (const [selector, body] of rules(read(f))) {
+      for (const value of decls(body, "transition")) {
+        for (const part of splitTop(value)) {
+          const prop = part.split(/\s+/)[0];
+          if (!/^(width|height)$/.test(prop)) continue;
+          if (selector.includes("[data-morph")) continue;
+          const key = `${rel(f)} ${selector}`;
+          if (Object.hasOwn(DATABAR_ALLOWLIST, key)) seen.add(key);
+        }
+      }
+    }
+  }
+  const stale = Object.keys(DATABAR_ALLOWLIST).filter((k) => !seen.has(k));
+  assert.deepEqual(
+    stale,
+    [],
+    `数据条白名单里的条目已不再命中任何 width/height 过渡（白名单腐化，请删或更新）：\n  ${stale.join("\n  ")}`,
+  );
+  for (const [k, why] of Object.entries(DATABAR_ALLOWLIST)) {
+    assert.ok(
+      typeof why === "string" && why.trim().length >= 20,
+      `数据条白名单 ${k} 的 why 必须 ≥20 字且非占位符，当前：${JSON.stringify(why)}`,
+    );
+  }
 });
 
 test("MC5：单次动画 ≤ 600ms；无限循环只用于已登记的「进行中」指示", () => {

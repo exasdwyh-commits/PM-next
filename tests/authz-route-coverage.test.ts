@@ -128,7 +128,9 @@ test("AC3：矩阵自身无重复登记", () => {
  * 真正「未授权」的身份只有 anon。
  *
  * ---------------------------------------------------------------------------
- * 2026-10-09：V2 补登记后本白名单从 2 条扩到 10 条。**必须区分两种来源**：
+ * 2026-10-09：V2 补登记后本白名单从 2 条扩到 10 条；同日 (b) 类 7 条全部收敛
+ * 补上鉴权后，白名单回到 2 条。**保留两种来源的区分**——即使 (b) 类当前为空，
+ * 结构仍在，后续再出现漏鉴权实现时会立刻被 AC6 拦下。**必须区分两种来源**：
  *
  * (a) **论证为公开**（authz-matrix 里 `path: "/api/health"` 一类）：这类端点是
  *     刻意公开的，不含任何租户数据。
@@ -150,18 +152,13 @@ const PUBLIC_ANON_2XX = new Set(["DELETE /api/auth/session", "GET /api/health"])
  * 这些不是「论证过的公开端点」，而是如实登记的缺陷清单。
  * 每一条都必须同时在 authz-matrix.ts 里标 `publicByOmission: true`（见 AC6 断言）。
  *
- * - `POST /api/desktop-runtime/tasks` 的 PUT 变体不在此列（PUT /api/assistant/active-push
- *   是无鉴权纯静态描述；两者不同端点）。
+ * **2026-10-09 已清零**：原先登记在此的 7 条（PUT /api/assistant/active-push、
+ * GET /api/desktop/action、GET+POST /api/harness/validate、
+ * GET /api/playbook/new-product、GET /api/research/fetch、GET /api/research/verify）
+ * 已全部补上 `await getServerSession(req)`，矩阵侧标记同步移除。
+ * 集合保持为空是**正常状态**：一旦再出现漏鉴权实现，AC6 会立刻报红。
  */
-const PUBLIC_BY_OMISSION = new Set([
-  "PUT /api/assistant/active-push",
-  "GET /api/desktop/action",
-  "GET /api/harness/validate",
-  "POST /api/harness/validate",
-  "GET /api/playbook/new-product",
-  "GET /api/research/fetch",
-  "GET /api/research/verify",
-]);
+const PUBLIC_BY_OMISSION = new Set<string>([]);
 
 test("AC4：未登录身份（anon）不得得到 2xx，公开端点须在论证白名单内", () => {
   const allowed = new Set([...PUBLIC_ANON_2XX, ...PUBLIC_BY_OMISSION]);
@@ -227,5 +224,9 @@ test("AC6：漏鉴权清单与矩阵 publicByOmission 标记双向一致", () =>
     [],
     `PUBLIC_BY_OMISSION 里的端点已不再标 publicByOmission（白名单腐化，请同步清理）：\n  ${staleInList.join("\n  ")}`,
   );
-  console.log(`  ℹ 待收敛的漏鉴权端点数：${flagged.length}（${flagged.join("、")}）`);
+  console.log(
+    flagged.length === 0
+      ? "  ℹ 待收敛的漏鉴权端点数：0（已清零）"
+      : `  ℹ 待收敛的漏鉴权端点数：${flagged.length}（${flagged.join("、")}）`,
+  );
 });

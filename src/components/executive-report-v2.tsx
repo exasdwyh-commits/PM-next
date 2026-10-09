@@ -7,6 +7,7 @@ import { Count, Tag, type Tone } from "@/components/kx";
 import "./executive-report-v2.css";
 import { useRole } from "./role-context";
 import { Notice, type NoticeMessage } from "./notice";
+import { fmtDate } from "@/shared/datetime";
 import { ExecutiveReportRich } from "./executive-report-rich";
 import "./executive-report-rich.css";
 
@@ -228,7 +229,7 @@ export function ExecutiveReportV2({
             <div className="er2-title-row">
               <h2>{report.title || "产品研发管理报告"}</h2>
               <Tag tone={tone}>{verificationLabel(report.verificationStatus)}</Tag>
-              <span className="er2-meta">v{report.contentVersion} · {report.createdAt ? new Date(report.createdAt).toLocaleDateString() : ""}</span>
+              <span className="er2-meta">v{report.contentVersion} · {report.createdAt ? fmtDate(report.createdAt) : ""}</span>
             </div>
 
             {/* 4张指标卡 - 用大白话 */}

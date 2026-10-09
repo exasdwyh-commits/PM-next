@@ -1,6 +1,6 @@
 .role-switch-wrap { display: grid; gap: 6px; }
 .role-switch { display: inline-flex; gap: 2px; padding: 3px; background: #f0f2f6; border-radius: 999px; }
-.role-switch button { border: 0; background: transparent; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; cursor: pointer; color: #6b7280; transition: all .15s; }
+.role-switch button { border: 0; background: transparent; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; cursor: pointer; color: #6b7280; transition: var(--m-tr-ui); }
 .role-switch button.is-active { background: #0f1116; color: white; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
 .role-switch.is-compact button { padding: 4px 8px; font-size: 11px; }
 .role-source-hint { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #9099a6; }

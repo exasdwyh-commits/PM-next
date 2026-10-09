@@ -14,7 +14,7 @@
 .kpi-rich strong { font-size: 18px; font-weight: 800; }
 .kpi-rich small { font-size: 10px; color: #9099a6; }
 .kpi-bar { height: 4px; background: #f0f2f6; border-radius: 99px; overflow: hidden; margin-top: 4px; }
-.kpi-bar .fill { height: 100%; border-radius: 99px; animation: growWidth 0.8s ease-out both; }
+.kpi-bar .fill { height: 100%; border-radius: 99px; animation: growWidth .56s ease-out both; }
 .ov-charts-rich { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .ov-section { display: grid; gap: 10px; }
 .ov-section h3 { margin: 0; font-size: 13px; }
@@ -50,3 +50,24 @@
 @keyframes growWidth { from { width: 0; } to { width: var(--target-width, 100%); } }
 @keyframes drawDonut { from { stroke-dasharray: 0 100; } }
 @media (max-width: 768px) { .ov-kpi-grid-rich { grid-template-columns: repeat(2, 1fr); } .ov-charts-rich { grid-template-columns: 1fr; } .ov-work-grid-rich { grid-template-columns: 1fr; } .sales-grid-rich { grid-template-columns: 1fr; } }
+
+/* 降动画降级：本文件内的入场/装饰动画在 reduced-motion 下压平。
+   全局兜底见 src/app/globals.css（含 animation-iteration-count，
+   防止 animation:xxx infinite 被压成高频抖动）。 */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .kpi-rich,
+  :root:not([data-motion="full"]) .kpi-bar .fill,
+  :root:not([data-motion="full"]) .work-card-rich,
+  :root:not([data-motion="full"]) .sales-card-rich,
+  :root:not([data-motion="full"]) .kpi-rich::before,
+  :root:not([data-motion="full"]) .kpi-bar .fill::before,
+  :root:not([data-motion="full"]) .work-card-rich::before,
+  :root:not([data-motion="full"]) .sales-card-rich::before,
+  :root:not([data-motion="full"]) .sales-card-rich::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+  }
+}

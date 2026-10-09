@@ -22,7 +22,7 @@
 .cost-approval,
 .cost-collaboration {
   box-shadow: var(--shadow-sm, 0 2px 8px rgba(0,0,0,0.06));
-  transition: all 250ms cubic-bezier(0.16,1,0.3,1);
+  transition: var(--m-tr-ui);
   will-change: transform, box-shadow, border-color;
 }
 
@@ -75,7 +75,7 @@
 .hermes-kpi {
   border-radius: 12px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-  transition: all 250ms cubic-bezier(0.16,1,0.3,1);
+  transition: var(--m-tr-ui);
 }
 
 .kpi:hover,
@@ -91,7 +91,7 @@ button.primary,
 button.hermes-primary-btn,
 .btn-beautified.primary {
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  transition: all 150ms cubic-bezier(0.16,1,0.3,1);
+  transition: var(--m-tr-ui);
   will-change: transform, box-shadow;
 }
 
@@ -142,7 +142,7 @@ button[style*="background: #db2777"] {
 .eyebrow,
 .hermes-chip {
   box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-  transition: all 150ms ease-out;
+  transition: var(--m-tr-ui);
 }
 
 .category-badge:hover,
@@ -218,7 +218,7 @@ h2, h3, h4 {
 .sales-card-rich,
 .work-card-rich {
   animation: fadeInUpSpring 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
-  transition: all 250ms cubic-bezier(0.16,1,0.3,1);
+  transition: var(--m-tr-ui);
 }
 
 .work-card:hover,
@@ -226,4 +226,29 @@ h2, h3, h4 {
 .evidence-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+
+/* 降动画降级：本文件内的入场/装饰动画在 reduced-motion 下压平。
+   全局兜底见 src/app/globals.css（含 animation-iteration-count，
+   防止 animation:xxx infinite 被压成高频抖动）。 */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .cost-collaboration,
+  :root:not([data-motion="full"]) .hermes-kpi,
+  :root:not([data-motion="full"]) .btn-beautified.primary,
+  :root:not([data-motion="full"]) .hermes-chip,
+  :root:not([data-motion="full"]) .track i,
+  :root:not([data-motion="full"]) .work-card-rich,
+  :root:not([data-motion="full"]) .cost-collaboration::before,
+  :root:not([data-motion="full"]) .hermes-kpi::before,
+  :root:not([data-motion="full"]) .btn-beautified.primary::before,
+  :root:not([data-motion="full"]) .hermes-chip::before,
+  :root:not([data-motion="full"]) .track i::before,
+  :root:not([data-motion="full"]) .work-card-rich::before,
+  :root:not([data-motion="full"]) .work-card-rich::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+  }
 }

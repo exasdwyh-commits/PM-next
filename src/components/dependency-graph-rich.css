@@ -4,7 +4,7 @@
 .graph-header h2{margin:8px 0 4px;font-size:18px;font-weight:800;line-height:1.3}
 .graph-header small{color:#6b7280;font-size:12px}
 .header-actions{display:flex;gap:8px;align-items:center}
-.header-actions .primary{border:none;padding:8px 16px;border-radius:8px;color:white;font-weight:700;cursor:pointer;transition:all 0.2s}
+.header-actions .primary{border:none;padding:8px 16px;border-radius:8px;color:white;font-weight:700;cursor:pointer;transition: var(--m-tr-ui)}
 .header-actions .primary:disabled{opacity:0.6;cursor:not-allowed}
 .category-badge{padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700}
 .graph-legend{display:flex;gap:16px;padding:12px 20px;background:#f9fafb;border-bottom:1px solid #e7e9ef}
@@ -14,7 +14,7 @@
 .graph-canvas{position:relative;padding:16px}
 .graph-svg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;opacity:0.6}
 .nodes-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;position:relative;z-index:1}
-.graph-node{border:1px solid #e7e9ef;border-radius:12px;padding:12px;background:white;cursor:pointer;transition:all 0.3s;animation:fadeInUp 0.5s ease-out both}
+.graph-node{border:1px solid #e7e9ef;border-radius:12px;padding:12px;background:white;cursor:pointer;transition: var(--m-tr-ui);animation:fadeInUp 0.5s ease-out both}
 .graph-node:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.08)}
 .graph-node.is-selected{box-shadow:0 0 0 2px currentColor,0 8px 24px rgba(0,0,0,0.1)}
 .node-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
@@ -26,7 +26,7 @@
 .node-deps{margin-bottom:8px}
 .node-deps small{font-size:10px;color:#9ca3af;background:#f3f4f6;padding:2px 6px;border-radius:4px}
 .node-bar .track{height:4px;background:#f0f2f6;border-radius:2px;overflow:hidden}
-.node-bar .fill{height:100%;border-radius:2px;transition:width 0.8s ease-out;animation:growWidth 1s ease-out both}
+.node-bar .fill{height:100%;border-radius:2px;transition:width .56s ease-out;animation:growWidth .56s ease-out both}
 .node-detail{margin-top:12px;padding:12px;border:1px solid #e7e9ef;border-radius:8px;background:#fafafb;animation:slideIn 0.3s ease-out}
 .node-detail strong{font-size:12px;display:block;margin-bottom:6px}
 .node-detail p{font-size:11px;color:#6b7280;margin:4px 0}
@@ -36,7 +36,7 @@
 .critical-path{margin:16px 20px;padding:12px 16px;border:1px solid #e7e9ef;border-radius:10px;font-size:12px;line-height:1.5}
 .critical-path .path-bar{margin-top:8px;display:flex;align-items:center;gap:8px}
 .critical-path .track{flex:1;height:6px;background:#f0f2f6;border-radius:3px;overflow:hidden}
-.critical-path .fill{height:100%;border-radius:3px;animation:growWidth 1.2s ease-out both}
+.critical-path .fill{height:100%;border-radius:3px;animation:growWidth .56s ease-out both}
 .auto-advance-info{margin:0 20px 20px;padding:12px 16px;background:#fafafb;border-radius:10px}
 .auto-advance-info strong{font-size:12px;display:block;margin-bottom:6px}
 .auto-advance-info p{font-size:11px;color:#6b7280;line-height:1.5;margin:0 0 8px}
@@ -51,3 +51,26 @@
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 @media(max-width:768px){.nodes-grid{grid-template-columns:1fr}.graph-header{flex-direction:column;gap:12px}}
+
+/* 降动画降级：本文件内的入场/装饰动画在 reduced-motion 下压平。
+   全局兜底见 src/app/globals.css（含 animation-iteration-count，
+   防止 animation:xxx infinite 被压成高频抖动）。 */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .header-actions .primary,
+  :root:not([data-motion="full"]) .graph-node,
+  :root:not([data-motion="full"]) .node-bar .fill,
+  :root:not([data-motion="full"]) .node-detail,
+  :root:not([data-motion="full"]) .critical-path .fill,
+  :root:not([data-motion="full"]) .header-actions .primary::before,
+  :root:not([data-motion="full"]) .graph-node::before,
+  :root:not([data-motion="full"]) .node-bar .fill::before,
+  :root:not([data-motion="full"]) .node-detail::before,
+  :root:not([data-motion="full"]) .critical-path .fill::before,
+  :root:not([data-motion="full"]) .critical-path .fill::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+  }
+}

@@ -9,6 +9,7 @@ import type { BomItem } from "./bom-import";
 import type { SupplierQuote } from "./supplier-quote";
 import type { ComplianceItem } from "./compliance-checklist";
 import type { ResponseEnvelope, Block } from "@/modules/response-format/types";
+import { fmtDate } from "@/shared/datetime";
 
 export interface HtmlReportInput {
   category: string;
@@ -412,7 +413,7 @@ export function generateCostHtmlReport(input: HtmlReportInput): string {
       <div style="width:36px;height:36px;border-radius:10px;background:${catInfo.color};display:flex;align-items:center;justify-content:center;color:white;font-size:18px;">${catInfo.icon}</div>
       <div>
         <h1 style="font-size:16px;font-weight:700;margin:0;">${productName} · ${catInfo.name}成本报告</h1>
-        <small style="font-size:11px;color:#6b7280;">${new Date().toLocaleDateString()} · ${role === "leadership" ? "领导层" : role === "product" ? "产品研发" : "销售营销"}视角 · 4类专用</small>
+        <small style="font-size:11px;color:#6b7280;">${fmtDate(new Date())} · ${role === "leadership" ? "领导层" : role === "product" ? "产品研发" : "销售营销"}视角 · 4类专用</small>
       </div>
     </div>
     <div style="display:flex;gap:6px;">

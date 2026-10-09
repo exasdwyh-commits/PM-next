@@ -70,6 +70,12 @@ export async function POST(req: NextRequest) {
 }
 
 // 描述 cron 配置，供前端展示
-export async function PUT() {
-  return NextResponse.json(describeActivePushCron());
+export async function PUT(req: NextRequest) {
+  try {
+    // 只读能力描述，但仍须登录：避免把内部调度配置暴露给匿名请求（与同文件 GET/POST 口径一致）
+    await getServerSession(req);
+    return NextResponse.json(describeActivePushCron());
+  } catch (e) {
+    return handleApiError(e, req);
+  }
 }

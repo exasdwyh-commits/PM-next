@@ -106,7 +106,7 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl, 16px);
   box-shadow: var(--glass-shadow);
-  transition: all var(--duration-normal) var(--ease-out-expo);
+  transition: var(--m-tr-ui);
 }
 
 .glass-card:hover {
@@ -278,5 +278,28 @@
   .bento-item.span-3,
   .bento-item.span-4 {
     grid-column: span 1;
+  }
+}
+
+/* 降动画降级：本文件内的入场/装饰动画在 reduced-motion 下压平。
+   全局兜底见 src/app/globals.css（含 animation-iteration-count，
+   防止 animation:xxx infinite 被压成高频抖动）。 */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .glass-card,
+  :root:not([data-motion="full"]) .magnetic-btn,
+  :root:not([data-motion="full"]) .card-3d,
+  :root:not([data-motion="full"]) .count-up,
+  :root:not([data-motion="full"]) .skeleton,
+  :root:not([data-motion="full"]) .glass-card::before,
+  :root:not([data-motion="full"]) .magnetic-btn::before,
+  :root:not([data-motion="full"]) .card-3d::before,
+  :root:not([data-motion="full"]) .count-up::before,
+  :root:not([data-motion="full"]) .skeleton::before,
+  :root:not([data-motion="full"]) .skeleton::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
   }
 }

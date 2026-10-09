@@ -6,7 +6,7 @@
 .lineage-badge{padding:6px 12px;border-radius:20px;font-size:12px;font-weight:800}
 .conclusions{padding:20px}
 .conclusions h4{font-size:14px;margin:0 0 16px}
-.conclusion-card{border:1px solid #e7e9ef;border-radius:12px;padding:14px;margin-bottom:12px;background:white;animation:fadeInUp 0.5s ease-out both;transition:all 0.2s}
+.conclusion-card{border:1px solid #e7e9ef;border-radius:12px;padding:14px;margin-bottom:12px;background:white;animation:fadeInUp 0.5s ease-out both;transition: var(--m-tr-ui)}
 .conclusion-card:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,0,0,0.06)}
 .conclusion-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px}
 .conclusion-header strong{font-size:13px;line-height:1.4;flex:1}
@@ -45,3 +45,18 @@
 .idempotency-chips span{font-size:10px;padding:3px 8px;border-radius:12px;font-weight:600}
 @keyframes fadeInUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:768px){.report-header{flex-direction:column;gap:12px}.lineage-flow{flex-direction:column}.flow-arrow{transform:rotate(90deg)}}
+
+/* 降动画降级：本文件内的入场/装饰动画在 reduced-motion 下压平。
+   全局兜底见 src/app/globals.css（含 animation-iteration-count，
+   防止 animation:xxx infinite 被压成高频抖动）。 */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .conclusion-card,
+  :root:not([data-motion="full"]) .conclusion-card::before,
+  :root:not([data-motion="full"]) .conclusion-card::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+  }
+}

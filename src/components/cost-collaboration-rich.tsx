@@ -6,6 +6,7 @@ import "./cost-collaboration.css";
 import "./cost-collaboration-rich.css";
 import { useRole } from "./role-context";
 import { useReasonDialog } from "./reason-dialog";
+import { fmtDate } from "@/shared/datetime";
 
 const CATEGORY_INFO: Record<string, { icon: string; name: string; color: string }> = {
   regular_food: { icon: "🍪", name: "普通食品", color: "#f59e0b" },
@@ -178,13 +179,13 @@ export function CostCollaborationRich({
           {versions.length > 0 ? versions.map((v: any, idx: number) => (
             <div key={v.id} className={`version-item ${idx === 0 ? "current" : ""}`} style={{ animationDelay: `${idx * 60}ms` }}>
               <span className="version">v{v.version}</span>
-              <span>{v.changeNote || `版本${v.version}`} · {new Date(v.createdAt).toLocaleDateString()} · ¥{v.totalCost?.toFixed(2)} · {v.creator?.name || "系统"}</span>
+              <span>{v.changeNote || `版本${v.version}`} · {fmtDate(v.createdAt)} · ¥{v.totalCost?.toFixed(2)} · {v.creator?.name || "系统"}</span>
               {idx === 0 && <span className="badge" style={{ background: catInfo.color, color: "white" }}>当前</span>}
             </div>
           )) : (
             <>
-              <div className="version-item current"><span className="version">v1</span><span>当前版本 · {new Date(scenario.updatedAt).toLocaleDateString()} · 总成本¥{scenario.totalCost.toFixed(2)}</span><span className="badge" style={{ background: catInfo.color, color: "white" }}>当前</span></div>
-              <div className="version-item"><span className="version">v0</span><span>初始版本 · {new Date(scenario.createdAt).toLocaleDateString()}</span></div>
+              <div className="version-item current"><span className="version">v1</span><span>当前版本 · {fmtDate(scenario.updatedAt)} · 总成本¥{scenario.totalCost.toFixed(2)}</span><span className="badge" style={{ background: catInfo.color, color: "white" }}>当前</span></div>
+              <div className="version-item"><span className="version">v0</span><span>初始版本 · {fmtDate(scenario.createdAt)}</span></div>
             </>
           )}
         </div>

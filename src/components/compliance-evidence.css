@@ -2,7 +2,7 @@
 .evidence-header { display: flex; justify-content: space-between; align-items: center; }
 .evidence-header strong { font-size: 12px; }
 .evidence-header small { font-size: 10px; color: #6b7280; }
-.evidence-drop { border: 2px dashed #e7e9ef; border-radius: 10px; padding: 16px; background: #fafbfc; display: grid; place-items: center; transition: all 0.2s; cursor: pointer; }
+.evidence-drop { border: 2px dashed #e7e9ef; border-radius: 10px; padding: 16px; background: #fafbfc; display: grid; place-items: center; transition: var(--m-tr-ui); cursor: pointer; }
 .evidence-drop.drag-over { border-color: #0f1116; background: #f0f2f6; transform: scale(1.01); }
 .evidence-list { display: grid; gap: 8px; }
 .evidence-item { display: flex; gap: 10px; padding: 10px; border: 1px solid #e7e9ef; border-radius: 8px; background: white; align-items: center; }

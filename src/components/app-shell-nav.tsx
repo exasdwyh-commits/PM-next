@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { fmtTime } from "@/shared/datetime";
 
 const NAV_ITEMS = [
   { id: "kern", label: "Kern", icon: "🤖", href: "/muse", desc: "部门助手 · 对话+项目+报告+审批" },
@@ -75,7 +76,7 @@ export function AppShellNav({ category = "health_food" }: any) {
           <strong>Worker {workerStatus === "online" ? "在线" : workerStatus === "restarting" ? "重启中" : "离线"}</strong>
           <span className="pulse"></span>
         </div>
-        <small>最后心跳: {lastHeartbeat.toLocaleTimeString()} · 租约恢复已启用 · 防重复 · 断线恢复</small>
+        <small>最后心跳: {fmtTime(lastHeartbeat)} · 租约恢复已启用 · 防重复 · 断线恢复</small>
         <div className="worker-meta">
           <small>✅ 崩溃自重启</small>
           <small>✅ 机器重启自启动</small>

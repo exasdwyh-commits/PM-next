@@ -1,6 +1,8 @@
 .kern-artifact-panel { display: flex; flex-direction: column; height: 100%; background: white; border: 1px solid #e7e9ef; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
 .kern-artifact-panel.empty { padding: 40px 20px; text-align: center; display: grid; gap: 16px; place-items: center; background: linear-gradient(135deg, #fafbfc 0%, #f6f7f9 100%); border-style: dashed; }
-.kern-artifact-panel.empty .empty-icon { font-size: 48px; animation: float 3s ease-in-out infinite; }
+/* 空态图标原为 float 无限浮动。该动画不承载任何状态信息（空态是稳定态，
+   不会「结束」），属纯装饰，按动效契约移除。 */
+.kern-artifact-panel.empty .empty-icon { font-size: 48px; }
 .kern-artifact-panel.empty h4 { margin: 0; font-size: 16px; font-weight: 700; }
 .kern-artifact-panel.empty p { margin: 0; font-size: 12px; color: #6b7280; line-height: 1.5; max-width: 320px; }
 .empty-features { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
@@ -14,13 +16,31 @@
 .artifact-title strong { display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .artifact-title small { display: block; font-size: 10px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .artifact-actions { display: flex; gap: 4px; flex-shrink: 0; }
-.artifact-actions button { width: 28px; height: 28px; border-radius: 8px; border: 1px solid #e7e9ef; background: white; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+.artifact-actions button { width: 28px; height: 28px; border-radius: 8px; border: 1px solid #e7e9ef; background: white; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: var(--m-tr-ui); }
 .artifact-actions button:hover { background: #0f1116; color: white; border-color: #0f1116; transform: translateY(-1px); }
 .artifact-content { flex: 1; overflow: hidden; background: white; min-height: 400px; }
 .artifact-history { padding: 10px 14px; background: #fafbfc; border-top: 1px solid #e7e9ef; display: grid; gap: 8px; }
 .artifact-history small { font-size: 10px; color: #6b7280; font-weight: 600; }
 .history-list { display: flex; gap: 6px; overflow-x: auto; }
-.history-list button { padding: 4px 10px; border-radius: 99px; border: 1px solid #e7e9ef; background: white; font-size: 10px; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+.history-list button { padding: 4px 10px; border-radius: 99px; border: 1px solid #e7e9ef; background: white; font-size: 10px; cursor: pointer; white-space: nowrap; transition: var(--m-tr-ui); }
 .history-list button.active { background: #0f1116; color: white; border-color: #0f1116; }
 .history-list button:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+/* 降动画降级：本文件内的入场/装饰动画在 reduced-motion 下压平。
+   全局兜底见 src/app/globals.css（含 animation-iteration-count，
+   防止 animation:xxx infinite 被压成高频抖动）。 */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .kern-artifact-panel.empty .empty-icon,
+  :root:not([data-motion="full"]) .artifact-actions button,
+  :root:not([data-motion="full"]) .history-list button,
+  :root:not([data-motion="full"]) .kern-artifact-panel.empty .empty-icon::before,
+  :root:not([data-motion="full"]) .artifact-actions button::before,
+  :root:not([data-motion="full"]) .history-list button::before,
+  :root:not([data-motion="full"]) .history-list button::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+  }
+}

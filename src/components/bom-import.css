@@ -22,7 +22,7 @@
 .bom-sales strong { font-size: 12px; }
 .bom-sales p { margin: 0; font-size: 11px; line-height: 1.5; }
 
-.excel-drop { border: 2px dashed #e7e9ef; border-radius: 12px; padding: 20px; background: #fafbfc; display: grid; place-items: center; transition: all 0.2s; cursor: pointer; }
+.excel-drop { border: 2px dashed #e7e9ef; border-radius: 12px; padding: 20px; background: #fafbfc; display: grid; place-items: center; transition: var(--m-tr-ui); cursor: pointer; }
 .excel-drop.drag-over { border-color: #0f1116; background: #f0f2f6; transform: scale(1.01); }
 .excel-preview { border: 1px solid #e7e9ef; border-radius: 12px; padding: 12px; background: #f6f7f9; display: grid; gap: 10px; }
 .excel-preview h5 { margin: 0; font-size: 12px; }

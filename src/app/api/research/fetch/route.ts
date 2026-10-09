@@ -65,6 +65,12 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET() {
-  return NextResponse.json(describeSourceFetcher());
+export async function GET(req: NextRequest) {
+  try {
+    // 只读能力描述，但仍须登录：与同文件 POST 口径一致
+    await getServerSession(req);
+    return NextResponse.json(describeSourceFetcher());
+  } catch (e) {
+    return handleApiError(e, req);
+  }
 }

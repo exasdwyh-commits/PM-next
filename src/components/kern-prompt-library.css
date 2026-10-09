@@ -9,7 +9,7 @@
 .p-card { padding: 10px; border: 1px solid #e7e9ef; border-radius: 8px; background: white; display: grid; gap: 2px; font-size: 11px; }
 .prompt-layout { display: grid; grid-template-columns: 200px 1fr; gap: 14px; min-height: 500px; }
 .prompt-sidebar { display: grid; gap: 6px; align-content: start; border: 1px solid #e7e9ef; border-radius: 12px; padding: 8px; background: #fafbfc; }
-.prompt-sidebar button { display: flex; gap: 8px; align-items: center; padding: 10px; border-radius: 8px; border: 1px solid transparent; background: white; text-align: left; cursor: pointer; transition: all 0.2s; }
+.prompt-sidebar button { display: flex; gap: 8px; align-items: center; padding: 10px; border-radius: 8px; border: 1px solid transparent; background: white; text-align: left; cursor: pointer; transition: var(--m-tr-ui); }
 .prompt-sidebar button.active { background: #0f1116; color: white; border-color: #0f1116; }
 .prompt-sidebar button:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
 .prompt-sidebar .icon { font-size: 16px; }

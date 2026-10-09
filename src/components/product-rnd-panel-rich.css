@@ -6,7 +6,7 @@
 .rnd-header small { font-size: 11px; color: #6b7280; }
 .category-badge { padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; }
 .progress-bar { height: 8px; background: #f0f2f6; border-radius: 999px; overflow: hidden; position: relative; display: flex; align-items: center; }
-.progress-bar .fill { height: 100%; border-radius: 999px; transition: width 0.5s; animation: growWidth 0.8s ease-out both; }
+.progress-bar .fill { height: 100%; border-radius: 999px; transition: width 0.5s; animation: growWidth .56s ease-out both; }
 .progress-bar span { position: absolute; right: 8px; font-size: 10px; font-weight: 700; }
 .rnd-kpi { display: flex; gap: 12px; font-size: 11px; color: #6b7280; }
 .selling-card { background: white; border: 1px solid #e7e9ef; border-radius: 12px; padding: 12px; display: grid; gap: 6px; }
@@ -42,8 +42,29 @@
 .bar { display: flex; align-items: center; gap: 8px; font-size: 11px; }
 .bar span { width: 50px; }
 .bar .track { flex: 1; height: 8px; background: #f0f2f6; border-radius: 99px; overflow: hidden; }
-.bar .fill { height: 100%; border-radius: 99px; animation: growWidth 0.8s ease-out both; }
+.bar .fill { height: 100%; border-radius: 99px; animation: growWidth .56s ease-out both; }
 .donut { display: flex; gap: 12px; align-items: center; }
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes growWidth { from { width: 0; } to { width: var(--target-width, 100%); } }
 @media (max-width: 768px) { .work-grid { grid-template-columns: 1fr; } .evidence-grid { grid-template-columns: 1fr; } .rnd-charts { grid-template-columns: 1fr; } }
+
+/* 降动画降级：本文件内的入场/装饰动画在 reduced-motion 下压平。
+   全局兜底见 src/app/globals.css（含 animation-iteration-count，
+   防止 animation:xxx infinite 被压成高频抖动）。 */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .progress-bar .fill,
+  :root:not([data-motion="full"]) .work-card,
+  :root:not([data-motion="full"]) .evidence-card,
+  :root:not([data-motion="full"]) .bar .fill,
+  :root:not([data-motion="full"]) .progress-bar .fill::before,
+  :root:not([data-motion="full"]) .work-card::before,
+  :root:not([data-motion="full"]) .evidence-card::before,
+  :root:not([data-motion="full"]) .bar .fill::before,
+  :root:not([data-motion="full"]) .bar .fill::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+  }
+}

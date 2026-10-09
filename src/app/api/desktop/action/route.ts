@@ -4,8 +4,14 @@ import { handleApiError } from "@/shared/api-handler";
 import { UnprocessableEntityError } from "@/shared/errors";
 import { executeDesktopAction, describeDesktopRuntime } from "@/modules/desktop-runtime";
 
-export async function GET() {
-  return NextResponse.json(describeDesktopRuntime());
+export async function GET(req: NextRequest) {
+  try {
+    // 只读能力描述，但仍须登录：与同文件 POST 口径一致
+    await getServerSession(req);
+    return NextResponse.json(describeDesktopRuntime());
+  } catch (e) {
+    return handleApiError(e, req);
+  }
 }
 
 export async function POST(req: NextRequest) {

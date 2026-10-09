@@ -87,7 +87,7 @@
   border: 1px solid var(--color-line);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-sm);
-  transition: all var(--duration-normal) var(--ease-out);
+  transition: var(--m-tr-ui);
   will-change: transform, box-shadow, border-color;
 }
 
@@ -127,7 +127,7 @@
   font-weight: 600;
   cursor: pointer;
   box-shadow: var(--shadow-xs);
-  transition: all var(--duration-fast) var(--ease-out);
+  transition: var(--m-tr-ui);
   will-change: transform, box-shadow;
 }
 
@@ -186,7 +186,7 @@
   display: grid;
   gap: var(--space-xs);
   animation: fadeInUp var(--duration-slow) var(--ease-out) both;
-  transition: all var(--duration-normal) var(--ease-out);
+  transition: var(--m-tr-ui);
 }
 
 .kpi-beautified:hover {
@@ -280,4 +280,23 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-ink-faint);
+}
+
+/* 降动画降级：本文件内的入场/装饰动画在 reduced-motion 下压平。
+   全局兜底见 src/app/globals.css（含 animation-iteration-count，
+   防止 animation:xxx infinite 被压成高频抖动）。 */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .card-beautified,
+  :root:not([data-motion="full"]) .btn-beautified,
+  :root:not([data-motion="full"]) .kpi-beautified,
+  :root:not([data-motion="full"]) .card-beautified::before,
+  :root:not([data-motion="full"]) .btn-beautified::before,
+  :root:not([data-motion="full"]) .kpi-beautified::before,
+  :root:not([data-motion="full"]) .kpi-beautified::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+  }
 }

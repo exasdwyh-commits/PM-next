@@ -21,7 +21,7 @@
   background: white; 
   cursor: pointer; 
   text-align: left;
-  transition: all .15s;
+  transition: var(--m-tr-ui);
 }
 .tool-btn:hover { border-color: #0f1116; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,.08); }
 .tool-btn.primary { background: #0f1116; color: white; border-color: #0f1116; }

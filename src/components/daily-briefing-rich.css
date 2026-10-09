@@ -18,7 +18,7 @@
 .kpi strong { font-size: 18px; font-weight: 800; }
 .kpi small { font-size: 10px; color: #9099a6; }
 .kpi-bar { height: 4px; background: #f0f2f6; border-radius: 99px; overflow: hidden; margin-top: 4px; }
-.kpi-bar .fill { height: 100%; border-radius: 99px; animation: growWidth 0.8s ease-out both; }
+.kpi-bar .fill { height: 100%; border-radius: 99px; animation: growWidth .56s ease-out both; }
 .boss-summary { padding: 14px; background: #f6f7f9; border-radius: 12px; display: grid; gap: 8px; animation: fadeInUp 0.3s ease-out 0.2s both; }
 .boss-summary strong { font-size: 12px; }
 .boss-summary p { margin: 0; font-size: 11px; line-height: 1.6; color: #4b5563; }
@@ -54,7 +54,7 @@
 .bar { display: flex; align-items: center; gap: 8px; font-size: 11px; }
 .bar span { width: 50px; }
 .track { flex: 1; height: 8px; background: #f0f2f6; border-radius: 99px; overflow: hidden; }
-.track i { display: block; height: 100%; border-radius: 99px; animation: growWidth 0.8s ease-out both; }
+.track i { display: block; height: 100%; border-radius: 99px; animation: growWidth .56s ease-out both; }
 .mini-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
 .mini-stat { padding: 8px; border: 1px solid #e7e9ef; border-radius: 8px; background: white; text-align: center; display: grid; gap: 2px; }
 .mini-stat strong { font-size: 14px; font-weight: 800; }
@@ -69,3 +69,30 @@
 @keyframes growWidth { from { width: 0; } }
 @keyframes drawDonut { from { stroke-dasharray: 0 100; } }
 @media (max-width: 768px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } .sales-grid { grid-template-columns: 1fr; } .charts { grid-template-columns: 1fr; } .mini-stats { grid-template-columns: repeat(2, 1fr); } }
+
+/* 降动画降级：本文件内的入场/装饰动画在 reduced-motion 下压平。
+   全局兜底见 src/app/globals.css（含 animation-iteration-count，
+   防止 animation:xxx infinite 被压成高频抖动）。 */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .daily-briefing-rich,
+  :root:not([data-motion="full"]) .kpi,
+  :root:not([data-motion="full"]) .kpi-bar .fill,
+  :root:not([data-motion="full"]) .boss-summary,
+  :root:not([data-motion="full"]) .sales-card,
+  :root:not([data-motion="full"]) .track i,
+  :root:not([data-motion="full"]) .suggestion-item,
+  :root:not([data-motion="full"]) .daily-briefing-rich::before,
+  :root:not([data-motion="full"]) .kpi::before,
+  :root:not([data-motion="full"]) .kpi-bar .fill::before,
+  :root:not([data-motion="full"]) .boss-summary::before,
+  :root:not([data-motion="full"]) .sales-card::before,
+  :root:not([data-motion="full"]) .track i::before,
+  :root:not([data-motion="full"]) .suggestion-item::before,
+  :root:not([data-motion="full"]) .suggestion-item::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+  }
+}

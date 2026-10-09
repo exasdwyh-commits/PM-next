@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import type { SupplierQuote } from "@/modules/cost-engine/supplier-quote";
+import { fmtDate } from "@/shared/datetime";
 import "./supplier-qualification.css";
 
 export interface SupplierQualification {
@@ -132,7 +133,7 @@ export function SupplierQualificationManager({
                   <span className="type">{typeLabel[qual.type]}</span>
                   <span className="status" style={{ background: `${status.color}15`, color: status.color, border: `1px solid ${status.color}30` }}>{status.label}</span>
                 </div>
-                <small>{(qual.fileSize / 1024).toFixed(1)}KB · 发证 {new Date(qual.issuedAt).toLocaleDateString()} · 过期 {qual.expiresAt ? new Date(qual.expiresAt).toLocaleDateString() : "长期"} · {qual.issuer || "-"}</small>
+                <small>{(qual.fileSize / 1024).toFixed(1)}KB · 发证 {fmtDate(qual.issuedAt)} · 过期 {qual.expiresAt ? fmtDate(qual.expiresAt) : "长期"} · {qual.issuer || "-"}</small>
                 {qual.notes && <small className="notes">{qual.notes}</small>}
               </div>
               <div className="qual-actions">
