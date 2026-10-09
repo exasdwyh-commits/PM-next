@@ -10,6 +10,12 @@ import hfCategoryContent from "../../../packs/health-food/domain/category-conten
 import hfLexicon from "../../../packs/health-food/domain/lexicon.json";
 import hfRegulatory from "../../../packs/health-food/domain/regulatory.json";
 import hfClaims from "../../../packs/health-food/domain/claims.json";
+import pfTenant from "../../../packs/pet-food/tenant.json";
+import pfCategories from "../../../packs/pet-food/domain/categories.json";
+import pfCategoryContent from "../../../packs/pet-food/domain/category-content.json";
+import pfLexicon from "../../../packs/pet-food/domain/lexicon.json";
+import pfRegulatory from "../../../packs/pet-food/domain/regulatory.json";
+import pfClaims from "../../../packs/pet-food/domain/claims.json";
 import type { TenantPack } from "./types";
 
 export const TENANT_PACKS: Record<string, TenantPack> = {
@@ -20,5 +26,13 @@ export const TENANT_PACKS: Record<string, TenantPack> = {
     lexicon: hfLexicon,
     regulatory: hfRegulatory,
     claims: hfClaims,
+  },
+  "pet-food": {
+    tenant: pfTenant,
+    categories: pfCategories,
+    categoryContent: pfCategoryContent,
+    lexicon: pfLexicon,
+    regulatory: pfRegulatory,
+    claims: pfClaims,
   },
 };

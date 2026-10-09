@@ -1,0 +1,33 @@
+{
+  "id": "pet-food",
+  "version": 1,
+  "isReferenceTemplate": false,
+  "company": {
+    "name": "示例宠物食品",
+    "industry": "宠物食品",
+    "locale": "zh-CN"
+  },
+  "product": {
+    "description": "为犬猫提供主粮与零食的食品品牌"
+  },
+  "defaults": {
+    "categoryName": "犬粮"
+  },
+  "ui": {
+    "productNamePlaceholder": "请输入商品名称，如「冻干鸡胸犬粮」",
+    "formSpecPlaceholder": "请填写配方规格，如「鸡肉 62%、糙米 24%」",
+    "forbiddenItemsPlaceholder": "请填写禁限用成分，如「人工色素」",
+    "workTitlePlaceholder": "请填写工作项标题",
+    "sellingPointsPlaceholder": "请填写卖点，如「高蛋白低脂肪」",
+    "revisionPlaceholders": {
+      "coreIdea": "核心思路",
+      "targetAudience": "目标人群",
+      "coreSellingPoints": "核心卖点",
+      "targetChannels": "目标渠道",
+      "priceExpectation": "价格预期",
+      "formSpec": "配方规格",
+      "forbiddenItems": "禁限用成分",
+      "targetCost": "目标成本"
+    }
+  }
+}

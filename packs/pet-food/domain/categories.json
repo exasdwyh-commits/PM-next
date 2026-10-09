@@ -1,0 +1,17 @@
+{
+  "_note": "按品类预设的目标利润率 %。主粮走量毛利低，零食与功能型偏高。",
+  "_classificationsNote": "分类键 -> 对外显示名。src/ 只引用分类键，显示名从这里读（tests/tenant-neutral-guard.test.ts 强制）。",
+  "classifications": {
+    "dry_food": "犬粮",
+    "cat_food": "猫粮",
+    "treat": "宠物零食",
+    "supplement": "宠物营养品"
+  },
+  "targetMargin": {
+    "犬粮": 22,
+    "猫粮": 24,
+    "宠物零食": 35,
+    "宠物营养品": 38,
+    "默认": 26
+  }
+}

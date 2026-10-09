@@ -1,8 +1,19 @@
 {
   "_note": "按品类的营销与合规内容。src/ 里的组件与能力模块都从这里读，不各自留一份副本。",
   "_complianceNote": "合规措辞此前散在 3 个文件、3 种写法（SC合规 / SC资质+标签合规 / SC认证 + 标签审核）。它们长度与用途不同，强行统一会让某一处显示变化，故按 short/summary/requirements 三档保留各自原措辞。",
+  "_presentationNote": "icon/color/gradient/shadow/tints 是品类外观，原先硬编码在 src/modules/tenant/category-meta.ts（ PRESENTATION + TINT_PRESETS）。2026-10-09 建第二个 pack 时实测发现：那是结构性租户假设（键名与配色都绑定某个行业），换租户必然要改 src/，故下沉至此。defaultKey 是未指定品类时的兜底键。",
   "_sellingNote": "selling 是完整卖点集。overview-role-based 与 daily-briefing 的卡片区原本只取前 3 条，迁移后用 slice(0,3) 显式表达，不再另存一份短版。",
+  "defaultKey": "health_food",
   "regular_food": {
+    "icon": "🍪",
+    "color": "#f59e0b",
+    "shadow": "0 8px 24px rgba(245,158,11,0.15)",
+    "gradient": "linear-gradient(135deg,#fffbeb,#fef3c7)",
+    "tints": {
+      "ui": "linear-gradient(135deg,#fffbeb,#fef3c7)",
+      "report": "linear-gradient(135deg,#fffbeb,#fef3c7)",
+      "deep": "linear-gradient(135deg,#f59e0b,#d97706)"
+    },
     "selling": ["性价比高", "日常刚需", "SC合规", "口感好"],
     "price": "39.9",
     "costSummary": "10.2",
@@ -23,6 +34,15 @@
     ]
   },
   "health_food": {
+    "icon": "💊",
+    "color": "#7c3aed",
+    "shadow": "0 8px 24px rgba(124,58,237,0.15)",
+    "gradient": "linear-gradient(135deg,#f5f3ff,#ede9fe)",
+    "tints": {
+      "ui": "linear-gradient(135deg,#f5f3ff,#ede9fe)",
+      "report": "linear-gradient(135deg,#f3f0ff,#e9d5ff)",
+      "deep": "linear-gradient(135deg,#7c3aed,#db2777)"
+    },
     "selling": ["蓝帽子认证", "多酚功效", "软糖剂型", "低糖健康"],
     "price": "199",
     "costSummary": "10.2",
@@ -43,6 +63,15 @@
     ]
   },
   "cross_border_food": {
+    "icon": "🌍",
+    "color": "#0891b2",
+    "shadow": "0 8px 24px rgba(8,145,178,0.15)",
+    "gradient": "linear-gradient(135deg,#ecfeff,#cffafe)",
+    "tints": {
+      "ui": "linear-gradient(135deg,#ecfeff,#cffafe)",
+      "report": "linear-gradient(135deg,#ecfeff,#a5f3fc)",
+      "deep": "linear-gradient(135deg,#0891b2,#0e7490)"
+    },
     "selling": ["进口原料", "跨境背书", "保税仓发货", "国际品质"],
     "price": "129",
     "costSummary": "15.5",
@@ -63,6 +92,15 @@
     ]
   },
   "cosmetics": {
+    "icon": "💄",
+    "color": "#db2777",
+    "shadow": "0 8px 24px rgba(219,39,119,0.15)",
+    "gradient": "linear-gradient(135deg,#fdf2f8,#fce7f3)",
+    "tints": {
+      "ui": "linear-gradient(135deg,#fdf2f8,#fce7f3)",
+      "report": "linear-gradient(135deg,#fdf2f8,#fbcfe8)",
+      "deep": "linear-gradient(135deg,#db2777,#7c3aed)"
+    },
     "selling": ["透明质酸", "烟酰胺美白", "玻璃瓶高级感", "安全温和"],
     "price": "299",
     "costSummary": "28.5",

@@ -1,0 +1,10 @@
+{
+  "_note": "宣称风险正则与提示文案。宠物食品不得宣称人用保健功效，故生物标志物类宣称一律视为高风险。",
+  "healthClaimPattern": "(美毛|去泪痕|关节养护|肠胃调理|增重|免疫支持)",
+  "strongClaimPattern": "(治疗|治愈|预防疾病|替代药物|兽医推荐)",
+  "biomarkerClaimPattern": "(治愈|药效|疗程)",
+  "messages": {
+    "highPriceRisk": "宠物食品定价偏高，需说明成分等级与检测依据",
+    "biomarkerVeto": "不得宣称治疗或药物功效，宠物食品仅作营养补充"
+  }
+}

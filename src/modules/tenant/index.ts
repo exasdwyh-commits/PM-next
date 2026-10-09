@@ -44,7 +44,7 @@ export {
   categoryName,
   categoryKeys,
   categoryContent,
-  DEFAULT_CATEGORY,
+  defaultCategoryKey,
 } from "./category-meta";
 export type { CategoryKey, CategoryMeta, TintPreset } from "./category-meta";
 export type { CategoryContent, CategoryContentMap } from "./types";

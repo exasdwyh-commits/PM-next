@@ -42,6 +42,20 @@ export interface TenantPack {
  * 故读取方改造后行为零变化。
  */
 export interface CategoryContent {
+  /** 品类图标（表现层，但**按租户绑定**：不同行业的图标集不同，故随 pack 走）。 */
+  icon: string;
+  /** 主色。 */
+  color: string;
+  /** 投影，由 color 派生（`0 8px 24px rgba(r,g,b,.15)`）。 */
+  shadow: string;
+  /** 默认（ui 套）渐变。 */
+  gradient: string;
+  /**
+   * 三套并存的配色方案：ui（卡片/面板）、report（报告页）、deep（图表柱体）。
+   * 它们是**有意的视觉分层**，不是历史漂移，故并存而非统一。
+   * 值为完整 CSS `linear-gradient(...)` 字符串。
+   */
+  tints: Record<string, string>;
   /** 完整卖点集。卡片区若只展示前 N 条，由读取方显式 slice，避免另存短版。 */
   selling: string[];
   /** 零售价展示值。 */
@@ -70,5 +84,9 @@ export interface CategoryContent {
 /**
  * 品类内容映射。值类型放宽到含 string —— pack JSON 里允许写 `_note` 这类元注释键，
  * `categoryContent()` 读取时会剔除 `_` 前缀的键与非对象值。
+ *
+ * 另有 `defaultKey`：未指定品类时的兜底键。**每个 pack 自己的**——原先
+ * `category-meta.ts` 把兜底键写死成 `health_food`，建第二个 pack 时实测发现
+ * 那是结构性租户假设：它不含任何行业词，词表守卫抓不到，但换租户必然要改 src/。
  */
 export type CategoryContentMap = Record<string, CategoryContent | string | undefined>;

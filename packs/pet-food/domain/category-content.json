@@ -1,0 +1,198 @@
+{
+  "_presentationNote": "品类外观（icon/color/gradient/shadow/tints）。与 health-food 同一套字段——换行业只改 pack，src/ 一行不动。",
+  "_note": "按品类的营销与合规内容。与 health-food pack 结构一致，只有内容不同——这正是「换租户只改 pack」的验证点。",
+  "_complianceNote": "宠物食品的合规要求与人用食品完全不同（宠物饲料标识、禁限用物质），故三档措辞均为该行业特有。",
+  "defaultKey": "dry_food",
+  "dry_food": {
+    "icon": "🦴",
+    "color": "#b45309",
+    "shadow": "0 8px 24px rgba(180,83,9,0.15)",
+    "gradient": "linear-gradient(135deg,#fef3c7,#fde68a)",
+    "tints": {
+      "ui": "linear-gradient(135deg,#fef3c7,#fde68a)",
+      "report": "linear-gradient(135deg,#fde68a,#fbbf24)",
+      "deep": "linear-gradient(135deg,#b45309,#92400e)"
+    },
+    "selling": [
+      "高蛋白低脂肪",
+      "含牛骨粉",
+      "冻干双拼"
+    ],
+    "price": "89",
+    "costSummary": "18.5",
+    "costBreakdown": "原料11.2+加工2.4+包装3.1+物流2.8+渠道22% 零售89",
+    "costNotes": "主粮走量，毛利薄，靠采购规模与配方稳定取胜",
+    "formula": "鸡肉62%+糙米24%+牛骨粉6%+鱼油3%+其余5%",
+    "compliance": {
+      "short": "宠物饲料标识合规",
+      "summary": "符合《宠物饲料管理办法》+ 原料目录",
+      "requirements": "原料须在宠物饲料原料目录内 + 标签标注符合 GB/T 31216"
+    },
+    "complianceShortName": "饲料标识",
+    "salesPitch": "高蛋白低脂肪配方",
+    "tools": [
+      {
+        "id": "cost",
+        "label": "成本计算器",
+        "icon": "💰",
+        "desc": "主粮成本 18.5元竞品"
+      },
+      {
+        "id": "compliance",
+        "label": "标签合规",
+        "icon": "📦",
+        "desc": "原料目录+标签标注"
+      },
+      {
+        "id": "sales-ppt",
+        "label": "销售PPT",
+        "icon": "📽️",
+        "desc": "配方卖点PPT"
+      }
+    ]
+  },
+  "cat_food": {
+    "icon": "🐱",
+    "color": "#c2410c",
+    "shadow": "0 8px 24px rgba(194,65,12,0.15)",
+    "gradient": "linear-gradient(135deg,#fff7ed,#fed7aa)",
+    "tints": {
+      "ui": "linear-gradient(135deg,#fff7ed,#fed7aa)",
+      "report": "linear-gradient(135deg,#fed7aa,#fb923c)",
+      "deep": "linear-gradient(135deg,#c2410c,#9a3412)"
+    },
+    "selling": [
+      "适口性好",
+      "去毛球",
+      "牛磺酸足量"
+    ],
+    "price": "109",
+    "costSummary": "23.0",
+    "costBreakdown": "原料14.5+加工2.6+包装3.3+物流3.0+渠道24% 零售109",
+    "costNotes": "猫粮毛利略高于犬粮，鸡肉与牛磺酸成本占比高",
+    "formula": "鸭肉58%+糙米22%+牛磺酸0.3%+鱼油3%+其余16.7%",
+    "compliance": {
+      "short": "宠物饲料标识合规",
+      "summary": "符合《宠物饲料管理办法》+ 牛磺酸含量标示",
+      "requirements": "原料须在宠物饲料原料目录内 + 牛磺酸≥0.3% 并标示"
+    },
+    "complianceShortName": "饲料标识",
+    "salesPitch": "适口性好去毛球",
+    "tools": [
+      {
+        "id": "cost",
+        "label": "成本计算器",
+        "icon": "💰",
+        "desc": "猫粮成本 23元竞品"
+      },
+      {
+        "id": "compliance",
+        "label": "标签合规",
+        "icon": "📦",
+        "desc": "原料目录+牛磺酸标示"
+      },
+      {
+        "id": "sales-ppt",
+        "label": "销售PPT",
+        "icon": "📽️",
+        "desc": "适口性卖点PPT"
+      }
+    ]
+  },
+  "treat": {
+    "icon": "🦴",
+    "color": "#a16207",
+    "shadow": "0 8px 24px rgba(161,98,7,0.15)",
+    "gradient": "linear-gradient(135deg,#fefce8,#fef08a)",
+    "tints": {
+      "ui": "linear-gradient(135deg,#fefce8,#fef08a)",
+      "report": "linear-gradient(135deg,#fef08a,#facc15)",
+      "deep": "linear-gradient(135deg,#a16207,#854d0e)"
+    },
+    "selling": [
+      "纯天然",
+      "冻干工艺",
+      "训练奖励"
+    ],
+    "price": "39",
+    "costSummary": "9.2",
+    "costBreakdown": "原料5.5+冻干加工2.1+包装0.8+物流0.6+渠道32% 零售39",
+    "costNotes": "零食毛利最高，靠冻干工艺溢价，渠道费用占比高",
+    "formula": "单一动物蛋白源 100%（冻干鸡胸 / 鸭肝）",
+    "compliance": {
+      "short": "零食类合规",
+      "summary": "单一蛋白源可宣称 + 无诱食剂",
+      "requirements": "不得含诱食剂与着色剂 + 标签须标出冻干工艺"
+    },
+    "complianceShortName": "零食合规",
+    "salesPitch": "纯天然冻干工艺",
+    "tools": [
+      {
+        "id": "cost",
+        "label": "成本计算器",
+        "icon": "💰",
+        "desc": "零食成本 9.2元竞品"
+      },
+      {
+        "id": "compliance",
+        "label": "标签合规",
+        "icon": "📦",
+        "desc": "无诱食剂+工艺标示"
+      },
+      {
+        "id": "sales-ppt",
+        "label": "销售PPT",
+        "icon": "📽️",
+        "desc": "冻干卖点PPT"
+      }
+    ]
+  },
+  "supplement": {
+    "icon": "💊",
+    "color": "#4d7c0f",
+    "shadow": "0 8px 24px rgba(77,124,15,0.15)",
+    "gradient": "linear-gradient(135deg,#f7fee7,#d9f99d)",
+    "tints": {
+      "ui": "linear-gradient(135deg,#f7fee7,#d9f99d)",
+      "report": "linear-gradient(135deg,#d9f99d,#a3e635)",
+      "deep": "linear-gradient(135deg,#4d7c0f,#365314)"
+    },
+    "selling": [
+      "兽医共创",
+      "益生菌添加",
+      "关节配方"
+    ],
+    "price": "168",
+    "costSummary": "31.0",
+    "costBreakdown": "原料19+提取工艺5+包装4+物流2+渠道36% 零售168",
+    "costNotes": "营养品毛利最高但合规最严，不得宣称治疗功效",
+    "formula": "益生菌 2e8CFU/g + 氨基葡萄糖 8% + 鱼油 12%",
+    "compliance": {
+      "short": "添加剂合规",
+      "summary": "不得宣称治疗功效 + 添加剂用量须达标",
+      "requirements": "严禁治疗类宣称 + 添加剂目录与用量须符合规定"
+    },
+    "complianceShortName": "添加剂",
+    "salesPitch": "兽医共创关节配方",
+    "tools": [
+      {
+        "id": "cost",
+        "label": "成本计算器",
+        "icon": "💰",
+        "desc": "营养品成本 31元竞品"
+      },
+      {
+        "id": "compliance",
+        "label": "宣称合规",
+        "icon": "📦",
+        "desc": "禁治疗类宣称"
+      },
+      {
+        "id": "sales-ppt",
+        "label": "销售PPT",
+        "icon": "📽️",
+        "desc": "兽医共创背书PPT"
+      }
+    ]
+  }
+}
