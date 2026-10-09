@@ -28,7 +28,7 @@ async function main() {
   for (let index = 0; index < 8; index++) await prisma.message.create({ data: { conversationId: conversation.id, role: index % 2 ? "ASSISTANT" : "USER", content: `${index % 2 ? "已记录以下核对事项。" : "补充任务信息："}\n${"这段内容用于验证阅读历史和长输入布局。\n".repeat(5)}` } });
   await prisma.message.create({ data: { conversationId: conversation.id, role: "ASSISTANT", content: "这是界面验收演示，任务状态来自隔离测试库，不进行模型调用。", citations: [{ kind: "kern-mission", ref: mission.id }] } });
   const token = (await createSession(user.id)).token;
-  const browser = await chromium.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", args: ["--no-sandbox", "--no-proxy-server"] });
+  const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH ?? (fs.existsSync("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome") ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" : undefined), args: ["--no-sandbox", "--no-proxy-server"] });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   await context.addCookies([{ name: "hermes_session_token", value: token, url: base }]);
   const page = await context.newPage();

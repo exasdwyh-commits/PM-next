@@ -41,6 +41,8 @@ export function KernGraphCard({ graph }: { graph: KernGraphV1 }) {
   }, [graph]);
 
   const [selectedId, setSelectedId] = useState(graph.nodes[0]?.id || "");
+  // Shadow routing graphs are secondary to the reply itself: start folded, one click to inspect.
+  const [open, setOpen] = useState(false);
   const selected =
     graph.nodes.find((node) => node.id === selectedId) || graph.nodes[0] || null;
   const related = selected
@@ -56,7 +58,14 @@ export function KernGraphCard({ graph }: { graph: KernGraphV1 }) {
         aside={<Tag tone="neutral">{VIEW_LABEL[graph.view]}</Tag>}
       />
       <div className="m-card-body">
-        <p className="m-quiet" style={{ margin: 0 }}>{graph.summary}</p>
+        <div className="m-btn-row" style={{ alignItems: "center", justifyContent: "space-between" }}>
+          <p className="m-quiet" style={{ margin: 0, minWidth: 0 }}>{graph.summary}</p>
+          <button type="button" className="m-btn" data-v="ghost" data-size="sm" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+            {open ? "收起" : `展开 ${graph.nodes.length} 个节点`}
+          </button>
+        </div>
+        {open ? (
+        <>
 
         <div style={{ display: "grid", gap: 14 }}>
           {layers.map(([layer, nodes]) => (
@@ -122,6 +131,8 @@ export function KernGraphCard({ graph }: { graph: KernGraphV1 }) {
               </ul>
             ) : null}
           </div>
+        ) : null}
+        </>
         ) : null}
 
         {graph.notices.map((notice) => (

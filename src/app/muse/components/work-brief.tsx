@@ -20,7 +20,7 @@ export function WorkBrief({ attention, role }: { attention: ChatBrief["attention
     </div>
     <div className="ka-chart-grid">
       <div className="ka-glass"><WorkDistribution needs={needs} active={active} unavailable={attention.unavailable} /></div>
-      <div className="ka-glass ka-status-bars"><h3>待办与执行</h3>{[{ label: "推进中", count: active, tone: "active" }, { label: "待处理", count: needs, tone: "needs" }].map(item => <div className="ka-bar-row" key={item.label}><div><span>{item.label}</span><b>{item.count} 项</b></div><div className="ka-bar-track"><i data-tone={item.tone} style={{ width: `${item.count / max * 100}%` }} /></div></div>)}<small>{attention.unavailable ? "部分状态待更新，图表仅展示已读取事项。" : needs + active ? "点击上方卡片，继续处理当前事项。" : "说一个目标，让 Kern 开始工作。"}</small></div>
+      <div className="ka-glass ka-status-bars"><h3>待办与执行</h3>{[{ label: "推进中", count: active, tone: "active" }, { label: "待处理", count: needs, tone: "needs" }].map(item => <div className="ka-bar-row" key={item.label}><div><span>{item.label}</span><b>{attention.unavailable && !item.count ? "—" : `${item.count} 项`}</b></div><div className="ka-bar-track"><i data-tone={item.tone} style={{ width: `${item.count / max * 100}%` }} /></div></div>)}<small>{attention.unavailable ? "部分状态待更新，图表仅展示已读取事项。" : needs + active ? "点击上方卡片，继续处理当前事项。" : "说一个目标，让 Kern 开始工作。"}</small></div>
     </div>
     {attention.unavailable ? <p className="kern-state-note" role="status">部分状态未能读取，刷新可重试。已读取事项仍显示在下方。</p> : <p className="kern-brief-caption">{WORK_PERSPECTIVES.find(item => item.value === role)!.focus} · 打开页面时更新</p>}
   </section>;

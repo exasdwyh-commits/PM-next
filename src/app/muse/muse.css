@@ -215,6 +215,8 @@
 .m-card-head b { flex: 1 1 auto; min-width: 0; font-size: var(--m-t-sm); font-weight: 620; }
 .m-ico { width: 28px; height: 28px; flex: 0 0 auto; border-radius: 9px; display: grid; place-items: center; background: var(--m-accent-wash); color: var(--m-accent-ink); }
 .m-card-body { padding: 16px 18px; display: grid; gap: 12px; }
+.m-card-body > * { min-width: 0; }
+.m-kv dd, .m-src small { overflow-wrap: anywhere; }
 .m-hint { margin: 0; color: var(--m-ink-4); font-size: var(--m-t-sm); }
 .m-quiet { color: var(--m-ink-3); }
 
