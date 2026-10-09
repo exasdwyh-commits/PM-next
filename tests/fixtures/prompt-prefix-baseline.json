@@ -1,9 +1,9 @@
 {
   "note": "KX-70 提示词静态前缀基线：前缀变了必须同时升 DEPARTMENT_ASSISTANT_PERSONA_VERSION，再运行 `npm run arch:baseline`。",
-  "version": "department-assistant-persona/2026-09-29-v5",
+  "version": "department-assistant-persona/2026-10-09-v7-kern-rich",
   "hashes": {
-    "ASSISTANT_DIALOGUE": "e1ec5e133b1832aa",
-    "ASSISTANT_PLANNING": "0dc5dd2e5da532f7",
-    "ASSISTANT_SYNTHESIS": "cde680dba113b345"
+    "ASSISTANT_DIALOGUE": "1ac58eb5745c946d",
+    "ASSISTANT_PLANNING": "86b3fd78fd9c58bc",
+    "ASSISTANT_SYNTHESIS": "697138473a5fd96d"
   }
 }

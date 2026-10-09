@@ -1,6 +1,12 @@
 /**
  * HTML富可视化规范提示词 - Claude Web风格超越版
  * 用于Kern和专家Agent，强制输出富可视化而非单薄MD
+ *
+ * @deprecated LEGACY — 不在正式 /muse 链路上，不会注入任何会话模型调用。
+ *   正式且唯一的模型输出规范是 kern-rich/v1：src/modules/artifacts/protocol.ts（KERN_RICH_PROMPT，
+ *   由 conversation-engine 注入），Markdown 规则见 assistant-runtime/reply-format.ts。
+ *   本文件仅供「提示词库」展示页与 /api/kern/dispatch（只返回文本、不调用模型）引用；其中示例数值
+ *   不是事实数据，不得作为模型输入或成果数据来源。
  */
 
 export const HTML_RICH_SPEC_PROMPT = `

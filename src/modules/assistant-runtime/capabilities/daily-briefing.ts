@@ -122,6 +122,9 @@ export async function generateDailyBriefing(input: DailyBriefingInput & { memori
   };
 }
 
+/**
+ * @deprecated LEGACY — 无调用方，不参与任何模型调用。正式输出规范见 src/modules/artifacts/protocol.ts（kern-rich/v1）。
+ */
 export function buildDailyBriefingPrompt(output: DailyBriefingOutput, role: string = "product"): string {
   const roleDesc = role === "leadership" ? "领导视角极简，专注结论和决策" : role === "sales" ? "销售视角卖点突出工具化" : "研发视角专业严谨";
   return `

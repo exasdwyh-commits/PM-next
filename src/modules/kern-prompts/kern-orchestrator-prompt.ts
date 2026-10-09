@@ -2,6 +2,12 @@
  * Kern主Agent调度提示词库 - 专业版
  * 调动其他专家Agent，结合HTML规范和输出形式，完成富可视化输出
  * 防止专家按默认MD输出单薄文字
+ *
+ * @deprecated LEGACY — 不在正式 /muse 链路上，不会注入任何会话模型调用。
+ *   正式且唯一的模型输出规范是 kern-rich/v1：src/modules/artifacts/protocol.ts（KERN_RICH_PROMPT，
+ *   由 conversation-engine 注入），Markdown 规则见 assistant-runtime/reply-format.ts。
+ *   本文件仅供「提示词库」展示页与 /api/kern/dispatch（只返回文本、不调用模型）引用；其中示例数值
+ *   不是事实数据，不得作为模型输入或成果数据来源。
  */
 
 export const KERN_ORCHESTRATOR_PROMPT = `
