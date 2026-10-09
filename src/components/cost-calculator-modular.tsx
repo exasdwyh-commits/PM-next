@@ -31,15 +31,9 @@ import "./compliance-checklist.css";
 import { listTemplates, getTemplateForProduct, getTemplate } from "@/modules/cost-engine/templates";
 import { calculateModularCost } from "@/modules/cost-engine/modules/calculator";
 import type { ProductCostTemplate, ModularCostResult } from "@/modules/cost-engine/modules/types";
+import { categoryContent, categoryKeys } from "@/modules/tenant";
 import "./cost-calculator-modular.css";
 import "./role-switch.css";
-
-const CATEGORY_INFO: Record<string, { compliance: string; notes: string }> = {
-  regular_food: { compliance: "SC认证 + 标签审核", notes: "普通食品，成本较低，重点在原料和包装" },
-  health_food: { compliance: "蓝帽子备案/注册 + 功能声称 + 多项检测", notes: "保健食品，原料贵、检测多、备案费高(5-20万)，需摊销" },
-  cross_border_food: { compliance: "进口备案 + 关税 + 中文标签 + 保税仓", notes: "跨境食品，国际物流+关税+清关，税率10-15%" },
-  cosmetics: { compliance: "化妆品备案/注册 + 功效/安全检测 + 宣称", notes: "化妆品，包材贵(玻璃瓶)、检测多(5项+)、备案费高" },
-};
 
 export function CostCalculatorModular({
   productName,
@@ -108,7 +102,12 @@ export function CostCalculatorModular({
 
   if (!template || !result) return <div>加载中...</div>;
 
-  const catInfo = CATEGORY_INFO[template.id] || { compliance: "", notes: "" };
+  // 模板 id 含 `custom`（自定义），它不对应任何品类，因此没有合规要求与成本结构。
+  // 原实现在这种情况下显示空字符串而不是默认到某个品类，这里保持同一行为——
+  // 故用 categoryKeys() 先判定，不用 categoryContent 的兜底参数（它会兜底到 health_food）。
+  const content = categoryKeys().some((k) => k === template.id) ? categoryContent(template.id) : null;
+  const compliance = content?.compliance.requirements ?? "";
+  const costNotes = content?.costNotes ?? "";
 
   return (
     <CostCalculatorPerformance category={template.id || "health_food"}>
@@ -119,7 +118,7 @@ export function CostCalculatorModular({
           <span className="eyebrow">成本计算器 · 4类专用 · {role === "leadership" ? "领导视角" : role === "product" ? "研发视角" : "销售视角"}</span>
           <h2>💰 {productName || "产品"} 成本核算</h2>
           <p>{template.icon} {template.name} · {template.description}</p>
-          <small style={{ color: "#7c3aed" }}>📋 合规：{catInfo.compliance} · {catInfo.notes}</small>
+          <small style={{ color: "#7c3aed" }}>📋 合规：{compliance} · {costNotes}</small>
         </div>
         <div className="template-switch">
           <label>产品类别 (仅4类)</label>
@@ -253,7 +252,7 @@ export function CostCalculatorModular({
               {template.id === "cross_border_food" && `跨境食品总成本 ¥${result.totalCost.toFixed(2)}，含国际物流+关税，零售价 ¥${result.retailPrice.toFixed(2)}，净利率 ${result.netMarginRate.toFixed(1)}%，关税和清关是关键。`}
               {template.id === "cosmetics" && `化妆品总成本 ¥${result.totalCost.toFixed(2)}，包材和检测占比较高，零售价 ¥${result.retailPrice.toFixed(2)}，净利率 ${result.netMarginRate.toFixed(1)}%，${result.netMarginRate > 30 ? "利润空间大" : "需优化包材"}。`}
             </p>
-            <small>📋 合规：{catInfo.compliance}</small>
+            <small>📋 合规：{compliance}</small>
           </div>
           <div className="cost-modules-lead">
             {result.modules.slice(0, 4).map(m => (
@@ -321,7 +320,7 @@ export function CostCalculatorModular({
               <div className="row"><span>保底供货价</span><strong>¥{result.supplyPriceFloor.toFixed(2)}</strong></div>
               <div className="row"><span>建议供货价</span><strong>¥{result.supplyPriceSuggested.toFixed(2)}</strong></div>
             </div>
-            <small style={{ color: "#6b7280" }}>📋 {template.name}合规：{catInfo.compliance} · {catInfo.notes}</small>
+            <small style={{ color: "#6b7280" }}>📋 {template.name}合规：{compliance} · {costNotes}</small>
           </div>
         </div>
       ) : (
@@ -335,7 +334,7 @@ export function CostCalculatorModular({
           <div className="sales-points">
             <div className="point"><span className="icon">💎</span><div><strong>成本优势</strong><small>{template.name}总成本仅 ¥{result.totalCost.toFixed(2)}，{template.id === "cross_border_food" ? "含关税和国际物流" : template.id === "cosmetics" ? "含包材和检测" : "含备案摊销"}，远低于竞品</small></div></div>
             <div className="point"><span className="icon">📈</span><div><strong>利润空间</strong><small>净利率 {result.netMarginRate.toFixed(1)}%，建议供货价 ¥{result.supplyPriceSuggested.toFixed(2)}，{template.id === "cosmetics" ? "化妆品利润空间大" : "利润良好"}</small></div></div>
-            <div className="point"><span className="icon">🎯</span><div><strong>定价策略</strong><small>保底 ¥{result.supplyPriceFloor.toFixed(2)}，建议 ¥{result.supplyPriceSuggested.toFixed(2)}，竞品299元，{catInfo.compliance}已合规</small></div></div>
+            <div className="point"><span className="icon">🎯</span><div><strong>定价策略</strong><small>保底 ¥{result.supplyPriceFloor.toFixed(2)}，建议 ¥{result.supplyPriceSuggested.toFixed(2)}，竞品299元，{compliance}已合规</small></div></div>
           </div>
 
           <div className="cost-modules-sales">
@@ -354,7 +353,7 @@ export function CostCalculatorModular({
             </div>
             <div className="script">
               <h4>💬 推荐话术 · {template.name}</h4>
-              <p>“{productName || "产品"}({template.name})总成本仅 ¥{result.totalCost.toFixed(2)}，{catInfo.compliance}已合规，零售价 ¥{result.retailPrice.toFixed(2)}，净利率 {result.netMarginRate.toFixed(1)}%，竞品均价299元，利润空间大，建议供货价 ¥{result.supplyPriceSuggested.toFixed(2)}。”</p>
+              <p>“{productName || "产品"}({template.name})总成本仅 ¥{result.totalCost.toFixed(2)}，{compliance}已合规，零售价 ¥{result.retailPrice.toFixed(2)}，净利率 {result.netMarginRate.toFixed(1)}%，竞品均价299元，利润空间大，建议供货价 ¥{result.supplyPriceSuggested.toFixed(2)}。”</p>
             </div>
           </div>
         </div>
@@ -373,7 +372,7 @@ export function CostCalculatorModular({
         <button className="primary" onClick={() => onSave?.(result, template)}>💾 保存{template.name}成本方案</button>
         <button>📤 导出Excel</button>
         <button>📊 生成对比</button>
-        <button>📋 {catInfo.compliance}</button>
+        <button>📋 {compliance}</button>
       </div>
     </div>
     </CostCalculatorPerformance>
