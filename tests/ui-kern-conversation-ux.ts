@@ -92,13 +92,13 @@ async function main() {
     await page.locator(".m-mission > .m-card-body > .m-card-actions").getByRole("button", { name: "暂停", exact: true }).click();
     assert.equal((await pause).status(), 200);
     const savedPause = (await prisma.agentTask.findUniqueOrThrow({ where: { id: mission.id } })).contextSnapshot as unknown as MissionSnapshot;
-    assert.ok(savedPause.paused);
+    assert.ok(savedPause.paused, "pause must persist in the mission snapshot");
     assert.equal(await flow.getAttribute("data-motion"), "still");
     await page.reload(); await flow.waitFor(); assert.equal(await flow.getAttribute("data-motion"), "still");
     await page.locator(".m-mission > .m-card-body > .m-card-actions").getByRole("button", { name: "查看过程", exact: true }).click();
-    const workspace = page.getByRole("dialog"); await workspace.waitFor();
+    const workspace = page.getByRole("dialog"); await workspace.waitFor(); await workspace.locator(".m-lanes > .m-lane").first().waitFor();
     const paddings = await workspace.locator(".m-lanes > .m-lane").evaluateAll(elements => elements.map(element => Number.parseFloat(getComputedStyle(element).paddingBottom)));
-    assert.ok(paddings.length > 0 && paddings.every(padding => padding < 30));
+    assert.ok(paddings.length > 0 && paddings.every(padding => padding < 30), `workspace lane paddings: ${JSON.stringify(paddings)}`);
     await page.keyboard.press("Escape"); await workspace.waitFor({ state: "hidden" });
     console.log("PASS pause button → real control API → persisted snapshot → refresh keeps stopped motion; workspace cards keep compact spacing");
 
