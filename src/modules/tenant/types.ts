@@ -20,7 +20,11 @@ export interface TenantManifest {
 
 export interface TenantPack {
   tenant: TenantManifest;
-  categories: { targetMargin: Record<string, number> };
+  categories: {
+    targetMargin: Record<string, number>;
+    /** 分类键 → 对外显示名。中文品类名只存在 packs/，不写进 src/（见 tenant-neutral-guard） */
+    classifications: Record<string, string>;
+  };
   lexicon: { forms: string[]; claims: string[]; ingredients: string[]; marketDefaultForms: string[] };
   claims: {
     healthClaimPattern: string;

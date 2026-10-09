@@ -30,3 +30,19 @@ export function getTenantPack(id: string = resolveTenantPackId()): TenantPack {
 export function listTenantPacks(): string[] {
   return Object.keys(TENANT_PACKS);
 }
+
+/**
+ * 品类外观元数据从本入口再导出，使组件只需 `import { categoryMeta } from "@/modules/tenant"`。
+ *
+ * 注意：category-meta.ts 反向 import 本文件的 getTenantPack，形成循环依赖。
+ * 之所以安全：getTenantPack 是**函数声明**，模块间绑定会被 hoist，
+ * 循环中不产生 TDZ；而 categoryMeta() 只在**调用时**才读 pack，不在模块求值期读。
+ * 改动此处时请保留这一性质（不要把 getTenantPack 改成 const 箭头函数）。
+ */
+export {
+  categoryMeta,
+  categoryName,
+  categoryKeys,
+  DEFAULT_CATEGORY,
+} from "./category-meta";
+export type { CategoryKey, CategoryMeta } from "./category-meta";

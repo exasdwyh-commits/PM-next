@@ -1,5 +1,12 @@
 {
   "_note": "按品类预设的目标利润率 %。保健品高毛利；食品低毛利走量；礼盒有礼品溢价。",
+  "_classificationsNote": "分类键 → 对外显示名。src/ 只允许出现分类键，中文品类名从这里读（tests/tenant-neutral-guard.test.ts 强制）。",
+  "classifications": {
+    "regular_food": "普通食品",
+    "health_food": "保健食品",
+    "cross_border_food": "跨境食品",
+    "cosmetics": "化妆品"
+  },
   "targetMargin": {
     "保健品": 35,
     "保健食品": 35,
