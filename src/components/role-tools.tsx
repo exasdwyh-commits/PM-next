@@ -11,7 +11,7 @@ export interface ToolDef {
   label: string;
   icon: string;
   desc: string;
-  roles: ("leadership" | "product" | "sales")[];
+  roles: UserRole[];
   action?: () => void;
   primary?: boolean;
   // 工具的角色化表现
