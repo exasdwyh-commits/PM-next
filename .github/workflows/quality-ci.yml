@@ -40,6 +40,8 @@ jobs:
       - run: npm run test:healthcare-innovation
       - run: npm run test:report-format
       - run: npm run test:token-usage
+      - run: npm run test:regression-units
+
       - run: npm run test:desktop-runtime
       - run: npm run test:kern-project-map
       - run: npm run typecheck
