@@ -12,6 +12,23 @@ import "./role-tools.css";
 
 type Role = "leadership" | "product" | "sales";
 
+/* 三态标注（系统级契约）：结论只携带事实属性，呈现层只翻译不发明。
+ * FACT→事实；INFERENCE/ESTIMATE→推断；其余（含 OPINION/缺失）→UNKNOWN。 */
+type ClaimKindView = "fact" | "infer" | "unknown";
+
+function claimKindView(kind?: string): ClaimKindView {
+  const k = (kind || "").toUpperCase();
+  if (k === "FACT") return "fact";
+  if (k === "INFERENCE" || k === "ESTIMATE") return "infer";
+  return "unknown";
+}
+
+function ErrEv({ kind }: { kind?: string }) {
+  const v = claimKindView(kind);
+  const label = v === "fact" ? "事实" : v === "infer" ? "推断" : "UNKNOWN";
+  return <span className={`err-ev err-ev--${v}`}>{label}</span>;
+}
+
 function calcStats(conclusions: any[]) {
   const levels: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, UNKNOWN: 0 };
   conclusions.forEach((c) => {
@@ -35,14 +52,14 @@ function LeadershipView({ report, onOpenDecisions, onOpenEvidence }: any) {
     <div className="err-lead">
       <div className="err-kpi-grid">
         <div className="kpi ok"><span>✅ 已核实</span><strong>{stats.total}条</strong><small>{stats.verifiedRate}%可信</small></div>
-        <div className="kpi bad"><span>⚠️ 风险</span><strong>{risks.length}项</strong><small>{risks[0]?.slice(0, 15) || "无"}</small></div>
+        <div className="kpi bad"><span>⚠️ 风险</span><strong>{risks.length}项</strong><small>{risks[0] ?? "无"}</small></div>
         <div className="kpi warn"><span>❓ 待补充</span><strong>{unknowns.length}项</strong></div>
         <div className="kpi brand"><span>📝 待决策</span><strong>{decisions.length}项</strong></div>
       </div>
       <div className="err-verdict"><span>💡 一句话结论</span><p>{report.summary}</p></div>
       <div className="err-cards">
         {conclusions.slice(0, 4).map((c: any, i: number) => (
-          <div key={i} className="err-card"><strong>{c.claim}</strong><small>📎 {c.evidenceRef}</small></div>
+          <div key={i} className="err-card"><ErrEv kind={c.claimKind} /><strong>{c.claim}</strong><small>📎 {c.evidenceRef}</small></div>
         ))}
       </div>
       <div className="err-actions">
@@ -63,19 +80,21 @@ function ProductView({ report, onOpenDecisions, onOpenEvidence }: any) {
     <div className="err-product">
       <div className="err-section">
         <h3>🔬 证据可信度矩阵 (专业严谨)</h3>
-        <table className="err-table-full">
-          <thead><tr><th>结论</th><th>类型</th><th>等级</th><th>来源</th><th>核验</th><th>新鲜度</th></tr></thead>
-          <tbody>
-            {conclusions.map((c: any, i: number) => (
-              <tr key={i}><td>{c.claim}</td><td>{c.claimKind}</td><td><span className={`lvl ${c.evidenceLevel}`}>{c.evidenceLevel}</span></td><td>{c.evidenceRef}</td><td>{c.verificationRefs?.length || 0}条</td><td>{c.freshness}</td></tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="err-table-wrap">
+          <table className="err-table-full">
+            <thead><tr><th>结论</th><th>三态</th><th>等级</th><th>来源</th><th>核验</th><th>新鲜度</th></tr></thead>
+            <tbody>
+              {conclusions.map((c: any, i: number) => (
+                <tr key={i}><td>{c.claim}</td><td><ErrEv kind={c.claimKind} /></td><td><span className={`lvl ${c.evidenceLevel || "UNKNOWN"}`}>{c.evidenceLevel || "?"}</span></td><td>{c.evidenceRef}</td><td>{c.verificationRefs?.length || 0}条</td><td>{c.freshness}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <div className="err-stats">A级 {stats.levels.A} · B级 {stats.levels.B} · C级 {stats.levels.C} · D级 {stats.levels.D} · 总计 {stats.total} · 可信率 {stats.verifiedRate}%</div>
       </div>
       <div className="err-two">
         <div className="err-sec"><h4>⚠️ 风险清单 (需工具流程跟进)</h4><ul>{risks.map((r: string, i: number) => <li key={i}>{r}</li>)}</ul><button onClick={onOpenDecisions}>🛠️ 生成风险应对计划</button></div>
-        <div className="err-sec"><h4>❓ UNKNOWN 缺口 (需补证据)</h4><ul>{unknowns.map((u: string, i: number) => <li key={i}>{u}</li>)}</ul><button onClick={onOpenEvidence}>📎 去补证据</button></div>
+        <div className="err-sec"><h4>❓ UNKNOWN 缺口（每条须给出补齐路径）</h4><ul>{unknowns.map((u: string, i: number) => <li key={i}>{u}</li>)}</ul><button onClick={onOpenEvidence}>📎 去补证据</button></div>
       </div>
       <RoleTools />
     </div>
@@ -86,31 +105,38 @@ function ProductView({ report, onOpenDecisions, onOpenEvidence }: any) {
 function SalesView({ report }: any) {
   const conclusions = report.conclusions ?? [];
   const salesPoints = conclusions.filter((c: any) => c.evidenceLevel === "A" || c.claimKind === "FACT").slice(0, 3);
+  /* 话术只由报告数据字段拼装，禁止写死任何数字/竞品结论（拆雷：原硬编码模板串）。 */
+  const headline: string = report.summary?.split("，")[0] || "";
+  const scriptClaims: any[] = (salesPoints.length > 0 ? salesPoints : conclusions.slice(0, 3)).filter((c: any) => !!c?.claim);
+  const scriptText = [headline, ...scriptClaims.map((c: any) => String(c.claim))].filter(Boolean).join("；");
   return (
     <div className="err-sales">
       <div className="err-sales-hero">
         <span className="badge">🔥 核心卖点</span>
-        <h2>{report.summary?.split("，")[0] || "产品具备市场竞争力"}</h2>
-        <p>基于 {conclusions.length} 条已核实结论提炼，适合直接用于客户沟通</p>
+        <h2>{headline || "产品竞争力待结论核实后生成"}</h2>
+        <p>基于 {conclusions.length} 条已入库结论提炼，仅可直接引用已核实内容</p>
       </div>
       <div className="err-sales-points">
-        {salesPoints.map((c: any, i: number) => (
+        {scriptClaims.map((c: any, i: number) => (
           <div key={i} className="sales-point">
             <span className="icon">💎</span>
-            <div><strong>{c.claim}</strong><small>客户价值：{c.customerValue || "健康趋势，功效突出"}</small><small>📎 依据：{c.evidenceRef} · A级可信</small></div>
-          </div>
-        ))}
-        {salesPoints.length === 0 && conclusions.slice(0, 3).map((c: any, i: number) => (
-          <div key={i} className="sales-point">
-            <span className="icon">💎</span>
-            <div><strong>{c.claim}</strong><small>客户价值：可直接用于销售话术</small></div>
+            <div>
+              <ErrEv kind={c.claimKind} />
+              <strong>{c.claim}</strong>
+              {c.customerValue ? <small>客户价值：{c.customerValue}</small> : null}
+              <small>📎 依据：{c.evidenceRef}{c.evidenceLevel ? ` · ${c.evidenceLevel}级` : ""}</small>
+            </div>
           </div>
         ))}
       </div>
       <RoleTools />
       <div className="err-sales-script">
         <h4>💬 推荐销售话术 (一键复制)</h4>
-        <p>“{report.summary?.slice(0, 80)}，成本仅10.2元，竞品均价299元，利润空间大，82%留存率已验证，建议首批1000盒试销。”</p>
+        {scriptText ? (
+          <p>“{scriptText}。”</p>
+        ) : (
+          <p className="err-gap">暂无可直接引用的已核实结论。缺：已核实卖点；如何补齐：先在「产品研发」完成证据核验，话术由 kern 依据核实结果生成。</p>
+        )}
         <div className="script-actions"><button>📋 复制话术</button><button>📤 分享</button></div>
       </div>
     </div>
