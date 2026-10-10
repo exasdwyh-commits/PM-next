@@ -157,14 +157,14 @@ const NODE_DESCRIPTIONS: Record<PlaybookNodeKey, string> = {
   research_consumer: "消费者研究 · 偏好/痛点/场景",
   research_regulatory: "法规研究 · 认证/宣称/备案",
   research_competitor: "竞品研究 · 成本/卖点/合规对比",
-  formula_design: "配方设计 · 多酚+基质+工艺",
-  cost_optimization: "成本优化 · 目标8元 3方案",
-  compliance_check: "合规检查 · 蓝帽子/SC/备案",
-  channel_adaptation: "渠道适配 · 大客户/小客户/现场",
-  gtm_strategy: "上市策略 · 定价/渠道/卖点",
-  red_team: "红队 · 风险/挑战/反驳",
-  qa_verification: "QA验证 · 证据A/B/C/D + 引用全链",
-  product_blueprint: "产品蓝图 · 最终报告+决策点",
+  formula_design: "配方设计（待真实配方约束输入）",
+  cost_optimization: "成本优化（待可追溯报价输入）",
+  compliance_check: "合规检查（待真实合规判定输入）",
+  channel_adaptation: "渠道适配（待渠道数据输入）",
+  gtm_strategy: "上市策略（待定价/渠道真实数据）",
+  red_team: "红队（待真实风险素材）",
+  qa_verification: "QA验证（待真实核验记录）",
+  product_blueprint: "产品蓝图（仅由真实产出组合）",
 };
 
 export async function executeNewProductPlaybook(input: PlaybookInput): Promise<PlaybookOutput> {
@@ -235,79 +235,50 @@ export async function executeNewProductPlaybook(input: PlaybookInput): Promise<P
 
         output = { researchRunId: researchResult.researchRun.id, sourceCount: researchResult.sourceCaptures.length, lineageValid: researchResult.lineageValid };
         citations = researchResult.citations;
-      } else if (nodeKey === "formula_design") {
+      } else if (nodeKey !== "product_blueprint") {
+        // 诚实缺省（批次C+ 拆雷）：formula/cost/compliance/channel/gtm/red_team/qa_verification
+        // 需要真实输入（原料候选与供应商规格、可追溯报价、合规判定、渠道与定价数据、真实核验记录），
+        // 当前 playbook 链条没有任何数据源支撑——历史版本在此全部用写死的演示值充当产出，
+        // 已按「宁可 UNKNOWN 不编造」契约整段拆除，改为如实标记缺口。
+        nodes.push({
+          nodeKey,
+          status: "BLOCKED",
+          blockedReason:
+            NODE_DESCRIPTIONS[nodeKey] +
+            "：缺少真实输入与数据源，已按诚实缺省标记缺口；补齐路径见 docs/ROLE_REPORT_OPTIMIZATION_ROADMAP_2026-10-10.md §3 P0（数据供给批）。",
+          durationMs: Date.now() - nodeStart,
+        });
+        continue;
+      } else {
+        // product_blueprint：只由真实节点产出组合；没有任何真实研究产出时，宁可缺，不编造。
+        // 注：当前依赖链（qa_verification/red_team 均无生产者）下本节点会被依赖守卫 BLOCKED；
+        // 本实现是为未来真实生产者就绪后的组合逻辑，代码本体已不含任何演示值。
+        const researchNodes = nodes.filter((n) => n.nodeKey.startsWith("research_") && n.status === "DONE");
+        if (researchNodes.length === 0) {
+          nodes.push({
+            nodeKey,
+            status: "BLOCKED",
+            blockedReason: "无任何真实研究产出，不生成蓝图（宁可缺，不编造）。",
+            durationMs: Date.now() - nodeStart,
+          });
+          continue;
+        }
         output = {
-          formula: category === "health_food" ? "多酚+低聚果糖+软糖基质 80℃烘焙" : category === "cosmetics" ? "透明质酸+烟酰胺+精华基质" : "基础配方",
-          retention: "82%",
-          process: "80℃烘焙",
+          title: `${input.productIdea} - 产品蓝图（部分·仅含真实研究产出）`,
+          executiveSummary:
+            `基于 ${researchNodes.length} 个真实研究节点的产出汇总；` +
+            `配方/成本/合规/渠道/定价各节因缺真实输入未生成（见各节点 blockedReason），不得作为业务批准依据。`,
+          researchRefs: researchNodes.map((n) => ({ nodeKey: n.nodeKey, output: n.output })),
+          conclusions: [],
+          risks: [],
+          unknowns: nodes
+            .filter((n) => n.status === "BLOCKED")
+            .map((n) => `${NODE_DESCRIPTIONS[n.nodeKey]}：${n.blockedReason ?? "未完成"}`),
+          decisionsRequired: ["是否按数据供给批补齐真实输入（§3 P0）后重跑本 playbook。"],
+          nextActions: ["接入真实报价/配方/合规数据通道后重跑"],
           category,
         };
-      } else if (nodeKey === "cost_optimization") {
-        output = {
-          current: 10.2,
-          target: 8.0,
-          schemes: [
-            { name: "方案A 成本最优", cost: 7.8, margin: "68%", risk: "低" },
-            { name: "方案B 功效最优", cost: 9.2, margin: "62%", risk: "中" },
-            { name: "方案C 平衡", cost: 8.5, margin: "65%", risk: "低" },
-          ],
-          category,
-        };
-      } else if (nodeKey === "compliance_check") {
-        output = {
-          compliance: category === "health_food" ? "蓝帽子+功能声称+检测报告" : category === "cosmetics" ? "备案+功效宣称+安全评估" : "SC资质",
-          status: "ok",
-          jurisdiction: "中国",
-          date: "2024-10-07",
-          category,
-        };
-      } else if (nodeKey === "channel_adaptation") {
-        output = {
-          channels: ["大客户", "小客户", "客户现场"],
-          adaptations: {
-            大客户: "专业版话术+完整证据",
-            小客户: "简洁版+高利润",
-            客户现场: "促单版+快问快答3秒",
-          },
-          category,
-        };
-      } else if (nodeKey === "gtm_strategy") {
-        output = {
-          pricing: { cost: "10.2", retail: category === "health_food" ? "199" : "39.9", profit: "68%" },
-          sellingPoints: category === "health_food" ? ["蓝帽子认证", "多酚功效", "软糖剂型"] : ["性价比高", "日常刚需"],
-          category,
-        };
-      } else if (nodeKey === "red_team") {
-        output = {
-          risks: ["成本偏高需优化", "竞品价格战", "法规变化"],
-          challenges: ["如何降到8元以内", "如何证明多酚功效", "如何应对竞品"],
-          mitigations: ["替换供应商B降20%", "lab_test A级证据", "差异化卖点"],
-          category,
-        };
-      } else if (nodeKey === "qa_verification") {
-        output = {
-          evidenceCount: 10,
-          verifiedCount: 8,
-          verifiedRate: 80,
-          levels: { A: 5, B: 3, C: 1, D: 1 },
-          lineageValid: true,
-          category,
-        };
-      } else if (nodeKey === "product_blueprint") {
-        output = {
-          title: `${input.productIdea} - 产品蓝图`,
-          executiveSummary: `${input.productIdea}，市场200亿+30%增长，${category}专用，成本10.2目标8.0，蓝帽子已合规，多酚留存82%验证，建议首批1000盒试销`,
-          conclusions: [
-            { claim: "市场200亿+30%健康趋势", level: "A", sources: ["fda.gov"] },
-            { claim: "多酚留存82%已验证", level: "A", sources: ["lab_test"] },
-            { claim: "蓝帽子+功能声称已合规 中国 2024", level: "A", sources: ["samr.gov.cn"], jurisdiction: "中国" },
-          ],
-          risks: ["成本偏高", "竞品"],
-          unknowns: ["具体销量"],
-          decisionsRequired: ["是否选择方案A 7.8元", "是否首批1000盒"],
-          nextActions: ["成本优化到8元", "准备销售PPT"],
-          category,
-        };
+        citations = researchNodes.flatMap((n) => n.citations ?? []);
       }
 
       nodes.push({
@@ -359,7 +330,7 @@ export async function executeNewProductPlaybook(input: PlaybookInput): Promise<P
 
 export function describePlaybook() {
   return {
-    flow: "Kern → NEW_PRODUCT Playbook → Research/Market/Consumer/Regulatory/Competitor/Formula/Cost/Compliance/Channel/GTM/Red Team → QA → Product Blueprint → 创建 Product",
+    flow: "Kern → NEW_PRODUCT Playbook → 四个研究节点(真实) → 配方/成本/合规/渠道/GTM/红队/QA(无真实输入一律 BLOCKED 缺口) → Product Blueprint(仅由真实产出组合) → 全成功才创建 Product",
     nodes: Object.keys(NODE_DEPENDENCIES),
     dependencies: NODE_DEPENDENCIES,
     acceptance: "product-rnd-fusion / worker / golden-org 回归保持绿色, 在途旧 run 迁移测试, 垂直切片 女性餐前轻体饮",
