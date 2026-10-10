@@ -100,6 +100,19 @@ test("R3-C：硬违例逐条点名，绝无 '', 空串蒙混过关", () => {
   assert.ok(v7.unknownFields.includes("formSpec"));
 });
 
+test("R3-E：多形键承认既有用法——targetChannels 字符串数组不拦，数字仍拦", () => {
+  // 既有渠道回归（golden-channel-route-persistence）实测：specs.targetChannels 为字符串数组。
+  const v = validateProductSpecs({ targetChannels: ["私域/会销", "快手直播"], bundleOptions: ["299/12盒"] });
+  assert.deepEqual(v.problems, [], `多形键应放行既有数组形态：${v.problems.join("；")}`);
+  assert.ok(v.extras.includes("bundleOptions"), "bundleOptions 未入契约 → extras 透传可见");
+
+  const bad = validateProductSpecs({ targetChannels: 123 });
+  assert.ok(bad.problems.some((p) => p.includes("targetChannels")), "非法类型（数字）必须被点名");
+
+  const badItem = validateProductSpecs({ targetChannels: ["天猫", 666 as unknown as string] });
+  assert.ok(badItem.problems.some((p) => p.includes("targetChannels")), "数组内非字符串项必须被点名");
+});
+
 test("R3-D：枚举/日期/金额类型在定义里自洽", () => {
   for (const def of SPEC_FIELD_DEFS) {
     if (def.type === "enum") {
