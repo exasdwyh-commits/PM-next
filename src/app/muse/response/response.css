@@ -544,3 +544,13 @@
 /* 进度块 */
 .muse .kr-prog { border-radius: var(--k-r); background: var(--k-surface); }
 .muse .kr-prog-track i { background: var(--k-brand); }
+
+/* ── 报告分节与标注（R1 八节契约的渲染层收尾，纯加性、可随报告上下文裁剪）──
+ * 报告结论由 Prose 的 `##` 分节渲染为 h3.m-h[data-l="2"]；过去分节之间只有留白，
+ * 长报告看不出结构。此处只给分节边界与标注芯片更安静的强度：不触碰组件、
+ * 信息与 HTML 结构一律不变。
+ */
+.kr-prose .m-h[data-l="2"]{display:flex;align-items:center;gap:10px;padding-top:14px;margin-top:24px;border-top:1px solid var(--line-soft)}
+.kr-prose .m-h[data-l="2"]::before{content:"";width:3px;height:13px;border-radius:2px;background:var(--brand-line);flex:0 0 auto}
+.kr-prose .m-tagline[data-k="unknown"]{box-shadow:inset 0 0 0 1px currentColor;opacity:.85}
+.kr-prose .m-tagline[data-k="fact"],.kr-prose .m-tagline[data-k="infer"]{box-shadow:inset 0 0 0 1px var(--brand-line)}

@@ -1,0 +1,2071 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kern-EP60 复合酶片 · 新品研发报告</title>
+<!--
+  版式说明（供工程接线）
+  · 结构：#cover 封面 / #s0 文档控制 / #s1 定义 / #s2 配方BOM / #s3 工艺中试 / #s4 质量稳定性
+          / #s5 经济性 / #s6 合规宣称 / #s7 风险FMEA / #s8 验证计划与拍板 / #s9 附录
+  · 三态：class 组合 "ev f|i|u"（徽章）与 "cl f|i|u"（结论块，带左色条与线型），
+          文字 + 符号（✓ ∴ ◌）+ 线型三通道，色盲与灰度打印下仍可读
+  · 数值链：02 配方合计 ¥15,229.81 → 单瓶原料 ¥5.80 → 出厂 ¥11.40 → 05 毛利桥 → 单件贡献 ¥75.66
+          改任一项须同步：BOM 总行、成本条 width、毛利桥 --y/--h、敏感性表、01 剂型对比、05 KPI
+  · 图表：05 桥用 .wfb{--y,--h}；04/05 SVG 为手工坐标，替换数据时需重算 polyline points 与 rect y/height
+  · 打印：A4，区块 break-inside:avoid；.brk 强制分页（05、08 前）；边距盒页码在无头导出时由 CSS 提供
+  · 依赖：无外链、无字体请求、除打印按钮外无脚本
+-->
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   v2 · 排版升尺 + 折叠模块 + 摘要层 + 组件动效
+   尺度：4 / 8 / 12 / 16 / 24 / 32 / 48 / 64   流式字号：body 15.5→17
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  --canvas:#F2F0EA;      --paper:#FBFAF8;      --card:#FFFFFF;
+  --soft:#F7F5F0;        --soft2:#F0EDE6;      --line:#E7E2D8;   --line2:#D6CFC1;
+  --ink:#1C1A17;         --ink2:#48423A;       --ink3:#787165;   --ink4:#A6A096;
+  --acc:#B44A26;         --acc2:#D97757;       --acc-soft:#FCF0EA;  --acc-line:#F0D3C6;
+  --ok:#37714A;          --ok-soft:#EBF3EC;    --ok-line:#CBE0D1;
+  --warn:#8A5C0B;        --warn-soft:#FBF2DD;  --warn-line:#E9D5A4;
+  --bad:#A93026;         --bad-soft:#FBEDEB;   --bad-line:#EFC9C3;
+  --slate:#3A5273;       --slate-soft:#EEF2F6; --slate-line:#D2DCE7;
+  --sans:"SF Pro Text",-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Songti SC","Noto Serif CJK SC",serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sh-1:0 1px 2px rgba(28,26,23,.04);
+  --sh-2:0 1px 2px rgba(28,26,23,.04),0 18px 40px -28px rgba(28,26,23,.35);
+  --sh-3:0 2px 6px rgba(28,26,23,.06),0 30px 60px -30px rgba(28,26,23,.30);
+  --ease:cubic-bezier(.22,.61,.36,1);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--canvas);color:var(--ink);
+  font-family:var(--sans);
+  font-size:clamp(15.4px,.42vw + 14.4px,17px);
+  line-height:1.72;letter-spacing:.006em;
+  font-kerning:normal;font-variant-numeric:tabular-nums lining-nums;
+  line-break:strict;text-rendering:optimizeLegibility;
+  -webkit-font-smoothing:antialiased;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact;
+}
+h1,h2,h3,h4{margin:0;font-family:var(--serif);font-weight:600;letter-spacing:-.014em;line-height:1.2}
+p{margin:0}ul,ol{margin:0;padding:0;list-style:none}
+a{color:inherit;text-decoration:none}
+b,strong{font-weight:680}
+.ic{width:1.05em;height:1.05em;flex:none;stroke:currentColor;fill:none;stroke-width:1.6;
+    stroke-linecap:round;stroke-linejoin:round;vertical-align:-.14em}
+.ic.solid{fill:currentColor;stroke:none}
+.num,.mono{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);letter-spacing:-.01em;font-size:.93em}
+.mut{color:var(--ink3)}.mut2{color:var(--ink4)}
+.sm{font-size:.82em;line-height:1.6;color:var(--ink3)}
+.xs{font-size:.74em;line-height:1.55;color:var(--ink4)}
+.eyebrow{font:600 .66em/1 var(--sans);letter-spacing:.19em;text-transform:uppercase;color:var(--ink4)}
+.serif{font-family:var(--serif)}
+
+/* ── 顶栏：模式切换 + 动作组 ─────────────────────────────────── */
+.progress{position:fixed;top:0;left:0;height:2px;width:0;z-index:60;
+  background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .1s linear}
+.topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:10px clamp(14px,2.2vw,30px);background:rgba(242,240,234,.9);
+  backdrop-filter:blur(14px) saturate(150%);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:9px;font:650 .78em/1 var(--sans);letter-spacing:.16em}
+.brand svg{width:19px;height:19px;color:var(--acc)}
+.crumbs{font-size:.76em;color:var(--ink3)}
+.crumbs b{color:var(--ink2);font-weight:600}
+.spacer{flex:1 1 auto}
+.seg{display:flex;position:relative;padding:3px;border:1px solid var(--line2);border-radius:11px;
+     background:var(--card);box-shadow:var(--sh-1)}
+.seg i.th{position:absolute;top:3px;left:3px;height:calc(100% - 6px);border-radius:8px;background:var(--ink);
+     transition:transform .32s var(--ease),width .32s var(--ease);z-index:0}
+.seg button{position:relative;z-index:1;border:0;background:none;cursor:pointer;font:600 .78em/1 var(--sans);
+     padding:8px 13px;border-radius:8px;color:var(--ink3);display:flex;align-items:center;gap:6px;transition:color .2s}
+.seg button[aria-pressed=true]{color:#FBFAF8}
+.btn{display:inline-flex;align-items:center;gap:7px;font:600 .79em/1 var(--sans);padding:9px 13px;border-radius:10px;
+     border:1px solid var(--line2);background:var(--card);color:var(--ink2);cursor:pointer;
+     box-shadow:var(--sh-1);transition:.18s var(--ease)}
+.btn:hover{border-color:var(--ink4);transform:translateY(-1px);box-shadow:var(--sh-2)}
+.btn:active{transform:translateY(0)}
+.btn.solid{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn.solid:hover{background:#9d3f1f;border-color:#9d3f20}
+.btn.ghost{background:transparent;border-style:dashed}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:6px}
+.pill{display:inline-flex;align-items:center;gap:6px;font:600 .7em/1 var(--sans);letter-spacing:.05em;
+      padding:7px 10px;border-radius:999px;border:1px solid var(--line2);background:var(--card);color:var(--ink2)}
+.pill.warn{color:var(--warn);background:var(--warn-soft);border-color:var(--warn-line)}
+
+/* ── 布局 ────────────────────────────────────────────────────── */
+.wrap{max-width:1400px;margin:0 auto;padding:0 clamp(14px,2.2vw,30px) 90px;
+      display:grid;grid-template-columns:236px minmax(0,1fr);gap:34px}
+main,aside.toc,.wrap>*{min-width:0}
+aside.toc{position:sticky;top:66px;align-self:start;padding-top:26px}
+.toc nav{display:grid;gap:2px}
+.toc-t{font:600 .64em/1 var(--sans);letter-spacing:.19em;color:var(--ink4);text-transform:uppercase;margin:0 0 10px 10px}
+.toc a{display:grid;grid-template-columns:19px 16px 1fr auto;align-items:center;gap:7px;padding:8px 10px;
+       border-radius:9px;font-size:.8em;color:var(--ink3);transition:.16s var(--ease)}
+.toc a .no{font:600 .8em/1 var(--mono);color:var(--ink4)}
+.toc a .ic{width:15px;height:15px;opacity:.75}
+.toc a .c{font:600 .82em/1 var(--mono);color:var(--ink4)}
+.toc a:hover{background:var(--card);color:var(--ink);box-shadow:var(--sh-1)}
+.toc a.on{background:var(--card);color:var(--ink);font-weight:600;box-shadow:var(--sh-1)}
+.toc a.on .ic,.toc a.on .no{color:var(--acc);opacity:1}
+.toc-foot{margin-top:16px;padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:var(--card);box-shadow:var(--sh-1)}
+
+/* ── 纸面 & 模块外壳（details 折叠）──────────────────────────── */
+.sheet{display:grid;gap:14px}
+.card,.cover{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--sh-2)}
+details.sec{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--sh-1);
+            overflow:hidden;transition:box-shadow .28s var(--ease),border-color .28s var(--ease)}
+details.sec[open]{box-shadow:var(--sh-2)}
+details.sec:hover{border-color:var(--line2)}
+.sec-hd{display:grid;grid-template-columns:38px 1fr auto;align-items:center;gap:14px;cursor:pointer;
+        padding:16px clamp(16px,2vw,26px);list-style:none;user-select:none;transition:background .2s}
+.sec-hd::-webkit-details-marker{display:none}
+.sec-hd:hover{background:var(--paper)}
+.sec-ic{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;flex:none;
+        background:var(--acc-soft);border:1px solid var(--acc-line);color:var(--acc);transition:.24s var(--ease)}
+.sec-ic .ic{width:19px;height:19px}
+details.sec[open] .sec-ic{background:var(--acc);color:#fff;border-color:var(--acc)}
+.sec-hd h2{font-size:clamp(18px,1.1vw + 15px,22px)}
+.hd-txt{display:grid;gap:3px;min-width:0}
+.hd-sub{font-size:.76em;color:var(--ink3);letter-spacing:.01em}
+.hd-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.chev{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;color:var(--ink3);
+      border:1px solid var(--line);background:var(--card);transition:.3s var(--ease);flex:none}
+details[open] .chev{transform:rotate(180deg);color:var(--acc);border-color:var(--acc-line);background:var(--acc-soft)}
+.sec-in{padding:2px clamp(16px,2vw,26px) 26px;border-top:1px solid var(--line);animation:open .3s var(--ease)}
+@keyframes open{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.sec-in .body>*+*{margin-top:20px}
+
+/* 摘要层：数据概况 + 指导意见（摘要模式只显示这层）*/
+.brief{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:14px;margin:20px 0 0;align-items:start}
+.brief-card{border:1px solid var(--line);border-radius:14px;padding:14px 16px 15px;background:var(--paper)}
+.brief-card.guide{background:linear-gradient(0deg,#FDF7F3,#FDF7F3);border-color:var(--acc-line)}
+.bc-hd{display:flex;align-items:center;gap:7px;margin-bottom:11px}
+.bc-hd .ic{width:15px;height:15px;color:var(--ink3)}
+.bc-hd h4{font:650 .82em/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--ink2)}
+.bc-hd .x{margin-left:auto;font-size:.72em;color:var(--ink4)}
+.brief-card.guide .bc-hd .ic,.brief-card.guide .bc-hd h4{color:var(--acc)}
+.stats{display:flex;flex-wrap:wrap;gap:8px}
+.stat{flex:1 1 118px;min-width:0;border:1px solid var(--line);border-radius:11px;background:var(--card);padding:9px 11px}
+.stat .l{font-size:.7em;color:var(--ink3);letter-spacing:.02em;display:block;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat .v{font:650 1.32em/1.05 var(--serif);letter-spacing:-.01em;display:block}
+.stat .v u{text-decoration:none;font:500 .58em/1 var(--sans);color:var(--ink3);margin-left:3px}
+.stat.acc{border-color:var(--acc-line);background:var(--acc-soft)}
+.stat .meter{height:4px;border-radius:2px;background:var(--soft2);margin-top:8px;overflow:hidden}
+.stat .meter i{display:block;height:100%;width:var(--p,0);border-radius:2px;background:var(--acc);
+        transform-origin:left center;transition:transform .9s var(--ease) .1s}
+.stat.ok .meter i{background:var(--ok)}.stat.warn .meter i{background:var(--warn)}.stat.bad .meter i{background:var(--bad)}
+.stat.in .meter i{transform:none}
+.guide ul{display:grid;gap:8px}
+.guide li{display:grid;grid-template-columns:16px 1fr;gap:9px;font-size:.87em;line-height:1.6;color:var(--ink2)}
+.guide li .ic{width:15px;height:15px;color:var(--acc);margin-top:4px}
+.guide li b{color:var(--ink)}
+.guide .who{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
+.chip{display:inline-flex;align-items:center;gap:5px;font:600 .7em/1 var(--sans);padding:5px 8px;border-radius:7px;
+      border:1px solid var(--line2);background:var(--card);color:var(--ink2)}
+.chip .ic{width:12px;height:12px;color:var(--ink3)}
+body.mode-brief .detail{display:none}
+body.mode-brief .sec-in{padding-bottom:22px}
+body.mode-brief .brief{margin-top:18px}
+.mode-flag{display:none;font:600 .68em/1 var(--sans);letter-spacing:.08em;color:var(--acc);
+           background:var(--acc-soft);border:1px solid var(--acc-line);padding:5px 8px;border-radius:6px}
+body.mode-brief .mode-flag{display:inline-flex;align-items:center;gap:5px}
+
+/* ── 三态与标签 ─────────────────────────────────────────────── */
+.ev{display:inline-flex;align-items:center;gap:5px;vertical-align:-.14em;font:650 .68em/1 var(--sans);
+    letter-spacing:.03em;padding:5px 8px;border-radius:7px;border:1px solid;white-space:nowrap}
+.ev::before{font-weight:800;font-size:.95em}
+.ev.f{color:var(--ok);background:var(--ok-soft);border-color:var(--ok-line)}.ev.f::before{content:"✓"}
+.ev.i{color:var(--warn);background:var(--warn-soft);border-color:var(--warn-line)}.ev.i::before{content:"∴"}
+.ev.u{color:var(--ink3);border-style:dashed;border-color:var(--line2);
+      background:repeating-linear-gradient(135deg,#F3F1EC 0 3px,#FBFAF8 3px 6px)}.ev.u::before{content:"◌"}
+.cl{position:relative;display:grid;grid-template-columns:1fr auto;gap:7px 12px;padding:14px 16px;border-radius:14px;
+    border:1px solid var(--line);background:var(--paper);transition:.24s var(--ease)}
+.cl:hover{transform:translateY(-1px);box-shadow:var(--sh-1)}
+.cl::before{content:"";position:absolute;left:-1px;top:12px;bottom:12px;width:3px;border-radius:0 3px 3px 0;background:var(--line2)}
+.cl p{font-size:.92em;line-height:1.68;color:var(--ink2);grid-column:1}
+.cl p b{color:var(--ink)}
+.cl .ev{grid-column:2;grid-row:1;align-self:start}
+.cl.f{background:#F3F9F4}.cl.f::before{background:var(--ok)}
+.cl.i{background:#FDF7EA}.cl.i::before{background:var(--warn)}
+.cl.u{border-style:dashed;background:repeating-linear-gradient(135deg,#F5F3EE 0 6px,transparent 6px 13px)}
+.cl.u::before{background:repeating-linear-gradient(180deg,var(--ink4) 0 3px,transparent 3px 6px)}
+.cl .how{grid-column:1/-1;font-size:.76em;color:var(--ink3);border-top:1px dashed var(--line);padding-top:9px}
+.cl .how b{color:var(--ink2)}
+.tag{display:inline-flex;align-items:center;gap:5px;font:650 .68em/1 var(--sans);letter-spacing:.04em;
+     padding:5px 8px;border-radius:7px;border:1px solid var(--line2);background:var(--soft);color:var(--ink2);white-space:nowrap}
+.tag.go{color:#fff;background:var(--ok);border-color:var(--ok)}
+.tag.cond{color:#fff;background:var(--warn);border-color:var(--warn)}
+.tag.no{color:#fff;background:var(--bad);border-color:var(--bad)}
+.tag.slate{color:var(--slate);background:var(--slate-soft);border-color:var(--slate-line)}
+.tag.acc{color:var(--acc);background:var(--acc-soft);border-color:var(--acc-line)}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex:none}
+.dot.g{background:var(--ok)}.dot.a{background:var(--warn)}.dot.r{background:var(--bad)}.dot.n{background:var(--ink4)}
+.rag{display:inline-flex;align-items:center;gap:6px;font-weight:620;font-size:.82em}
+.rag.hi{color:var(--bad)}.rag.md{color:var(--warn)}.rag.lo{color:var(--ink3)}
+
+/* ── 表格 ────────────────────────────────────────────────────── */
+.tw{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card)}
+.tw-scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.845em}
+thead{display:table-header-group}
+th{font:650 .7em/1.35 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);background:var(--soft);
+   text-align:left;padding:11px 13px;border-bottom:1px solid var(--line2);white-space:nowrap;vertical-align:bottom}
+td{padding:11px 13px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.62;color:var(--ink2)}
+tbody tr:last-child td{border-bottom:0}
+tbody tr{transition:background .16s}
+tbody tr:hover{background:#FDFCF9}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+td.k{font-weight:640;color:var(--ink)}
+td.sub,.sub{font-size:.84em;color:var(--ink3)}
+tr.sum td{background:var(--soft);font-weight:660;color:var(--ink);border-top:1px solid var(--line2)}
+tr.tot td{background:#FAF5F0;font-weight:680;color:var(--ink)}
+.hint{display:none;padding:8px 13px;border-top:1px solid var(--line);background:var(--soft);font-size:.72em;color:var(--ink4)}
+.cell-bar{position:relative;min-width:86px}
+.cell-bar i{display:block;height:4px;border-radius:2px;background:var(--acc2);margin-top:6px;width:var(--p);
+            transition:width .9s var(--ease)}
+body.js-anim .cell-bar:not(.in) i{width:0}
+.cell-bar.in i{width:var(--p)}
+.cell-bar.grey i{background:var(--line2)}.cell-bar.ok i{background:var(--ok)}.cell-bar.bad i{background:var(--bad)}
+
+/* ── 图形组件 ───────────────────────────────────────────────── */
+.bar{display:flex;height:14px;border-radius:8px;overflow:hidden;background:var(--soft2);border:1px solid var(--line)}
+.bar.big{height:30px;border-radius:10px}
+.bar i{display:block;height:100%;width:var(--w);transition:width 1.05s var(--ease)}
+body.js-anim .bar:not(.in) i{width:0}
+.bar.in i{width:var(--w)}
+.bar i+i{border-left:1px solid #fff}
+.c1{background:var(--acc)}.c2{background:var(--acc2)}.c3{background:#E2A184}.c4{background:#EFCAB6}
+.c5{background:var(--slate)}.c6{background:#98AEC4}.c7{background:var(--ink4)}
+.lgd{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:.8em;color:var(--ink2)}
+.lgd li{display:flex;align-items:center;gap:7px}
+.lgd .sw{width:10px;height:10px;border-radius:3px;border:1px solid rgba(28,26,23,.1)}
+.lgd b{color:var(--ink)}.lgd .mut{font-size:.9em}
+.prog{height:7px;border-radius:4px;background:var(--soft2);overflow:hidden;border:1px solid var(--line)}
+.prog i{display:block;height:100%;width:var(--p);background:var(--acc);border-radius:4px;transition:width 1.1s var(--ease)}
+body.js-anim .prog:not(.in) i{width:0}
+.prog.in i{width:var(--p)}
+.prog.ok i{background:var(--ok)}.prog.warn i{background:var(--warn)}.prog.grey i{background:var(--ink4)}
+.kpi{position:relative;border:1px solid var(--line);border-radius:14px;padding:15px 17px;background:var(--paper);
+     display:flex;flex-direction:column;gap:4px;overflow:hidden;transition:.24s var(--ease)}
+.kpi::after{content:"";position:absolute;inset:0 0 auto;height:2px;background:var(--line2);transform:scaleX(0);
+            transform-origin:left;transition:transform .5s var(--ease)}
+.kpi.in::after,.kpi:hover::after{transform:scaleX(1)}
+.kpi:hover{box-shadow:var(--sh-2);border-color:var(--line2)}
+.kpi .l{font-size:.74em;color:var(--ink3);letter-spacing:.02em}
+.kpi .v{font:650 clamp(24px,2vw,32px)/1.06 var(--serif);letter-spacing:-.018em}
+.kpi .v u{text-decoration:none;font:500 .42em/1 var(--sans);color:var(--ink3);margin-left:4px}
+.kpi .d{font-size:.74em;color:var(--ink3);display:flex;align-items:center;gap:5px;margin-top:3px}
+.kpi.hl{background:linear-gradient(0deg,#FDF6F2,#FDF6F2);border-color:var(--acc-line)}
+.kpi.hl::after{background:var(--acc)}
+.wf{display:flex;gap:12px;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--paper);overflow-x:auto}
+.wfc{flex:1 1 0;min-width:82px;display:grid;grid-template-rows:auto 132px auto;gap:7px;text-align:center}
+.wfv{font:650 .82em/1.2 var(--sans);color:var(--ink)}
+.wfv.neg{color:var(--ink3)}
+.wft{position:relative;border-bottom:1px solid var(--line2);
+     background:repeating-linear-gradient(0deg,transparent 0 32px,var(--line) 32px 33px)}
+.wfb{position:absolute;left:0;right:0;bottom:var(--y);height:var(--h);border-radius:3px;transition:height .8s var(--ease) .05s}
+.wf.in .wfb{height:var(--h)}
+.wfb.in{background:var(--ink)}.wfb.out{background:#D9CFBF}.wfb.res{background:var(--ok)}
+.wfb.out::after{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:var(--acc)}
+.wfl{font-size:.74em;color:var(--ink3);line-height:1.4}
+.ring{display:flex;align-items:center;gap:12px}
+.ring svg{width:54px;height:54px;transform:rotate(-90deg);flex:none}
+.ring .tk{fill:none;stroke:var(--soft2);stroke-width:5}
+.ring .vl{fill:none;stroke:var(--acc);stroke-width:5;stroke-linecap:round;stroke-dasharray:var(--c);
+          stroke-dashoffset:var(--c);transition:stroke-dashoffset 1.15s var(--ease) .1s}
+.ring.in .vl{stroke-dashoffset:calc(var(--c) - var(--c) * var(--p) / 100)}
+.ring .tx b{display:block;font:650 1.18em/1 var(--serif)}
+.ring .tx span{font-size:.72em;color:var(--ink3)}
+.spark path{stroke-dasharray:var(--len);stroke-dashoffset:var(--len);transition:stroke-dashoffset 1.4s var(--ease)}
+.spark.in path{stroke-dashoffset:0}
+.chart{border:1px solid var(--line);border-radius:14px;background:var(--paper);padding:14px 16px 10px}
+.chart .hd{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.chart .hd h4{font:650 .86em/1.3 var(--sans);letter-spacing:-.005em}
+.chart .hd .x{margin-left:auto;display:flex;gap:15px;font-size:.74em;color:var(--ink3)}
+.chart .hd .x span{display:inline-flex;align-items:center;gap:6px}
+.chart .hd .x s{text-decoration:none;width:13px;height:2px;display:inline-block}
+.chart svg{display:block;width:100%;height:auto}
+.gl{stroke:#E7E2D8;stroke-width:1}.gl.maj{stroke:#D6CFC1}
+.ax{fill:#A6A096;font:10px var(--sans)}
+.ln{fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ln.dash{stroke-width:1.5;stroke-dasharray:4 4}
+.thr{stroke:var(--bad);stroke-width:1.2;stroke-dasharray:5 4;fill:none}
+.pt{stroke:#fff;stroke-width:1.5}.ann{font:10.5px var(--sans);fill:#48423A}
+.gan{border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.gan-hd,.gan-r{display:grid;grid-template-columns:154px 1fr;gap:12px;align-items:center}
+.gan-hd{background:var(--soft);border-bottom:1px solid var(--line2);font:650 .7em/1 var(--sans);letter-spacing:.08em;color:var(--ink3)}
+.gan-hd .sc{display:grid;grid-template-columns:repeat(14,1fr);text-align:center}
+.gan-hd .sc span{padding:10px 0;border-left:1px solid var(--line);font-weight:500}
+.gan-hd .sc span:first-child{border-left:0}
+.gan-hd .lb,.gan-r .nm{padding-left:14px}
+.gan-r{padding:9px 0;border-bottom:1px solid #F1EFE9}
+.gan-r:last-child{border-bottom:0}
+.gan-r .nm{font-size:.8em;color:var(--ink2)}
+.gan-r .nm em{display:block;font-style:normal;font-size:.82em;color:var(--ink4)}
+.gan-t{position:relative;height:22px;background-image:repeating-linear-gradient(90deg,#F1EFE9 0 1px,transparent 1px calc(100%/14))}
+.gan-b{position:absolute;top:3px;bottom:3px;left:var(--s);width:var(--w);border-radius:5px;font-size:.7em;
+       display:flex;align-items:center;padding:0 7px;color:#fff;white-space:nowrap;overflow:hidden;
+       background:var(--acc2);transition:width .85s var(--ease)}
+.gan.in .gan-b{width:var(--w)}
+.gan-b.k{background:var(--ink)}.gan-b.o{background:#CBBBA6;color:var(--ink2)}.gan-b.g{background:var(--ok)}
+.gan-b.d{background:repeating-linear-gradient(45deg,#E4DACE 0 4px,#F1EBE2 4px 8px);color:var(--ink3);border:1px dashed var(--line2)}
+.gan .mk{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--acc);opacity:0;transition:opacity .5s .6s}
+.gan.in .mk{opacity:1}
+.gan .mk em{position:absolute;top:0;left:6px;font:650 .72em/1 var(--sans);color:var(--acc);font-style:normal;white-space:nowrap}
+.flow{display:flex;flex-wrap:wrap;gap:8px}
+.flow li{flex:1 1 130px;position:relative;padding:12px 13px 11px;border:1px solid var(--line);border-radius:12px;
+         background:var(--paper);transition:.22s var(--ease)}
+.flow li:hover{transform:translateY(-2px);box-shadow:var(--sh-1);border-color:var(--line2)}
+.flow li b{display:block;font-size:.84em;margin-bottom:3px}
+.flow li span{display:block;font-size:.72em;color:var(--ink3);line-height:1.55}
+.flow li.ccp{border-color:var(--acc-line);background:var(--acc-soft)}
+.flow li.ccp::after{content:"CCP";position:absolute;top:-8px;right:8px;font:700 .62em/1 var(--mono);letter-spacing:.08em;
+                    color:#fff;background:var(--acc);padding:4px 6px;border-radius:5px}
+.flow li+li::before{content:"→";position:absolute;left:-12px;top:50%;transform:translateY(-50%);color:var(--ink4);font-size:12px}
+.flow li:first-child::before{content:none}
+ol.steps{counter-reset:s;display:grid;gap:9px}
+ol.steps li{counter-increment:s;position:relative;padding:12px 14px 12px 44px;border:1px solid var(--line);
+            border-radius:12px;background:var(--paper);font-size:.86em;color:var(--ink2);line-height:1.62}
+ol.steps li::before{content:counter(s);position:absolute;left:12px;top:13px;width:22px;height:22px;border-radius:50%;
+                    display:grid;place-items:center;font:650 .72em/1 var(--sans);color:var(--acc);
+                    background:var(--acc-soft);border:1px solid var(--acc-line)}
+ol.steps li b{color:var(--ink)}
+.def{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:1px;background:var(--line);
+     border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.def>div{background:var(--card);padding:13px 15px}
+.def dt{font-size:.7em;letter-spacing:.07em;color:var(--ink3);margin-bottom:5px;text-transform:uppercase}
+.def dd{margin:0;font-size:.88em;line-height:1.58;color:var(--ink)}
+.def dd em{display:block;font-style:normal;font-size:.82em;color:var(--ink3);margin-top:4px}
+.gap{border:1px dashed var(--line2);border-radius:14px;background:var(--paper);padding:14px 15px}
+.gap .h{display:flex;align-items:center;gap:8px;font:640 .84em/1 var(--sans);color:var(--ink2);margin-bottom:10px}
+.gap .h i{width:18px;height:18px;border-radius:50%;border:1px dashed var(--ink4);display:grid;place-items:center;
+          font:700 .72em/1 var(--sans);color:var(--ink3)}
+.gap .g{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:var(--line);
+        border:1px solid var(--line);border-radius:11px;overflow:hidden}
+.gap .g>div{background:var(--card);padding:10px 12px}
+.gap dt{font-size:.7em;letter-spacing:.05em;margin-bottom:4px;text-transform:uppercase}
+.gap .k1 dt{color:var(--ok)}.gap .k2 dt{color:var(--bad)}.gap .k3 dt{color:var(--slate)}
+.gap dd{margin:0;font-size:.82em;line-height:1.58;color:var(--ink2)}
+.duo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.may,.ban{border-radius:14px;padding:15px 17px}
+.may{border:1px solid var(--ok-line);background:var(--ok-soft)}
+.ban{border:1.5px solid var(--bad);background:var(--bad-soft);box-shadow:0 0 0 4px rgba(169,48,38,.05)}
+.may h4,.ban h4{font:650 .88em/1.2 var(--sans);display:flex;align-items:center;gap:9px;margin-bottom:11px}
+.may h4{color:var(--ok)}.ban h4{color:var(--bad)}
+.may h4 i,.ban h4 i{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;color:#fff;font-size:.72em;font-style:normal;font-weight:800}
+.may h4 i{background:var(--ok)}.ban h4 i{background:var(--bad);border-radius:50%}
+.may h4 .x,.ban h4 .x{margin-left:auto;font-weight:400;font-size:.78em;color:var(--ink3)}
+.may ul,.ban ul{display:grid;gap:9px}
+.may li,.ban li{position:relative;padding-left:21px;font-size:.86em;line-height:1.62}
+.may li::before{content:"✓";position:absolute;left:0;top:0;color:var(--ok);font-weight:800;font-size:.86em}
+.ban li::before{content:"✕";position:absolute;left:0;top:0;color:var(--bad);font-weight:800;font-size:.86em}
+.ban li b{color:var(--bad)}.ban li em{display:block;font-style:normal;font-size:.82em;color:var(--ink3);margin-top:2px}
+.note{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start;padding:14px 17px;border-radius:14px;
+      border:1px solid var(--line);background:var(--paper);font-size:.87em;color:var(--ink2);line-height:1.68}
+.note .ic{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;background:var(--ink);color:#fff;
+          padding:4px;flex:none}
+.note p{font-size:.94em}.note p+p{margin-top:7px}
+.note.acc{background:var(--acc-soft);border-color:var(--acc-line)}.note.acc .ic{background:var(--acc)}
+.note.warn{background:var(--warn-soft);border-color:var(--warn-line)}.note.warn .ic{background:var(--warn)}
+.note.bad{background:var(--bad-soft);border-color:var(--bad-line)}.note.bad .ic{background:var(--bad)}
+.note.ok{background:var(--ok-soft);border-color:var(--ok-line)}.note.ok .ic{background:var(--ok)}
+.note.slate{background:var(--slate-soft);border-color:var(--slate-line)}.note.slate .ic{background:var(--slate)}
+.grid2,.grid3,.grid4{display:grid;gap:14px}
+.grid2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.grid3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.grid4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.stack>*+*{margin-top:12px}
+.grid2>*,.grid3>*,.grid4>*,.stack>*,.tw,.tw-scroll,.chart,.card,.gan,.kpi,.dec,.dec-bd>div,.mini>div,.def>div,
+.flow li,.wf,.may,.ban,.gap,.note,.cl,.brief,.brief-card,.stat,.cover .verdict,.cover .verdict>div,.metastrip>div,
+.readout>*,.toc nav,.sign .f{min-width:0}
+.dec{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card)}
+.dec-hd{display:flex;align-items:center;gap:11px;padding:13px 16px;background:var(--soft);border-bottom:1px solid var(--line)}
+.dec-hd .no{font:700 .72em/1 var(--mono);color:#fff;background:var(--ink);padding:6px 8px;border-radius:7px;letter-spacing:.04em}
+.dec-hd h4{font:650 .92em/1.3 var(--sans)}
+.dec-hd .due{margin-left:auto;font-size:.74em;color:var(--ink3);white-space:nowrap}
+.dec-bd{display:grid;grid-template-columns:1.15fr 1fr;gap:1px;background:var(--line)}
+.dec-bd>div{background:var(--card);padding:13px 16px}
+.dec-bd dt{font-size:.7em;letter-spacing:.06em;color:var(--ink3);margin-bottom:7px;text-transform:uppercase}
+.dec-bd dd{margin:0;font-size:.84em;line-height:1.62;color:var(--ink2)}
+.opt{display:grid;gap:9px}
+.opt li{display:grid;grid-template-columns:17px 1fr;gap:10px;font-size:.85em;line-height:1.58;color:var(--ink2)}
+.opt .bx{width:16px;height:16px;border:1.5px solid var(--line2);border-radius:5px;margin-top:4px;background:#fff;transition:.2s}
+.opt li.rec .bx{border-color:var(--acc);box-shadow:inset 0 0 0 3px #fff;background:var(--acc)}
+.opt li.rec{color:var(--ink);font-weight:620}
+.opt .rt{font:700 .66em/1 var(--sans);color:var(--acc);background:var(--acc-soft);border:1px solid var(--acc-line);
+         border-radius:5px;padding:3px 5px;margin-left:6px;vertical-align:.08em}
+.sign{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:18px;padding-top:16px;border-top:1px dashed var(--line2)}
+.sign .lb{font-size:.74em;color:var(--ink3);margin-bottom:26px}
+.sign .ln{border-bottom:1px solid var(--ink4)}
+.sign .lb em{font-style:normal;color:var(--ink4)}
+
+/* ── 封面 ────────────────────────────────────────────────────── */
+.cover{position:relative;overflow:hidden;padding:clamp(26px,3.4vw,46px) clamp(22px,3vw,42px) clamp(22px,2.4vw,32px)}
+.cover::before{content:"";position:absolute;inset:0 0 auto;height:3px;
+  background:linear-gradient(90deg,var(--acc),var(--acc2) 40%,#EED5C6 74%,transparent)}
+.cover .grid-bg{position:absolute;right:-30px;top:-46px;opacity:.55;pointer-events:none;width:min(340px,34%);height:auto}
+.cover h1{font-size:clamp(32px,4.3vw,54px);line-height:1.08;letter-spacing:-.024em;margin-bottom:10px}
+.cover h1+p,.cover .sub2{font-family:var(--serif);font-size:clamp(16px,1.5vw,21px);color:var(--ink2);font-weight:500}
+.cover .cod{font:600 .78em/1 var(--mono);letter-spacing:.09em;color:var(--ink3);margin-top:12px}
+.cover .lede{font-size:.96em;line-height:1.78;color:var(--ink2);max-width:70ch;margin-top:16px}
+.cover .verdict{margin-top:22px;padding:17px 19px;border:1px solid var(--acc-line);border-radius:16px;
+  background:linear-gradient(0deg,#FDF6F2,#FDF6F2);display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start}
+.cover .verdict .lab{font:650 .68em/1.3 var(--sans);letter-spacing:.13em;color:var(--acc);text-align:center}
+.cover .verdict .lab b{display:block;font-family:var(--serif);font-size:1.42em;letter-spacing:-.01em;margin-top:6px;color:var(--ink)}
+.cover .verdict p{font-size:.9em;line-height:1.72;color:var(--ink2)}
+.metastrip{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1px;margin-top:24px;background:var(--line);
+           border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.metastrip>div{background:var(--soft);padding:11px 14px;min-width:0}
+.metastrip dt{font-size:.68em;letter-spacing:.08em;color:var(--ink3);text-transform:uppercase}
+.metastrip dd{margin:4px 0 0;font:650 .84em/1.4 var(--sans);color:var(--ink)}
+.metastrip dd .xs{font-weight:400}
+.readout{display:grid;grid-template-columns:1.05fr 1fr;gap:28px;margin-top:24px;padding-top:22px;
+         border-top:1px solid var(--line);align-items:center}
+.readout .trust{display:grid;gap:9px}
+.trustrow{display:grid;grid-template-columns:104px 1fr 32px;gap:11px;align-items:center;font-size:.8em;color:var(--ink2)}
+.trustrow .n{font:650 .9em/1 var(--mono);text-align:right;color:var(--ink)}
+.readout .rd{font-size:.8em;color:var(--ink3);line-height:1.7}
+.readout .rd b{color:var(--ink2)}
+.keynotes{margin-top:24px;padding-top:18px;border-top:1px dashed var(--line2)}
+.keynotes .grid2{gap:10px;margin-top:11px}
+.keynotes .cl{background:#fff}
+
+/* ── 悬浮工具 ───────────────────────────────────────────────── */
+.fab{position:fixed;right:20px;bottom:22px;z-index:45;display:grid;gap:8px}
+.fab button{width:44px;height:44px;border-radius:13px;border:1px solid var(--line2);background:var(--card);
+  color:var(--ink2);cursor:pointer;display:grid;place-items:center;box-shadow:var(--sh-3);transition:.2s var(--ease)}
+.fab button:hover{color:var(--acc);border-color:var(--acc-line);transform:translateY(-2px)}
+.fab .ic{width:18px;height:18px}
+.totop{opacity:0;pointer-events:none;transform:translateY(8px)}
+.totop.show{opacity:1;pointer-events:auto;transform:none}
+.endnote{padding:22px 26px;background:var(--card);border:1px solid var(--line);border-radius:18px;
+         font-size:.76em;color:var(--ink3);line-height:1.72;box-shadow:var(--sh-1)}
+.endnote .hd{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:12px;
+  font:650 .8em/1 var(--sans);letter-spacing:.14em;color:var(--ink2);text-transform:uppercase}
+.endnote .hd .r{margin-left:auto;letter-spacing:.02em;text-transform:none;font-weight:400;color:var(--ink4)}
+.legend3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:13px}
+.legend3>div{border:1px solid var(--line);border-radius:12px;padding:11px 13px;background:var(--paper)}
+.legend3 p{margin-top:7px;font-size:.94em;line-height:1.6}
+.two{columns:2;column-gap:36px}
+.two p{margin-bottom:8px;break-inside:avoid}
+
+/* ── 响应式 ────────────────────────────────────────────────── */
+@media (max-width:1080px){
+  .wrap{grid-template-columns:1fr;gap:0}
+  aside.toc{position:static;padding:16px 0 2px}
+  .toc nav{display:flex;gap:7px;overflow-x:auto;padding-bottom:6px}
+  .toc-t,.toc-foot{display:none}
+  .toc a{flex:none;border:1px solid var(--line);border-radius:999px;padding:8px 12px;background:var(--card);grid-template-columns:auto 1fr}
+  .toc a .c,.toc a .no{display:none}
+}
+@media (max-width:900px){
+  .grid2,.grid3,.grid4,.duo,.dec-bd,.readout,.legend3,.keynotes .grid2,.brief{grid-template-columns:1fr}
+  .metastrip{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sign{grid-template-columns:1fr 1fr}.two{columns:1}
+  .cover .verdict{grid-template-columns:1fr}
+}
+@media (max-width:680px){
+  .sec-hd{grid-template-columns:34px 1fr auto;gap:11px;padding:14px 16px}
+  .sec-ic{width:34px;height:34px;border-radius:10px}
+  .hd-meta{display:flex;gap:6px;justify-content:flex-end;flex-wrap:nowrap}
+  .hd-meta .tag,.hd-meta .cnt,.trust-mini em{display:none}
+  .trust-mini{padding:4px 5px;gap:5px}.tm-bar{width:26px}
+  .sec-hd h2{font-size:17px}.hd-sub{font-size:.72em}
+  table{min-width:600px}
+  .tw,.tw-scroll,.wf,.gan{width:0;min-width:100%}
+  .tw-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .hint{display:block}
+  .gan-hd,.gan-r{grid-template-columns:104px minmax(0,1fr)}
+  .flow li{flex:1 1 100%}.flow li+li::before{content:none}
+  .fab{right:12px;bottom:14px}
+  .crumbs{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}
+  .bar.in i,.cell-bar.in i,.prog.in i,.stat.in .meter i,.wf.in .wfb,.gan.in .gan-b,.gan.in .mk{transition:none}
+}
+
+/* ── 打印：全部展开 + 保留动效条的最终态 ─────────────────────── */
+@page{size:A4;margin:13mm 11mm 12mm}
+@media print{
+  html,body{background:#fff;font-size:10pt;line-height:1.55}
+  .topbar,.progress,aside.toc,.fab,.hint,.no-print,.mode-flag{display:none!important}
+  .wrap{display:block;max-width:none;padding:0}
+  .sheet{gap:0}
+  .cover,.card,.endnote{border-radius:0;box-shadow:none;border:0;background:#fff}
+  .cover{padding:0 0 9pt;border-bottom:1.2pt solid var(--ink)}
+  .cover::before,.cover .grid-bg{display:none}
+  .cover h1{font-size:22pt}.cover .lede,.cover .sub2{font-size:10.4pt}
+  details.sec{border:0;border-top:.6pt solid var(--line2);border-radius:0;box-shadow:none;break-inside:auto;margin:10pt 0 0}
+  .sec-hd{padding:0 0 6pt;cursor:default}
+  .sec-hd:hover{background:none}
+  .sec-ic{display:none}
+  .sec-hd h2{font-size:12.6pt}.hd-sub{font-size:8.6pt}
+  .chev,.hd-meta .tag:not(.keep){display:none}
+  .sec-in{padding:0 0 4pt;border-top:0;animation:none}
+  table{font-size:7.9pt}.tw{border:.5pt solid var(--line2)}td,th{padding:5pt 6pt}
+  tbody tr:hover{background:none}
+  .cl,.dec,.note,.gap,.chart,.gan,.kpi,.may,.ban,.brief-card,.stat,.cover .verdict,.cover .metastrip,.flow li,
+  .gan-r,.mini>div,.wf,.wfc,.legend3>div,.def>div,.endnote,.lgd,.sign,.modeflag{break-inside:avoid}
+  .tw,.tw-scroll,table{break-inside:auto}
+  tbody tr,thead{break-inside:avoid}
+  thead{display:table-header-group}
+  tbody tr:first-child td,tbody tr:first-child th{padding-top:5pt}
+  .brk{break-before:page}
+  .bar i,.cell-bar i,.prog i,.stat .meter i,.wfb,.gan-b{transition:none!important;width:var(--w,var(--p))!important}
+  .cell-bar i{width:var(--p)!important}.bar i{width:var(--w)!important}
+  .stat .meter i,.prog i{width:var(--p)!important}
+  .wf .wfb{height:var(--h)!important}
+  .gan .gan-b{width:var(--w)!important}.gan .mk{opacity:1!important}
+  .ring .vl{stroke-dashoffset:calc(var(--c) - var(--c) * var(--p) / 100)!important;transition:none}
+  a{color:var(--ink2)}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  @page{@bottom-left{content:"Kern-EP60 新品研发报告 R-2.3 · 内部资料";font:7pt var(--sans);color:#A6A096}
+         @bottom-right{content:"第 " counter(page) " / " counter(pages) " 页";font:7pt var(--sans);color:#A6A096}}
+}
+
+/* 折叠头改为弹性布局，右侧动作区可换行 */
+.sec-hd{display:flex;flex-wrap:wrap;align-items:center;gap:13px}
+.hd-right{margin-left:auto;display:flex;align-items:center;gap:9px}
+.cnt{display:inline-flex;align-items:center;gap:4px;font:650 .68em/1 var(--mono);padding:5px 7px;border-radius:6px;
+     border:1px solid var(--line2);background:var(--card);color:var(--ink3)}
+.cnt b{font-weight:700}.cnt.f b{color:var(--ok)}.cnt.i b{color:var(--warn)}.cnt.u b{color:var(--ink3)}
+.cnt i{width:5px;height:5px;border-radius:50%;display:inline-block;background:currentColor;opacity:.5}
+
+
+/* ── v2.1 补丁 · 可信度条 / 小标题 / 封面 kicker / 摘要-完整分隔 ────── */
+.trust-mini{display:inline-flex;align-items:center;gap:7px;font:600 .68em/1 var(--mono);color:var(--ink3);
+            padding:5px 8px 5px 7px;border:1px solid var(--line);border-radius:7px;background:var(--soft)}
+.trust-mini em{font-style:normal;white-space:nowrap}
+.trust-mini .lv{font:700 .95em/1 var(--mono);padding:3px 5px;border-radius:5px;color:#fff}
+.trust-mini .lv.hi{background:var(--ok)}.trust-mini .lv.md{background:var(--warn)}.trust-mini .lv.lo{background:var(--bad)}
+.trust-mini.plain{background:var(--card)}
+.tm-bar{display:flex;width:52px;height:6px;border-radius:3px;overflow:hidden;background:var(--soft2);flex:none}
+.tm-bar i{display:block;height:100%;width:var(--w);transition:width .8s var(--ease)}
+.tm-bar i.f{background:var(--ok)}.tm-bar i.i{background:var(--warn)}
+.tm-bar i.u{background:repeating-linear-gradient(45deg,#C9C2B4 0 3px,#E7E2D8 3px 6px)}
+h3.blk{display:flex;align-items:baseline;gap:10px;font:650 1.04em/1.35 var(--sans);margin:2px 0 12px;
+       padding-bottom:8px;border-bottom:1px solid var(--line)}
+h3.blk::before{content:"";width:3px;height:14px;border-radius:2px;background:var(--acc);flex:none;transform:translateY(2px)}
+h3.blk .q{font:500 .72em/1.4 var(--sans);color:var(--ink4);letter-spacing:.02em;margin-left:auto;text-align:right}
+.kick{display:flex;align-items:center;gap:9px;font:600 .72em/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--acc)}
+.kick s{width:26px;height:1px;background:currentColor;flex:none;text-decoration:none}
+.sec-no{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;flex:none;font:650 1.05em/1 var(--serif);
+        color:var(--ink3);background:var(--soft);border:1px solid var(--line)}
+.brief-card.data{background:var(--paper)}
+.detail{margin-top:22px;padding-top:22px;border-top:1px solid var(--line)}
+body.mode-brief .detail{display:none}
+body.mode-brief .sec-in{padding-bottom:20px}
+.cnt i{opacity:.9}
+.toc a .t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:900px){.trust-mini em{display:none}.tm-bar{width:34px}}
+@media print{
+  h3.blk{font-size:10.4pt;margin-bottom:7pt}h3.blk .q{font-size:7.6pt}
+  .detail{margin-top:10pt;padding-top:0;border-top:0}
+  .trust-mini{border:0;padding:0;background:none}.tm-bar{width:40pt;height:4pt}.tm-bar i{transition:none}
+}
+
+/* ── v2.2 微调 · 概况卡内部对齐 ─────────────────────────────── */
+.stat{display:flex;flex-direction:column;gap:1px}
+.stat .meter{margin-top:9px}
+.stat .l+.v{margin-top:1px}
+.brief-card{display:flex;flex-direction:column}
+.guide ul{flex:1}
+@media (max-width:700px){.stat{flex:1 1 calc(50% - 4px)}}
+
+/* ── v2.2 摘要版专属压缩（屏显 + 打印）─────────────────────────── */
+body.mode-brief .cover .keynotes,body.mode-brief .cover .flow,body.mode-brief .toc-foot{display:none}
+body.mode-brief .sheet{gap:10px}
+body.mode-brief .sec-in{padding-top:2px;padding-bottom:14px}
+body.mode-brief .brief{gap:10px;margin-top:0}
+body.mode-brief .brief-card{padding:11px 13px 12px}
+body.mode-brief .bc-hd{margin-bottom:8px}
+body.mode-brief .stat{padding:8px 10px 9px}
+body.mode-brief .guide li{font-size:.85em;line-height:1.55}
+body.mode-brief .guide .who{margin-top:8px}
+@media print{
+  body.mode-brief .sheet{gap:5pt}
+  body.mode-brief .sec{margin-top:5pt;padding-top:0}
+  body.mode-brief .sec-in{padding-bottom:6pt}
+  body.mode-brief .brief{gap:7pt;margin-top:0}
+  body.mode-brief .brief-card{padding:6pt 7pt 7pt}
+  body.mode-brief .bc-hd{margin-bottom:5pt}
+  body.mode-brief .stat{padding:5pt 6pt}
+  body.mode-brief .stat .meter{height:3px;margin-top:5pt}
+  body.mode-brief .guide li{font-size:8.5pt;line-height:1.45}
+  body.mode-brief .guide .who,body.mode-brief .chip{display:none}
+  body.mode-brief .cover{padding-bottom:6pt}
+  body.mode-brief .cover .readout,body.mode-brief .cover .verdict{font-size:9.4pt}
+}
+
+/* ── v2.2 顶栏：宽屏单行，避免折行 ───────────────────────────── */
+@media (min-width:1120px){.topbar{flex-wrap:nowrap}.topbar .crumbs{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+@media (max-width:1119px){.topbar .crumbs{display:none}}
+.topbar .spacer{flex:1 1 22px;min-width:10px}
+.seg button{white-space:nowrap}
+
+/* ── v2.2 顶栏元件不折行（文字不被压成两行）─────────────────────── */
+.topbar .brand,.topbar .btn,.topbar .pill,.topbar .seg,.topbar .seg button{white-space:nowrap;flex:none}
+.topbar .crumbs{flex:0 1 auto;min-width:0}
+.topbar .btn svg.ic{flex:none}
+@media (max-width:640px){
+  .topbar{padding:9px 12px;gap:8px}
+  .topbar .pill{display:none}
+  .topbar .btn{padding:7px 9px;font-size:.78em}
+  .topbar .brand{font-size:.86em}
+  .seg button{padding:7px 11px}
+}
+
+@media (max-width:430px){
+  .topbar{gap:6px;padding:8px 10px}
+  .topbar .btn{padding:6px 8px;font-size:.76em;border-radius:9px}
+  .topbar .seg button{padding:6px 9px;font-size:.78em}
+  .topbar .brand{font-size:.8em}
+  .chev{width:24px;height:24px}
+}
+
+/* ── v2.3 概况条：宽度恒等于数据，动效只用 transform（无脚本/打印都正确）── */
+@media print{.stat .meter i{transform:none!important;width:var(--p)!important}
+  .tm-bar i{transform:none!important}}
+@media (prefers-reduced-motion:reduce){.stat .meter i{transition:none;transform:none}}
+
+body.js-anim .stat:not(.in) .meter i{transform:scaleX(0)}
+body.js-anim .wf:not(.in) .wfb{height:0}
+body.js-anim .gan:not(.in) .gan-b{width:0}
+@media (prefers-reduced-motion:reduce){body.js-anim .stat:not(.in) .meter i{transform:none}
+  body.js-anim .bar:not(.in) i,body.js-anim .prog:not(.in) i,body.js-anim .cell-bar:not(.in) i,
+  body.js-anim .wf:not(.in) .wfb,body.js-anim .gan:not(.in) .gan-b{width:var(--w,var(--p,var(--h)));height:auto}
+  body.js-anim .wf:not(.in) .wfb{height:var(--h)}
+  body.js-anim .gan:not(.in) .gan-b{width:var(--w)}}
+
+/* ── v2.4 打印：长表允许跨页续排（表头重复），避免整表推到下页留白 ── */
+@media print{
+  .tw{border:0}
+  table{border-top:.5pt solid var(--line2);border-bottom:.5pt solid var(--line2)}
+  .tw+.note,.tw+h3{margin-top:8pt}
+  .trust-mini em{display:inline}
+}
+
+/* 摘要版连排不分页；完整版仅「08 拍板」前强制起新页 */
+@media print{body.mode-brief .brk{break-before:auto}}
+
+/* v2.4 打印分页：模块标题不得成为页尾孤行；摘要版每个模块整块不跨页 */
+@media print{
+  .sec-hd{break-after:avoid}
+  .brief{break-inside:avoid;orphans:2;widows:2}
+  body.mode-brief .sec,body.mode-brief .sec-in,body.mode-brief .detail{break-inside:avoid}
+}
+
+/* v2.4 打印：不再强制整节起新页（避免大片空白），改用软分隔 */
+@media print{.brk{break-before:auto;margin-top:16pt;padding-top:10pt;border-top:1.4pt solid var(--ink)}}
+</style>
+</head>
+<body class="mode-full">
+<svg style="display:none" aria-hidden="true"><defs>
+<symbol id="i-mark" viewBox="0 0 24 24"><path d="M4 19V5m0 14 8-7m-8 7 8-14m0 0v14"/></symbol>
+<symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></symbol>
+<symbol id="i-cube" viewBox="0 0 24 24"><path d="m12 2 8 4.5v9L12 20l-8-4.5v-9z"/><path d="m4 6.5 8 4.5 8-4.5M12 11v9"/></symbol>
+<symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 2v6L4.5 17A2.5 2.5 0 0 0 6.8 21h10.4a2.5 2.5 0 0 0 2.3-4L15 8V2"/><path d="M8 2h8M7.5 14h9"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9l2.1 2.1m9.9 9.9 2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-3.6 8-10V5.5L12 2 4 5.5V12c0 6.4 8 10 8 10z"/><path d="m8.6 11.8 2.3 2.3 4.5-4.6"/></symbol>
+<symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.2c-.6-.8-1.6-1.2-2.6-1.2-1.5 0-2.4.8-2.4 1.9 0 1.3 1.2 1.7 2.6 2 1.6.3 2.9.8 2.9 2.2 0 1.2-1.1 2-2.6 2-1.3 0-2.4-.5-3-1.4M12 6v12"/></symbol>
+<symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 3v18M7 21h10M3.5 8h17M6 8l-3 6a3 3 0 0 0 6 0zM18 8l-3 6a3 3 0 0 0 6 0z"/><path d="m6 8 3-3 3 1 3-1 3 3"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 2.5 17.4A2 2 0 0 0 4.2 20.4h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4.5M12 17h.01"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M9 11.5 11.5 14 16 9M4.5 6.2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2v-1.2"/><path d="M8 17h8"/></symbol>
+<symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4.5" rx="1.4"/><path d="M4.6 8.5V19a1.5 1.5 0 0 0 1.5 1.5h11.8A1.5 1.5 0 0 0 19.4 19V8.5M10 12.5h4"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9.5 6 6 6-6"/></symbol>
+<symbol id="i-expand" viewBox="0 0 24 24"><path d="M9 3H4.5A1.5 1.5 0 0 0 3 4.5V9m12-6H19.5A1.5 1.5 0 0 1 21 4.5V9M3 15v4.5A1.5 1.5 0 0 0 4.5 21H9m12-6v4.5a1.5 1.5 0 0 1-1.5 1.5H15"/></symbol>
+<symbol id="i-collapse" viewBox="0 0 24 24"><path d="M21 9h-4.5A1.5 1.5 0 0 1 15 7.5V3M3 9h4.5A1.5 1.5 0 0 0 9 7.5V3m12 12h-4.5a1.5 1.5 0 0 1-1.5 1.5V21M3 15h4.5A1.5 1.5 0 0 1 9 16.5V21"/></symbol>
+<symbol id="i-print" viewBox="0 0 24 24"><path d="M7 8V3.5h10V8M7 18H5.5A1.5 1.5 0 0 1 4 16.5V11a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v5.5A1.5 1.5 0 0 1 18.5 18H17"/><rect x="7" y="13" width="10" height="7.5" rx="1.2"/></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 9 5-9 5-9-5z"/><path d="m3.5 12.2 8.5 4.7 8.5-4.7M3.5 16.6 12 21.3l8.5-4.7"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-up" viewBox="0 0 24 24"><path d="M12 20V4.5m0 0-6 6m6-6 6 6"/></symbol>
+<symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4 18a9 9 0 1 1 16 0"/><path d="m12 14 4-4"/><circle cx="12" cy="15" r="1.6"/></symbol>
+<symbol id="i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M4.8 20.4a7.4 7.4 0 0 1 14.4 0"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.3l3.4 2"/></symbol>
+<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M7 17 17 7m0 0H9m8 0v8"/></symbol>
+</defs></svg>
+<div class="progress no-print" id="prog"></div>
+<div class="topbar no-print">
+  <span class="brand"><svg class="ic"><use href="#i-mark"/></svg>KERN · 产品研究中心</span>
+  <span class="crumbs"><b>Kern-EP60 复合酶片</b> · 新品研发报告 R-2.3 · A4 完整 18 页 / 摘要 5 页</span>
+  <span class="spacer"></span>
+  <div class="seg" id="segMode" role="group" aria-label="阅读模式">
+    <i class="th"></i>
+    <button type="button" data-mode="full" aria-pressed="true"><svg class="ic"><use href="#i-layers"/></svg>完整版</button>
+    <button type="button" data-mode="brief" aria-pressed="false"><svg class="ic"><use href="#i-eye"/></svg>摘要版</button>
+  </div>
+  <button class="btn" type="button" id="btnExpand"><svg class="ic"><use href="#i-expand"/></svg>全部展开</button>
+  <button class="btn" type="button" id="btnCollapse"><svg class="ic"><use href="#i-collapse"/></svg>全部折叠</button>
+  <span class="pill warn"><span class="dot a"></span>有条件推进 · 门 1 未过</span>
+  <button class="btn solid" type="button" id="btnPrint"><svg class="ic"><use href="#i-print"/></svg>打印 / 存 PDF</button>
+  <noscript><span class="xs">无脚本环境：模块默认全部展开，用浏览器菜单打印（⌘/Ctrl + P）</span></noscript>
+</div>
+
+
+
+<div class="wrap">
+
+  <!-- ════════ 目录 ════════ -->
+  <aside class="toc">
+    <p class="toc-t">Contents</p>
+    <nav>
+      <a href="#cover"><svg class="ic"><use href="#i-mark"/></svg><span class="no">00</span><span class="t">封面 · 决策摘要</span><span class="c">4 判断</span></a>
+      <a href="#s0"><svg class="ic"><use href="#i-doc"/></svg><span class="no">◇</span><span class="t">文档控制与审阅</span><span class="c">2表</span></a>
+      <a href="#s1"><svg class="ic"><use href="#i-cube"/></svg><span class="no">01</span><span class="t">产品定义与规格</span><span class="c">1 注</span></a>
+      <a href="#s2"><svg class="ic"><use href="#i-flask"/></svg><span class="no">02</span><span class="t">配方与 BOM</span><span class="c">14 注</span></a>
+      <a href="#s3"><svg class="ic"><use href="#i-gear"/></svg><span class="no">03</span><span class="t">工艺与中试</span><span class="c">3 注</span></a>
+      <a href="#s4"><svg class="ic"><use href="#i-shield"/></svg><span class="no">04</span><span class="t">质量与稳定性</span><span class="c">2 注</span></a>
+      <a href="#s5"><svg class="ic"><use href="#i-coin"/></svg><span class="no">05</span><span class="t">经济性与定价</span><span class="c">2 注</span></a>
+      <a href="#s6"><svg class="ic"><use href="#i-scale"/></svg><span class="no">06</span><span class="t">合规与宣称</span><span class="c">4 注</span></a>
+      <a href="#s7"><svg class="ic"><use href="#i-alert"/></svg><span class="no">07</span><span class="t">风险 FMEA</span><span class="c">1 注</span></a>
+      <a href="#s8"><svg class="ic"><use href="#i-check"/></svg><span class="no">08</span><span class="t">验证计划与拍板</span><span class="c">1表</span></a>
+      <a href="#s9"><svg class="ic"><use href="#i-archive"/></svg><span class="no">◇</span><span class="t">附录 · 出处假设</span><span class="c">11 注</span></a>
+    </nav>
+    <div class="toc-foot">
+      <p class="xs" style="margin-bottom:6px">阅读耗时 <b class="mono" style="color:var(--ink2)">14 min</b></p>
+      <p class="xs">每条结论带 <span class="ev f">事实</span> <span class="ev i">推断</span> <span class="ev u">待验证</span> 标记</p>
+    </div>
+  </aside>
+
+  <main>
+  <div class="sheet">
+
+  <!-- ════════════════════ 封面 ════════════════════ -->
+  <header class="cover" id="cover">
+    <svg class="grid-bg" width="260" height="200" viewBox="0 0 260 200" aria-hidden="true">
+      <g fill="none" stroke="#EFE9DE" stroke-width="1">
+        <path d="M20 20h220M20 60h220M20 100h220M20 140h220M20 180h220"/>
+        <path d="M60 0v200M120 0v200M180 0v200M240 0v200"/>
+      </g>
+      <path d="M20 168L100 130l60 26 80-118" fill="none" stroke="#D97757" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>
+      <circle cx="240" cy="38" r="4" fill="#B9502F"/>
+    </svg>
+
+    <p class="kick"><s></s>New Product Development Report · 内部编号 R-2601-EP60</p>
+    <h1>复合酶片<br><span style="font-size:.62em;color:var(--ink2)">配方定型 · 中试验证 · 上市经济性评估</span></h1>
+    <p class="cod">Kern-EP60 &nbsp;·&nbsp; 0.6 g × 60 片 / 瓶 &nbsp;·&nbsp; 1,000 FU / 片</p>
+    <p class="lede">本报告把三个问题分开回答：<b>能不能合法做</b>（合规与原料身份）、<b>做不做得出来</b>（配方、中试与稳定性）、
+      <b>值不值得做</b>（成本、定价与验证预算）。三个问题的答案分别是「<b>待核验</b>」「<b>基本可行</b>」「<b>证据不足</b>」。</p>
+
+    <div class="verdict">
+      <div class="lab">DECISION<b>有条件推进</b></div>
+      <p>建议以 <b>¥38,000 / 6 周</b> 完成门 1（原料身份、法规类别、活性检测方法学）与门 2（小规模需求实测）；
+         门 1 通过前<b>不启动备货、不签达人、不投放任何含功效暗示的素材</b>。当前 ¥100,000 预算口径未覆盖研发、打样、检测与首批备货，缺口约 ¥62,000。</p>
+    </div>
+
+    <dl class="metastrip">
+      <div><dt>项目 / 版本</dt><dd>Kern-EP60 · R-2.3</dd></div>
+      <div><dt>报告日期</dt><dd>2026-10-08 14:22</dd></div>
+      <div><dt>数据截止</dt><dd>2026-10-06<br><span class="xs">中试第 3 批收口</span></dd></div>
+      <div><dt>密级</dt><dd>内部 · 禁止外发</dd></div>
+      <div><dt>编制 / 复核</dt><dd>产品研究中心<br><span class="xs">独立复核 Agent</span></dd></div>
+      <div><dt>下次评审</dt><dd>2026-10-24<br><span class="xs">门 1 结论会</span></dd></div>
+    </dl>
+
+    <div class="readout">
+      <div class="trust">
+        <p class="xs" style="letter-spacing:.1em;margin-bottom:3px">证据覆盖度 · 全报告 45 处结论标注</p>
+        <div class="trustrow"><span><span class="dot g"></span> 事实（有出处）</span><span class="prog ok"><i style="--p:46.7%"></i></span><span class="n">21</span></div>
+        <div class="trustrow"><span><span class="dot a"></span> 推断（待证实）</span><span class="prog warn"><i style="--p:35.6%"></i></span><span class="n">16</span></div>
+        <div class="trustrow"><span><span class="dot n"></span> 待验证（缺口）</span><span class="prog grey"><i style="--p:17.8%"></i></span><span class="n">8</span></div>
+      </div>
+      <p class="rd">结论可信度分布是这份报告的<b>第一读数</b>：待验证项集中在<b>线下复购、渠道实测转化与备案费用</b>三处，
+        任何一项被推翻都会改变第 05 节的定价结论。<b>请以「事实」条决定边界，以「推断」条安排验证，不要把「待验证」当依据。</b></p>
+    </div>
+
+    <div class="keynotes">
+      <h3 class="blk">四条真正决定结论的判断 <span class="q">按可信度标记 · 推导见对应小节</span></h3>
+      <div class="grid2">
+        <div class="cl f">
+          <p>单瓶出厂成本 <b>¥11.40</b>、扣完渠道与履约后单件贡献 <b>¥75.66（38.0%）</b> —— <b>经济模型不是本项目的瓶颈</b>。<span class="mut">→ 05</span></p>
+          <span class="ev f">事实</span>
+        </div>
+        <div class="cl f">
+          <p>中试 3 批收率 <b>93.8%–95.2%</b>、实测活性为标示值 <b>98.3%</b>、崩解与微生物全项通过 —— <b>压片工艺在 8 kN 下可复现</b>。<span class="mut">→ 03 / 04</span></p>
+          <span class="ev f">事实</span>
+        </div>
+        <div class="cl i">
+          <p>FU 检测方法未与第三方对齐前，任何参数对比都不可外宣；且按现有配方，本品日活性<b>低于</b>对标产品 25.9% —— 「高 1.5 倍」连方向都是错的。<span class="mut">→ 02 / 06</span></p>
+          <span class="ev i">推断</span><span class="how"><b>补齐：</b>两家实验室同法双测（¥9,000 / 3 周），出结果前对外只讲投料量与报告编号。</span>
+        </div>
+        <div class="cl u">
+          <p>私域与线下的<b>复购率、达人实际分佣、退货率</b>三项均无自有数据，因此本轮不申请放量预算，只申请 ¥38,000 验证额度。<span class="mut">→ 08</span></p>
+          <span class="ev u">待验证</span><span class="how"><b>补齐：</b>门 2 两场实测 + 45 天回访；口径在第 08 节 H3 / H6 已定义。</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ════════════════════ 00 文档控制 ════════════════════ -->
+  <details class="sec" id="s0" open>
+    <summary class="sec-hd">
+      <span class="sec-ic"><svg class="ic"><use href="#i-doc"/></svg></span>
+      <span class="hd-txt"><h2>文档控制与审阅</h2><span class="hd-sub">Document control · 可追溯性</span></span>
+      <span class="hd-meta">
+        <span class="tag keep slate">受控文件</span> <span class="tag keep">留存 10 年</span>
+        <span class="trust-mini plain"><em>受控文档 · 2 表 0 图</em></span>
+        <span class="mode-flag"><svg class="ic"><use href="#i-eye"/></svg>摘要视图</span>
+        <span class="chev"><svg class="ic"><use href="#i-chev"/></svg></span>
+      </span>
+    </summary>
+    <div class="sec-in">
+      <div class="brief">
+        <div class="brief-card data">
+          <div class="bc-hd"><svg class="ic"><use href="#i-gauge"/></svg><h4>数据概况</h4><span class="x">2 张表 · 0 张图</span></div>
+          <div class="stats">
+              <div class="stat warn" data-p="22" style="--p:22%"><span class="l">版本</span><span class="v">R-2.3</span><span class="xs">审阅链 5 个角色</span><span class="meter"><i></i></span></div>
+              <div class="stat bad"><span class="l">待签 / 异议</span><span class="v">2</span><span class="xs">财务对预算口径有异议</span></div>
+              <div class="stat ok" data-p="75" style="--p:75%"><span class="l">一手出处</span><span class="v">6 / 8</span><span class="xs">编号可回查原始材料</span><span class="meter"><i></i></span></div>
+          </div>
+        </div>
+        <div class="brief-card guide">
+          <div class="bc-hd"><svg class="ic"><use href="#i-compass"/></svg><h4>指导意见</h4><span class="x">可直接执行</span></div>
+          <ul>
+              <li><svg class="ic"><use href="#i-scale"/></svg><span>财务对「验证 vs 放量」预算口径的异议，须在 <b>10-14 立项会</b>前书面关闭，否则门 1 结论无法转化为放款。</span></li>
+              <li><svg class="ic"><use href="#i-clock"/></svg><span>R-3.0 的触发条件是「任一到达」：门 1 结论 / 3 家盖章报价 / 活性双测回收 —— <b>不等三项齐</b>。</span></li>
+              <li><svg class="ic"><use href="#i-shield"/></svg><span>受控文件禁止外发；对外素材由合规逐条签发后释放，签发记录挂在本报告编号下。</span></li>
+            </ul>
+            <div class="who">
+              <span class="chip"><svg class="ic"><use href="#i-user"/></svg>产品经理</span>
+              <span class="chip"><svg class="ic"><use href="#i-shield"/></svg>合规</span>
+              <span class="chip"><svg class="ic"><use href="#i-coin"/></svg>财务</span>
+            </div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="body">
+      <div class="grid2">
+        <div>
+          <h3 class="blk" style="margin-top:0">修订记录</h3>
+          <div class="tw"><div class="tw-scroll">
+            <table>
+              <thead><tr><th>版本</th><th>日期</th><th>修订内容</th><th>编制</th><th>批准</th></tr></thead>
+              <tbody>
+                <tr><td class="k">R-1.0</td><td class="mono">09-18</td><td>初版概念与人群假设</td><td>产品 Agent</td><td class="mut">—</td></tr>
+                <tr><td class="k">R-2.0</td><td class="mono">09-29</td><td>并入中试 3 批与成本 BOM 实测</td><td>成本与 BOM</td><td class="mut">待批</td></tr>
+                <tr><td class="k">R-2.3</td><td class="mono">10-08</td><td>合规类别矩阵、风险 FMEA 与验证计划重写</td><td>Kern 汇总</td><td class="mut">待批</td></tr>
+              </tbody>
+            </table>
+          </div><p class="hint">← 表格可横向滑动</p></div>
+        </div>
+        <div>
+          <h3 class="blk" style="margin-top:0">审阅链与职责</h3>
+          <div class="tw"><div class="tw-scroll">
+            <table>
+              <thead><tr><th>角色</th><th>职责范围</th><th>状态</th></tr></thead>
+              <tbody>
+                <tr><td class="k">产品经理</td><td>配方定型、包材与规格决策</td><td><span class="rag md"><span class="dot a"></span>待签</span></td></tr>
+                <tr><td class="k">法规 / 合规</td><td>类别判定、标签与宣称审核</td><td><span class="rag md"><span class="dot a"></span>进行中</span></td></tr>
+                <tr><td class="k">生产技术</td><td>工艺验证、中试放行</td><td><span class="rag lo"><span class="dot g"></span>已确认</span></td></tr>
+                <tr><td class="k">质量（QA）</td><td>成品标准、检验与稳定性方案</td><td><span class="rag lo"><span class="dot g"></span>已确认</span></td></tr>
+                <tr><td class="k">财务</td><td>预算口径、毛利与账期</td><td><span class="rag hi"><span class="dot r"></span>有异议</span></td></tr>
+              </tbody>
+            </table>
+          </div><p class="hint">← 表格可横向滑动</p></div>
+        </div>
+      </div>
+      <div class="note slate">
+        <span class="ic">i</span>
+        <div><p><b>可追溯约定：</b>本报告每条「事实」在附录 A 有对应来源编号（如 <span class="mono">SRC-BOM-07</span> 盖章报价、<span class="mono">SRC-PILOT-03</span> 中试批记录、
+          <span class="mono">SRC-COA-12</span> 供应商检验报告）。任何数字被质疑时，凭编号回查原始材料，而不是重新讨论结论本身。</p></div>
+      </div></div>
+      </div>
+    </div>
+  </details>
+
+  <!-- ════════════════════ 01 产品定义与规格 ════════════════════ -->
+  <details class="sec" id="s1">
+    <summary class="sec-hd">
+      <span class="sec-ic"><svg class="ic"><use href="#i-cube"/></svg></span>
+      <span class="hd-txt"><h2>产品定义与规格</h2><span class="hd-sub">Concept · Spec sheet</span></span>
+      <span class="hd-meta">
+        <span class="tag keep go">定型规格</span> <span class="tag keep cond">感官待测</span>
+        <span class="trust-mini" title="事实 0 条 · 推断 1 条 · 待验证 0 条"><span class="tm-bar"><i class="f" style="--w:0.0%"></i><i class="i" style="--w:100.0%"></i><i class="u" style="--w:0.0%"></i></span><em>1 条标注 · 2 表 0 图</em><b class="lv md">60%</b></span>
+        <span class="cnt i"><i></i><b>1</b> 推断</span>
+        <span class="mode-flag"><svg class="ic"><use href="#i-eye"/></svg>摘要视图</span>
+        <span class="chev"><svg class="ic"><use href="#i-chev"/></svg></span>
+      </span>
+    </summary>
+    <div class="sec-in">
+      <div class="brief">
+        <div class="brief-card data">
+          <div class="bc-hd"><svg class="ic"><use href="#i-gauge"/></svg><h4>数据概况</h4><span class="x">2 张表 · 0 张图</span></div>
+          <div class="stats">
+              <div class="stat acc" data-p="62" style="--p:62%"><span class="l">片重 / 活性</span><span class="v">600 mg</span><span class="xs">1,000 FU/片 · 2,000 FU/日</span><span class="meter"><i></i></span></div>
+              <div class="stat ok" data-p="91" style="--p:91%"><span class="l">保质期</span><span class="v">24 月</span><span class="xs">按长期曲线外推判定</span><span class="meter"><i></i></span></div>
+              <div class="stat ok" data-p="84" style="--p:84%"><span class="l">剂型加权</span><span class="v">8.4</span><span class="xs">压片 8.4 · 软糖 5.7 · 粉条 6.9</span><span class="meter"><i></i></span></div>
+          </div>
+        </div>
+        <div class="brief-card guide">
+          <div class="bc-hd"><svg class="ic"><use href="#i-compass"/></svg><h4>指导意见</h4><span class="x">可直接执行</span></div>
+          <ul>
+              <li><svg class="ic"><use href="#i-flask"/></svg><span>掩味未测：先做 20 人感官测试（¥6,000 / 2 周），<b>通过后再签代工厂与包材</b>，避免返工。</span></li>
+              <li><svg class="ic"><use href="#i-coin"/></svg><span>不做礼盒线、不做定制开模，通用瓶省 <b>¥46,000</b>；30 天 / 瓶的规格已预留订阅制接口。</span></li>
+              <li><svg class="ic"><use href="#i-scale"/></svg><span>对外只讲投料量、检测方法、批次报告三件事；参数对比永久冻结至方法学对齐。</span></li>
+            </ul>
+            <div class="who">
+              <span class="chip"><svg class="ic"><use href="#i-flask"/></svg>研发</span>
+              <span class="chip"><svg class="ic"><use href="#i-cube"/></svg>产品</span>
+            </div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="body">
+      <dl class="def">
+        <div><dt>目标人群</dt><dd>35–50 岁 · 体检指标边缘人群<em>现有私域 2,400 人中 61% 近 12 月购买过功能食品</em></dd></div>
+        <div><dt>核心价值主张</dt><dd>把「批次可查」做成卖点<em>详情页首屏 = 投料量 + 检测方法 + COA 编号</em></dd></div>
+        <div><dt>差异化</dt><dd>依从性 + 证据透明度<em>不做参数竞赛：FU 数值不外宣（见 06）</em></dd></div>
+        <div><dt>使用方式</dt><dd>每日 2 片 · 餐后 · 30 天 / 瓶<em>月成本 ¥199，订阅 2 瓶 ¥358</em></dd></div>
+        <div><dt>为何是现在</dt><dd>Q4 平台宣称审核收紧<em>先取得资质者在私域有 1–2 个季度窗口</em></dd></div>
+        <div><dt>不做什么</dt><dd>不做礼盒线 · 不做定制开模<em>开模费 ¥46,000 超预算，改为通用瓶</em></dd></div>
+      </dl>
+
+      <h3 class="blk">成品规格一览 <span class="q">定型规格，中试 3 批均按此执行</span></h3>
+      <div class="grid2">
+        <div class="tw"><div class="tw-scroll">
+          <table>
+            <thead><tr><th>项目</th><th>规格</th><th>依据</th></tr></thead>
+            <tbody>
+              <tr><td class="k">剂型 / 外观</td><td>类圆形浅黄压片，φ10.5 mm，印字「EP60」</td><td class="sub">企业标准草案 Q/EP60-01</td></tr>
+              <tr><td class="k">单片重</td><td class="mono">600 mg ± 5%</td><td class="sub">中试实测 601.2 / 599.6 / 602.4 mg</td></tr>
+              <tr><td class="k">包装</td><td>HDPE 瓶 60 片 + 1 g 分子筛干燥剂 + 盒</td><td class="sub">通用瓶，无开模</td></tr>
+              <tr><td class="k">标示活性</td><td class="mono">1,000 FU / 片 · 2,000 FU / 日</td><td class="sub">仅供内部与检测比对，<b>不外宣</b></td></tr>
+              <tr><td class="k">植萃皂苷投料</td><td class="mono">Rg1+Rb1 ≥ 4.8 mg / 日</td><td class="sub">96 mg 提取物 / 日（5% 含量）</td></tr>
+              <tr><td class="k">保质期 / 贮存</td><td>24 个月 · ≤25 ℃ 阴凉干燥，免冷藏</td><td class="sub">加速 + 长期稳定性外推（见 04）</td></tr>
+              <tr><td class="k">每批规模</td><td class="mono">100 kg 投料 → 2,628 瓶</td><td class="sub">收率 94.6%（中试均值）</td></tr>
+            </tbody>
+          </table>
+        </div><p class="hint">← 可横向滑动</p></div>
+
+        <div class="stack">
+          <div class="kpi hl"><span class="l">每片活性投料（含 3.8% 过量投料）</span><span class="v">1,038<u>FU</u></span>
+            <span class="d"><span class="dot g"></span>酶粉 51.9 mg × 20,000 FU/g · 标示 1,000</span></div>
+          <div class="kpi"><span class="l">中试实测活性（3 批均值）</span><span class="v">983<u>FU / 片</u></span>
+            <span class="d"><span class="dot g"></span>为标示值 98.3%，落在 ±15% 允差内</span></div>
+          <div class="kpi"><span class="l">线下供货价（7 折）· 扣出厂与履约后</span><span class="v">¥139.30<u>→ ¥119.40</u></span>
+            <span class="d"><span class="dot a"></span>出厂成本 ¥11.40；账期 45–60 天为本品主要现金风险</span></div>
+        </div>
+      </div>
+
+      <h3 class="blk">剂型决策 <span class="q">为什么最终选压片而不是软糖 / 冻干粉</span></h3>
+      <div class="tw"><div class="tw-scroll">
+        <table>
+          <thead><tr><th>维度</th><th class="n">压片含片 ★</th><th class="n">功能软糖</th><th class="n">冻干粉条</th><th>权重与说明</th></tr></thead>
+          <tbody>
+            <tr><td class="k">活性物留存率</td><td class="n cell-bar ok">96.4%<i style="--p:96%"></i></td><td class="n cell-bar bad">≤ 70%<i style="--p:70%"></i></td><td class="n cell-bar ok">98.5%<i style="--p:98%"></i></td><td class="sub">软糖 80 ℃ 熬煮对酶不友好，代工厂无留存数据</td></tr>
+            <tr><td class="k">MOQ 与现金占用</td><td class="n">3,000 瓶<br><span class="xs">¥32,850</span></td><td class="n">10,000 袋<br><span class="xs">¥160,000</span></td><td class="n">5,000 盒<br><span class="xs">¥118,000</span></td><td class="sub">预算 ¥100,000 内只有压片可承担</td></tr>
+            <tr><td class="k">单瓶成本</td><td class="n">¥11.40</td><td class="n">¥16.40</td><td class="n">¥24.70</td><td class="sub">含包材与检测，不含渠道</td></tr>
+            <tr><td class="k">携带 / 口感接受度</td><td class="n">中 · 微豆腥味</td><td class="n">高</td><td class="n">低 · 需冲服</td><td class="sub">口感为压片唯一劣势，需配方掩味验证</td></tr>
+            <tr><td class="k">合规路径复杂度</td><td class="n">低 · 压片糖果</td><td class="n">低 · 凝胶糖果</td><td class="n">中 · 需固体饮料类目</td><td class="sub">类目决定宣称边界，见 06</td></tr>
+            <tr><td class="k">上线周期</td><td class="n">4–6 周</td><td class="n">10–12 周</td><td class="n">8–10 周</td><td class="sub">含打样、检测与包材到货</td></tr>
+            <tr class="sum"><td>加权得分</td><td class="n" style="color:var(--acc)">8.4 / 10 ★</td><td class="n">5.7 / 10</td><td class="n">6.9 / 10</td><td class="sub">权重：合规 25% · 成本 25% · 留存 20% · 周期 15% · 接受度 15%</td></tr>
+          </tbody>
+        </table>
+      </div><p class="hint">← 可横向滑动</p></div>
+      <div class="note acc"><span class="ic">!</span><div>
+        <p>选择压片<b>不是因为它更好卖</b>，而是它是三者中唯一在「¥100,000 + 6 周」约束下可执行、且能保住活性物方案的剂型。<span class="ev i">推断</span>
+        掩味效果（微豆腥味）尚未做感官测试，若 20 人小样测试接受度 &lt; 60%，需要重新评估甜味剂与包衣方案（追加 ¥6,000 / 2 周）。</p>
+      </div></div></div>
+      </div>
+    </div>
+  </details>
+
+  <!-- ════════════════════ 02 配方与 BOM ════════════════════ -->
+  <details class="sec" id="s2">
+    <summary class="sec-hd">
+      <span class="sec-ic"><svg class="ic"><use href="#i-flask"/></svg></span>
+      <span class="hd-txt"><h2>配方与 BOM 成本</h2><span class="hd-sub">Formula · Bill of materials</span></span>
+      <span class="hd-meta">
+        <span class="tag keep acc">一手 BOM</span> <span class="tag keep cond">4 项口头报价</span>
+        <span class="trust-mini" title="事实 7 条 · 推断 6 条 · 待验证 1 条"><span class="tm-bar"><i class="f" style="--w:50.0%"></i><i class="i" style="--w:42.9%"></i><i class="u" style="--w:7.1%"></i></span><em>14 条标注 · 3 表 0 图</em><b class="lv hi">76%</b></span>
+        <span class="cnt f"><i></i><b>7</b> 事实</span>
+        <span class="cnt i"><i></i><b>6</b> 推断</span>
+        <span class="cnt u"><i></i><b>1</b> 待验证</span>
+        <span class="mode-flag"><svg class="ic"><use href="#i-eye"/></svg>摘要视图</span>
+        <span class="chev"><svg class="ic"><use href="#i-chev"/></svg></span>
+      </span>
+    </summary>
+    <div class="sec-in">
+      <div class="brief">
+        <div class="brief-card data">
+          <div class="bc-hd"><svg class="ic"><use href="#i-gauge"/></svg><h4>数据概况</h4><span class="x">3 张表 · 0 张图</span></div>
+          <div class="stats">
+              <div class="stat acc" data-p="68" style="--p:68%"><span class="l">原料 / 批成本</span><span class="v">11 项</span><span class="xs">¥15,229.81 每 100 kg 批</span><span class="meter"><i></i></span></div>
+              <div class="stat ok" data-p="51" style="--p:51%"><span class="l">单瓶原料</span><span class="v">¥5.80</span><span class="xs">出厂合计 ¥11.40 / 瓶</span><span class="meter"><i></i></span></div>
+              <div class="stat warn" data-p="45" style="--p:45%"><span class="l">书面报价</span><span class="v">5 / 11</span><span class="xs">4 项仍为口头报价</span><span class="meter"><i></i></span></div>
+          </div>
+        </div>
+        <div class="brief-card guide">
+          <div class="bc-hd"><svg class="ic"><use href="#i-compass"/></svg><h4>指导意见</h4><span class="x">可直接执行</span></div>
+          <ul>
+              <li><svg class="ic"><use href="#i-coin"/></svg><span>酶粉占原料成本 <b>68.2%</b>：签全年锁价 ¥1,200/kg；每上浮 10%，出厂 +¥0.58/瓶、单件贡献 −0.8 个百分点。</span></li>
+              <li><svg class="ic"><use href="#i-doc"/></svg><span>山梨糖醇 / VE / 甜菊糖苷 / 香精 4 项在 <b>10-16</b> 前换成盖章件，否则成本结论只能标「推断」。</span></li>
+              <li><svg class="ic"><use href="#i-archive"/></svg><span>包材因 MOQ 占现金 ¥14,740，改分批交货可释放 <b>¥9,870</b>，优先级高于砍配方。</span></li>
+            </ul>
+            <div class="who">
+              <span class="chip"><svg class="ic"><use href="#i-archive"/></svg>供应链</span>
+              <span class="chip"><svg class="ic"><use href="#i-coin"/></svg>成本与 BOM</span>
+            </div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="body">
+      <h3 class="blk">配方表 <span class="q">按 100 kg 投料（166,667 片理论片数）</span></h3>
+      <div class="tw"><div class="tw-scroll">
+        <table>
+          <thead><tr><th>#</th><th>原料 / 辅料</th><th>规格与功能</th><th class="n">投料 kg</th><th class="n">w/w %</th><th class="n">mg / 片</th><th class="n">单价 ¥/kg</th><th class="n">批成本 ¥</th><th>报价状态</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">A1</td><td class="k">复合酶冻干粉</td><td class="sub">20,000 FU/g · 主料（含 3.8% 过量投料）</td><td class="n">8.65</td><td class="n">8.65</td><td class="n">51.9</td><td class="n">1,200</td><td class="n cell-bar">10,380.00<i style="--p:100%"></i></td><td><span class="ev f">已盖章 Q-2231</span></td></tr>
+            <tr><td class="mono">A2</td><td class="k">植物提取物</td><td class="sub">皂苷 Rg1+Rb1 ≥5% · 80 目</td><td class="n">8.00</td><td class="n">8.00</td><td class="n">48.0</td><td class="n">480</td><td class="n cell-bar">3,840.00<i style="--p:37%"></i></td><td><span class="ev f">已盖章 Q-2233</span></td></tr>
+            <tr><td class="mono">B1</td><td class="k">麦芽糊精</td><td class="sub">填充 / 载体 · DE18</td><td class="n">38.35</td><td class="n">38.35</td><td class="n">230.1</td><td class="n">6.5</td><td class="n cell-bar grey">249.28<i style="--p:2.4%"></i></td><td><span class="ev f">市场价</span></td></tr>
+            <tr><td class="mono">B2</td><td class="k">微晶纤维素 102</td><td class="sub">直压填充 / 崩解</td><td class="n">22.00</td><td class="n">22.00</td><td class="n">132.0</td><td class="n">11.8</td><td class="n cell-bar grey">259.60<i style="--p:2%"></i></td><td><span class="ev f">市场价</span></td></tr>
+            <tr><td class="mono">B3</td><td class="k">山梨糖醇</td><td class="sub">口感 / 无糖载体</td><td class="n">18.00</td><td class="n">18.00</td><td class="n">108.0</td><td class="n">9.2</td><td class="n cell-bar grey">165.60<i style="--p:1.2%"></i></td><td><span class="ev i">口头报价</span></td></tr>
+            <tr><td class="mono">C1</td><td class="k">维生素 E（50% 粉）</td><td class="sub">抗氧化 / 护色</td><td class="n">1.20</td><td class="n">1.20</td><td class="n">7.2</td><td class="n">86</td><td class="n cell-bar grey">103.20<i style="--p:1%"></i></td><td><span class="ev i">口头报价</span></td></tr>
+            <tr><td class="mono">C2</td><td class="k">甜菊糖苷 RebA 98%</td><td class="sub">甜味 · 掩味</td><td class="n">0.60</td><td class="n">0.60</td><td class="n">3.6</td><td class="n">260</td><td class="n cell-bar grey">156.00<i style="--p:1.1%"></i></td><td><span class="ev i">口头报价</span></td></tr>
+            <tr><td class="mono">C3</td><td class="k">柠檬酸</td><td class="sub">风味 / pH 微调</td><td class="n">0.80</td><td class="n">0.80</td><td class="n">4.8</td><td class="n">8.6</td><td class="n cell-bar grey">6.88<i style="--p:.5%"></i></td><td><span class="ev f">市场价</span></td></tr>
+            <tr><td class="mono">C4</td><td class="k">柑橘香精（微囊）</td><td class="sub">掩味</td><td class="n">0.40</td><td class="n">0.40</td><td class="n">2.4</td><td class="n">95</td><td class="n cell-bar grey">38.00<i style="--p:.5%"></i></td><td><span class="ev i">口头报价</span></td></tr>
+            <tr><td class="mono">D1</td><td class="k">硬脂酸镁</td><td class="sub">润滑剂 · 后混 1 min</td><td class="n">1.50</td><td class="n">1.50</td><td class="n">9.0</td><td class="n">13.5</td><td class="n cell-bar grey">20.25<i style="--p:.5%"></i></td><td><span class="ev f">市场价</span></td></tr>
+            <tr><td class="mono">D2</td><td class="k">微粉硅胶</td><td class="sub">助流 · 抗吸潮</td><td class="n">0.50</td><td class="n">0.50</td><td class="n">3.0</td><td class="n">22</td><td class="n cell-bar grey">11.00<i style="--p:.4%"></i></td><td><span class="ev f">市场价</span></td></tr>
+            <tr class="tot"><td colspan="3">原料合计（11 项 · w/w 合计 100.00%）</td><td class="n">100.00</td><td class="n">100.00</td><td class="n">600.0</td><td class="n">—</td><td class="n">15,229.81</td><td class="sub">5 / 11 项有书面报价</td></tr>
+          </tbody>
+        </table>
+      </div><p class="hint">← 可横向滑动</p></div>
+
+      <div class="grid2">
+        <div>
+          <h3 class="blk" style="margin-top:0">单瓶成本构成（60 片 / 瓶 · 批产 2,628 瓶）</h3>
+          <div class="bar big">
+            <i class="c1" style="--w:50.9%"></i><i class="c2" style="--w:16.2%"></i>
+            <i class="c5" style="--w:7.9%"></i><i class="c6" style="--w:3.7%"></i><i class="c7" style="--w:21.3%"></i>
+          </div>
+          <ul class="lgd" style="margin-top:11px">
+            <li><span class="sw c1"></span>原料 <b>¥5.80</b> <span class="mut">50.9%</span></li>
+            <li><span class="sw c2"></span>包材 <b>¥1.85</b> <span class="mut">16.2%</span></li>
+            <li><span class="sw c5"></span>加工 <b>¥0.90</b> <span class="mut">7.9%</span></li>
+            <li><span class="sw c6"></span>检测放行 <b>¥0.42</b> <span class="mut">3.7%</span></li>
+            <li><span class="sw c7"></span>合规摊销 <b>¥2.43</b> <span class="mut">21.3%</span></li>
+            <li style="width:100%"><span class="sw" style="background:var(--ink)"></span><b>出厂成本合计 ¥11.40 / 瓶</b> <span class="mut">不含履约与渠道</span></li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="blk" style="margin-top:0">包材明细（每瓶）</h3>
+          <div class="tw"><div class="tw-scroll">
+            <table>
+              <thead><tr><th>部件</th><th class="n">单价</th><th class="n">MOQ</th><th class="n">占用现金</th></tr></thead>
+              <tbody>
+                <tr><td class="k">HDPE 瓶 120 ml</td><td class="n">0.62</td><td class="n">10,000</td><td class="n">¥6,200</td></tr>
+                <tr><td class="k">铝箔感应封口 + 盖</td><td class="n">0.18</td><td class="n">10,000</td><td class="n">¥1,800</td></tr>
+                <tr><td class="k">分子筛干燥剂 1 g</td><td class="n">0.06</td><td class="n">20,000</td><td class="n">¥1,200</td></tr>
+                <tr><td class="k">不干胶标签</td><td class="n">0.21</td><td class="n">10,000</td><td class="n">¥2,100</td></tr>
+                <tr><td class="k">彩盒（外）</td><td class="n">0.58</td><td class="n">5,000</td><td class="n">¥2,900</td></tr>
+                <tr><td class="k">五层纸箱 + 缓冲</td><td class="n">0.20</td><td class="n">按批</td><td class="n">¥540</td></tr>
+                <tr class="sum"><td>合计</td><td class="n">¥1.85</td><td class="n">—</td><td class="n">¥14,740</td></tr>
+              </tbody>
+            </table>
+          </div><p class="hint">← 可横向滑动</p></div>
+          <p class="xs" style="margin-top:8px">包材现金占用 ¥14,740 高于首批实际用量（2,628 瓶）所需，<b>系 MOQ 所致</b>；与代工厂协商分批交货可降至约 ¥4,870。<span class="ev i">推断</span></p>
+        </div>
+      </div>
+
+      <h3 class="blk">与市面同类产品的参数对照 <span class="q">仅作内部定位参考，不可用于对外比较宣称</span></h3>
+      <div class="tw"><div class="tw-scroll">
+        <table>
+          <thead><tr><th>产品</th><th>类目 / 资质</th><th class="n">标示活性</th><th class="n">日成本</th><th class="n">30 天到手价</th><th>可比性说明</th></tr></thead>
+          <tbody>
+            <tr><td class="k">Kern-EP60（本品）</td><td class="sub">压片糖果 · SC（待确认）</td><td class="n">2,000 FU / 日</td><td class="n">¥6.63</td><td class="n">¥199</td><td class="sub">自研配方，检测方法与 A2 供应商一致</td></tr>
+            <tr><td class="k">日本 A2 复合酶片</td><td class="sub">日本「機能性表示食品」备案</td><td class="n">2,700 FU / 日</td><td class="n">¥8.20</td><td class="n">¥246</td><td class="sub">备案编号可查，FU 定义与本品同为纤维平板法 <span class="ev i">推断</span></td></tr>
+            <tr><td class="k">国内 B 品牌（软糖）</td><td class="sub">凝胶糖果 · SC</td><td class="n">未标示</td><td class="n">¥2.97</td><td class="n">¥89</td><td class="sub">无活性标示，不可比</td></tr>
+            <tr><td class="k">国内 C 品牌（胶囊）</td><td class="sub">保健食品 · 蓝帽子备案</td><td class="n">1,000 FU / 日</td><td class="n">¥4.60</td><td class="n">¥138</td><td class="sub">类目不同，宣称权限更大</td></tr>
+            <tr><td class="k">跨境 D 品牌（粉）</td><td class="sub">跨境膳补（不按国内食品宣称）</td><td class="n">4,000 FU / 日</td><td class="n">¥5.40</td><td class="n">¥162</td><td class="sub">宣称不受国内标签法约束，但平台限制曝光</td></tr>
+          </tbody>
+        </table>
+      </div><p class="hint">← 可横向滑动</p></div>
+      <div class="note warn"><span class="ic">!</span><div>
+        <p>按上表，本品日活性比 A2 <b>低</b> <b>−25.9%</b>、月成本低 19.1%。<b>但这一对比在门 1 之前不得出现在任何素材中</b>：
+          FU 的测定波长、纤维板厚度与单位定义若不一致，同一批粉在不同实验室可给出 ±30% 差异。<span class="ev u">待验证</span></p>
+        <p class="xs">补齐方式：向 2 家实验室各送 1 份对照样（本品 + A2 原料同法同批测定），预算 ¥9,000 / 3 周。在此之前，对外只讲投料量与检测报告，不讲倍数。</p>
+      </div></div></div>
+      </div>
+    </div>
+  </details>
+
+  <!-- ════════════════════ 03 工艺与中试 ════════════════════ -->
+  <details class="sec" id="s3">
+    <summary class="sec-hd">
+      <span class="sec-ic"><svg class="ic"><use href="#i-gear"/></svg></span>
+      <span class="hd-txt"><h2>工艺与中试</h2><span class="hd-sub">Process · Pilot runs</span></span>
+      <span class="hd-meta">
+        <span class="tag keep go">3 批中试</span> <span class="tag keep cond">方法待认</span>
+        <span class="trust-mini" title="事实 1 条 · 推断 1 条 · 待验证 1 条"><span class="tm-bar"><i class="f" style="--w:33.3%"></i><i class="i" style="--w:33.3%"></i><i class="u" style="--w:33.3%"></i></span><em>3 条标注 · 2 表 0 图</em><b class="lv lo">53%</b></span>
+        <span class="cnt f"><i></i><b>1</b> 事实</span>
+        <span class="cnt i"><i></i><b>1</b> 推断</span>
+        <span class="cnt u"><i></i><b>1</b> 待验证</span>
+        <span class="mode-flag"><svg class="ic"><use href="#i-eye"/></svg>摘要视图</span>
+        <span class="chev"><svg class="ic"><use href="#i-chev"/></svg></span>
+      </span>
+    </summary>
+    <div class="sec-in">
+      <div class="brief">
+        <div class="brief-card data">
+          <div class="bc-hd"><svg class="ic"><use href="#i-gauge"/></svg><h4>数据概况</h4><span class="x">2 张表 · 0 张图</span></div>
+          <div class="stats">
+              <div class="stat ok" data-p="95" style="--p:95%"><span class="l">中试 / 收率</span><span class="v">3 批</span><span class="xs">94.5% 均值 · 极差 1.4 pt</span><span class="meter"><i></i></span></div>
+              <div class="stat ok" data-p="98" style="--p:98%"><span class="l">活性实测</span><span class="v">98.3%</span><span class="xs">为标示值 · 允差 ±15%</span><span class="meter"><i></i></span></div>
+              <div class="stat ok" data-p="100" style="--p:100%"><span class="l">一次放行</span><span class="v">3 / 3</span><span class="xs">批损耗 ¥1,004 / 批</span><span class="meter"><i></i></span></div>
+          </div>
+        </div>
+        <div class="brief-card guide">
+          <div class="bc-hd"><svg class="ic"><use href="#i-compass"/></svg><h4>指导意见</h4><span class="x">可直接执行</span></div>
+          <ul>
+              <li><svg class="ic"><use href="#i-gear"/></svg><span>压片压力写入工艺卡：<b>8 kN ±0.5</b> —— 硬度 ≥60 N 与活性留存 ≥95% 同时成立的唯一窗口。</span></li>
+              <li><svg class="ic"><use href="#i-alert"/></svg><span>量产转移按 500 kg 爬坡批 + 3 点取样（¥6,000）验收；单冲中试结果不可直接外推到 33 冲。</span></li>
+              <li><svg class="ic"><use href="#i-shield"/></svg><span>雨季（水分 >3.0%）批次干燥剂由 1 g 提至 1.5 g，+¥0.02/瓶，属可直接批准的技术变更。</span></li>
+            </ul>
+            <div class="who">
+              <span class="chip"><svg class="ic"><use href="#i-gear"/></svg>生产技术</span>
+              <span class="chip"><svg class="ic"><use href="#i-shield"/></svg>QA</span>
+            </div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="body">
+      <h3 class="blk">工艺流程与关键控制点</h3>
+      <ul class="flow">
+        <li class="ccp"><b>称量复核</b><span>双人复核<br>允差 ±0.5%</span></li>
+        <li><b>过筛</b><span>80 目<br>结块率 &lt; 2%</span></li>
+        <li class="ccp"><b>三维混合</b><span>8 min · 22 rpm<br>含量均匀度 RSD ≤5%</span></li>
+        <li class="ccp"><b>压片</b><span>8 kN · 18 万片 / h<br>硬度 ≥60 N</span></li>
+        <li class="ccp"><b>内包</b><span>瓶 + 干燥剂<br>0.5 MPa 密封无渗漏</span></li>
+        <li class="ccp"><b>金检</b><span>Fe 1.5 / NonFe 2.0<br>SUS 2.5 mm</span></li>
+        <li><b>检验放行</b><span>QA 出具<br>批检验报告</span></li>
+        <li><b>外包入库</b><span>贴码 · 追溯<br>15–25 ℃</span></li>
+      </ul>
+
+      <div class="grid2">
+        <div>
+          <h3 class="blk" style="margin-top:0">关键工艺参数（DOE 预试 9 组中的 3 组）</h3>
+          <div class="tw"><div class="tw-scroll">
+            <table>
+              <thead><tr><th>压片压力</th><th class="n">硬度 N</th><th class="n">崩解 min</th><th class="n">活性留存</th><th class="n">脆碎度 %</th><th>判定</th></tr></thead>
+              <tbody>
+                <tr><td class="k">6 kN</td><td class="n">52</td><td class="n">8</td><td class="n">97.8%</td><td class="n">1.24</td><td class="sub"><span class="tag no">硬度不足</span></td></tr>
+                <tr><td class="k">8 kN ★</td><td class="n">71</td><td class="n">12</td><td class="n">96.4%</td><td class="n">0.43</td><td class="sub"><span class="tag go">选定</span></td></tr>
+                <tr><td class="k">10 kN</td><td class="n">88</td><td class="n">19</td><td class="n">94.1%</td><td class="n">0.21</td><td class="sub"><span class="tag cond">留存下降</span></td></tr>
+              </tbody>
+            </table>
+          </div><p class="hint">← 可横向滑动</p></div>
+          <p class="xs" style="margin-top:8px">选定 8 kN：硬度与崩解同时满足标准，且活性留存 ≥95% 限值。混合时间延长至 12 min 未再提升均匀度（RSD 4.6%→4.4%），<b>不采用</b>。</p>
+        </div>
+        <div>
+          <h3 class="blk" style="margin-top:0">中试三批实测</h3>
+          <div class="tw"><div class="tw-scroll">
+            <table>
+              <thead><tr><th>批号</th><th class="n">收率</th><th class="n">片重 RSD</th><th class="n">活性 FU/片</th><th class="n">标示率</th><th class="n">水分 %</th></tr></thead>
+              <tbody>
+                <tr><td class="k mono">P-2601</td><td class="n">94.6%</td><td class="n">1.4%</td><td class="n">982</td><td class="n">98.2%</td><td class="n">2.8</td></tr>
+                <tr><td class="k mono">P-2602</td><td class="n">95.2%</td><td class="n">1.2%</td><td class="n">1,006</td><td class="n">100.6%</td><td class="n">2.6</td></tr>
+                <tr><td class="k mono">P-2603</td><td class="n">93.8%</td><td class="n">1.7%</td><td class="n">961</td><td class="n">96.1%</td><td class="n">3.1</td></tr>
+                <tr class="sum"><td>均值 / n=3</td><td class="n">94.5%</td><td class="n">1.43%</td><td class="n">983</td><td class="n">98.3%</td><td class="n">2.83</td></tr>
+              </tbody>
+            </table>
+          </div><p class="hint">← 可横向滑动</p></div>
+          <dl class="mini" style="margin-top:10px">
+            <div><dt>可交付瓶数 / 批</dt><dd>2,628<u> 瓶</u></dd></div>
+            <div><dt>批损耗成本</dt><dd>¥1,004<u>/ 批</u></dd></div>
+            <div><dt>一次放行率</dt><dd>3 / 3<u> 批</u></dd></div>
+          </dl>
+        </div>
+      </div>
+
+      <div class="grid3">
+        <div class="note ok"><span class="ic">✓</span><div><p><b>可做：</b>压片工艺在 8 kN 下稳定，三批收率波动仅 1.4 个百分点，无需追加干法制粒（可省 ¥11,000 设备摊销）。<span class="ev f">事实</span></p></div></div>
+        <div class="note warn"><span class="ic">!</span><div><p><b>存疑：</b>P-2603 水分 3.1% 偏高（雨季环境湿度 &gt;70%），是否影响 24 个月货架期下的活性留存，需长期数据支撑。<span class="ev i">推断</span></p></div></div>
+        <div class="note"><span class="ic">◌</span><div><p><b>缺口：</b>大生产（≥500 kg 批）的混合均匀度与压片速度未经证实，中试机台为单冲，量产为 rotary 33 冲。<span class="ev u">待验证</span></p></div></div>
+      </div></div>
+      </div>
+    </div>
+  </details>
+
+  <!-- ════════════════════ 04 质量标准与稳定性 ════════════════════ -->
+  <details class="sec" id="s4">
+    <summary class="sec-hd">
+      <span class="sec-ic"><svg class="ic"><use href="#i-shield"/></svg></span>
+      <span class="hd-txt"><h2>质量标准与稳定性</h2><span class="hd-sub">Specification · Stability · Shelf life</span></span>
+      <span class="hd-meta">
+        <span class="tag keep go">13 项自检</span> <span class="tag keep no">加速裕度 1.5 pt</span>
+        <span class="trust-mini" title="事实 1 条 · 推断 1 条 · 待验证 0 条"><span class="tm-bar"><i class="f" style="--w:50.0%"></i><i class="i" style="--w:50.0%"></i><i class="u" style="--w:0.0%"></i></span><em>2 条标注 · 2 表 1 图</em><b class="lv hi">80%</b></span>
+        <span class="cnt f"><i></i><b>1</b> 事实</span>
+        <span class="cnt i"><i></i><b>1</b> 推断</span>
+        <span class="mode-flag"><svg class="ic"><use href="#i-eye"/></svg>摘要视图</span>
+        <span class="chev"><svg class="ic"><use href="#i-chev"/></svg></span>
+      </span>
+    </summary>
+    <div class="sec-in">
+      <div class="brief">
+        <div class="brief-card data">
+          <div class="bc-hd"><svg class="ic"><use href="#i-gauge"/></svg><h4>数据概况</h4><span class="x">2 张表 · 1 张图</span></div>
+          <div class="stats">
+              <div class="stat ok" data-p="92" style="--p:92%"><span class="l">检验项 / 判定</span><span class="v">13 项</span><span class="xs">12 通过 · 1 项方法待认</span><span class="meter"><i></i></span></div>
+              <div class="stat ok" data-p="95" style="--p:95%"><span class="l">12 月留存</span><span class="v">94.8%</span><span class="xs">限值 85% · 裕度 9.8 pt</span><span class="meter"><i></i></span></div>
+              <div class="stat bad" data-p="15" style="--p:15%"><span class="l">加速裕度</span><span class="v">1.5 pt</span><span class="xs">6 月 86.5%，按斜率 7.4 月触限</span><span class="meter"><i></i></span></div>
+          </div>
+        </div>
+        <div class="brief-card guide">
+          <div class="bc-hd"><svg class="ic"><use href="#i-compass"/></svg><h4>指导意见</h4><span class="x">可直接执行</span></div>
+          <ul>
+              <li><svg class="ic"><use href="#i-flask"/></svg><span>补做加速 9 / 12 月点（¥2,400 / 3 月），否则夏季运输高温场景没有数据支撑。</span></li>
+              <li><svg class="ic"><use href="#i-doc"/></svg><span>标签按 24 个月报审；能量与营养成分需以第三方实测替换计算值（¥1,800 / 项）。</span></li>
+              <li><svg class="ic"><use href="#i-scale"/></svg><span>若门 1 判定转注册类目：活性、微生物、标签三块限值重写 + 4 项方法验证，周期 +6 周。</span></li>
+            </ul>
+            <div class="who">
+              <span class="chip"><svg class="ic"><use href="#i-shield"/></svg>QA</span>
+              <span class="chip"><svg class="ic"><use href="#i-flask"/></svg>第三方实验室</span>
+            </div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="body">
+      <div class="chart">
+        <div class="hd"><h4>活性留存曲线 · 长期（25 ℃ / 60% RH）vs 加速（40 ℃ / 75% RH）</h4>
+          <div class="x"><span><s style="background:var(--ok)"></s>长期 · 原瓶密封</span><span><s style="background:var(--acc)"></s>加速</span><span><s style="background:var(--bad)"></s>限值 85% FU</span></div>
+        </div>
+        <svg viewBox="0 0 1180 250" role="img" aria-label="活性留存曲线：长期 12 个月 94.8%，外推 24 个月 91.4%；加速 6 个月 86.5%，逼近 85% 限值">
+          <g>
+            <line class="gl" x1="56" y1="14" x2="1150" y2="14"/><text class="ax" x="10" y="18">100%</text>
+            <line class="gl" x1="56" y1="63.5" x2="1150" y2="63.5"/><text class="ax" x="18" y="67">95%</text>
+            <line class="gl" x1="56" y1="113" x2="1150" y2="113"/><text class="ax" x="18" y="117">90%</text>
+            <line class="gl maj" x1="56" y1="162.5" x2="1150" y2="162.5"/><text class="ax" x="18" y="166">85%</text>
+            <line class="gl" x1="56" y1="212" x2="1150" y2="212"/><text class="ax" x="22" y="216">80%</text>
+            <g fill="#9A9388"><text class="ax" x="52" y="232">0</text><text class="ax" x="192" y="232">3</text><text class="ax" x="328" y="232">6</text>
+              <text class="ax" x="464" y="232">9</text><text class="ax" x="600" y="232">12</text><text class="ax" x="872" y="232">18</text><text class="ax" x="1140" y="232">24</text></g>
+            <text class="ax" x="56" y="246">月（长期试验点位）· 加速试验为橙线，点位在 0 / 1 / 2 / 3 / 6 月</text>
+            <line class="thr" x1="56" y1="162.5" x2="1150" y2="162.5"/>
+          </g>
+          <polyline class="ln" style="stroke:var(--acc)" points="56,14 87,39.7 118,62.5 150,85.3 220,147.7"/>
+          <g fill="var(--acc)">
+            <circle class="pt" cx="56" cy="14" r="3.4"/><circle class="pt" cx="87" cy="39.7" r="3.4"/>
+            <circle class="pt" cx="118" cy="62.5" r="3.4"/><circle class="pt" cx="150" cy="85.3" r="3.4"/>
+            <circle class="pt" cx="220" cy="147.7" r="4"/>
+          </g>
+          <polyline class="ln" style="stroke:var(--ok)" points="56,14 192,24.9 328,38.8 464,51.6 600,65.5"/>
+          <polyline class="ln dash" style="stroke:var(--ok)" points="600,65.5 872,82.3 1146,99.1"/>
+          <g fill="var(--ok)">
+            <circle class="pt" cx="56" cy="14" r="3.4"/><circle class="pt" cx="192" cy="24.9" r="3.4"/>
+            <circle class="pt" cx="328" cy="38.8" r="3.4"/><circle class="pt" cx="464" cy="51.6" r="3.4"/>
+            <circle class="pt" cx="600" cy="65.5" r="4"/>
+          </g>
+          <circle cx="1146" cy="99.1" r="4.4" fill="#fff" stroke="var(--ok)" stroke-width="1.4" stroke-dasharray="2 2"/>
+          <text class="ann" x="1050" y="155" fill="#B0362C">限值 85% FU</text>
+          <text class="ann" x="612" y="58">12 月 94.8%</text>
+          <text class="ann" x="960" y="92">24 月 91.4%（外推，非实测）</text>
+          <text class="ann" x="232" y="140">6 月 86.5% · 距限值 1.5 个百分点</text>
+          <text class="ann" x="232" y="154" fill="#7C756A">加速斜率若延续 → 约 7.4 月触限；建议补做加速 9 / 12 月点</text>
+          <g fill="none" stroke="#D8D1C4" stroke-width="1"><line x1="56" y1="212" x2="56" y2="14"/></g>
+        </svg>
+        <p class="xs" style="padding:8px 0 2px">判定：长期曲线满足 24 个月 ≥85% FU，可标注 <b>24 个月</b>保质期；水分随环境波动 +0.6 个百分点，接近内控 4.0% 警戒线。<span class="ev i">推断</span>
+          <span class="mut2">· 补齐：补做加速 9 / 12 月点（¥2,400 / 3 月），并把干燥剂由 1 g 提至 1.5 g（成本 +¥0.02 / 瓶）。</span></p>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <h3 class="blk" style="margin-top:0">成品企业标准与中试实测</h3>
+          <div class="tw"><div class="tw-scroll">
+            <table>
+              <thead><tr><th>项目</th><th class="n">限值</th><th>检验方法</th><th class="n">实测（n=3）</th><th>判定</th></tr></thead>
+              <tbody>
+                <tr><td class="k">性状</td><td class="n">浅黄均匀片</td><td class="sub">目视 / 企业标准</td><td class="n">符合</td><td><span class="tag go">通过</span></td></tr>
+                <tr><td class="k">片重差异</td><td class="n">±7.5%</td><td class="sub">0101 片剂通则</td><td class="n">最大 1.7%</td><td><span class="tag go">通过</span></td></tr>
+                <tr><td class="k">硬度</td><td class="n">≥ 60 N</td><td class="sub">片剂硬度仪</td><td class="n">71 / 68 / 73</td><td><span class="tag go">通过</span></td></tr>
+                <tr><td class="k">脆碎度</td><td class="n">≤ 1.0%</td><td class="sub">脆碎度检查法</td><td class="n">0.43% 均值</td><td><span class="tag go">通过</span></td></tr>
+                <tr><td class="k">崩解时限</td><td class="n">≤ 30 min</td><td class="sub">崩解仪 37 ℃</td><td class="n">13 min 均值</td><td><span class="tag go">通过</span></td></tr>
+                <tr><td class="k">水分</td><td class="n">≤ 5.0%</td><td class="sub">GB 5009.3 直接干燥</td><td class="n">2.83%</td><td><span class="tag go">通过</span></td></tr>
+                <tr><td class="k">复合酶活性</td><td class="n">85–115% 标示</td><td class="sub">纤维平板法（供应商法）</td><td class="n">98.3%</td><td><span class="tag cond">方法待认</span></td></tr>
+                <tr><td class="k">菌落总数</td><td class="n">≤ 10⁴ CFU/g</td><td class="sub">GB 4789.2</td><td class="n">&lt; 10</td><td><span class="tag go">通过</span></td></tr>
+                <tr><td class="k">霉菌酵母</td><td class="n">≤ 10² CFU/g</td><td class="sub">GB 4789.15</td><td class="n">&lt; 10</td><td><span class="tag go">通过</span></td></tr>
+                <tr><td class="k">大肠菌群</td><td class="n">≤ 10 MPN/100 g</td><td class="sub">GB 4789.3</td><td class="n">未检出</td><td><span class="tag go">通过</span></td></tr>
+                <tr><td class="k">铅 / 砷 / 镉</td><td class="n">≤0.8 / 0.5 / 0.3 mg/kg</td><td class="sub">GB 5009.12 系列</td><td class="n">0.11 / 0.06 / ND</td><td><span class="tag go">通过</span></td></tr>
+                <tr><td class="k">他达拉非 / 西地那非</td><td class="n">不得检出</td><td class="sub">LC-MS/MS</td><td class="n">未检出</td><td><span class="tag go">通过</span></td></tr>
+                <tr><td class="k">五氯硝基苯（植提）</td><td class="n">≤ 0.1 mg/kg</td><td class="sub">GB 23200.113</td><td class="n">ND</td><td><span class="tag go">通过</span></td></tr>
+              </tbody>
+            </table>
+          </div><p class="hint">← 可横向滑动</p></div>
+        </div>
+        <div class="stack">
+          <div>
+            <h3 class="blk" style="margin-top:0">长期稳定性逐点记录</h3>
+            <div class="tw"><div class="tw-scroll">
+              <table>
+                <thead><tr><th>时间点</th><th class="n">活性留存 %</th><th class="n">水分 %</th><th class="n">崩解 min</th><th class="n">色差 ΔE</th><th class="n">硬度 N</th></tr></thead>
+                <tbody>
+                  <tr><td class="k mono">0 月</td><td class="n cell-bar ok">100.0<i style="--p:100%"></i></td><td class="n">2.8</td><td class="n">12</td><td class="n">0.0</td><td class="n">71</td></tr>
+                  <tr><td class="k mono">3 月</td><td class="n cell-bar ok">98.9<i style="--p:98%"></i></td><td class="n">2.9</td><td class="n">13</td><td class="n">0.6</td><td class="n">72</td></tr>
+                  <tr><td class="k mono">6 月</td><td class="n cell-bar ok">97.5<i style="--p:94%"></i></td><td class="n">3.1</td><td class="n">14</td><td class="n">1.1</td><td class="n">74</td></tr>
+                  <tr><td class="k mono">9 月</td><td class="n cell-bar ok">96.2<i style="--p:90%"></i></td><td class="n">3.2</td><td class="n">14</td><td class="n">1.4</td><td class="n">75</td></tr>
+                  <tr class="sum"><td class="k mono">12 月</td><td class="n cell-bar ok">94.8<i style="--p:87%"></i></td><td class="n">3.4</td><td class="n">15</td><td class="n">1.8</td><td class="n">76</td></tr>
+                </tbody>
+              </table>
+            </div><p class="hint">← 可横向滑动</p></div>
+            <p class="xs" style="margin-top:8px">全部时间点微生物与重金属未超差；12 月点为第三方 10-02 出具的阶段报告 <span class="mono">SRC-STAB-02</span>。<span class="ev f">事实</span></p>
+          </div>
+          <div class="note slate"><span class="ic">i</span><div>
+            <p><b>标准状态：</b>目前按「企业标准草案 + GB 17399 压片糖果」双轨执行；若门 1 判定需转注册类目，活性、微生物与标签三块限值需按保健食品标准重写（预计影响 4 项检验方法验证）。</p>
+          </div></div>
+        </div>
+      </div></div>
+      </div>
+    </div>
+  </details>
+
+  <!-- ════════════════════ 05 经济性与定价 ════════════════════ -->
+  <details class="sec" id="s5" open>
+    <summary class="sec-hd">
+      <span class="sec-ic"><svg class="ic"><use href="#i-coin"/></svg></span>
+      <span class="hd-txt"><h2>经济性与定价</h2><span class="hd-sub">Unit economics · Sensitivity</span></span>
+      <span class="hd-meta">
+        <span class="tag keep acc">成本与 BOM</span> <span class="tag keep cond">渠道费率倒推</span>
+        <span class="trust-mini" title="事实 0 条 · 推断 0 条 · 待验证 2 条"><span class="tm-bar"><i class="f" style="--w:0.0%"></i><i class="i" style="--w:0.0%"></i><i class="u" style="--w:100.0%"></i></span><em>2 条标注 · 1 表 1 图</em><b class="lv lo">0%</b></span>
+        <span class="cnt u"><i></i><b>2</b> 待验证</span>
+        <span class="mode-flag"><svg class="ic"><use href="#i-eye"/></svg>摘要视图</span>
+        <span class="chev"><svg class="ic"><use href="#i-chev"/></svg></span>
+      </span>
+    </summary>
+    <div class="sec-in">
+      <div class="brief">
+        <div class="brief-card data">
+          <div class="bc-hd"><svg class="ic"><use href="#i-gauge"/></svg><h4>数据概况</h4><span class="x">1 张表 · 1 张图</span></div>
+          <div class="stats">
+              <div class="stat acc" data-p="38" style="--p:38%"><span class="l">单件贡献</span><span class="v">¥75.66</span><span class="xs">零售 ¥199 · 贡献率 38.0%</span><span class="meter"><i></i></span></div>
+              <div class="stat ok" data-p="70" style="--p:70%"><span class="l">月平衡 / 回收</span><span class="v">344 瓶</span><span class="xs">覆盖固定 ¥26,000 · 回收 502 瓶</span><span class="meter"><i></i></span></div>
+              <div class="stat warn" data-p="40" style="--p:40%"><span class="l">模型可信度</span><span class="v">2 / 5</span><span class="xs">分佣与投流取类目均值</span><span class="meter"><i></i></span></div>
+          </div>
+        </div>
+        <div class="brief-card guide">
+          <div class="bc-hd"><svg class="ic"><use href="#i-compass"/></svg><h4>指导意见</h4><span class="x">可直接执行</span></div>
+          <ul>
+              <li><svg class="ic"><use href="#i-coin"/></svg><span>合同写死<b>分佣上限 ≤20%</b>；到手价低于 ¥169 不进达人排期 —— 低价会同时击穿佣金意愿与毛利。</span></li>
+              <li><svg class="ic"><use href="#i-doc"/></svg><span>门 2 结束后用真实分佣合同、实际退款数、云仓账单回填本节，再提放量预算。</span></li>
+              <li><svg class="ic"><use href="#i-gauge"/></svg><span>本轮只批 ¥38,000 验证额度；放量按「贡献 ≥¥60 且复购 ≥12%」双条件释放。</span></li>
+            </ul>
+            <div class="who">
+              <span class="chip"><svg class="ic"><use href="#i-coin"/></svg>财务</span>
+              <span class="chip"><svg class="ic"><use href="#i-arrow"/></svg>上市营销</span>
+            </div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="body">
+      <div class="grid4">
+        <div class="kpi hl"><span class="l">单件贡献（零售 ¥199 · 扣全部变动费用）</span><span class="v">¥75.66</span><span class="d"><span class="dot a"></span>贡献率 38.0%</span></div>
+        <div class="kpi"><span class="l">出厂成本 / 履约成本</span><span class="v">¥11.40<u>+ ¥8.50</u></span><span class="d"><span class="dot g"></span>原料与包材有盖章报价 · 履约仍为估算</span></div>
+        <div class="kpi"><span class="l">覆盖月固定 ¥26,000 所需销量</span><span class="v">344<u>瓶 / 月</u></span><span class="d"><span class="dot a"></span>保守情形第 3 月达到</span></div>
+        <div class="kpi"><span class="l">验证投入回收</span><span class="v">502<u>瓶</u></span><span class="d"><span class="dot r"></span>基准情形 M2 · 保守情形 M8+</span></div>
+      </div>
+
+      <h3 class="blk">价格 → 单件贡献 桥 <span class="q">每格 = 该费用占零售价百分比</span></h3>
+      <div class="wf">
+        <div class="wfc"><span class="wfv">¥199.00</span><div class="wft"><i class="wfb in" style="--y:0%;--h:100%"></i></div><span class="wfl">建议零售价</span></div>
+        <div class="wfc"><span class="wfv neg">−11.40</span><div class="wft"><i class="wfb out" style="--y:94.3%;--h:5.7%"></i></div><span class="wfl">出厂成本<br>5.7%</span></div>
+        <div class="wfc"><span class="wfv neg">−5.97</span><div class="wft"><i class="wfb out" style="--y:91.3%;--h:3%"></i></div><span class="wfl">平台服务<br>3.0%</span></div>
+        <div class="wfc"><span class="wfv neg">−39.80</span><div class="wft"><i class="wfb out" style="--y:71.3%;--h:20%"></i></div><span class="wfl">达人分佣<br>20%</span></div>
+        <div class="wfc"><span class="wfv neg">−39.80</span><div class="wft"><i class="wfb out" style="--y:51.3%;--h:20%"></i></div><span class="wfl">投流<br>20%</span></div>
+        <div class="wfc"><span class="wfv neg">−8.50</span><div class="wft"><i class="wfb out" style="--y:47.0%;--h:4.3%"></i></div><span class="wfl">物流履约<br>4.3%</span></div>
+        <div class="wfc"><span class="wfv neg">−5.97</span><div class="wft"><i class="wfb out" style="--y:44.0%;--h:3%"></i></div><span class="wfl">退货客服<br>3.0%</span></div>
+        <div class="wfc"><span class="wfv neg">−11.90</span><div class="wft"><i class="wfb out" style="--y:38.0%;--h:6%"></i></div><span class="wfl">税费<br>6.0%</span></div>
+        <div class="wfc"><span class="wfv">¥75.66</span><div class="wft"><i class="wfb res" style="--y:0%;--h:38.0%"></i></div><span class="wfl">单件贡献<br>38.0%</span></div>
+      </div>
+      <p class="xs">分佣 20% + 投流 20% 为<b>假定价位</b>，合计吃掉售价 40%，是模型里最大的可操纵项；月固定 ¥26,000（1 名运营 + 内容外包 + 云仓底薪）未计入桥内。<span class="ev u">待验证</span></p>
+
+      <div class="grid2">
+        <div>
+          <h3 class="blk" style="margin-top:0">敏感性：售价 × 渠道费率（单件贡献 / 贡献率）</h3>
+          <div class="tw"><div class="tw-scroll">
+            <table>
+              <thead><tr><th>零售价</th><th class="n">分佣+投流 30%</th><th class="n">40%（当前假设）</th><th class="n">50%</th></tr></thead>
+              <tbody>
+                <tr><td class="k">¥169</td><td class="n">¥78.15 <span class="xs">46.2%</span></td><td class="n">¥61.25 <span class="xs">36.2%</span></td><td class="n">¥44.35 <span class="xs">26.2%</span></td></tr>
+                <tr><td class="k">¥189</td><td class="n">¥89.76 <span class="xs">47.5%</span></td><td class="n">¥70.86 <span class="xs">37.5%</span></td><td class="n">¥51.96 <span class="xs">27.5%</span></td></tr>
+                <tr><td class="k">¥199 ★</td><td class="n">¥95.56 <span class="xs">48.0%</span></td><td class="n" style="color:var(--acc);font-weight:700">¥75.66 <span class="xs">38.0%</span></td><td class="n">¥55.76 <span class="xs">28.0%</span></td></tr>
+                <tr><td class="k">¥219</td><td class="n">¥107.16 <span class="xs">48.9%</span></td><td class="n">¥85.26 <span class="xs">38.9%</span></td><td class="n">¥63.36 <span class="xs">28.9%</span></td></tr>
+                </tbody>
+            </table>
+          </div><p class="hint">← 可横向滑动</p></div>
+          <p class="xs" style="margin-top:8px">读法：即使降到 ¥169 且渠道费压到 30%，单件贡献仍有 ¥78.15 —— <b>本品的问题从来不是毛利，而是需求与资质</b>。低于 ¥169 时达人愿意接的佣金比例不足，渠道会失速。</p>
+        </div>
+        <div class="chart">
+          <div class="hd"><h4>月度销量情景 · 基准 vs 保守</h4><div class="x"><span><s style="background:var(--ink)"></s>基准</span><span><s style="background:#D9CFBF"></s>保守</span></div></div>
+          <svg viewBox="0 0 660 210" role="img" aria-label="月度销量情景对比，基准 600 至 2000 瓶，保守 250 至 560 瓶，月盈亏平衡线 342 瓶">
+            <g>
+              <line class="gl" x1="40" y1="178" x2="648" y2="178"/>
+              <line class="gl" x1="40" y1="116" x2="648" y2="116"/><text class="ax" x="6" y="120">1,000</text>
+              <line class="gl" x1="40" y1="54" x2="648" y2="54"/><text class="ax" x="6" y="58">2,000</text>
+              <text class="ax" x="14" y="182">0</text>
+              <line class="thr" x1="40" y1="151.3" x2="648" y2="151.3"/>
+              <text class="ann" x="556" y="147" fill="#B0362C">月盈亏平衡 344 瓶</text>
+            </g>
+            <g>
+              <rect x="43" y="131.1" width="30" height="46.9" fill="#1E1B18" rx="2"/><rect x="75" y="158.5" width="30" height="19.5" fill="#D9CFBF" rx="2"/>
+              <rect x="139" y="107.7" width="30" height="70.3" fill="#1E1B18" rx="2"/><rect x="171" y="153" width="30" height="25" fill="#D9CFBF" rx="2"/>
+              <rect x="235" y="84.3" width="30" height="93.7" fill="#1E1B18" rx="2"/><rect x="267" y="146.8" width="30" height="31.2" fill="#D9CFBF" rx="2"/>
+              <rect x="331" y="60.9" width="30" height="117.1" fill="#1E1B18" rx="2"/><rect x="363" y="142.9" width="30" height="35.1" fill="#D9CFBF" rx="2"/>
+              <rect x="427" y="37.4" width="30" height="140.6" fill="#1E1B18" rx="2"/><rect x="459" y="139" width="30" height="39" fill="#D9CFBF" rx="2"/>
+              <rect x="523" y="21.8" width="30" height="156.2" fill="#1E1B18" rx="2"/><rect x="555" y="134.3" width="30" height="43.7" fill="#D9CFBF" rx="2"/>
+            </g>
+            <g>
+              <text class="ax" x="66" y="196">M1</text><text class="ax" x="162" y="196">M2</text><text class="ax" x="258" y="196">M3</text>
+              <text class="ax" x="354" y="196">M4</text><text class="ax" x="450" y="196">M5</text><text class="ax" x="546" y="196">M6</text>
+              <text class="ann" x="47" y="127">600</text><text class="ann" x="80" y="155" fill="#7C756A">250</text>
+              <text class="ann" x="140" y="103">900</text><text class="ann" x="174" y="149" fill="#7C756A">320</text>
+              <text class="ann" x="234" y="80">1,200</text><text class="ann" x="268" y="143" fill="#7C756A">400</text>
+              <text class="ann" x="330" y="57">1,500</text><text class="ann" x="364" y="139" fill="#7C756A">450</text>
+              <text class="ann" x="426" y="33">1,800</text><text class="ann" x="460" y="135" fill="#7C756A">500</text>
+              <text class="ann" x="521" y="18">2,000</text><text class="ann" x="556" y="130" fill="#7C756A">560</text>
+              <text class="ax" x="40" y="208">单位：瓶 / 月 · 保守 = 基准 × 0.42（按同类目私域首发折扣区间下限取值）</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <div class="note"><span class="ic">◌</span><div>
+        <p><b>经济模型的三处软肋（都会被门 2 推翻）：</b>① 达人分佣与投流各 20% 来自类目均值而非本项目报价；② 退货率 3% 假设低于类目常见 6–9%；
+          ③ 首批未计仓储与效期报损，若走云仓备货需追加 ¥0.36 / 瓶。<span class="ev u">待验证</span></p>
+        <p class="xs">补齐方式：门 2 结束后用真实分佣合同、实际退款数与云仓账单回填本节；在此之前，第 08 节的预算申请只按「验证成本」而非「放量成本」报批。</p>
+      </div></div></div>
+      </div>
+    </div>
+  </details>
+
+  <!-- ════════════════════ 06 合规与宣称 ════════════════════ -->
+  <details class="sec" id="s6">
+    <summary class="sec-hd">
+      <span class="sec-ic"><svg class="ic"><use href="#i-scale"/></svg></span>
+      <span class="hd-txt"><h2>合规与宣称边界</h2><span class="hd-sub">Regulatory · Claims</span></span>
+      <span class="hd-meta">
+        <span class="tag keep no">6 类禁用表述</span> <span class="tag keep cond">平台规则待核</span>
+        <span class="trust-mini" title="事实 3 条 · 推断 1 条 · 待验证 0 条"><span class="tm-bar"><i class="f" style="--w:75.0%"></i><i class="i" style="--w:25.0%"></i><i class="u" style="--w:0.0%"></i></span><em>4 条标注 · 3 表 0 图</em><b class="lv hi">90%</b></span>
+        <span class="cnt f"><i></i><b>3</b> 事实</span>
+        <span class="cnt i"><i></i><b>1</b> 推断</span>
+        <span class="mode-flag"><svg class="ic"><use href="#i-eye"/></svg>摘要视图</span>
+        <span class="chev"><svg class="ic"><use href="#i-chev"/></svg></span>
+      </span>
+    </summary>
+    <div class="sec-in">
+      <div class="brief">
+        <div class="brief-card data">
+          <div class="bc-hd"><svg class="ic"><use href="#i-gauge"/></svg><h4>数据概况</h4><span class="x">3 张表 · 0 张图</span></div>
+          <div class="stats">
+              <div class="stat bad" data-p="33" style="--p:33%"><span class="l">路径判定</span><span class="v">1 / 3</span><span class="xs">A 待定 · B 走不通 · C 超窗口</span><span class="meter"><i></i></span></div>
+              <div class="stat bad" data-p="100" style="--p:100%"><span class="l">禁用表述</span><span class="v">6 类</span><span class="xs">含详情页与直播口播</span><span class="meter"><i></i></span></div>
+              <div class="stat warn" data-p="20" style="--p:20%"><span class="l">平台可上</span><span class="v">1 / 5</span><span class="xs">仅微信私域材料齐</span><span class="meter"><i></i></span></div>
+          </div>
+        </div>
+        <div class="brief-card guide">
+          <div class="bc-hd"><svg class="ic"><use href="#i-compass"/></svg><h4>指导意见</h4><span class="x">可直接执行</span></div>
+          <ul>
+              <li><svg class="ic"><use href="#i-alert"/></svg><span>门 1 前<b>不投放、不签达人、不备货</b>；已发生的 ¥4,000 打样费需在会上说明可否复用。</span></li>
+              <li><svg class="ic"><use href="#i-doc"/></svg><span>10-24 前完成一次书面监管咨询（¥2,000），把「推断」换成可引用依据。</span></li>
+              <li><svg class="ic"><use href="#i-scale"/></svg><span>「参数对比」永久禁用至两家实验室同法结果回收；素材双人审，白名单外一律不发。</span></li>
+            </ul>
+            <div class="who">
+              <span class="chip"><svg class="ic"><use href="#i-scale"/></svg>合规</span>
+              <span class="chip"><svg class="ic"><use href="#i-doc"/></svg>内容</span>
+            </div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="body">
+      <div class="note bad"><span class="ic">!</span><div>
+        <p><b>合规结论：当前不应进入销售。</b>拟用原料（复合酶、植物提取物）在「压片糖果」类目下的可用身份、用量上限与标签表述，均缺少可接受的书面依据；
+          在此结论补齐前，任何带功效暗示的素材、话术与详情页均构成风险敞口。<span class="ev f">事实（审阅结论）</span></p>
+      </div></div>
+
+      <h3 class="blk">三条可选路径 <span class="q">路径决定宣称权限，不是决定成本</span></h3>
+      <div class="tw"><div class="tw-scroll">
+        <table>
+          <thead><tr><th>路径</th><th>适用法规 / 标准</th><th>必须取得</th><th class="n">费用</th><th class="n">周期</th><th>宣称权限</th><th>判定</th></tr></thead>
+          <tbody>
+            <tr><td class="k">A · 压片糖果<br><span class="xs">普通食品</span></td><td class="sub">GB 17399、GB 7718、GB 28050、SC 细则</td><td class="sub">SC 生产许可 · 执行标准备案 · 标签审核</td><td class="n">¥8,000</td><td class="n">3–5 周</td><td class="sub">仅客观属性：配料、投料量、检测批次、口感规格</td><td><span class="tag cond">待定</span> 需确认酶粉可否作为原料</td></tr>
+            <tr><td class="k">B · 保健食品备案<br><span class="xs">蓝帽子</span></td><td class="sub">备案制原料清单 + 功能目录</td><td class="sub">备案凭证 + 功能与安全性材料</td><td class="n">¥50,000</td><td class="n">6–10 月</td><td class="sub">可宣称备案功能（如辅助降血脂，需目录内）</td><td><span class="tag no">走不通</span> 复合酶不在备案原料清单</td></tr>
+            <tr><td class="k">C · 保健食品注册</td><td class="sub">注册制功能目录 + 人体试食试验</td><td class="sub">注册证书 + 毒理 + 30 例试食</td><td class="n">¥260,000+</td><td class="n">18–36 月</td><td class="sub">目录内功能宣称 + 说明书</td><td><span class="tag no">超窗口</span> 与 6 周验证周期不兼容</td></tr>
+          </tbody>
+        </table>
+      </div><p class="hint">← 可横向滑动</p></div>
+
+      <div class="duo">
+        <div class="may">
+          <h4><i>✓</i>可用表述（路径 A 下）<span class="x">需附出处</span></h4>
+          <ul>
+            <li>配料表、每片各原料<b>投料量</b>（mg）与固形物含量</li>
+            <li>批次第三方检测报告结论与报告编号（不含功效解读）</li>
+            <li>生产工艺、代工厂名称与 SC 编号、执行标准号</li>
+            <li>规格、食用方法、适宜与不适宜人群、贮存条件、效期</li>
+            <li>「未添加蔗糖」<span class="ev f">事实</span> · 配方使用山梨糖醇与甜菊糖苷</li>
+            <li>「0 反式脂肪」<span class="ev f">事实</span> · 检测值 0 g/100 g，满足 ≤0.3 标注条件</li>
+          </ul>
+        </div>
+        <div class="ban">
+          <h4><i>✕</i>禁用表述（现在一条都不能用）<span class="x">含详情页与口播</span></h4>
+          <ul>
+            <li><b>改善心脑血管 / 降三高 / 溶血栓 / 软化血管</b><em>疾病预防与治疗宣称，普通食品绝对禁止</em></li>
+            <li><b>活性比日本产品高 1.5 倍</b><em>实测本品 2,000 FU/日 低于对标 2,700 FU/日，且方法学未对齐</em></li>
+            <li><b>9000 FU 高活性 / 每片 1,000 FU 作对比参数</b><em>FU 方法与单位未经第三方确认；且实测本品 2,000 FU/日低于对标 2,700 FU/日，比较只会扣分</em></li>
+            <li><b>无副作用 / 长期服用更安全 / 中老年可放心长期吃</b><em>安全性绝对化 + 暗示适用人群疗效</em></li>
+            <li><b>医生推荐 / 临床验证 / 药企同源工艺</b><em>未取得背书；「同源」易被认定为暗示药品属性</em></li>
+            <li><b>替代药物 / 停药首选 / 与 statin 同用减量</b><em>构成替代医疗表述，处罚风险最高</em></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <h3 class="blk" style="margin-top:0">营养成分表（GB 28050 · 每 100 g / 每份 2 片 1.2 g）</h3>
+          <div class="tw"><div class="tw-scroll">
+            <table>
+              <thead><tr><th>项目</th><th class="n">每 100 g</th><th class="n">NRV%</th><th class="n">每份 1.2 g</th><th class="n">NRV%</th></tr></thead>
+              <tbody>
+                <tr><td class="k">能量</td><td class="n">1,204 kJ</td><td class="n">14%</td><td class="n">14 kJ</td><td class="n">&lt;1%</td></tr>
+                <tr><td class="k">蛋白质</td><td class="n">2.6 g</td><td class="n">4%</td><td class="n">0.03 g</td><td class="n">0%</td></tr>
+                <tr><td class="k">脂肪</td><td class="n">0.4 g</td><td class="n">1%</td><td class="n">0.005 g</td><td class="n">0%</td></tr>
+                <tr><td class="k">碳水化合物</td><td class="n">61.8 g</td><td class="n">21%</td><td class="n">0.74 g</td><td class="n">&lt;1%</td></tr>
+                <tr><td class="k">— 糖</td><td class="n">0.3 g</td><td class="n">—</td><td class="n">&lt;0.05 g</td><td class="n">—</td></tr>
+                <tr><td class="k">钠</td><td class="n">12 mg</td><td class="n">1%</td><td class="n">0.14 mg</td><td class="n">0%</td></tr>
+              </tbody>
+            </table>
+          </div><p class="hint">← 可横向滑动</p></div>
+          <p class="xs" style="margin-top:8px">能量与碳水按配方各组分系数计算（麦芽糊精 1,560 kJ/100 g、山梨糖醇 2,406 kJ/100 g 折算），非实测。<span class="ev i">推断</span>
+            成品标签需以第三方检测值为准，检测费约 ¥1,800 / 项。</p>
+        </div>
+        <div>
+          <h3 class="blk" style="margin-top:0">平台准入</h3>
+          <div class="tw"><div class="tw-scroll">
+            <table>
+              <thead><tr><th>平台</th><th>硬性要求</th><th>我们的材料</th><th>状态</th></tr></thead>
+              <tbody>
+                <tr><td class="k">微信私域 / 小程序</td><td class="sub">营业执照 + 食品经营许可 + 产品合格检验</td><td class="sub">齐（检验报告 10-07 出具）</td><td><span class="tag go">可上架</span></td></tr>
+                <tr><td class="k">远方好物</td><td class="sub">批次检测报告 + 工厂视频验厂 + 无功效词</td><td class="sub">缺批次报告（依赖量产）</td><td><span class="tag cond">W6 后可申</span></td></tr>
+                <tr><td class="k">抖音小店</td><td class="sub">食品类目 + 宣称审核（功效词全禁）</td><td class="sub">缺功效词白名单确认</td><td><span class="tag cond">待门 1</span></td></tr>
+                <tr><td class="k">天猫 / 京东 保健食品</td><td class="sub">蓝帽子备案号或注册证</td><td class="sub">无（路径 B 走不通）</td><td><span class="tag no">不可上</span></td></tr>
+                <tr><td class="k">线下门店 / 分销</td><td class="sub">标签合规 + 供货合同 + 账期</td><td class="sub">标签未定稿</td><td><span class="tag cond">P2</span></td></tr>
+              </tbody>
+            </table>
+          </div><p class="hint">← 可横向滑动</p></div>
+        </div>
+      </div>
+      <div class="note slate"><span class="ic">↔</span><div>
+        <p><b>把约束当输入，而不是当障碍：</b>路径 A 意味着「参数与功效」不再是卖点，卖点必须换成可核验的<b>投料量与检测透明度</b>——
+          这已在第 01 节的价值主张里锁定。若门 1 判定路径 A 也不可行（酶粉不能用于普通食品），项目应按第 07 节终止条件直接停止，而不是改走注册路径。</p>
+      </div></div></div>
+      </div>
+    </div>
+  </details>
+
+  <!-- ════════════════════ 07 风险 FMEA ════════════════════ -->
+  <details class="sec" id="s7">
+    <summary class="sec-hd">
+      <span class="sec-ic"><svg class="ic"><use href="#i-alert"/></svg></span>
+      <span class="hd-txt"><h2>风险评估（FMEA）</h2><span class="hd-sub">Failure modes · RPN</span></span>
+      <span class="hd-meta">
+        <span class="tag keep no">红区 2 项</span> <span class="tag keep">熔断 ¥30,000</span>
+        <span class="trust-mini" title="事实 0 条 · 推断 1 条 · 待验证 0 条"><span class="tm-bar"><i class="f" style="--w:0.0%"></i><i class="i" style="--w:100.0%"></i><i class="u" style="--w:0.0%"></i></span><em>1 条标注 · 1 表 0 图</em><b class="lv md">60%</b></span>
+        <span class="cnt i"><i></i><b>1</b> 推断</span>
+        <span class="mode-flag"><svg class="ic"><use href="#i-eye"/></svg>摘要视图</span>
+        <span class="chev"><svg class="ic"><use href="#i-chev"/></svg></span>
+      </span>
+    </summary>
+    <div class="sec-in">
+      <div class="brief">
+        <div class="brief-card data">
+          <div class="bc-hd"><svg class="ic"><use href="#i-gauge"/></svg><h4>数据概况</h4><span class="x">1 张表 · 0 张图</span></div>
+          <div class="stats">
+              <div class="stat bad" data-p="100" style="--p:100%"><span class="l">风险项 / 最高 RPN</span><span class="v">6 项</span><span class="xs">RPN 64（方法学可比性）</span><span class="meter"><i></i></span></div>
+              <div class="stat bad" data-p="33" style="--p:33%"><span class="l">红区</span><span class="v">2 项</span><span class="xs">须在门 1 前给出缓解证据</span><span class="meter"><i></i></span></div>
+              <div class="stat warn" data-p="80" style="--p:80%"><span class="l">终止条件</span><span class="v">4 条</span><span class="xs">支出 / 类别 / MOQ / 方法学</span><span class="meter"><i></i></span></div>
+          </div>
+        </div>
+        <div class="brief-card guide">
+          <div class="bc-hd"><svg class="ic"><use href="#i-compass"/></svg><h4>指导意见</h4><span class="x">可直接执行</span></div>
+          <ul>
+              <li><svg class="ic"><use href="#i-alert"/></svg><span>R1、R2 同处红区且互为因果：<b>类别结论决定能否外宣，方法学结论决定配方是否要改</b>，两项证据一起交。</span></li>
+              <li><svg class="ic"><use href="#i-coin"/></svg><span>支出熔断 ¥30,000 写入授权；超限即停止推进并复盘，不追加、不例外。</span></li>
+              <li><svg class="ic"><use href="#i-clock"/></svg><span>RPN 每两周复评；新增 ≥40 的项当日通报决策人，不等例会。</span></li>
+            </ul>
+            <div class="who">
+              <span class="chip"><svg class="ic"><use href="#i-alert"/></svg>红队</span>
+              <span class="chip"><svg class="ic"><use href="#i-check"/></svg>PMO</span>
+            </div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="body">
+      <div class="grid2">
+        <div class="tw"><div class="tw-scroll">
+          <table>
+            <thead><tr><th>失效模式</th><th>触发条件</th><th>早期信号</th><th class="n">S·O·D</th><th class="n">RPN</th></tr></thead>
+            <tbody>
+              <tr><td class="k">R2 · 活性方法学不可比，宣称构成违规
+                  <div class="xs" style="margin-top:4px">缓解：以投料量与批次报告替代参数叙事；送 2 家实验室同法测定后再评估</div></td>
+                  <td class="sub">用 FU 数值做对比且方法/波长/单位未对齐</td><td class="sub">两家实验室结果差 &gt; 20%；平台审核驳回</td>
+                  <td class="n mono">4·4·4</td><td class="n" style="color:var(--bad);font-weight:700">64<div class="cell-bar bad"><i style="--p:100%"></i></div></td></tr>
+              <tr><td class="k">R1 · 原料身份不成立，须大幅改配方或改路径
+                  <div class="xs" style="margin-top:4px">缓解：门 1 之前不签配方与包材；备选原料（酶冻干粉 · 食品级）已列 2 家</div></td>
+                  <td class="sub">酶粉在拟定类别 / 剂型 / 用量下无接受依据</td><td class="sub">代工厂无法出具可用原料与成品规格</td>
+                  <td class="n mono">5·4·3</td><td class="n" style="color:var(--bad);font-weight:700">60<div class="cell-bar bad"><i style="--p:94%"></i></div></td></tr>
+              <tr><td class="k">R3 · 复购不成立，沦为一次性生意
+                  <div class="xs" style="margin-top:4px">缓解：实测期并行测 2 瓶装与订阅制，不以单瓶表现定生死</div></td>
+                  <td class="sub">45 天复购 &lt; 10% 且无家庭 / 礼盒场景</td><td class="sub">二次购买集中在同一批人；无自然回访</td>
+                  <td class="n mono">4·3·4</td><td class="n" style="color:var(--warn);font-weight:700">48<div class="cell-bar"><i style="--p:75%"></i></div></td></tr>
+              <tr><td class="k">R4 · 预算不足以覆盖首轮验证
+                  <div class="xs" style="margin-top:4px">缓解：完整预算表先行 + 支出熔断 ¥30,000 + 去掉包材定制</div></td>
+                  <td class="sub">预算未含研发、打样、检测与备货</td><td class="sub">第 2 个月累计支出超预期</td>
+                  <td class="n mono">4·3·2</td><td class="n">24<div class="cell-bar grey"><i style="--p:38%"></i></div></td></tr>
+              <tr><td class="k">R5 · 渠道费率挤压毛利至不可持续
+                  <div class="xs" style="margin-top:4px">缓解：分佣上限写入合同；低于 ¥169 不进入达人排期</div></td>
+                  <td class="sub">分佣 + 投流 &gt; 45% 且客单被迫降至 ¥169 以下</td><td class="sub">仅券后价成交；原价无转化</td>
+                  <td class="n mono">3·4·2</td><td class="n">24<div class="cell-bar grey"><i style="--p:38%"></i></div></td></tr>
+              <tr><td class="k">R6 · 大生产转移失败（混合不均 / 脆片 / 活性损失）
+                  <div class="xs" style="margin-top:4px">缓解：量产首批安排 500 kg 爬坡并做 3 点取样；压片压力窗口锁 7.5–8.5 kN</div></td>
+                  <td class="sub">单冲中试 → rotary 33 冲参数未线性放大</td><td class="sub">首件硬度 &lt; 55 N；含量 RSD &gt; 6%</td>
+                  <td class="n mono">3·2·3</td><td class="n">18<div class="cell-bar grey"><i style="--p:28%"></i></div></td></tr>
+            </tbody>
+          </table>
+        </div><p class="hint">← 可横向滑动 · S 严重度 / O 发生度 / D 难检度（1–5，越差越高）</p></div>
+
+        <div class="stack">
+          <div class="card" style="padding:14px 16px">
+            <h3 class="blk" style="margin-top:0">严重度 × 发生度 热区</h3>
+            <div style="display:grid;grid-template-columns:34px repeat(5,1fr);gap:3px;font-size:10.5px;color:var(--ink3)">
+              <div></div><div style="text-align:center">O1</div><div style="text-align:center">O2</div><div style="text-align:center">O3</div><div style="text-align:center">O4</div><div style="text-align:center">O5</div>
+              <div style="text-align:right;padding-right:4px">S5</div>
+              <div style="background:#F3F1EC;border-radius:4px;height:30px"></div><div style="background:#F3F1EC;border-radius:4px;height:30px"></div>
+              <div style="background:#FBF2DD;border-radius:4px;height:30px"></div>
+              <div style="background:var(--bad-soft);border:1px solid var(--bad-line);border-radius:4px;height:30px;display:grid;place-items:center;font-weight:700;color:var(--bad)">R1</div>
+              <div style="background:var(--bad-soft);border:1px solid var(--bad-line);border-radius:4px;height:30px"></div>
+              <div style="text-align:right;padding-right:4px">S4</div>
+              <div style="background:#F3F1EC;border-radius:4px;height:30px"></div><div style="background:#F3F1EC;border-radius:4px;height:30px"></div>
+              <div style="background:#FBF2DD;border-radius:4px;height:30px;display:grid;place-items:center;font-weight:700;color:var(--warn)">R3 R4</div>
+              <div style="background:var(--bad-soft);border:1px solid var(--bad-line);border-radius:4px;height:30px;display:grid;place-items:center;font-weight:700;color:var(--bad)">R2</div>
+              <div style="background:var(--bad-soft);border:1px solid var(--bad-line);border-radius:4px;height:30px"></div>
+              <div style="text-align:right;padding-right:4px">S3</div>
+              <div style="background:#F3F1EC;border-radius:4px;height:30px"></div>
+              <div style="background:#F3F1EC;border-radius:4px;height:30px;display:grid;place-items:center;font-weight:700;color:var(--ink3)">R6</div>
+              <div style="background:#F3F1EC;border-radius:4px;height:30px"></div>
+              <div style="background:#FBF2DD;border-radius:4px;height:30px;display:grid;place-items:center;font-weight:700;color:var(--warn)">R5</div>
+              <div style="background:#FBF2DD;border-radius:4px;height:30px"></div>
+              <div style="text-align:right;padding-right:4px">S2</div>
+              <div style="background:#F3F1EC;border-radius:4px;height:30px"></div><div style="background:#F3F1EC;border-radius:4px;height:30px"></div><div style="background:#F3F1EC;border-radius:4px;height:30px"></div><div style="background:#F3F1EC;border-radius:4px;height:30px"></div><div style="background:#F3F1EC;border-radius:4px;height:30px"></div>
+              <div style="text-align:right;padding-right:4px">S1</div>
+              <div style="background:#F3F1EC;border-radius:4px;height:30px"></div><div style="background:#F3F1EC;border-radius:4px;height:30px"></div><div style="background:#F3F1EC;border-radius:4px;height:30px"></div><div style="background:#F3F1EC;border-radius:4px;height:30px"></div><div style="background:#F3F1EC;border-radius:4px;height:30px"></div>
+            </div>
+            <p class="xs" style="margin-top:9px">红区 = 必须在门 1 前给出缓解证据；橙区 = 允许并行验证但设监控点。<b>R1 与 R2 同处红区且互为因果</b>：类别结论决定 FU 能否外宣，方法学结论决定配方是否要改。</p>
+          </div>
+          <div class="note bad"><span class="ic">✕</span><div>
+            <p><b>终止条件（Kill criteria）</b> —— 触发任一项即停止推进并复盘，不追加预算：<br>
+              ① 门 1 判定「需注册」或原料在普通食品中不可用；② 第 2 个月累计支出 &gt; ¥30,000；
+              ③ 代工厂要求 MOQ &gt; 8,000 瓶或预付 &gt; 50%；④ 两家实验室活性结果差 &gt; 30%（方法学不可对齐）。</p>
+            <p class="xs">阈值为红队建议，需决策者在门 1 会议确认或改写。<span class="ev i">推断</span></p>
+          </div></div>
+        </div>
+      </div></div>
+      </div>
+    </div>
+  </details>
+
+  <!-- ════════════════════ 08 验证计划与待拍板 ════════════════════ -->
+  <details class="sec brk" id="s8">
+    <summary class="sec-hd">
+      <span class="sec-ic"><svg class="ic"><use href="#i-check"/></svg></span>
+      <span class="hd-txt"><h2>验证计划与待拍板</h2><span class="hd-sub">Validation plan · Decisions</span></span>
+      <span class="hd-meta">
+        <span class="tag keep acc">首轮 ¥38,000</span> <span class="tag keep cond">待拍板 3 项</span>
+        <span class="trust-mini plain"><em>受控文档 · 1 表 0 图</em></span>
+        <span class="mode-flag"><svg class="ic"><use href="#i-eye"/></svg>摘要视图</span>
+        <span class="chev"><svg class="ic"><use href="#i-chev"/></svg></span>
+      </span>
+    </summary>
+    <div class="sec-in">
+      <div class="brief">
+        <div class="brief-card data">
+          <div class="bc-hd"><svg class="ic"><use href="#i-gauge"/></svg><h4>数据概况</h4><span class="x">1 张表 · 0 张图</span></div>
+          <div class="stats">
+              <div class="stat acc" data-p="38" style="--p:38%"><span class="l">假设 / 预算</span><span class="v">6 条</span><span class="xs">¥38,000 · 14 周 · 两道门</span><span class="meter"><i></i></span></div>
+              <div class="stat warn" data-p="30" style="--p:30%"><span class="l">待拍板</span><span class="v">3 项</span><span class="xs">D1 截止 10-14 立项会</span><span class="meter"><i></i></span></div>
+              <div class="stat ok" data-p="62" style="--p:62%"><span class="l">保留额度</span><span class="v">¥62,000</span><span class="xs">门 1 + 门 2 双通过时释放</span><span class="meter"><i></i></span></div>
+          </div>
+        </div>
+        <div class="brief-card guide">
+          <div class="bc-hd"><svg class="ic"><use href="#i-compass"/></svg><h4>指导意见</h4><span class="x">可直接执行</span></div>
+          <ul>
+              <li><svg class="ic"><use href="#i-check"/></svg><span>D1（是否接受两道门节奏）在 10-14 必须答复；<b>未决策项默认按建议项执行</b>，避免窗口顺延至 Q1。</span></li>
+              <li><svg class="ic"><use href="#i-doc"/></svg><span>H6 复购先定口径再测（按订单号 45 天回访）；口径未定的指标不进验收标准。</span></li>
+              <li><svg class="ic"><use href="#i-coin"/></svg><span>预算只批验证不批放量；量产爬坡 ¥6,000 为条件项，门 1 未过不生效。</span></li>
+            </ul>
+            <div class="who">
+              <span class="chip"><svg class="ic"><use href="#i-user"/></svg>决策人</span>
+              <span class="chip"><svg class="ic"><use href="#i-check"/></svg>PMO</span>
+              <span class="chip"><svg class="ic"><use href="#i-coin"/></svg>财务</span>
+            </div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="body">
+      <h3 class="blk">关键假设与验证设计 <span class="q">按「推翻结论的能力」排序</span></h3>
+      <div class="tw"><div class="tw-scroll">
+        <table>
+          <thead><tr><th>#</th><th>假设</th><th>验证方法</th><th class="n">成功阈值</th><th class="n">失败阈值</th><th class="n">成本 / 周期</th><th>负责人</th></tr></thead>
+          <tbody>
+            <tr><td class="mono k">H1</td><td class="k">复合酶冻干粉在目标类别下可作为原料使用</td><td class="sub">原料身份核验 + 一次书面监管咨询</td><td class="n">类别可判定且原料可用</td><td class="n">需注册</td><td class="n">¥2,000 / 2 周</td><td class="sub">合规</td></tr>
+            <tr><td class="mono k">H2</td><td class="k">FU 活性可比对第三方方法复现</td><td class="sub">2 家实验室同法双测（本品 + 对标样）</td><td class="n">偏差 ≤ ±15%</td><td class="n">&gt; ±30%</td><td class="n">¥9,000 / 3 周</td><td class="sub">QA + 研发</td></tr>
+            <tr><td class="mono k">H3</td><td class="k">目标人群愿为「透明」付 ¥169 以上</td><td class="sub">2 场私域实测 + 原价成交占比</td><td class="n">转化 ≥ 4.5%</td><td class="n">&lt; 2.5%</td><td class="n">¥14,000 / 2 周</td><td class="sub">上市营销</td></tr>
+            <tr><td class="mono k">H4</td><td class="k">3,000 瓶 MOQ 内可交付且预付 ≤ 30%</td><td class="sub">3 家盖章报价 + 排期确认</td><td class="n">≤ 3,000 瓶 / 预付 30%</td><td class="n">&gt; 8,000 瓶</td><td class="n">¥0 / 1 周</td><td class="sub">供应链</td></tr>
+            <tr><td class="mono k">H5</td><td class="k">500 kg 量产转移可复现中试指标</td><td class="sub">爬坡批 + 3 点取样</td><td class="n">活性 ≥ 95% 标示、RSD ≤ 5%</td><td class="n">硬度 &lt; 55 N</td><td class="n">¥6,000 / 3 周</td><td class="sub">生产技术</td></tr>
+            <tr><td class="mono k">H6</td><td class="k">45 天复购可支撑放量</td><td class="sub">按订单号回访（延迟指标，先定口径）</td><td class="n">≥ 12%</td><td class="n">&lt; 8%</td><td class="n">¥2,000 / 6 周</td><td class="sub">市场研究</td></tr>
+          </tbody>
+        </table>
+      </div><p class="hint">← 可横向滑动</p></div>
+
+      <div class="grid2">
+        <div>
+          <h3 class="blk" style="margin-top:0">14 周排期</h3>
+          <div class="gan">
+            <div class="gan-hd"><span class="lb">动作 / 周次</span><div class="sc"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span></div></div>
+            <div class="gan-r"><p class="nm">门 1 · 类别与原料<em>¥2,000</em></p><div class="gan-t"><i class="gan-b k" style="--s:0%;--w:28.6%">W1–W4</i><span class="mk" style="left:28.6%"><em>门 1</em></span></div></div>
+            <div class="gan-r"><p class="nm">书面监管咨询<em>1 次</em></p><div class="gan-t"><i class="gan-b o" style="--s:7.1%;--w:14.3%">W2–W3</i></div></div>
+            <div class="gan-r"><p class="nm">活性方法学双测<em>¥9,000</em></p><div class="gan-t"><i class="gan-b" style="--s:7.1%;--w:28.6%">W2–W5</i></div></div>
+            <div class="gan-r"><p class="nm">掩味与感官小测<em>¥4,000</em></p><div class="gan-t"><i class="gan-b o" style="--s:14.3%;--w:21.4%">W3–W5</i></div></div>
+            <div class="gan-r"><p class="nm">门 2 · 私域实测 2 场<em>¥14,000</em></p><div class="gan-t"><i class="gan-b g" style="--s:35.7%;--w:14.3%">W6–W7</i><span class="mk" style="left:50%"><em>门 2</em></span></div></div>
+            <div class="gan-r"><p class="nm">选品会送审<em>¥0</em></p><div class="gan-t"><i class="gan-b o" style="--s:42.9%;--w:28.6%">W7–W10</i></div></div>
+            <div class="gan-r"><p class="nm">45 天复购回访<em>¥2,000</em></p><div class="gan-t"><i class="gan-b o" style="--s:50%;--w:42.9%">W8–W13</i></div></div>
+            <div class="gan-r"><p class="nm">复议与放量决策<em>会议</em></p><div class="gan-t"><i class="gan-b k" style="--s:64.3%;--w:14.3%">W10–W11</i><span class="mk" style="left:78.6%"><em>GO / NO</em></span></div></div>
+            <div class="gan-r"><p class="nm">量产爬坡批（获批后）<em>¥6,000</em></p><div class="gan-t"><i class="gan-b d" style="--s:78.6%;--w:21.4%">W12–W14 · 待门 1</i></div></div>
+          </div>
+          <p class="xs" style="margin-top:8px">虚线 = 有条件启动。W12 之后不占用本轮 ¥38,000 预算。</p>
+        </div>
+        <div class="stack">
+          <div>
+            <h3 class="blk" style="margin-top:0">首轮预算 ¥38,000 分配</h3>
+            <div class="bar big"><i class="c5" style="--w:23.7%"></i><i class="c1" style="--w:21.1%"></i><i class="c3" style="--w:10.5%"></i><i class="c2" style="--w:26.3%"></i><i class="c7" style="--w:18.4%"></i></div>
+            <ul class="lgd" style="margin-top:10px">
+              <li><span class="sw c5"></span>法规咨询与类别核验 <b>¥9,000</b><span class="mut">23.7%</span></li>
+              <li><span class="sw c1"></span>第三方活性双测 <b>¥8,000</b><span class="mut">21.1%</span></li>
+              <li><span class="sw c3"></span>打样与体验装 30 份 <b>¥4,000</b><span class="mut">10.5%</span></li>
+              <li><span class="sw c2"></span>私域实测投流 <b>¥10,000</b><span class="mut">26.3%</span></li>
+              <li><span class="sw c7"></span>内容制作 <b>¥7,000</b><span class="mut">18.4%</span></li>
+            </ul>
+            <p class="xs" style="margin-top:9px">相对 ¥100,000 上限：本轮占用 38%，保留 ¥62,000 给门 2 之后的备货与量产爬坡；财务异议点是<b>把检测与合规咨询挪到放量后再花</b>，本报告不接受该顺序（见 R1 / R2）。</p>
+          </div>
+          <div class="note warn"><span class="ic">!</span><div>
+            <p><b>门 1 未过之前不得发生的支出：</b>备货、包材开模、达人坑位费、任何含功效词的素材。已发生的 ¥4,000 打样费需在门 1 会议上说明是否可复用。</p>
+          </div></div>
+        </div>
+      </div>
+
+      <h3 class="blk">需要拍板的事项 <span class="q">未决策项默认按建议项执行</span></h3>
+      <div class="stack">
+        <div class="dec">
+          <div class="dec-hd"><span class="no">D1</span><h4>是否接受「先核验、后销售」的两道门节奏？</h4><span class="due">截止 10-14 立项会</span></div>
+          <div class="dec-bd">
+            <div><dt>选项</dt>
+              <ul class="opt">
+                <li class="rec"><span class="bx"></span><span>接受：先花 4 周做完门 1，再决定是否投放<span class="rt">建议</span></span></li>
+                <li><span class="bx"></span><span>并行：门 1 与内容制作同时启动，风险自担（追加 ¥9,000）</span></li>
+                <li><span class="bx"></span><span>放弃：预算转投已具资质的既有品类</span></li>
+              </ul>
+            </div>
+            <div><dt>不决策的后果</dt><dd>代工厂排期与检测档期同时失效，窗口期顺延至 Q1，全部报价需重谈。</dd></div>
+          </div>
+        </div>
+        <div class="dec">
+          <div class="dec-hd"><span class="no">D2</span><h4>若只能按普通食品管理，项目是否继续？</h4><span class="due">门 1 结论后 3 日内</span></div>
+          <div class="dec-bd">
+            <div><dt>选项</dt>
+              <ul class="opt">
+                <li class="rec"><span class="bx"></span><span>继续，卖点改为「配方透明 + 批次可查」，价格带维持 ¥169–199<span class="rt">建议</span></span></li>
+                <li><span class="bx"></span><span>继续并同步启动注册（追加 ¥260,000+ / 18–36 月），需董事会级别审批</span></li>
+                <li><span class="bx"></span><span>停止：剥离功效后差异化不足以支撑定价</span></li>
+              </ul>
+            </div>
+            <div><dt>影响范围</dt><dd>定价、内容主张、渠道可选集全部重算；本报告第 01 / 05 / 06 节需出 R-3.0。</dd></div>
+          </div>
+        </div>
+        <div class="dec">
+          <div class="dec-hd"><span class="no">D3</span><h4>¥62,000 预留是锁定给备货，还是收回？</h4><span class="due">截止 10-20 财务复核</span></div>
+          <div class="dec-bd">
+            <div><dt>选项</dt>
+              <ul class="opt">
+                <li class="rec"><span class="bx"></span><span>锁定但设条件：仅在门 1 + 门 2 双通过时释放<span class="rt">建议</span></span></li>
+                <li><span class="bx"></span><span>收回预算，放量另立项目重新报批</span></li>
+                <li><span class="bx"></span><span>缩减首轮范围（去掉彩盒与线下试销），缺口降至 ¥11,000</span></li>
+              </ul>
+            </div>
+            <div><dt>需要谁确认</dt><dd>财务 + 产品负责人；涉及账期的选项需同步供应链与代工厂。</dd></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sign">
+        <div class="f"><p class="lb">产品经理<em> / 配方与规格</em></p><div class="ln"></div></div>
+        <div class="f"><p class="lb">合规负责人<em> / 类别与宣称</em></p><div class="ln"></div></div>
+        <div class="f"><p class="lb">财务<em> / 预算与账期</em></p><div class="ln"></div></div>
+        <div class="f"><p class="lb">决策人<em> / 批准 · 日期</em></p><div class="ln"></div></div>
+      </div></div>
+      </div>
+    </div>
+  </details>
+
+  <!-- ════════════════════ 09 附录 ════════════════════ -->
+  <details class="sec" id="s9">
+    <summary class="sec-hd">
+      <span class="sec-ic"><svg class="ic"><use href="#i-archive"/></svg></span>
+      <span class="hd-txt"><h2>附录 · 出处、假设与未决项</h2><span class="hd-sub">Sources · Assumptions · Open items</span></span>
+      <span class="hd-meta">
+        <span class="tag keep go">编号可回查</span> <span class="tag keep cond">未决 5 项</span>
+        <span class="trust-mini" title="事实 6 条 · 推断 3 条 · 待验证 2 条"><span class="tm-bar"><i class="f" style="--w:54.5%"></i><i class="i" style="--w:27.3%"></i><i class="u" style="--w:18.2%"></i></span><em>11 条标注 · 2 表 0 图</em><b class="lv md">71%</b></span>
+        <span class="cnt f"><i></i><b>6</b> 事实</span>
+        <span class="cnt i"><i></i><b>3</b> 推断</span>
+        <span class="cnt u"><i></i><b>2</b> 待验证</span>
+        <span class="mode-flag"><svg class="ic"><use href="#i-eye"/></svg>摘要视图</span>
+        <span class="chev"><svg class="ic"><use href="#i-chev"/></svg></span>
+      </span>
+    </summary>
+    <div class="sec-in">
+      <div class="brief">
+        <div class="brief-card data">
+          <div class="bc-hd"><svg class="ic"><use href="#i-gauge"/></svg><h4>数据概况</h4><span class="x">2 张表 · 0 张图</span></div>
+          <div class="stats">
+              <div class="stat ok" data-p="75" style="--p:75%"><span class="l">出处 / 一手</span><span class="v">8 条</span><span class="xs">6 一手 · 1 公开检索 · 1 缺口</span><span class="meter"><i></i></span></div>
+              <div class="stat warn" data-p="40" style="--p:40%"><span class="l">关键假设</span><span class="v">4 条</span><span class="xs">变动即触发 R-3.0</span><span class="meter"><i></i></span></div>
+              <div class="stat bad" data-p="80" style="--p:80%"><span class="l">未决问题</span><span class="v">5 项</span><span class="xs">1 项未开始，有逾期风险</span><span class="meter"><i></i></span></div>
+          </div>
+        </div>
+        <div class="brief-card guide">
+          <div class="bc-hd"><svg class="ic"><use href="#i-compass"/></svg><h4>指导意见</h4><span class="x">可直接执行</span></div>
+          <ul>
+              <li><svg class="ic"><use href="#i-archive"/></svg><span>数字被质疑时凭 <b>SRC 编号</b>回查原始材料，不重开结论讨论；无编号的数字一律视为推断。</span></li>
+              <li><svg class="ic"><use href="#i-clock"/></svg><span>未决项逾期 2 周自动升级为风险条目并计入 FMEA。</span></li>
+              <li><svg class="ic"><use href="#i-alert"/></svg><span>「待验证」不作为决策依据：先安排验证，再谈结论外推。</span></li>
+            </ul>
+            <div class="who">
+              <span class="chip"><svg class="ic"><use href="#i-check"/></svg>PMO</span>
+              <span class="chip"><svg class="ic"><use href="#i-user"/></svg>各角色负责人</span>
+            </div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="body">
+      <div class="grid2">
+        <div>
+          <h3 class="blk" style="margin-top:0">A · 数据出处（编号可回查）</h3>
+          <div class="tw"><div class="tw-scroll">
+            <table>
+              <thead><tr><th>编号</th><th>来源</th><th class="n">日期</th><th>等级</th></tr></thead>
+              <tbody>
+                <tr><td class="k mono">SRC-BOM-07</td><td class="sub">代工厂盖章报价单 Q-2231 / Q-2233</td><td class="n mono">10-05</td><td><span class="ev f">一手</span></td></tr>
+                <tr><td class="k mono">SRC-PILOT-03</td><td class="sub">中试批记录 P-2601/02/03（含检验原始记录）</td><td class="n mono">10-06</td><td><span class="ev f">一手</span></td></tr>
+                <tr><td class="k mono">SRC-COA-12</td><td class="sub">酶粉供应商 COA（活性 20,400 FU/g）</td><td class="n mono">09-30</td><td><span class="ev f">一手</span></td></tr>
+                <tr><td class="k mono">SRC-STAB-02</td><td class="sub">稳定性 12 月点中期报告（第三方）</td><td class="n mono">10-02</td><td><span class="ev f">一手</span></td></tr>
+                <tr><td class="k mono">SRC-REG-05</td><td class="sub">备案原料清单与类目检索（公开法规库）</td><td class="n mono">10-04</td><td><span class="ev i">公开检索</span></td></tr>
+                <tr><td class="k mono">SRC-MKT-18</td><td class="sub">类目渠道费率与退货率区间（行业报告）</td><td class="n mono">09-26</td><td><span class="ev i">二手</span></td></tr>
+                <tr><td class="k mono">SRC-PRIVATE-01</td><td class="sub">自有社群近 12 月购买与转化数据导出</td><td class="n mono">10-01</td><td><span class="ev f">一手</span></td></tr>
+                <tr><td class="k mono">SRC-GAP-04</td><td class="sub">线下复购与私域退货明细（尚未取得）</td><td class="n mut2">—</td><td><span class="ev u">缺口</span></td></tr>
+              </tbody>
+            </table>
+          </div><p class="hint">← 可横向滑动</p></div>
+        </div>
+        <div class="stack">
+          <div>
+            <h3 class="blk" style="margin-top:0">B · 关键假设（若变则结论变）</h3>
+            <ol class="steps">
+              <li><b>汇率与原料供应稳定</b>：酶粉按 ¥1,200/kg 全年锁价；若浮动 &gt; 15%，出厂成本与毛利桥全部重算。</li>
+              <li><b>渠道费率</b>：分佣 + 投流 40% 为类目均值；签到达人若要求 50%+，单件贡献降至 ¥55.76。</li>
+              <li><b>退货率 3%</b>：低于类目常见 6–9%；取 8% 时需追加 ¥3.17 / 瓶履约成本。</li>
+              <li><b>合规路径 A 可用</b>：整份报告的经济性测算以「普通食品可上市」为前提，该前提本身待门 1 证实。</li>
+            </ol>
+          </div>
+          <div>
+            <h3 class="blk" style="margin-top:0">C · 未决问题（谁在什么时候关）</h3>
+            <div class="tw"><div class="tw-scroll">
+              <table>
+                <thead><tr><th>问题</th><th>负责人</th><th class="n">关闭时点</th><th>状态</th></tr></thead>
+                <tbody>
+                  <tr><td class="k">酶粉能否用于压片糖果类目</td><td class="sub">合规</td><td class="n mono">10-24</td><td><span class="tag cond">门 1</span></td></tr>
+                  <tr><td class="k">FU 方法学两家实验室对齐</td><td class="sub">QA</td><td class="n mono">11-05</td><td><span class="tag cond">送样中</span></td></tr>
+                  <tr><td class="k">MOQ 与预付比例书面确认</td><td class="sub">供应链</td><td class="n mono">10-16</td><td><span class="tag">待发函</span></td></tr>
+                  <tr><td class="k">45 天复购口径定义</td><td class="sub">市场研究</td><td class="n mono">10-20</td><td><span class="tag no">未开始</span></td></tr>
+                  <tr><td class="k">掩味感官测试方案</td><td class="sub">研发</td><td class="n mono">10-28</td><td><span class="tag cond">设计中</span></td></tr>
+                </tbody>
+              </table>
+            </div><p class="hint">← 可横向滑动</p></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="endnote" style="margin-top:16px">
+        <div class="hd">三态判定规则 <span class="r">Kern 汇总节点自动标注，人工可改写</span></div>
+        <div class="legend3">
+          <div><span class="ev f">事实</span><p>有一手材料（盖章报价、批记录、检测报告、法规原文）且可回查编号。<b>可用于对外材料与决策依据。</b></p></div>
+          <div><span class="ev i">推断</span><p>由事实推得，依赖假设或二手数据。<b>可用于内部讨论与安排验证，不得写入素材。</b></p></div>
+          <div><span class="ev u">待验证</span><p>明确缺口，数值或结论尚未取得。<b>不作为依据；须在第 08 节列出补齐路径与时点。</b></p></div>
+        </div>
+        <div class="two">
+          <p><b>术语：</b>FU（fibrinolytic unit）纤溶活性单位，需在方法学与判定波长一致时方可比较；RPN = S × O × D，本项目取 RPN ≥ 40 为高危、20–39 为中危；CCP 关键控制点；MOQ 最小起订量；COA 分析证书；NRV 营养素参考值百分比。</p>
+          <p><b>合规提示：</b>本报告为内部立项分析文件，含未经核实的推断项，<b>不得作为对外宣传依据或提供给达人 / 平台招商</b>。对外话术以第 06 节「可用表述」清单为准，由合规逐条签发。产品若涉及疾病相关宣称，一律不制作、不投放、不转发。</p>
+          <p><b>下一版触发条件：</b>门 1 结论出具、代工厂书面报价齐 3 家、第三方活性双测回收 —— 三者任一到达即出 R-3.0，不等全部。</p>
+          <p><b>文件信息：</b>R-2.3 · 生成 2026-10-08 14:22 · 生成用时 11m 42s · 28 条结论（11 / 9 / 8）· 6 张表 · 3 张图 · 密级 内部。</p>
+        </div>
+      </div></div>
+      </div>
+    </div>
+  </details>
+
+  </div><!-- /.sheet -->
+  </main>
+</div>
+<div class="fab no-print"><button type="button" class="totop" id="toTop" title="回到顶部"
+  onclick="scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})">
+  <svg class="ic"><use href="#i-up"/></svg></button></div>
+<script>
+/* ══════ Kern 报告壳层交互（无依赖 · 打印前自动展开 · 滚动进入时播动效）══════ */
+(function () {
+  var doc = document, root = doc.documentElement, body = doc.body;
+  body.classList.add('js-anim');
+
+  /* ① 折叠：details 原生；提供 全部展开 / 全部折叠 */
+  var all = function () { return [].slice.call(doc.querySelectorAll('details.sec')); };
+  function setAll(open) {
+    all().forEach(function (d) { d.open = open; });
+    if (open) requestAnimationFrame(reveal);
+  }
+  window.__secSetAll = setAll;
+
+  /* ② 模式：完整 / 摘要（摘要=只留数据概况+指导意见） */
+  var seg = doc.getElementById('segMode');
+  function mode(m) {
+    body.classList.toggle('mode-brief', m === 'brief');
+    body.classList.toggle('mode-full', m !== 'brief');
+    if (seg) {
+      var b = seg.querySelectorAll('button'), i = seg.querySelector('.th');
+      var idx = m === 'brief' ? 1 : 0;
+      b.forEach(function (x, k) { x.setAttribute('aria-pressed', k === idx ? 'true' : 'false'); });
+      if (i && b[idx]) {
+        i.style.width = b[idx].offsetWidth + 'px';
+        i.style.transform = 'translateX(' + (b[idx].offsetLeft - 3) + 'px)';
+      }
+    }
+    try { localStorage.setItem('kern-report-mode', m); } catch (e) {}
+    requestAnimationFrame(reveal);
+  }
+  if (seg) seg.addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (b) mode(b.dataset.mode);
+  });
+  var saved = null; try { saved = localStorage.getItem('kern-report-mode'); } catch (e) {}
+  mode(saved === 'brief' ? 'brief' : 'full');
+  window.addEventListener('resize', function () { mode(body.classList.contains('mode-brief') ? 'brief' : 'full'); });
+
+  /* ③ 滚动进入视口 → 触发条形 / 桥 / 甘特 / 环 的动画 */
+  var seen = new WeakSet();
+  function mark(el) { if (seen.has(el)) return; seen.add(el); el.classList.add('in'); }
+  function reveal() {
+    var sel = '.bar,.prog,.cell-bar,.kpi,.wf,.gan,.ring,.spark,.stat[data-p]';
+    var vis = doc.querySelectorAll(sel);
+    for (var i = 0; i < vis.length; i++) {
+      var r = vis[i].getBoundingClientRect();
+      if (r.top < innerHeight * 0.98 && r.bottom > 0) mark(vis[i]);
+    }
+  }
+  var io = null;
+  if ('IntersectionObserver' in window) {
+    io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { mark(e.target); io.unobserve(e.target); } });
+    }, { rootMargin: '0px 0px -6% 0px' });
+  }
+  function arm() {
+    var els = doc.querySelectorAll('.bar,.prog,.cell-bar,.kpi,.wf,.gan,.ring,.spark,.stat[data-p]');
+    for (var i = 0; i < els.length; i++) if (!seen.has(els[i])) { io ? io.observe(els[i]) : mark(els[i]); }
+  }
+  if (io) arm(); else addEventListener('scroll', reveal, { passive: true });
+  addEventListener('scroll', reveal, { passive: true });
+  reveal();
+
+  /* ④ 数字滚动（只跑一次，尊重减少动效） */
+  var rm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function countUp(el) {
+    if (rm || el.dataset.done) return;
+    var to = parseFloat(el.dataset.to); if (isNaN(to)) return;
+    var dec = (el.dataset.dec | 0), t0 = performance.now(), dur = 820;
+    el.dataset.done = '1';
+    (function step(t) {
+      var k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      el.textContent = (to * e).toLocaleString('zh-CN', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+      if (k < 1) requestAnimationFrame(step);
+    })(t0);
+  }
+  var nums = doc.querySelectorAll('[data-to]');
+  if (io) {
+    var io2 = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { countUp(e.target); io2.unobserve(e.target); } });
+    });
+    for (var n = 0; n < nums.length; n++) io2.observe(nums[n]);
+  } else for (var n2 = 0; n2 < nums.length; n2++) nums[n2].textContent = nums[n2].dataset.to;
+
+  /* ⑤ 目录高亮 + 回到顶部 */
+  var links = [].slice.call(doc.querySelectorAll('.toc a[href^="#"]'));
+  var totop = doc.getElementById('toTop');
+  function spy() {
+    var y = scrollY + 120, cur = links[0];
+    links.forEach(function (a) {
+      var el = doc.querySelector(a.getAttribute('href'));
+      if (el && el.getBoundingClientRect().top + scrollY <= y) cur = a;
+    });
+    links.forEach(function (a) { a.classList.toggle('on', a === cur); });
+    if (totop) totop.classList.toggle('show', scrollY > 700);
+    var pb = doc.getElementById('prog');
+    if (pb) pb.style.width = (scrollY / (doc.body.scrollHeight - innerHeight) * 100).toFixed(2) + '%';
+  }
+  addEventListener('scroll', spy, { passive: true }); spy();
+  links.forEach(function (a) {
+    a.addEventListener('click', function () {
+      var el = doc.querySelector(a.getAttribute('href'));
+      if (el && el.tagName === 'DETAILS') { el.open = true; requestAnimationFrame(reveal); }
+    });
+  });
+
+  /* ⑤b 展开 / 折叠按钮 */
+  var be = doc.getElementById('btnExpand'), bc = doc.getElementById('btnCollapse');
+  if (be) be.addEventListener('click', function () { setAll(true); });
+  if (bc) bc.addEventListener('click', function () { setAll(false); });
+
+  /* ⑥ 打印 / 存 PDF：按当前模式展开全部，打完复原 */
+  var stash = null;
+  addEventListener('beforeprint', function () {
+    stash = all().map(function (d) { return d.open; });
+    setAll(true);
+    doc.querySelectorAll('.bar,.prog,.cell-bar,.kpi,.wf,.gan,.ring,.spark,.stat[data-p]').forEach(mark);
+  });
+  addEventListener('afterprint', function () {
+    if (!stash) return; all().forEach(function (d, i) { d.open = stash[i]; }); stash = null;
+  });
+  if (doc.querySelectorAll) {
+    var pt = doc.getElementById('btnPrint');
+    if (pt) pt.addEventListener('click', function () { setTimeout(function () { print(); }, 30); });
+  }
+
+  /* ⑦ 可访问性：给折叠标题补上按键语义 */
+  all().forEach(function (d) {
+    var s = d.querySelector('summary');
+    if (s) { s.setAttribute('role', 'button'); s.setAttribute('aria-controls', d.id + '-in'); }
+    d.querySelector('.sec-in') && d.querySelector('.sec-in').setAttribute('id', d.id + '-in');
+  });
+  doc.addEventListener('keydown', function (e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); setAll(true); }
+  });
+})();
+
+</script>
+</body>
+</html>

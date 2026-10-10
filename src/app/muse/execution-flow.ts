@@ -82,6 +82,26 @@ export function layoutExecutionFlow(nodes: MissionNodeView[]) {
     const rank = ranks.get(node.key)!;
     columns.set(rank, [...(columns.get(rank) ?? []), node]);
   }
+  // 交叉线治理：同 rank 列内按「已解析依赖的平均行号（barycenter）」排序，并列按
+  // 计划输入序打散。rank 与 edges 原样来自快照——只重排展示，不增删点、不改编织。
+  // 只需一遍升 rank 扫描：依赖的 rank 严格小于被依赖者（无法解析的 key 落入兜底列，
+  // 用其在列内的现行位置做重心，行为同样确定）。
+  const inputOrder = new Map(nodes.map((node, index) => [node.key, index]));
+  const rowOf = new Map<string, number>();
+  for (const rank of [...columns.keys()].sort((a, b) => a - b)) {
+    const barycenter = (node: MissionNodeView) => {
+      const deps = (node.dependsOn ?? []).filter(key => rowOf.has(key));
+      return deps.length
+        ? deps.reduce((sum, key) => sum + rowOf.get(key)!, 0) / deps.length
+        : rowOf.get(node.key) ?? 0;
+    };
+    const sorted = [...columns.get(rank)!].sort((a, b) => {
+      const delta = barycenter(a) - barycenter(b);
+      return delta !== 0 ? delta : inputOrder.get(a.key)! - inputOrder.get(b.key)!;
+    });
+    sorted.forEach((node, index) => rowOf.set(node.key, index));
+    columns.set(rank, sorted);
+  }
   const rows = Math.max(1, ...[...columns.values()].map(column => column.length));
   const { width, height, column, row, padding } = FLOW_NODE;
   const positions = nodes.map(node => {
