@@ -1,0 +1,1328 @@
+<!doctype html>
+<html lang="zh-CN">
+<!--
+═══════════════════════════════════════════════════════════════════════════════
+  Kern · 产品立项分析报告 —— 单文件 HTML 模板  v1
+  ─────────────────────────────────────────────────────────────────────────────
+  设计依据：Kern 报告 HTML 模板-设计提示词（第一部分 + 附 A~E）
+  令牌来源：与 src/app/theme/kern-design.css 的 --k-* 保持一致（附 A 原样使用）
+  风格基线：DESIGN.md「先结论后证据」「状态不能只靠颜色传达」「8px 节奏」
+
+  ■ 技术特征
+    · 单文件：CSS 全部内联在 <style>，零外部依赖（字体/图表库/JS 均未引入）
+    · 无交互脚本：仅顶部「打印 / 导出 PDF」一个按钮（onclick 一行）
+    · 图表纯 CSS：占比条 .stack、成本桥 .wf、投放节奏 .cadence
+    · 打印：@page A4 + break-inside 保护 + print-color-adjust: exact
+    · 窄屏 ≤768px：表格横向滚动（.tscroll），网格自动降为单列
+
+  ■ 程序化填充约定
+    · data-slot="a.b"        标量可替换位（共 41 处，列在下面）。渲染时对每个 key
+                             用 element.textContent = 值 覆盖即可；示例文本可直接替换，
+                             不必保留 —— 它是「未填时也长得像真报告」的样例。
+    · 注释 @repeat path …… @endrepeat path   列表段（共 12 组）：
+                             按数组长度复制内部整段；数组为空时保留该段并改渲染 .gap。
+                             （注释体内不得再出现注释定界符，否则会截断说明块）
+    · 三态：在 .claim / .ev / .pts li 上切换 is-fact | is-infer | is-unknown
+             徽章文字（事实 / 推断 / UNKNOWN）+ 图形符号 + 边框线型，三者必须同时存在
+    · 缺数据：任何区块无内容时不要删除该区块 —— 改用 .gap（已知 / 缺什么 / 如何补齐），
+             并给 <section> 加 class="is-empty"、在 .sec-hd 内加 <span class="sec-flag">待补</span>
+    · 几何值（脚本算好后写入行内 style，模板不给默认）：
+             .stack i 的 width:NN%（同组之和 100）；.wf-bar 的 --y / --h（bottom / height）；
+             .cad-bar 的 --s / --w（起始 / 宽度，每周 8.333%）；.trust-bar i 的 width
+
+    ▸ 全部 data-slot：
+      · cost.breakeven
+      · cost.confidence
+      · cost.grossMargin
+      · cost.priceBand
+      · count.claims
+      · count.fact
+      · count.infer
+      · count.sections
+      · count.tables
+      · count.unknown
+      · meta.budget
+      · meta.dataCutoff
+      · meta.decisionFor
+      · meta.horizon
+      · position.audience
+      · position.differentiation
+      · position.valueProp
+      · position.whyNow
+      · project.name
+      · report.docLine
+      · report.duration
+      · report.generatedAt
+      · report.id
+      · report.kind
+      · report.model
+      · report.reviewedBy
+      · report.version
+      · sec1.updatedAt
+      · sec2.updatedAt
+      · sec3.updatedAt
+      · sec4.updatedAt
+      · sec5.updatedAt
+      · sec6.updatedAt
+      · sec7.updatedAt
+      · sec8.updatedAt
+      · verdict.oneLine
+      · verdict.stat.budget
+      · verdict.stat.gap
+      · verdict.stat.reviewAt
+      · verdict.stat.weeks
+      · verdict.tag
+  ■ 建议落库位置（PM-next）
+    src/modules/report-format/kern-report-template.html   ← 模板本体
+    src/modules/report-format/render.ts                    ← 读模板 + 填占位
+    或按现有惯例并入 src/components/executive-report-v2.tsx 的导出分支
+═══════════════════════════════════════════════════════════════════════════════
+-->
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>复合酶片 · 产品立项分析报告 · Kern</title>
+<style>
+/* ════ 1. 设计令牌（附 A 原样，勿改）════════════════════════════════════ */
+:root {
+  /* 背景与分层 */
+  --k-canvas:    #EEF2F8;
+  --k-surface:   #FFFFFF;
+  --k-surface-2: #F8FAFD;
+  --k-sunk:      #F1F5FA;
+  --k-line:      #E4EAF3;
+  --k-line-2:    #D5DEEB;
+  --k-line-soft: #EEF2F8;
+
+  /* 文字 */
+  --k-ink:   #0F1B33;
+  --k-ink-2: #334155;
+  --k-ink-3: #64748B;
+  --k-ink-4: #94A3B8;
+
+  /* 品牌 */
+  --k-brand:      #2563EB;
+  --k-brand-2:    #3B82F6;
+  --k-brand-soft: #EAF1FE;
+  --k-brand-line: #CFE0FD;
+  --k-on-brand:   #FFFFFF;
+
+  /* 状态（三态标注用） */
+  --k-ok:        #15803D;  --k-ok-soft:   #E8F7EE;  --k-ok-line:   #C3EBD2;
+  --k-warn:      #B45309;  --k-warn-soft: #FEF5E7;  --k-warn-line: #F8DDB0;
+  --k-bad:       #DC2626;  --k-bad-soft:  #FEF0F0;  --k-bad-line:  #FACACA;
+
+  /* 尺寸 */
+  --k-r-xs: 6px; --k-r-sm: 8px; --k-r: 12px; --k-r-lg: 16px; --k-r-xl: 20px;
+  --k-sp-1: 4px; --k-sp-2: 8px; --k-sp-3: 12px; --k-sp-4: 16px;
+  --k-sp-5: 20px; --k-sp-6: 24px; --k-sp-8: 32px;
+
+  /* 字体 */
+  --k-font: "SF Pro Text", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --k-font-display: "SF Pro Display", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+/* 由令牌派生的少量阴影/描边，不引入新色相 */
+:root {
+  --r-hair:  0 1px 2px rgba(15,27,51,.04);
+  --r-card:  0 1px 2px rgba(15,27,51,.04), 0 14px 34px -22px rgba(15,27,51,.30);
+  --r-line:  1px solid var(--k-line);
+  --k-r-pill: 999px;   /* kern-design.css 已定义，附 A 未列出，此处补齐 */
+  --r-pad-x: 46px;
+}
+
+/* ════ 2. 基底与中文排版 ═══════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box }
+html { -webkit-text-size-adjust: 100% }
+body {
+  margin: 0;
+  background: var(--k-canvas);
+  color: var(--k-ink);
+  font-family: var(--k-font);
+  font-size: 15px;              /* 正文 14–15px 要求 */
+  line-height: 1.65;            /* 行高 1.65 */
+  /* 中英文混排：极小字距 + 标点不孤行 */
+  letter-spacing: .01em;
+  font-kerning: normal;
+  font-variant-numeric: tabular-nums;
+  line-break: strict;           /* 避免标点出现在行首 */
+  text-wrap: pretty;
+  text-rendering: optimizeLegibility;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;    /* 打印保留背景色 */
+}
+h1, h2, h3, h4 {
+  font-family: var(--k-font-display);
+  line-height: 1.3;
+  letter-spacing: -.005em;
+  margin: 0;
+  font-weight: 650;
+}
+p { margin: 0 }
+ul, ol { margin: 0; padding: 0; list-style: none }
+b, strong { font-weight: 650 }
+small { font-size: 12.5px }
+html { scroll-behavior: smooth }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto } }
+a { color: var(--k-brand); text-decoration: none; border-bottom: 1px solid var(--k-brand-line) }
+.num { font-variant-numeric: tabular-nums; letter-spacing: .02em }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0 }
+
+/* 关键：网格/弹性子项要能收缩到 0，否则 .tscroll-in 的横向滚动不生效、整块会撑破版面 */
+.grid2 > *, .grid3 > *, .kv > *, .defs > *, .mtx > *, .steps > *, .prio > li, .cad-row,
+.card, .tscroll, .tscroll-in, .dec-bd > div, .verdict > *, .gap-grid > div { min-width: 0 }
+
+/* 层级只靠字号 + 字重 + 留白建立，颜色仅承担语义 */
+.t-xxs { font-size: 11.5px; line-height: 1.5 }
+.t-xs  { font-size: 12.5px; line-height: 1.55; color: var(--k-ink-3) }
+.t-sm  { font-size: 13.5px; color: var(--k-ink-2) }
+.c3 { color: var(--k-ink-3) }
+.c4 { color: var(--k-ink-4) }
+
+/* ════ 3. 工具条（屏幕专用，不打印）════════════════════════════════════ */
+.bar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: var(--k-sp-4);
+  padding: 10px 22px;
+  background: rgba(238,242,248,.92);
+  backdrop-filter: saturate(140%) blur(6px);
+  border-bottom: var(--r-line);
+}
+.bar-mark { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 12.5px; letter-spacing: .06em }
+.bar-mark svg { display: block }
+.bar-doc { font-size: 12px; color: var(--k-ink-3) }
+.bar-sp { flex: 1 }
+.btn {
+  font: 600 13px/1 var(--k-font); color: var(--k-on-brand);
+  background: var(--k-brand); border: 1px solid var(--k-brand);
+  padding: 9px 14px; border-radius: var(--k-r-sm); cursor: pointer;
+  box-shadow: var(--r-hair);
+}
+.btn:hover { background: #1D4FD8 }
+.btn:focus-visible { outline: 2px solid var(--k-brand); outline-offset: 2px }
+.btn-ghost { color: var(--k-ink-2); background: var(--k-surface); border-color: var(--k-line-2); font-weight: 550 }
+.btn-ghost:hover { background: var(--k-surface-2); color: var(--k-ink) }
+.bar-tip { font-size: 11.5px; color: var(--k-ink-4) }
+
+/* ════ 4. 纸面 ════════════════════════════════════════════════════════ */
+.report {
+  max-width: 1010px;
+  margin: 26px auto 72px;
+  background: var(--k-surface);
+  border: var(--r-line);
+  border-radius: var(--k-r-lg);
+  box-shadow: var(--r-card);
+  padding: var(--r-pad-x) var(--r-pad-x) 30px;
+}
+
+/* ── 报告头 ── */
+.rhead { padding-bottom: var(--k-sp-6); border-bottom: 2px solid var(--k-ink) }
+.rhead-top { display: flex; align-items: center; gap: var(--k-sp-4); flex-wrap: wrap; margin-bottom: var(--k-sp-6) }
+.eyebrow {
+  font-size: 12px; font-weight: 650; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--k-brand); margin-bottom: 10px;
+}
+.rhead h1 { font-size: 33px; letter-spacing: -.012em; margin-bottom: 10px }
+.lede { font-size: 15.5px; color: var(--k-ink-2); max-width: 78ch; line-height: 1.7 }
+.docmeta { margin-left: auto; display: flex; flex-wrap: wrap; gap: 2px var(--k-sp-4); justify-content: flex-end;
+            text-align: right; font-size: 12px; color: var(--k-ink-3); line-height: 1.7 }
+.docmeta b { color: var(--k-ink-2); font-weight: 600 }
+.tagline { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--k-ink-3); white-space: nowrap }
+.dot-sep { width: 3px; height: 3px; border-radius: 50%; background: var(--k-line-2) }
+
+/* 抬头键值表 */
+.kv { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 1px; margin-top: var(--k-sp-6);
+      background: var(--k-line); border: var(--r-line); border-radius: var(--k-r); overflow: hidden }
+.kv > div { background: var(--k-sunk); padding: 10px 14px }
+.kv dt { font-size: 11.5px; color: var(--k-ink-3); letter-spacing: .04em; margin-bottom: 2px }
+.kv dd { margin: 0; font-size: 13.5px; font-weight: 600; color: var(--k-ink) }
+
+/* 置信度总览条：一眼看出「能信多少」 */
+.trust { display: flex; align-items: center; flex-wrap: wrap; gap: var(--k-sp-2) var(--k-sp-4); margin-top: var(--k-sp-5);
+         padding: 12px 14px; background: var(--k-surface-2); border: var(--r-line); border-radius: var(--k-r) }
+.trust-lab { font-size: 12px; color: var(--k-ink-3); white-space: nowrap }
+.trust-bar { flex: 1 1 160px; min-width: 120px; display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--k-sunk); border: 1px solid var(--k-line) }
+.trust-bar i { display: block; height: 100% }
+.trust-fig { display: flex; flex-wrap: wrap; gap: 6px var(--k-sp-4); font-size: 12.5px }
+.trust-fig span { display: inline-flex; align-items: center; gap: 6px; color: var(--k-ink-2); min-width: 0 }
+.glyph { font-style: normal; font-weight: 700; font-size: 11px; line-height: 1 }
+
+/* ════ 5. 区块骨架 ════════════════════════════════════════════════════ */
+.sec { padding-top: var(--k-sp-6); margin-top: var(--k-sp-8); border-top: 1px solid var(--k-line) }
+.sec + .sec { margin-top: var(--k-sp-8) }
+.sec-hd { display: flex; align-items: center; gap: var(--k-sp-3); margin-bottom: var(--k-sp-5) }
+.sec-no {
+  flex: none; font: 650 11.5px/1 var(--k-font); letter-spacing: .08em;
+  color: var(--k-brand); background: var(--k-brand-soft);
+  border: 1px solid var(--k-brand-line); border-radius: var(--k-r-xs); padding: 6px 7px;
+}
+.sec-hd h2 { font-size: 19px }
+.sec-sub { font-size: 12.5px; color: var(--k-ink-3); margin-left: 2px }
+.sec-hd .fill { flex: 1; height: 1px; background: var(--k-line) }
+.sec-flag {
+  flex: none; font-size: 11.5px; padding: 4px 8px; border-radius: var(--k-r-xs);
+  color: var(--k-ink-3); border: 1px dashed var(--k-line-2); background: var(--k-surface-2)
+}
+/* 整块数据缺失时：区块保留、编号转虚线灰、标题右侧标「待补」 */
+.sec.is-empty { border-top-style: dashed }
+.sec.is-empty .sec-no { color: var(--k-ink-3); background: var(--k-sunk); border-style: dashed; border-color: var(--k-line-2) }
+.sec.is-empty .sec-hd h2 { color: var(--k-ink-2) }
+.sec > .sec-body > * + * { margin-top: var(--k-sp-4) }
+.src {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: var(--k-sp-5); padding-top: 9px; border-top: 1px dashed var(--k-line);
+  font-size: 11.5px; color: var(--k-ink-3); letter-spacing: .02em;
+}
+.src-k {
+  font-weight: 650; color: var(--k-ink-2); background: var(--k-sunk);
+  border: var(--r-line); border-radius: 4px; padding: 2px 6px; letter-spacing: .04em;
+}
+.src-time { margin-left: auto; color: var(--k-ink-4) }
+h3.blk { font-size: 14px; font-weight: 650; color: var(--k-ink); margin-bottom: 10px; display: flex; align-items: center; gap: 8px }
+h3.blk::before { content: ""; width: 3px; height: 13px; border-radius: 2px; background: var(--k-brand-2); flex: none }
+h3.blk .q { font-weight: 400; color: var(--k-ink-3); font-size: 12.5px }
+
+/* ════ 6. 三态标注（核心）══════════════════════════════════════════════
+   三处冗余编码，保证不靠颜色也能区分：
+   ① 徽章文字（事实 / 推断 / UNKNOWN）  ② 图形符号（✓ / ∴ / ◌）  ③ 边框线型（实线 / 实线+斜纹 / 虚线）
+*/
+.evs { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; vertical-align: 1px }
+.ev {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 600; line-height: 1;
+  padding: 4px 7px 4px 6px; border-radius: 5px; border: 1px solid; white-space: nowrap;
+}
+.ev::before { font-style: normal; font-weight: 700; font-size: 11px }
+.ev--fact { color: var(--k-ok); background: var(--k-ok-soft); border-color: var(--k-ok-line) }
+.ev--fact::before { content: "✓" }
+.ev--infer { color: var(--k-warn); background: var(--k-warn-soft); border-color: var(--k-warn-line) }
+.ev--infer::before { content: "∴" }
+.ev--unk {
+  color: var(--k-ink-3); background: transparent;
+  border-color: var(--k-line-2); border-style: dashed;
+  background-image: repeating-linear-gradient(135deg, rgba(148,163,184,.14) 0 3px, transparent 3px 7px);
+}
+.ev--unk::before { content: "◌" }
+
+/* 结论级三态：左色条 + 徽章 + 线型 */
+.claims { display: grid; gap: var(--k-sp-2) }
+.claim {
+  position: relative; display: grid; grid-template-columns: 1fr auto; align-items: start; gap: 10px;
+  padding: 11px 13px 11px 15px; border-radius: var(--k-r-sm);
+  border: 1px solid var(--k-line); background: var(--k-surface-2);
+  break-inside: avoid;
+}
+.claim::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: var(--k-r-sm) 0 0 var(--k-r-sm) }
+.claim p { grid-column: 1; font-size: 14.5px; color: var(--k-ink-2); line-height: 1.68 }
+.claim p b { color: var(--k-ink) }
+.claim .ev { grid-column: 2; grid-row: 1 }
+.claim.is-fact { background: var(--k-ok-soft); border-color: var(--k-ok-line) }
+.claim.is-fact::before { background: var(--k-ok) }
+.claim.is-infer { background: var(--k-warn-soft); border-color: var(--k-warn-line) }
+.claim.is-infer::before { background: var(--k-warn) }
+.claim.is-unknown {
+  background: var(--k-surface);
+  border: 1px dashed var(--k-line-2);
+  background-image: repeating-linear-gradient(135deg, rgba(148,163,184,.09) 0 5px, transparent 5px 11px);
+}
+.claim.is-unknown::before { background: repeating-linear-gradient(180deg, var(--k-ink-4) 0 4px, transparent 4px 8px) }
+.claim.is-unknown p { color: var(--k-ink-3) }
+.claim.is-unknown .pend { grid-column: 2; font-size: 11px; color: var(--k-ink-4); letter-spacing: .04em }
+
+/* ════ 7. 通用卡片 / 列表 / 表格 ══════════════════════════════════════ */
+.card {
+  border: var(--r-line); border-radius: var(--k-r); background: var(--k-surface);
+  padding: var(--k-sp-5); break-inside: avoid;
+}
+.card.is-pick { border-color: var(--k-brand-line); background: linear-gradient(0deg, var(--k-brand-soft), var(--k-brand-soft)) padding-box }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: var(--k-sp-4) }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: var(--k-sp-4) }
+.card-hd { display: flex; align-items: center; gap: 8px; margin-bottom: var(--k-sp-3) }
+.card-hd h4 { font-size: 14.5px }
+.card-idx { font: 600 11px/1 var(--k-font); color: var(--k-ink-3); letter-spacing: .08em }
+.pick {
+  margin-left: auto; font-size: 11.5px; font-weight: 650; color: var(--k-on-brand);
+  background: var(--k-brand); border-radius: 5px; padding: 4px 8px; letter-spacing: .04em;
+}
+.rows { display: grid; gap: 7px }
+.rows li { display: grid; grid-template-columns: 62px 1fr; gap: 12px; font-size: 13.5px; line-height: 1.6 }
+.rows .k { color: var(--k-ink-3); font-size: 12.5px }
+.rows .v { color: var(--k-ink-2) }
+.rows .v b { color: var(--k-ink) }
+
+/* 定义网格（目标人群 / 价值主张 …） */
+.defs { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 1px;
+        background: var(--k-line); border: var(--r-line); border-radius: var(--k-r); overflow: hidden }
+.defs > div { background: var(--k-surface); padding: 13px 15px }
+.defs dt { font-size: 11.5px; color: var(--k-ink-3); letter-spacing: .06em; margin-bottom: 5px }
+.defs dd { margin: 0; font-size: 14px; line-height: 1.6; color: var(--k-ink) }
+.defs .note { font-size: 12.5px; color: var(--k-ink-3); margin-top: 5px }
+
+/* 表格 */
+.tscroll { border: var(--r-line); border-radius: var(--k-r); background: var(--k-surface); overflow: hidden }
+.tscroll-in { overflow-x: auto }
+table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px }
+.tbl th, .tbl td { text-align: left; padding: 12px 14px; vertical-align: top; line-height: 1.6; border-bottom: 1px solid var(--k-line) }
+.tbl th {
+  background: var(--k-sunk); font-size: 11.5px; font-weight: 650; color: var(--k-ink-2);
+  letter-spacing: .06em; white-space: nowrap; border-bottom: 1px solid var(--k-line-2);
+}
+.tbl thead { display: table-header-group }          /* 打印跨页重复表头 */
+.tbl tbody tr:last-child th, .tbl tbody tr:last-child td { border-bottom: 0 }
+.tbl tbody tr:nth-child(even) { background: var(--k-surface-2) }
+.tbl td.num, .tbl th.num { text-align: right }
+.tbl .lead-cell { font-weight: 600; color: var(--k-ink); min-width: 220px }
+.tbl tr { break-inside: avoid }
+.tbl-tight th, .tbl-tight td { padding: 9px 12px; font-size: 13px }
+.swipe { display: none; font-size: 11.5px; color: var(--k-ink-4); padding: 6px 14px; background: var(--k-surface-2); border-top: var(--r-line) }
+
+/* 语义标签（严重度等）：色 + 形 + 字 三重编码 */
+.sev { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 650; padding: 3px 7px; border-radius: 5px; border: 1px solid }
+.sev::before { content: ""; width: 6px; height: 6px; border-radius: 1px; background: currentColor }
+.sev--h { color: var(--k-bad); background: var(--k-bad-soft); border-color: var(--k-bad-line) }
+.sev--m { color: var(--k-warn); background: var(--k-warn-soft); border-color: var(--k-warn-line) }
+.sev--l { color: var(--k-ink-3); background: var(--k-sunk); border-color: var(--k-line-2) }
+.sev--h::before { border-radius: 50% }
+.sev--m::before { transform: rotate(45deg) }
+.rank { display: inline-block; font: 700 11.5px/1 var(--k-font); letter-spacing: .04em; padding: 5px 7px; border-radius: 5px; white-space: nowrap }
+.rank--p0 { color: var(--k-on-brand); background: var(--k-brand) }
+.rank--p1 { color: var(--k-brand); background: var(--k-brand-soft); border: 1px solid var(--k-brand-line) }
+.rank--p2 { color: var(--k-ink-3); background: var(--k-sunk); border: 1px solid var(--k-line-2) }
+.rank--no { color: var(--k-ink-2); background: var(--k-surface); border: 1px dashed var(--k-line-2) }
+
+/* ════ 8. 结论摘要专用 ═════════════════════════════════════════════════ */
+.verdict { display: grid; grid-template-columns: 1.55fr 1fr; gap: var(--k-sp-5); align-items: stretch;
+           border: 1px solid var(--k-line-2); border-left: 4px solid var(--k-brand); border-radius: var(--k-r);
+           background: var(--k-surface-2); padding: var(--k-sp-5) var(--k-sp-6); break-inside: avoid }
+.verdict-tag { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; letter-spacing: .06em;
+               color: var(--k-warn); background: var(--k-warn-soft); border: 1px solid var(--k-warn-line);
+               border-radius: 6px; padding: 5px 9px; margin-bottom: 12px }
+.verdict-tag .g { font-size: 12px }
+.verdict p { font-size: 15px; line-height: 1.75; color: var(--k-ink) }
+.verdict-stats { display: grid; gap: 1px; background: var(--k-line); border: var(--r-line); border-radius: var(--k-r-sm); overflow: hidden; align-content: start }
+.verdict-stats > div { background: var(--k-surface); padding: 10px 13px; display: flex; align-items: baseline; justify-content: space-between; gap: 10px }
+.verdict-stats dt { font-size: 12px; color: var(--k-ink-3) }
+.verdict-stats dd { margin: 0; font: 650 15px/1.2 var(--k-font-display) }
+.pts { counter-reset: pt; display: grid; gap: var(--k-sp-2); margin-top: var(--k-sp-2) }
+.pts li { counter-increment: pt; position: relative; display: grid; grid-template-columns: 26px 1fr auto; gap: 12px; align-items: baseline;
+          padding: 10px 12px; border-radius: var(--k-r-sm); background: var(--k-surface); border: var(--r-line) }
+.pts li::before { content: "P" counter(pt); font: 650 11px/1 var(--k-font); color: var(--k-brand);
+                  background: var(--k-brand-soft); border: 1px solid var(--k-brand-line); border-radius: 4px; padding: 4px 5px }
+.pts .tx { font-size: 14.5px; line-height: 1.65; color: var(--k-ink-2) }
+.pts .tx b { color: var(--k-ink) }
+/* 关键判断的三态：左色条（线型区分）+ 右侧徽章，双通道编码 */
+.pts li { border-left: 4px solid var(--k-line-2) }
+.pts li.is-fact  { border-left-color: var(--k-ok);   background: var(--k-ok-soft) }
+.pts li.is-infer { border-left-color: var(--k-warn);  background: var(--k-warn-soft) }
+.pts li.is-unknown { border-left: 4px dashed var(--k-ink-4);
+                     background-image: repeating-linear-gradient(135deg, rgba(148,163,184,.09) 0 5px, transparent 5px 11px) }
+.gates { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: var(--k-sp-3) }
+.gate { border: var(--r-line); border-left: 3px solid var(--k-line-2); border-radius: var(--k-r-sm); padding: 12px 14px; background: var(--k-surface); break-inside: avoid }
+.gate.is-on { border-left-color: var(--k-brand) }
+.gate.is-gate { border-left-color: var(--k-warn) }
+.gate-hd { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 650; color: var(--k-ink); margin-bottom: 6px }
+.gate-no { font: 650 11px/1 var(--k-font); color: var(--k-ink-3); background: var(--k-sunk); border: var(--r-line); padding: 4px 6px; border-radius: 4px }
+.gate p { font-size: 13.5px; color: var(--k-ink-2) }
+
+/* ════ 9. 数据缺失态（不允许留空白）════════════════════════════════════ */
+.gap { border: 1px dashed var(--k-line-2); border-radius: var(--k-r); background: var(--k-surface-2); padding: 14px;
+       background-image: repeating-linear-gradient(135deg, rgba(148,163,184,.06) 0 6px, transparent 6px 13px); break-inside: avoid }
+.gap-hd { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 650; color: var(--k-ink-2); margin-bottom: 10px }
+.gap-hd .g { display: inline-grid; place-items: center; width: 17px; height: 17px; border-radius: 50%;
+             border: 1px dashed var(--k-ink-4); color: var(--k-ink-3); font-size: 11px; font-weight: 700 }
+.gap-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 1px; background: var(--k-line-2); border: 1px solid var(--k-line-2); border-radius: var(--k-r-sm); overflow: hidden }
+.gap-grid > div { background: var(--k-surface); padding: 10px 12px }
+.gap-grid dt { font-size: 11px; letter-spacing: .06em; margin-bottom: 4px; display: flex; align-items: center; gap: 5px }
+.gap-grid dd { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--k-ink-2) }
+.gap-k1 dt { color: var(--k-ok) }
+.gap-k2 dt { color: var(--k-warn) }
+.gap-k3 dt { color: var(--k-ink-3) }
+
+/* ════ 10. 成本与经济性 ═════════════════════════════════════════════════ */
+.stack { display: flex; height: 26px; border-radius: var(--k-r-xs); overflow: hidden; border: 1px solid var(--k-line-2); background: var(--k-sunk) }
+.stack i { display: block; height: 100%; position: relative }
+.stack i + i { border-left: 1px solid var(--k-surface) }
+.st-1 { background: var(--k-brand) }
+.st-2 { background: var(--k-brand-2) }
+.st-3 { background: #7FA8F5 }
+.st-4 { background: #AECBF9 }
+.st-5 { background: var(--k-ink-4) }
+.legend { display: flex; flex-wrap: wrap; gap: 6px var(--k-sp-5); margin-top: 12px }
+.legend li { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--k-ink-2); white-space: nowrap }
+.legend .sw { width: 10px; height: 10px; border-radius: 2px; border: 1px solid rgba(15,27,51,.12) }
+.legend b { font-variant-numeric: tabular-nums; color: var(--k-ink) }
+.legend .pc { color: var(--k-ink-3) }
+
+.wf { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(74px, 1fr); gap: 8px; align-items: end;
+      padding: 12px 14px 10px; border: var(--r-line); border-radius: var(--k-r-sm); background: var(--k-surface) }
+.wf-col { display: grid; grid-template-rows: auto 118px auto; gap: 6px; justify-items: stretch; break-inside: avoid }
+.wf-track { position: relative; border-bottom: 1px solid var(--k-line-2) }
+.wf-bar { position: absolute; left: 0; right: 0; bottom: var(--y, 0%); height: var(--h, 0%);
+          border-radius: 2px; background: var(--k-ink-4) }
+.wf-bar.is-in  { background: var(--k-brand) }
+.wf-bar.is-out { background: #C6D3E6; box-shadow: inset 0 0 0 1px var(--k-line-2) }
+.wf-bar.is-res { background: var(--k-ok); opacity: .9 }
+.wf-bar.is-res.neg { background: var(--k-bad) }
+.wf-v { font: 600 12px/1.2 var(--k-font); color: var(--k-ink); text-align: center; font-variant-numeric: tabular-nums }
+.wf-v.neg { color: var(--k-ink-3) }
+.wf-l { font-size: 11.5px; color: var(--k-ink-3); text-align: center; line-height: 1.3 }
+.wf-cap { font-size: 11.5px; color: var(--k-ink-4); margin-top: 8px }
+
+.mtx { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 1px; background: var(--k-line); border: var(--r-line); border-radius: var(--k-r); overflow: hidden }
+.mtx > div { background: var(--k-surface); padding: 13px 15px; break-inside: avoid }
+.mtx dt { font-size: 11.5px; color: var(--k-ink-3); letter-spacing: .05em; margin-bottom: 6px }
+.mtx dd { margin: 0; font: 650 22px/1.15 var(--k-font-display); letter-spacing: -.01em }
+.mtx .u { font-size: 12.5px; font-weight: 500; color: var(--k-ink-3); margin-left: 3px }
+.mtx .sub { font-size: 12px; color: var(--k-ink-3); margin-top: 5px }
+
+/* ════ 11. 渠道 / 冷启动 / 节奏 ═════════════════════════════════════════ */
+.prio { display: grid; gap: var(--k-sp-2) }
+.prio li { display: grid; grid-template-columns: 44px 1fr auto; gap: 13px; align-items: start;
+           padding: 12px 14px; border: var(--r-line); border-radius: var(--k-r-sm); background: var(--k-surface); break-inside: avoid }
+.prio .who { font-size: 14px; font-weight: 650 }
+.prio .why { font-size: 13px; color: var(--k-ink-3); margin-top: 3px; line-height: 1.6 }
+.prio .pre { font-size: 11.5px; color: var(--k-ink-3); border: 1px dashed var(--k-line-2); border-radius: 5px; padding: 5px 8px; white-space: nowrap }
+
+.steps { counter-reset: st; display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: var(--k-sp-2) }
+.steps li { counter-increment: st; position: relative; padding: 12px 12px 12px 13px; border: var(--r-line); border-radius: var(--k-r-sm); background: var(--k-surface) }
+.steps li::before { content: counter(st); position: absolute; top: -9px; left: 11px; width: 19px; height: 19px;
+                    display: grid; place-items: center; font: 650 11px/1 var(--k-font); color: var(--k-on-brand);
+                    background: var(--k-brand); border-radius: 50%; }
+.steps .h { font-size: 13px; font-weight: 650; margin-bottom: 4px }
+.steps p { font-size: 12px; color: var(--k-ink-3); line-height: 1.55 }
+.steps .w { margin-top: 7px; font-size: 11px; color: var(--k-brand); background: var(--k-brand-soft); border: 1px solid var(--k-brand-line); border-radius: 4px; padding: 2px 5px; display: inline-block }
+
+.cad { border: var(--r-line); border-radius: var(--k-r-sm); overflow: hidden }
+.cad-hd, .cad-row { display: grid; grid-template-columns: 148px 1fr; align-items: center; gap: 12px }
+.cad-hd { background: var(--k-sunk); border-bottom: 1px solid var(--k-line-2); font-size: 11.5px; font-weight: 650; color: var(--k-ink-2) }
+.cad-hd .scale { display: grid; grid-template-columns: repeat(12, 1fr) }
+.cad-hd .scale span { text-align: center; padding: 8px 0; border-left: 1px solid var(--k-line); color: var(--k-ink-3); font-weight: 500 }
+.cad-hd .scale span:first-child { border-left: 0 }
+.cad-hd .cell-lab { padding-left: 13px }
+.cad-row { padding: 9px 0; border-bottom: 1px solid var(--k-line-soft) }
+.cad-row:last-child { border-bottom: 0 }
+.cad-row .nm { font-size: 12.5px; padding-left: 13px; color: var(--k-ink-2) }
+.cad-row .nm span { display: block; font-size: 11px; color: var(--k-ink-4) }
+.cad-track { position: relative; height: 22px; background-image: repeating-linear-gradient(90deg, var(--k-line-soft) 0 1px, transparent 1px calc(100% / 12)) }
+.cad-bar { position: absolute; top: 3px; bottom: 3px; left: var(--s); width: var(--w); border-radius: 4px;
+           font-size: 11px; color: var(--k-on-brand); display: flex; align-items: center; padding: 0 6px; white-space: nowrap; overflow: hidden }
+.cad-bar.b-brand { background: var(--k-brand) }
+.cad-bar.b-mid { background: #6E93E8 }
+.cad-bar.b-soft { background: var(--k-brand-line); color: var(--k-brand) }
+.cad-bar.b-warn { background: var(--k-warn-line); color: var(--k-warn) }
+
+/* ════ 12. 营销 / 合规 ═════════════════════════════════════════════════ */
+.chips { display: flex; flex-wrap: wrap; gap: 6px }
+.chips li { font-size: 12.5px; color: var(--k-ink-2); background: var(--k-sunk); border: var(--r-line); border-radius: var(--k-r-pill, 999px); padding: 6px 11px }
+.msgs { display: grid; gap: var(--k-sp-2) }
+.msgs li { display: grid; grid-template-columns: 78px 1fr; gap: 12px; padding: 10px 12px; border: var(--r-line); border-radius: var(--k-r-sm); background: var(--k-surface) }
+.msgs .k { font-size: 12px; color: var(--k-brand); font-weight: 650 }
+.msgs .v { font-size: 14px; line-height: 1.62; color: var(--k-ink-2) }
+
+.allowban { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: var(--k-sp-4) }
+.allow, .ban { border-radius: var(--k-r); padding: 14px var(--k-sp-5); break-inside: avoid }
+.allow { border: 1px solid var(--k-ok-line); background: var(--k-ok-soft) }
+.ban { border: 2px solid var(--k-bad); background: var(--k-bad-soft); box-shadow: 0 0 0 4px rgba(220,38,38,.05) }
+.ab-hd { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 700; margin-bottom: 10px }
+.allow .ab-hd { color: var(--k-ok) }
+.ban .ab-hd { color: var(--k-bad) }
+.ab-hd .m { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 5px; font-size: 12px; color: var(--k-on-brand) }
+.allow .ab-hd .m { background: var(--k-ok) }
+.ban .ab-hd .m { background: var(--k-bad); border-radius: 50% }
+.ab-hd .hint { margin-left: auto; font-weight: 500; font-size: 11.5px; color: var(--k-ink-3) }
+.allow ul, .ban ul { display: grid; gap: 8px }
+.allow li, .ban li { font-size: 13.5px; line-height: 1.6; padding-left: 20px; position: relative }
+.allow li::before { content: "✓"; position: absolute; left: 0; top: 0; font-weight: 700; color: var(--k-ok) }
+.ban li::before { content: "✕"; position: absolute; left: 0; top: 0; font-weight: 700; color: var(--k-bad) }
+.ban li b { color: var(--k-bad) }
+.ban li em { display: block; font-style: normal; font-size: 11.5px; color: var(--k-ink-3); margin-top: 2px }
+
+.note { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start;
+        border: 1px solid var(--k-line-2); border-left: 4px solid var(--k-warn); border-radius: var(--k-r-sm);
+        background: var(--k-warn-soft); padding: 13px 15px; break-inside: avoid }
+.note .t { font-size: 12.5px; font-weight: 700; color: var(--k-warn); white-space: nowrap; display: flex; align-items: center; gap: 6px }
+.note p { font-size: 13.5px; color: var(--k-ink-2); line-height: 1.65 }
+.note p + p { margin-top: 6px }
+.note.is-bad { border-left-color: var(--k-bad); background: var(--k-bad-soft); border-color: var(--k-bad-line) }
+.note.is-bad .t { color: var(--k-bad) }
+.note.is-info { border-left-color: var(--k-brand); background: var(--k-brand-soft); border-color: var(--k-brand-line) }
+.note.is-info .t { color: var(--k-brand) }
+.note .glyph-w { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid currentColor; font-size: 10px; font-weight: 800 }
+
+/* ════ 13. 验证计划 / 待决策 ════════════════════════════════════════════ */
+.hypo { display: grid; gap: var(--k-sp-2) }
+.decide { display: grid; gap: var(--k-sp-3) }
+.dec { border: 1px solid var(--k-line-2); border-radius: var(--k-r); background: var(--k-surface); overflow: hidden; break-inside: avoid }
+.dec-hd { display: flex; align-items: center; gap: 10px; padding: 11px 14px; background: var(--k-sunk); border-bottom: 1px solid var(--k-line) }
+.dec-no { font: 700 11.5px/1 var(--k-font); color: var(--k-on-brand); background: var(--k-ink); border-radius: 5px; padding: 5px 7px; letter-spacing: .04em }
+.dec-hd h4 { font-size: 14px }
+.dec-hd .due { margin-left: auto; font-size: 11.5px; color: var(--k-ink-3); white-space: nowrap }
+.dec-bd { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--k-line) }
+.dec-bd > div { background: var(--k-surface); padding: 12px 14px }
+.dec-bd dt { font-size: 11.5px; color: var(--k-ink-3); letter-spacing: .05em; margin-bottom: 5px }
+.dec-bd dd { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--k-ink-2) }
+.opts { display: grid; gap: 7px }
+.opts li { display: grid; grid-template-columns: 18px 1fr; gap: 9px; font-size: 13.5px; line-height: 1.55; color: var(--k-ink-2) }
+.box { width: 15px; height: 15px; border: 1.5px solid var(--k-line-2); border-radius: 3px; background: var(--k-surface); margin-top: 4px }
+.opts li.rec .box { border-color: var(--k-brand); background: var(--k-brand-soft); box-shadow: inset 0 0 0 2px var(--k-surface) }
+.opts li.rec { color: var(--k-ink) }
+.opts .rec-t { font-size: 11px; font-weight: 700; color: var(--k-brand); background: var(--k-brand-soft); border: 1px solid var(--k-brand-line); border-radius: 4px; padding: 1px 5px; margin-left: 6px; vertical-align: 1px }
+.sign { display: flex; flex-wrap: wrap; gap: var(--k-sp-6); margin-top: var(--k-sp-4); padding-top: var(--k-sp-4); border-top: 1px dashed var(--k-line-2) }
+.sign .f { flex: 1; min-width: 190px }
+.sign .lab { font-size: 11.5px; color: var(--k-ink-3); margin-bottom: 20px }
+.sign .line { border-bottom: 1px solid var(--k-ink-4) }
+
+/* ════ 14. 页脚 ════════════════════════════════════════════════════════ */
+.rfoot { margin-top: var(--k-sp-8); padding-top: var(--k-sp-5); border-top: 2px solid var(--k-ink) }
+.legend3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: var(--k-sp-3); margin-bottom: var(--k-sp-4) }
+.legend3 > div { display: grid; grid-template-columns: auto 1fr; gap: 9px; font-size: 12px; color: var(--k-ink-3); line-height: 1.55;
+                 border: var(--r-line); border-radius: var(--k-r-sm); padding: 9px 11px; background: var(--k-surface-2) }
+.legend3 b { color: var(--k-ink-2); font-size: 12.5px }
+.disc { font-size: 11.5px; color: var(--k-ink-4); line-height: 1.7; max-width: 92ch }
+.footrow { display: flex; flex-wrap: wrap; gap: 8px var(--k-sp-5); align-items: center; margin-top: var(--k-sp-4); font-size: 11.5px; color: var(--k-ink-3) }
+
+/* ════ 15. 响应式 ≤768px ═══════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .kv, .defs, .mtx { grid-template-columns: repeat(2, minmax(0,1fr)) }
+  .steps { grid-template-columns: repeat(2, minmax(0,1fr)) }
+  .verdict, .grid2, .grid3, .gates, .allowban, .dec-bd { grid-template-columns: 1fr }
+}
+@media (max-width: 768px) {
+  :root { --r-pad-x: 18px }
+  .report { margin: 0; border-radius: 0; border-left: 0; border-right: 0 }
+  .bar { padding: 9px 14px }
+  .bar-doc, .bar-tip { display: none }
+  .rhead h1 { font-size: 25px }
+  .kv, .defs, .mtx, .trust-fig, .legend3, .gates, .steps, .gap-grid { grid-template-columns: 1fr }
+  .trust { flex-wrap: wrap }
+  .lede { font-size: 14.5px }
+  .cad-hd, .cad-row { grid-template-columns: 106px 1fr }
+  .cad-hd .scale { display: none }
+  .tscroll-in { overflow-x: auto; -webkit-overflow-scrolling: touch }
+  table.tbl { min-width: 660px }        /* 表格横向滚动，不挤压变形 */
+  .swipe { display: block }
+  /* 成本桥在窄屏保持竖向柱形 + 横向滑动（同一份 --y/--h 数据，不需要第二套百分比） */
+  .wf { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x proximity; align-items: stretch }
+  .wf-col { flex: none; width: 86px; scroll-snap-align: start }
+  .wf-track { height: 96px }
+}
+
+/* ════ 16. 打印 / 导出 PDF（A4）════════════════════════════════════════ */
+@page { size: A4; margin: 15mm 13mm 14mm; }
+@media print {
+  html, body { background: #fff }
+  body { font-size: 10.4pt; line-height: 1.5; letter-spacing: .005em }
+  .no-print { display: none !important }
+  .report { max-width: none; margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: #fff }
+  .sec { margin-top: 14pt; padding-top: 11pt }
+  .sec-hd { break-after: avoid-page; break-inside: avoid }        /* 标题不落单 */
+  .sec-hd h2 { font-size: 13.5pt }
+  .rhead h1 { font-size: 20pt }
+  .lede, .claim p, .pts .tx, .verdict p { font-size: 10.4pt }
+  table.tbl { font-size: 8.8pt; min-width: 0 !important }   /* 打印不继承窄屏的 660px 最小宽 */
+  .wf { overflow: visible; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(58pt, 1fr) }
+  .wf-col { width: auto }
+  .tbl th, .tbl td { padding: 6pt 8pt }
+  .tscroll-in { overflow: visible }
+  .swipe { display: none }
+  .tscroll, .card, .gap, .note, .dec, .prio li, .steps li, .mtx > div, .defs > div,
+  .verdict, .claim, .gate, .cad, .stack, .wf, .legend3 > div { break-inside: avoid }  /* 区块不跨页断开 */
+  .rfoot { break-inside: avoid }
+  .brk { break-before: page }                        /* 手动分页点 */
+  .ev, .sev, .rank, .pick, .sec-flag { box-decoration-break: clone }
+  a { color: var(--k-ink-2); border-bottom: 0 }
+  /* 背景与色条必须打印出来 */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important }
+  /* 页脚页码（支持 @page 边距盒的浏览器/导出工具生效，其余自动忽略） */
+  @page { @bottom-left { content: "Kern · 产品立项分析报告"; font-size: 7.5pt; color: #64748B }
+          @bottom-right { content: "第 " counter(page) " / " counter(pages) " 页"; font-size: 7.5pt; color: #64748B } }
+}
+</style>
+</head>
+<body>
+
+<!-- ══ 工具条：屏幕专用，打印时隐藏（唯一一处 JS：window.print()）══════ -->
+<div class="bar no-print">
+  <span class="bar-mark">
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="1" y="9" width="3" height="6" rx="1" fill="#2563EB"/>
+      <rect x="6.5" y="5" width="3" height="10" rx="1" fill="#3B82F6"/>
+      <rect x="12" y="1" width="3" height="14" rx="1" fill="#0F1B33"/>
+    </svg>
+    KERN · 报告
+  </span>
+  <span class="bar-doc" data-slot="report.docLine">KERN-2026-1008-014 · v2.3 · 2026-10-08 14:22</span>
+  <span class="bar-sp"></span>
+  <span class="bar-tip">A4 · 建议开启「背景图形」</span>
+  <button class="btn btn-ghost" type="button" onclick="location.hash='#sec-1';window.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})">回到开头</button>
+  <button class="btn" type="button" onclick="window.print()">打印 / 导出 PDF</button>
+  <noscript><span class="bar-tip">无脚本环境请用浏览器菜单打印（⌘/Ctrl + P）</span></noscript>
+</div>
+
+<article class="report" id="top">
+
+  <!-- ══════════ 报告头 ══════════ -->
+  <header class="rhead">
+    <p class="eyebrow" data-slot="report.kind">产品立项分析报告 · KERN DECISION MEMO</p>
+    <h1 data-slot="project.name">复合酶片（60 片 / 瓶）</h1>
+    <p class="lede" data-slot="verdict.oneLine">建议先做「合规与参数核验后的小规模需求验证」，暂不进入销售或对外宣传 —— 现有材料不足以证明产品可上市、参数可比或预算覆盖完整验证成本。</p>
+
+    <div class="rhead-top docmeta">
+      <span class="tagline">编号 <b class="mono" data-slot="report.id">KERN-2026-1008-014</b><span class="dot-sep"></span></span>
+      <span class="tagline">版本 <b data-slot="report.version">v2.3</b><span class="dot-sep"></span></span>
+      <span class="tagline">生成 <b data-slot="report.generatedAt">2026-10-08 14:22</b><span class="dot-sep"></span></span>
+      <span class="tagline">复核 <b data-slot="report.reviewedBy">独立复核 Agent</b></span>
+    </div>
+
+    <dl class="kv">
+      <div><dt>决策对象</dt><dd data-slot="meta.decisionFor">是否进入小规模试产</dd></div>
+      <div><dt>数据截止</dt><dd class="num" data-slot="meta.dataCutoff">2026-10-06</dd></div>
+      <div><dt>投入上限</dt><dd class="num" data-slot="meta.budget">¥100,000</dd></div>
+      <div><dt>期望周期</dt><dd class="num" data-slot="meta.horizon">6 周 / 两道门</dd></div>
+    </dl>
+
+    <!-- 置信度总览：让决策者在第一屏就知道「这份报告能信多少」 -->
+    <div class="trust">
+      <span class="trust-lab">结论可信度分布</span>
+      <!-- 三个 i 的 width 由脚本按条数算好写入；下面示例 = 11 / 9 / 8 条 → 39.3% / 32.1% / 28.6% -->
+      <div class="trust-bar" role="img" aria-label="事实 11 条、推断 9 条、未知 8 条">
+        <i style="width:39.3%;background:var(--k-ok)"></i>
+        <i style="width:32.1%;background:var(--k-warn)"></i>
+        <i style="width:28.6%;background:repeating-linear-gradient(90deg,#94A3B8 0 4px,#CBD1DC 4px 8px)"></i>
+      </div>
+      <div class="trust-fig">
+        <span><i class="ev ev--fact" style="pointer-events:none">事实 <b data-slot="count.fact">11</b></i></span>
+        <span><i class="ev ev--infer" style="pointer-events:none">推断 <b data-slot="count.infer">9</b></i></span>
+        <span><i class="ev ev--unk" style="pointer-events:none">UNKNOWN <b data-slot="count.unknown">8</b></i></span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ══════════ 01 结论摘要 ══════════ -->
+  <section class="sec" id="sec-1" aria-labelledby="h-1">
+    <div class="sec-hd">
+      <span class="sec-no">01</span>
+      <h2 id="h-1">结论摘要</h2>
+      <span class="sec-sub">只看这一屏也应抓住要点</span>
+      <span class="fill"></span>
+    </div>
+    <div class="sec-body">
+
+      <!-- 推荐结论 + 关键数字。verdict.tag 取值：推荐 / 有条件推进 / 暂缓 / 不建议 -->
+      <div class="verdict">
+        <div>
+          <span class="verdict-tag"><span class="g">◍</span><span data-slot="verdict.tag">暂缓 · 有条件推进</span></span>
+          <!-- verdict.body：1 段话给出推荐方向，示例见下段 -->
+          <p>建议先做「合规与参数核验后的小规模需求验证」，<b>暂不进入销售或对外宣传</b>。现有材料不足以证明产品可上市、参数可比，或预算能覆盖完整验证成本。</p>
+          <p style="margin-top:10px;font-size:13.5px;color:var(--k-ink-3)">下列两道门未通过前，不启动备货、不签达人、不投放任何带功效暗示的素材。</p>
+        </div>
+        <dl class="verdict-stats">
+          <div><dt>建议首轮投入</dt><dd class="num" data-slot="verdict.stat.budget">¥38,000</dd></div>
+          <div><dt>验证周期</dt><dd class="num" data-slot="verdict.stat.weeks">6 周</dd></div>
+          <div><dt>预算缺口</dt><dd class="num" style="color:var(--k-bad)" data-slot="verdict.stat.gap">¥62,000</dd></div>
+          <div><dt>复议时点</dt><dd class="num" data-slot="verdict.stat.reviewAt">10-24 门 1 结论</dd></div>
+        </dl>
+      </div>
+
+      <h3 class="blk">关键判断 <span class="q">按影响排序，每条带可信度</span></h3>
+      <ul class="pts">
+        <!-- @repeat verdict.points —— 下面第一个元素为循环模板 -->
+        <li class="is-fact">
+          <span class="tx"><b>预算不覆盖首轮验证</b>：¥100,000 未含研发、打样、检测与首批备货，按现有报价口径缺口约 ¥62,000。</span>
+          <span class="ev ev--fact">事实</span>
+        </li>
+        <!-- @endrepeat verdict.points -->
+        <li class="is-infer">
+          <span class="tx"><b>功效表述不可用</b>：若按普通食品管理，「改善心脑血管」「活性比日本产品高 1.5 倍」在任一平台都构成违规宣称。</span>
+          <span class="ev ev--infer">推断</span>
+        </li>
+        <li class="is-infer">
+          <span class="tx">「9000 FU」能否表示复合酶活性、能否与日本产品比较，取决于指标定义与检测方法，<b>目前无第三方方法学依据</b>。</span>
+          <span class="ev ev--infer">推断</span>
+        </li>
+        <li class="is-unknown">
+          <span class="tx"><b>冷启动 GMV 无法预估</b>：线下渠道与私域复购率为空，按同类目类比误差可能超过 ±40%，不足以支撑备货决策。</span>
+          <span class="ev ev--unk">UNKNOWN</span>
+        </li>
+        <li class="is-fact">
+          <span class="tx">红队与合规<b>独立给出同一结论</b>：当前不应进入销售，须先完成资质与原料身份核验。</span>
+          <span class="ev ev--fact">事实</span>
+        </li>
+      </ul>
+
+      <div class="gates">
+        <div class="gate is-gate">
+          <div class="gate-hd"><span class="gate-no">门 1</span>合规与证据核验</div>
+          <p>核实产品身份、适用法规类别、生产路径、平台准入与宣传边界；拿到原料 COA 与第三方活性检测方法。</p>
+          <p style="margin-top:7px" class="t-xs">通过标准：类别可判定 + 至少 3 项宣传表述有书面依据</p>
+        </div>
+        <div class="gate">
+          <div class="gate-hd"><span class="gate-no">门 2</span>小规模需求验证</div>
+          <p>门 1 通过后，按确认后的预算做 2 场私域直播 + 1 个内容包的实测，只验证需求与价格带，不验证功效。</p>
+          <p style="margin-top:7px" class="t-xs">通过标准：预约转化率 ≥ 4.5%，客单 ≥ ¥169，退款 ≤ 6%</p>
+        </div>
+      </div>
+
+      <footer class="src"><span class="src-k">来源</span> Kern 汇总<span class="src-time">更新 <span data-slot="sec1.updatedAt">10-08 13:50</span></span></footer>
+    </div>
+  </section>
+
+  <!-- ══════════ 02 产品定位与机会 ══════════ -->
+  <section class="sec" id="sec-2" aria-labelledby="h-2">
+    <div class="sec-hd">
+      <span class="sec-no">02</span>
+      <h2 id="h-2">产品定位与机会</h2>
+      <span class="sec-sub">人群 · 价值 · 差异 · 时机</span>
+      <span class="fill"></span>
+    </div>
+    <div class="sec-body">
+      <dl class="defs">
+        <div><dt>目标人群</dt><dd data-slot="position.audience">35–50 岁 · 指标异常焦虑人群</dd><p class="note">35–50 岁、有自检指标异常焦虑、已在私域购买过功能食品的女性；决策人≠使用人的家庭采购角色。</p></div>
+        <div><dt>核心价值主张</dt><dd data-slot="position.valueProp">配方透明，而非功效承诺</dd><p class="note">用「可核验的配方透明度」替代功效承诺：把检测方法与批次数据摆在详情页第一屏。</p></div>
+        <div><dt>差异化</dt><dd data-slot="position.differentiation">依从性 + 批次检测报告</dd><p class="note">同类竞品主打参数数值；本品的可辩护差异在剂型依从性 + 批次检测报告，参数比较目前不可宣称。</p></div>
+        <div><dt>为何是现在</dt><dd data-slot="position.whyNow">Q4 审核收紧，资质先行者有窗口</dd><p class="note">平台对功效宣称审核在 Q4 收紧，先取得资质者在私域有 1–2 个季度的窗口期。</p></div>
+      </dl>
+
+      <h3 class="blk">定位结论 <span class="q">每条结论的可信度即为下游可引用程度</span></h3>
+      <div class="claims">
+        <div class="claim is-fact">
+          <!-- @repeat position.claims —— 下面第一个元素为循环模板 -->
+          <p>目标人群与渠道高度重合：现有 2,400 人私域中，<b>61% 过去 12 个月购买过功能食品</b>（社群标签统计，非问卷）。</p>
+          <!-- @endrepeat position.claims -->
+          <span class="ev ev--fact">事实</span>
+        </div>
+        <div class="claim is-infer">
+          <p>把「配方透明」当作差异化，可以绕开功效宣称受限的问题 —— 但<b>能否支撑 ¥169+ 定价未经实测</b>，属于推理而非验证。</p>
+          <span class="ev ev--infer">推断</span>
+        </div>
+        <div class="claim is-unknown">
+          <p>同类含片剂型在私域的实际复购与退货表现。</p>
+          <span class="pend">待补</span>
+          <span class="ev ev--unk">UNKNOWN</span>
+        </div>
+      </div>
+
+      <div class="note is-info">
+        <span class="t"><span class="glyph-w">i</span>机会判断的边界</span>
+        <p>以下 3 个候选机会均基于同一批材料推演，<b>没有一项做过实测</b>；推荐 A 只是因为它的合规代价与起订量最低，不代表它更赚钱。</p>
+      </div>
+
+      <h3 class="blk">候选机会 <span class="q">3 选 1，标出推荐项</span></h3>
+      <div class="grid3">
+        <!-- @repeat position.opportunities —— 下面第一个元素为循环模板 -->
+        <div class="card is-pick">
+          <div class="card-hd"><span class="card-idx">A</span><h4>压片含片（随身装）</h4><span class="pick">推荐</span></div>
+          <ul class="rows">
+            <li><span class="k">形态</span><span class="v">60 片/瓶，单片 0.6g，无糖配方</span></li>
+            <li><span class="k">MOQ</span><span class="v">3,000 瓶（可接受）</span></li>
+            <li><span class="k">成本带</span><span class="v">¥11–14 / 瓶（不含渠道）</span></li>
+            <li><span class="k">制约</span><span class="v">功效表述受限，须以配方透明为卖点</span></li>
+          </ul>
+          <p style="margin-top:11px"><span class="ev ev--infer">推断</span> <span class="t-sm">依从性与携带场景优于软糖，但口感接受度未测。</span></p>
+        </div>
+        <!-- @endrepeat position.opportunities -->
+        <div class="card">
+          <div class="card-hd"><span class="card-idx">B</span><h4>功能软糖</h4></div>
+          <ul class="rows">
+            <li><span class="k">形态</span><span class="v">60 粒/袋，2 粒/日</span></li>
+            <li><span class="k">MOQ</span><span class="v">10,000 袋（超出预算）</span></li>
+            <li><span class="k">成本带</span><span class="v">¥16–19 / 袋</span></li>
+            <li><span class="k">制约</span><span class="v">活性物在糖体中的留存率无数据</span></li>
+          </ul>
+          <p style="margin-top:11px"><span class="ev ev--unk">UNKNOWN</span> <span class="t-sm">工艺留存率待代工厂出实测报告。</span></p>
+        </div>
+        <div class="card">
+          <div class="card-hd"><span class="card-idx">C</span><h4>冻干粉条装</h4></div>
+          <ul class="rows">
+            <li><span class="k">形态</span><span class="v">30 条/盒，条装冲服</span></li>
+            <li><span class="k">MOQ</span><span class="v">5,000 盒</span></li>
+            <li><span class="k">成本带</span><span class="v">¥24–29 / 盒</span></li>
+            <li><span class="k">制约</span><span class="v">高客单需教育成本，冷启动周期 &gt; 12 周</span></li>
+          </ul>
+          <p style="margin-top:11px"><span class="ev ev--fact">事实</span> <span class="t-sm">代工厂报价单已获取（编号 Q-2231）。</span></p>
+        </div>
+      </div>
+
+      <footer class="src"><span class="src-k">来源</span> 产品 Agent<span class="src-time">更新 <span data-slot="sec2.updatedAt">10-08 11:20</span></span></footer>
+    </div>
+  </section>
+
+  <!-- ══════════ 03 成本与经济性 ══════════ -->
+  <section class="sec" id="sec-3" aria-labelledby="h-3">
+    <div class="sec-hd">
+      <span class="sec-no">03</span>
+      <h2 id="h-3">成本与经济性</h2>
+      <span class="sec-sub">单件出厂成本 → 定价 → 毛利桥</span>
+      <span class="fill"></span>
+    </div>
+    <div class="sec-body">
+
+      <div class="card">
+        <div class="card-hd" style="justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:8px"><h4>单件出厂成本结构</h4><span class="t-xs">合计 ¥12.40 / 瓶</span></div>
+          <span class="t-xs">按 3,000 瓶首批分摊</span>
+        </div>
+        <!-- 占比条：--p 由脚本写入（各段之和 = 100） -->
+        <div class="stack" role="img" aria-label="原料 38.9%、加工 16.9%、包材 14.9%、物流 9.7%、合规摊销 19.6%">
+          <!-- @repeat cost.breakdown —— 下面第一个元素为循环模板 -->
+          <i class="st-1" style="width:38.9%"></i>
+            <!-- @endrepeat cost.breakdown -->
+          <i class="st-2" style="width:16.9%"></i>
+          <i class="st-3" style="width:14.9%"></i>
+          <i class="st-4" style="width:9.7%"></i>
+          <i class="st-5" style="width:19.6%"></i>
+        </div>
+        <ul class="legend">
+          <li><span class="sw st-1"></span>原料 <b>¥4.82</b><span class="pc">38.9%</span></li>
+          <li><span class="sw st-2"></span>加工 <b>¥2.10</b><span class="pc">16.9%</span></li>
+          <li><span class="sw st-3"></span>包材 <b>¥1.85</b><span class="pc">14.9%</span></li>
+          <li><span class="sw st-4"></span>物流 <b>¥1.20</b><span class="pc">9.7%</span></li>
+          <li><span class="sw st-5"></span>合规摊销 <b>¥2.43</b><span class="pc">19.6%</span></li>
+        </ul>
+      </div>
+
+      <h3 class="blk">定价与毛利桥 <span class="q">零售价 ¥199 → 单件贡献 ¥74.66</span></h3>
+      <!-- 成本桥（瀑布图，纯 CSS）：--y 为底边位置%，--h 为高度%，--s/--w 供窄屏横条使用 -->
+      <div class="wf">
+        <!-- @repeat cost.bridge —— 下面第一个元素为循环模板 -->
+        <div class="wf-col"><span class="wf-v">¥199</span><div class="wf-track"><i class="wf-bar is-in" style="--y:0%;--h:100%"></i></div><span class="wf-l">建议零售</span></div>
+          <!-- @endrepeat cost.bridge -->
+        <div class="wf-col"><span class="wf-v neg">−12.40</span><div class="wf-track"><i class="wf-bar is-out" style="--y:93.8%;--h:6.2%"></i></div><span class="wf-l">出厂成本</span></div>
+        <div class="wf-col"><span class="wf-v neg">−5.97</span><div class="wf-track"><i class="wf-bar is-out" style="--y:90.8%;--h:3%"></i></div><span class="wf-l">平台服务费</span></div>
+        <div class="wf-col"><span class="wf-v neg">−39.80</span><div class="wf-track"><i class="wf-bar is-out" style="--y:70.8%;--h:20%"></i></div><span class="wf-l">达人分佣</span></div>
+        <div class="wf-col"><span class="wf-v neg">−39.80</span><div class="wf-track"><i class="wf-bar is-out" style="--y:50.8%;--h:20%"></i></div><span class="wf-l">投流</span></div>
+        <div class="wf-col"><span class="wf-v neg">−8.50</span><div class="wf-track"><i class="wf-bar is-out" style="--y:46.5%;--h:4.3%"></i></div><span class="wf-l">物流履约</span></div>
+        <div class="wf-col"><span class="wf-v neg">−5.97</span><div class="wf-track"><i class="wf-bar is-out" style="--y:43.5%;--h:3%"></i></div><span class="wf-l">退货与客服</span></div>
+        <div class="wf-col"><span class="wf-v neg">−11.90</span><div class="wf-track"><i class="wf-bar is-out" style="--y:37.5%;--h:6%"></i></div><span class="wf-l">税费</span></div>
+        <div class="wf-col"><span class="wf-v">¥74.66</span><div class="wf-track"><i class="wf-bar is-res" style="--y:0%;--h:37.5%"></i></div><span class="wf-l">单件贡献</span></div>
+      </div>
+      <p class="wf-cap">投流与达人分佣各占 20% 为<b>假定价位</b>，非实测；两者合计已达售价 40%，是本品最大的可控变量。</p>
+
+      <dl class="mtx">
+        <div><dt>目标毛利率</dt><dd class="num" data-slot="cost.grossMargin">37.5<span class="u">%</span></dd><p class="sub">单件贡献 / 零售价；未扣固定费用</p></div>
+        <div><dt>可接受定价区间</dt><dd class="num" data-slot="cost.priceBand">¥169–199</dd><p class="sub">低于 ¥169 时达人分佣不可维持</p></div>
+        <div><dt>盈亏平衡</dt><dd class="num" data-slot="cost.breakeven">509<span class="u">件</span></dd><p class="sub">按首轮固定投入 ¥38,000 计</p></div>
+        <div><dt>成本可信度</dt><dd class="num" style="font-size:15px" data-slot="cost.confidence">1 / 5 项有报价</dd><p class="sub">其余为类比估算</p></div>
+      </dl>
+
+      <h3 class="blk">需要哪些真实报价 <span class="q">缺一项，上表结论就要重算</span></h3>
+      <div class="tscroll"><div class="tscroll-in">
+        <table class="tbl tbl-tight">
+          <thead><tr><th>待补数据</th><th>目前已知</th><th>缺什么</th><th>补齐方式</th><th>负责人 / 时限</th></tr></thead>
+          <tbody>
+            <!-- @repeat cost.openQuotes —— 下面第一个元素为循环模板 -->
+            <tr><td class="lead-cell">代工厂打样费与 MOQ</td><td>口头 3,000 瓶起</td><td>书面报价与阶梯价</td><td>索取 3 家盖章报价单</td><td>供应链 · 10-14</td></tr>
+            <!-- @endrepeat cost.openQuotes -->
+            <tr><td class="lead-cell">蓝帽子备案 / 注册费用与周期</td><td>预算按 ¥50,000 摊</td><td>类别判定后的真实路径</td><td>合规出具类别结论后询价</td><td>合规 · 10-20</td></tr>
+            <tr><td class="lead-cell">第三方活性检测单价</td><td>未知</td><td>方法学 + 报价</td><td>向 2 家实验室送预测算</td><td>研发 · 10-22</td></tr>
+            <tr><td class="lead-cell">包材开模与起订</td><td>通用瓶可用</td><td>定制模具费</td><td>沿用通用瓶可跳过此项</td><td>供应链 · 10-16</td></tr>
+            <tr><td class="lead-cell">仓配与冷链报价</td><td>¥4.00/单基线</td><td>含退货的双向价</td><td>云仓询价 + 退货率假设</td><td>运营 · 10-18</td></tr>
+          </tbody>
+        </table>
+      </div><p class="swipe">← 表格可横向滑动</p></div>
+
+      <footer class="src"><span class="src-k">来源</span> 成本与 BOM Agent<span class="src-time">更新 <span data-slot="sec3.updatedAt">10-08 10:05</span></span></footer>
+    </div>
+  </section>
+
+  <!-- ══════════ 04 销售机制与渠道 ══════════ -->
+  <section class="sec" id="sec-4" aria-labelledby="h-4">
+    <div class="sec-hd">
+      <span class="sec-no">04</span>
+      <h2 id="h-4">销售机制与渠道</h2>
+      <span class="sec-sub">优先级 · 分润 · 履约 · 冷启动</span>
+      <span class="fill"></span>
+    </div>
+    <div class="sec-body">
+      <ul class="prio">
+        <!-- @repeat channel.priority —— 下面第一个元素为循环模板 -->
+        <li>
+          <span class="rank rank--p0">P0</span>
+          <div>
+            <p class="who">私域直播（自有社群 2,400 人）</p>
+            <p class="why">唯一可在 6 周内跑通、且能在话术受限前提下完成需求验证的路径；已有历史场均 ¥9,800 记录。</p>
+          </div>
+          <span class="pre">前置：话术白名单确认</span>
+        </li>
+          <!-- @endrepeat channel.priority -->
+        <li>
+          <span class="rank rank--p1">P1</span>
+          <div>
+            <p class="who">远方好物（选品会渠道）</p>
+            <p class="why">对资质文件有明确要求，通过后可带来稳定复购基本盘；选品周期 3–5 周，与验证窗口冲突。</p>
+          </div>
+          <span class="pre">前置：SC + 检测报告</span>
+        </li>
+        <li>
+          <span class="rank rank--p2">P2</span>
+          <div>
+            <p class="who">线下健康门店 / 分销</p>
+            <p class="why">毛利结构可接受，但账期 45–60 天，与 ¥100,000 现金约束直接冲突。</p>
+          </div>
+          <span class="pre">前置：资金占用测算</span>
+        </li>
+        <li>
+          <span class="rank rank--no">暂缓</span>
+          <div>
+            <p class="who">天猫 / 京东 旗舰店</p>
+            <p class="why">类目准入要求保健食品注册或备案凭证，当前无法提交；强行上架存在下架与扣分风险。</p>
+          </div>
+          <span class="pre">阻塞：资质缺失</span>
+        </li>
+      </ul>
+
+      <h3 class="blk">价格与分润体系</h3>
+      <div class="tscroll"><div class="tscroll-in">
+        <table class="tbl">
+          <thead><tr><th>渠道</th><th class="num">建议零售</th><th class="num">平台费</th><th class="num">达人分佣</th><th class="num">我方到手</th><th>结算</th><th>备注</th></tr></thead>
+          <tbody>
+            <tr><td class="lead-cell">私域直播</td><td class="num">¥199</td><td class="num">0%</td><td class="num">12%</td><td class="num">¥175.12</td><td>T+7</td><td>需自建客服与发货</td></tr>
+            <tr><td class="lead-cell">远方好物</td><td class="num">¥189</td><td class="num">8%</td><td class="num">—</td><td class="num">¥173.88</td><td>月结 T+15</td><td>要求提供批次检测</td></tr>
+            <tr><td class="lead-cell">线下分销</td><td class="num">¥199</td><td class="num">—</td><td class="num">—</td><td class="num">¥139.30</td><td>账期 45–60 天</td><td>供货价 7 折</td></tr>
+            <tr><td class="lead-cell">天猫旗舰店</td><td class="num">¥199</td><td class="num">5.5%</td><td class="num">20%</td><td class="num">¥148.25</td><td>T+14</td><td>资质齐备后才可评估</td></tr>
+          </tbody>
+        </table>
+      </div><p class="swipe">← 表格可横向滑动</p></div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="card-hd"><h4>履约方式</h4></div>
+          <ul class="rows">
+            <li><span class="k">主方案</span><span class="v"><b>工厂直发一件代发</b> —— 零库存，首期不备货，代价是发货时效 72h</span></li>
+            <li><span class="k">备选</span><span class="v">华东云仓 500 瓶备货 —— 时效 24h，需承担压货与效期风险</span></li>
+            <li><span class="k">不支持</span><span class="v">礼盒定制（开模费与起订量超出预算，见区块 03）</span></li>
+            <li><span class="k">风险</span><span class="v">退货入库与效期管理<b><span class="ev ev--unk" style="margin-left:6px">UNKNOWN</span></b>尚无流程</span></li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-hd"><h4>冷启动路径</h4></div>
+          <ol class="steps" style="grid-template-columns:1fr">
+            <li style="padding-left:13px"><p class="h">第 1–2 周 · 门 1 核验</p><p>类别判定 + 话术白名单，产出可宣称清单</p></li>
+            <li style="padding-left:13px;margin-top:10px"><p class="h">第 3 周 · 内容与样品</p><p>1 个内容包 + 30 份体验装寄给种子用户</p></li>
+            <li style="padding-left:13px;margin-top:10px"><p class="h">第 4–5 周 · 2 场实测</p><p>目标预约 ≥ 220 人，转化 ≥ 4.5%</p></li>
+          </ol>
+        </div>
+      </div>
+
+      <footer class="src"><span class="src-k">来源</span> 上市营销 Agent + 市场研究 Agent<span class="src-time">更新 <span data-slot="sec4.updatedAt">10-07 18:40</span></span></footer>
+    </div>
+  </section>
+
+  <!-- ══════════ 05 营销策略 ══════════ -->
+  <section class="sec" id="sec-5" aria-labelledby="h-5">
+    <div class="sec-hd">
+      <span class="sec-no">05</span>
+      <h2 id="h-5">营销策略</h2>
+      <span class="sec-sub">信息 · 内容 · 节奏 · 指标</span>
+      <span class="fill"></span>
+    </div>
+    <div class="sec-body">
+      <h3 class="blk">核心信息与话术边界</h3>
+      <ul class="msgs">
+        <!-- @repeat marketing.messages —— 下面第一个元素为循环模板 -->
+        <li><span class="k">主张</span><span class="v">「每一瓶都给得出检测」—— 把批次报告、配料表、活性物投料量做成详情页第一屏。<span class="ev ev--infer" style="margin-left:6px">推断</span></span></li>
+          <!-- @endrepeat marketing.messages -->
+        <li><span class="k">支撑点</span><span class="v">配方公开、代工厂资质公开、不做功效承诺、支持第三方复检。<span class="ev ev--fact" style="margin-left:6px">事实</span></span></li>
+        <li><span class="k">边界</span><span class="v">不得暗示疾病预防/治疗，不得引用未证实的活性对比；详见区块 <b>07 合规边界</b>。<span class="ev ev--fact" style="margin-left:6px">事实</span></span></li>
+        <li><span class="k">待验证</span><span class="v">「透明即卖点」能否转化为客单 ¥169+ 的购买，需要区块 08 的门 2 实测。<span class="ev ev--unk" style="margin-left:6px">UNKNOWN</span></span></li>
+      </ul>
+
+      <div class="card">
+        <div class="card-hd" style="justify-content:space-between"><h4>内容形式</h4><span class="t-xs">按 1 人 / 周产能排序</span></div>
+        <ul class="chips">
+          <li>直播讲解配方（主推）</li><li>检测报告拆解长图</li><li>用户日记式短视频</li>
+          <li>产地图文</li><li>问答合集</li><li>朋友圈九宫格</li>
+        </ul>
+        <p style="margin-top:12px" class="t-xs">不建议投入：明星 / 达人口播、功效对比评测、任何需要宣称数据的图文。</p>
+      </div>
+
+      <h3 class="blk">投放节奏 <span class="q">12 周，门 1 之前不花钱</span></h3>
+      <div class="cad">
+        <div class="cad-hd"><span class="cell-lab">动作 / 周次</span><div class="scale"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span></div></div>
+        <!-- 每条 --s 起始位置% 、--w 宽度%（每周 = 8.333%） -->
+        <div class="cad-row"><p class="nm">合规与检测核验<span>0 预算</span></p>
+          <div class="cad-track"><i class="cad-bar b-warn" style="--s:0%;--w:33.3%">门 1 · W1–W4</i></div></div>
+        <div class="cad-row"><p class="nm">内容与种子样品<span>¥6,000</span></p>
+          <div class="cad-track"><i class="cad-bar b-soft" style="--s:16.6%;--w:16.6%">W3–W4</i></div></div>
+        <div class="cad-row"><p class="nm">私域实测 2 场<span>¥14,000</span></p>
+          <div class="cad-track"><i class="cad-bar b-brand" style="--s:33.3%;--w:16.6%">门 2 · W5–W6</i></div></div>
+        <div class="cad-row"><p class="nm">选品会送审<span>¥0</span></p>
+          <div class="cad-track"><i class="cad-bar b-mid" style="--s:41.6%;--w:25%">W6–W8</i></div></div>
+        <div class="cad-row"><p class="nm">复议与放量决策<span>—</span></p>
+          <div class="cad-track"><i class="cad-bar b-soft" style="--s:66.6%;--w:16.6%">W9–W10</i></div></div>
+      </div>
+      <h3 class="blk">衡量指标 <span class="q">口径先定后测，缺基线的留 UNKNOWN 而不是猜一个数</span></h3>
+      <div class="tscroll"><div class="tscroll-in">
+        <table class="tbl tbl-tight">
+          <thead><tr><th>指标</th><th class="num">基线</th><th class="num">目标</th><th>口径</th><th>数据来源</th></tr></thead>
+          <tbody>
+            <!-- @repeat marketing.metrics —— 下面第一个元素为循环模板 -->
+            <tr><td class="lead-cell">预约转化率</td><td class="num">3.1%</td><td class="num">≥ 4.5%</td><td>预约 → 支付</td><td>社群订单表 <span class="ev ev--fact">事实</span></td></tr>
+            <!-- @endrepeat marketing.metrics -->
+            <tr><td class="lead-cell">客单价</td><td class="num">¥129</td><td class="num">≥ ¥169</td><td>实付金额</td><td>同上 <span class="ev ev--fact">事实</span></td></tr>
+            <tr><td class="lead-cell">退款率</td><td class="num">8.4%</td><td class="num">≤ 6%</td><td>30 天内</td><td>工厂直发时效可能推高 <span class="ev ev--infer">推断</span></td></tr>
+            <tr><td class="lead-cell">45 天复购</td><td class="num c4">待补</td><td class="num c4">待定</td><td>按订单号回访</td><td><span class="ev ev--unk">UNKNOWN</span> 无历史数据，先定口径</td></tr>
+            <tr><td class="lead-cell">单场毛利</td><td class="num">¥2,900</td><td class="num">≥ ¥4,200</td><td>扣分佣与投流</td><td>按区块 03 毛利桥回填 <span class="ev ev--infer">推断</span></td></tr>
+          </tbody>
+        </table>
+      </div><p class="swipe">← 表格可横向滑动</p></div>
+
+      <p class="t-xs">W11–W12 为缓冲：若门 1 结论为「需注册」，本轮止于 W10，不进入放量讨论。</p>
+
+      <footer class="src"><span class="src-k">来源</span> 上市营销 Agent<span class="src-time">更新 <span data-slot="sec5.updatedAt">10-07 17:10</span></span></footer>
+    </div>
+  </section>
+
+  <!-- ══════════ 06 风险评估 ══════════ -->
+  <!-- 需要强制分页时给 <section> 追加 class="brk" -->
+  <section class="sec" id="sec-6" aria-labelledby="h-6">
+    <div class="sec-hd">
+      <span class="sec-no">06</span>
+      <h2 id="h-6">风险评估</h2>
+      <span class="sec-sub">最可能失败的路径</span>
+      <span class="fill"></span>
+      <span class="sec-flag">红队语气：警示性，非否决</span>
+    </div>
+    <div class="sec-body">
+      <div class="tscroll"><div class="tscroll-in">
+        <table class="tbl">
+          <thead><tr><th>失败路径</th><th>触发条件</th><th>早期信号</th><th>缓解办法</th></tr></thead>
+          <tbody>
+            <!-- @repeat risk.paths —— 下面第一个元素为循环模板 -->
+            <tr>
+              <td class="lead-cell"><span class="sev sev--h" style="margin-bottom:6px">高</span><br>产品无法按当前配方上市，或只能大幅改配方 / 改路径</td>
+              <td>复合酶、植提在拟定产品类别、剂型、用量或生产路径下缺少可接受的依据</td>
+              <td>代工厂无法出具可用的原料与成品规格</td>
+              <td>先做法规类别与原料身份核验，再定配方；核验前不签配方与包材</td>
+            </tr>
+            <!-- @endrepeat risk.paths -->
+            <tr>
+              <td class="lead-cell"><span class="sev sev--h" style="margin-bottom:6px">高</span><br>¥100,000 预算不足以覆盖首轮验证</td>
+              <td>预算未含研发、打样、检测、生产备货</td>
+              <td>首轮支出在第 2 个月即超预期</td>
+              <td>先补齐完整预算表，分阶段释放；设支出熔断线 ¥30,000</td>
+            </tr>
+            <tr>
+              <td class="lead-cell"><span class="sev sev--m" style="margin-bottom:6px">中</span><br>话术违规导致下架 / 扣分 / 处罚</td>
+              <td>沿用「改善心脑血管」「参数高 1.5 倍」等表述投放</td>
+              <td>平台审核驳回或直播间中断警告</td>
+              <td>建立话术白名单与素材双人审；只使用区块 07 判定可用的表述</td>
+            </tr>
+            <tr>
+              <td class="lead-cell"><span class="sev sev--m" style="margin-bottom:6px">中</span><br>需求存在但价格带不成立</td>
+              <td>¥169 以下才转化，而该价位无法覆盖 40% 渠道费</td>
+              <td>实测中仅在券后 / 拼团价转化，原价无成交</td>
+              <td>把结论改为「需求成立但经济模型不成立」，转做更高投料成本比或直发模式</td>
+            </tr>
+            <tr>
+              <td class="lead-cell"><span class="sev sev--l" style="margin-bottom:6px">低</span><br>复购不成立，沦为一次性生意</td>
+              <td>45 天复购 &lt; 10%，且无礼盒 / 家庭场景</td>
+              <td>门 2 期间无自然回访，二次购买集中在同一批人</td>
+              <td>验证期同步测 2 瓶装与订阅制，不在单瓶上定生死</td>
+            </tr>
+          </tbody>
+        </table>
+      </div><p class="swipe">← 表格可横向滑动</p></div>
+
+      <div class="note is-bad">
+        <span class="t"><span class="glyph-w">!</span>终止条件</span>
+        <p>出现任一情况即停止推进并复盘：<b>①</b> 第 2 个月累计支出 &gt; ¥30,000；<b>②</b> 合规结论为「需注册」（周期 &gt; 12 个月）；<b>③</b> 代工厂要求 MOQ &gt; 8,000 瓶或预付 &gt; 50%。</p>
+        <p>以上阈值为红队建议值，<span class="ev ev--infer">推断</span> 需决策者在门 1 会议上确认或改写。</p>
+      </div>
+
+      <footer class="src"><span class="src-k">来源</span> 红队<span class="src-time">更新 <span data-slot="sec6.updatedAt">10-07 16:35</span></span></footer>
+    </div>
+  </section>
+
+  <!-- ══════════ 07 合规边界 ══════════ -->
+  <section class="sec" id="sec-7" aria-labelledby="h-7">
+    <div class="sec-hd">
+      <span class="sec-no">07</span>
+      <h2 id="h-7">合规边界</h2>
+      <span class="sec-sub">约束条件，与其他模块并列</span>
+      <span class="fill"></span>
+      <span class="sec-flag">结论未定前：不得对外销售</span>
+    </div>
+    <div class="sec-body">
+      <h3 class="blk">产品类别与资质要求</h3>
+      <div class="tscroll"><div class="tscroll-in">
+        <table class="tbl tbl-tight">
+          <thead><tr><th>拟定类别</th><th>适用法规</th><th>资质要求</th><th>当前状态</th><th>影响</th></tr></thead>
+          <tbody>
+            <tr><td class="lead-cell">压片糖果（普通食品）</td><td>GB 17399、SC 生产许可</td><td>SC + 执行标准 + 标签合规</td><td><span class="sev sev--m" style="font-size:11px">待定</span></td><td>不可做任何功效宣称</td></tr>
+            <tr><td class="lead-cell">保健食品（备案）</td><td>备案制原料清单</td><td>蓝帽子备案号</td><td><span class="sev sev--h" style="font-size:11px">不满足</span></td><td>复合酶不在备案原料清单</td></tr>
+            <tr><td class="lead-cell">保健食品（注册）</td><td>注册制功能目录</td><td>注册证书 + 功能试验</td><td><span class="sev sev--l" style="font-size:11px">未申请</span></td><td>周期 18–36 个月，超出窗口</td></tr>
+          </tbody>
+        </table>
+      </div><p class="swipe">← 表格可横向滑动</p></div>
+
+      <div class="allowban">
+        <div class="allow">
+          <div class="ab-hd"><span class="m">✓</span>可用表述<span class="hint">需附证据来源</span></div>
+          <ul>
+            <li>配料表、每片投料量、活性物投料量（不宣称功效）</li>
+            <li>批次第三方检测报告的引用与编号</li>
+            <li>生产工艺、代工厂资质、效期与储存条件</li>
+            <li>口感、规格、食用方式的客观描述</li>
+          </ul>
+        </div>
+        <!-- 禁用表述：全篇唯一使用「强调红 + 2px 边框」的位置，必须显著 -->
+        <div class="ban" role="note" aria-label="禁用表述清单">
+          <div class="ab-hd"><span class="m">✕</span>禁用表述（现在不可使用）<span class="hint">含详情页与直播口播</span></div>
+          <ul>
+            <li><b>「改善心脑血管」「降三高」「溶血栓」</b><em>疾病预防/治疗宣称，普通食品绝对禁用</em></li>
+            <li><b>「活性比日本产品高 1.5 倍」</b><em>对比宣称需可比方法与第三方数据，当前均缺</em></li>
+            <li><b>「9000 FU 高活性」</b><em>FU 指标定义与检测方法未确认前不可外宣</em></li>
+            <li><b>「无副作用」「长期服用更安全」</b><em>安全性绝对化表述</em></li>
+            <li><b>「医生推荐」「临床验证」</b><em>未取得的背书与临床依据</em></li>
+          </ul>
+        </div>
+      </div>
+
+      <h3 class="blk">平台准入</h3>
+      <ul class="prio">
+        <li><span class="rank rank--p0">可上</span><div><p class="who">微信私域 / 小程序</p><p class="why">仅需食品经营许可与产品合格检验；对功效词依赖自律审核。</p></div><span class="pre">材料齐</span></li>
+        <li><span class="rank rank--p1">有条件</span><div><p class="who">远方好物</p><p class="why">要求批次检测报告与工厂视频验厂，功效词一律不可出现。</p></div><span class="pre">缺检测报告</span></li>
+        <li><span class="rank rank--no">不可上</span><div><p class="who">抖音 / 天猫 保健食品类目</p><p class="why">要求蓝帽子备案号或注册证；无凭证提交将被驳回并影响店铺权重。</p></div><span class="pre">缺资质</span></li>
+      </ul>
+
+      <div class="note">
+        <span class="t"><span class="glyph-w">!</span>合规意见（原文）</span>
+        <p>「当前不应进入销售，须先核验资质。若拟按普通食品管理，所有功效相关表述须全部撤下，并重新出具标签与详情页。」</p>
+        <p class="t-xs">该结论基于材料审阅，未经监管沟通确认。<span class="ev ev--infer">推断</span> 建议以一次书面监管咨询替换该项推断。</p>
+      </div>
+
+      <footer class="src"><span class="src-k">来源</span> 合规 Agent<span class="src-time">更新 <span data-slot="sec7.updatedAt">10-08 09:50</span></span></footer>
+    </div>
+  </section>
+
+  <!-- ══════════ 08 验证计划与待决策 ══════════ -->
+  <section class="sec" id="sec-8" aria-labelledby="h-8">
+    <div class="sec-hd">
+      <span class="sec-no">08</span>
+      <h2 id="h-8">验证计划与待决策</h2>
+      <span class="sec-sub">假设排序 → 阈值 → 拍板</span>
+      <span class="fill"></span>
+    </div>
+    <div class="sec-body">
+      <h3 class="blk">关键假设排序 <span class="q">按「错了会推翻结论」的程度</span></h3>
+      <div class="tscroll"><div class="tscroll-in">
+        <table class="tbl tbl-tight">
+          <thead><tr><th>#</th><th>关键假设</th><th>验证方法</th><th class="num">成功阈值</th><th class="num">失败阈值</th><th>成本 / 周期</th></tr></thead>
+          <tbody>
+            <!-- @repeat plan.hypotheses —— 下面第一个元素为循环模板 -->
+            <tr><td class="num">H1</td><td class="lead-cell">拟用原料在目标类别下可被接受</td><td>法规类别核验 + 书面监管咨询</td><td class="num">类别可判定</td><td class="num">需注册</td><td>¥2,000 / 2 周</td></tr>
+            <!-- @endrepeat plan.hypotheses -->
+            <tr><td class="num">H2</td><td class="lead-cell">活性指标可被方法学支持并可比</td><td>第三方按同一方法检测</td><td class="num">±15% 复现</td><td class="num">无法定方法</td><td>¥9,000 / 3 周</td></tr>
+            <tr><td class="num">H3</td><td class="lead-cell">目标人群愿为「透明」付 ¥169+</td><td>2 场私域实测 + 原价成交占比</td><td class="num">转化 ≥ 4.5%</td><td class="num">&lt; 2.5%</td><td>¥14,000 / 2 周</td></tr>
+            <tr><td class="num">H4</td><td class="lead-cell">代工厂可在 3,000 瓶 MOQ 内交付</td><td>3 家盖章报价 + 排期确认</td><td class="num">≤ 3,000 瓶</td><td class="num">&gt; 8,000 瓶</td><td>¥0 / 1 周</td></tr>
+            <tr><td class="num">H5</td><td class="lead-cell">单件经济模型在 40% 渠道费下仍成立</td><td>实测后按真实分佣回填区块 03</td><td class="num">毛利率 ≥ 30%</td><td class="num">&lt; 18%</td><td>随 H3</td></tr>
+            <tr><td class="num">H6</td><td class="lead-cell">45 天复购可支撑放量</td><td>门 2 后 45 天回访（延迟指标）</td><td class="num" style="color:var(--k-ink-4)">待补</td><td class="num" style="color:var(--k-ink-4)">待补</td><td><span class="ev ev--unk">UNKNOWN</span> 阈值需先定口径</td></tr>
+          </tbody>
+        </table>
+      </div><p class="swipe">← 表格可横向滑动</p></div>
+
+      <!-- 缺数据态示范：整块无数据时保留区块并渲染 .gap，绝不留白 -->
+      <div class="gap">
+        <div class="gap-hd"><span class="g">?</span>该维度数据缺失 —— 以下为已知 / 缺口 / 补齐路径</div>
+        <dl class="gap-grid">
+          <div class="gap-k1"><dt><span class="glyph">✓</span>已知什么</dt><dd>同类目私域功能食品 45 天复购区间约 12%–28%（外部资料，非本项目实测）。</dd></div>
+          <div class="gap-k2"><dt><span class="glyph">∴</span>缺什么</dt><dd>本品自身复购率、回访样本、退款与效期损耗，全部为空。</dd></div>
+          <div class="gap-k3"><dt><span class="glyph">◌</span>如何补齐</dt><dd>门 2 结束后按订单号回访 45 天；同时用 30 份体验装做小样本预测试，口径先定后测。</dd></div>
+        </dl>
+      </div>
+
+      <h3 class="blk">首轮预算分配 <span class="q">¥38,000（在 ¥100,000 上限内，留 ¥62,000 给门 2 之后）</span></h3>
+      <div class="card">
+        <div class="stack">
+          <i class="st-1" style="width:23.7%"></i><i class="st-2" style="width:21.1%"></i>
+          <i class="st-3" style="width:10.5%"></i><i class="st-4" style="width:26.3%"></i><i class="st-5" style="width:18.4%"></i>
+        </div>
+        <ul class="legend">
+          <li><span class="sw st-1"></span>法规咨询与检测前置 <b>¥9,000</b><span class="pc">23.7%</span></li>
+          <li><span class="sw st-2"></span>第三方活性检测 <b>¥8,000</b><span class="pc">21.1%</span></li>
+          <li><span class="sw st-3"></span>打样与体验装 <b>¥4,000</b><span class="pc">10.5%</span></li>
+          <li><span class="sw st-4"></span>私域实测投流 <b>¥10,000</b><span class="pc">26.3%</span></li>
+          <li><span class="sw st-5"></span>内容制作 <b>¥7,000</b><span class="pc">18.4%</span></li>
+        </ul>
+      </div>
+
+      <h3 class="blk">需要拍板的事项 <span class="q">未决策则默认按建议项执行</span></h3>
+      <div class="decide">
+        <div class="dec">
+          <!-- @repeat plan.decisions —— 下面第一个元素为循环模板 -->
+          <div class="dec-hd"><span class="dec-no">D1</span><h4>是否接受「先核验、后销售」的两道门节奏？</h4><span class="due">截止 10-14 会议</span></div>
+          <!-- @endrepeat plan.decisions -->
+          <div class="dec-bd">
+            <div><dt>选项</dt>
+              <ul class="opts">
+                <li class="rec"><span class="box"></span><span>接受：先花 4 周做门 1，再决定是否投放<span class="rec-t">建议</span></span></li>
+                <li><span class="box"></span><span>并行：门 1 与内容制作同时启动，风险自担</span></li>
+                <li><span class="box"></span><span>放弃本项目，把预算转投已具资质的品类</span></li>
+              </ul>
+            </div>
+            <div><dt>未决策的后果</dt><dd>代工厂排期与检测档期同时失效，窗口期顺延至 Q1，前期报价需重谈。</dd></div>
+          </div>
+        </div>
+        <div class="dec">
+          <div class="dec-hd"><span class="dec-no">D2</span><h4>若类别只能按普通食品管理，是否仍继续？</h4><span class="due">门 1 结论后 3 日内</span></div>
+          <div class="dec-bd">
+            <div><dt>选项</dt>
+              <ul class="opts">
+                <li class="rec"><span class="box"></span><span>继续，改以「配方透明 + 依从性」为核心卖点<span class="rec-t">建议</span></span></li>
+                <li><span class="box"></span><span>继续，并同时启动保健食品注册（追加 ¥260,000+）</span></li>
+                <li><span class="box"></span><span>停止：剥离功效后差异化不足以支撑 ¥169 定价</span></li>
+              </ul>
+            </div>
+            <div><dt>影响范围</dt><dd>定价、内容主张、渠道可选集（区块 04）全部需重算。</dd></div>
+          </div>
+        </div>
+        <div class="dec">
+          <div class="dec-hd"><span class="dec-no">D3</span><h4>¥62,000 预算缺口由谁承担？</h4><span class="due">截止 10-20</span></div>
+          <div class="dec-bd">
+            <div><dt>选项</dt>
+              <ul class="opts">
+                <li class="rec"><span class="box"></span><span>缩减范围：去掉包材定制与线下试销，缺口降至 ¥11,000<span class="rec-t">建议</span></span></li>
+                <li><span class="box"></span><span>追加预算至 ¥150,000，保留完整验证</span></li>
+                <li><span class="box"></span><span>延后：等下一季度预算，项目挂起</span></li>
+              </ul>
+            </div>
+            <div><dt>需要谁确认</dt><dd>财务 + 产品负责人；涉及账期的选项 2 需同步供应链。</dd></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sign">
+        <div class="f"><p class="lab">决策人签字</p><div class="line"></div></div>
+        <div class="f"><p class="lab">结论：推进 / 有条件推进 / 暂停</p><div class="line"></div></div>
+        <div class="f"><p class="lab">日期</p><div class="line"></div></div>
+      </div>
+
+      <footer class="src"><span class="src-k">来源</span> 市场研究 Agent + Kern 汇总<span class="src-time">更新 <span data-slot="sec8.updatedAt">10-08 14:15</span></span></footer>
+    </div>
+  </section>
+
+  <!-- ══════════ 页脚：三态说明 + 免责 + 元信息 ══════════ -->
+  <footer class="rfoot">
+    <div class="legend3">
+      <div><span class="ev ev--fact">事实</span><span><b>已核实的客观数据。</b>可在会议与对外材料中直接引用（附出处）。</span></div>
+      <div><span class="ev ev--infer">推断</span><span><b>基于事实的推理，未经证实。</b>可用于讨论与决策，不可用于宣传。</span></div>
+      <div><span class="ev ev--unk">UNKNOWN</span><span><b>明确未知、待补齐。</b>不作为任何结论的依据，需按区块 08 补齐。</span></div>
+    </div>
+    <p class="disc">
+      本报告由 Kern 多角色分析链路生成（市场研究 / 成本与 BOM / 合规 / 产品 / 上市营销 / 红队 / 独立复核），
+      并由汇总角色编写。<b>三态标注为 AI 自动判定，可能存在误标</b>；所有「事实」条目均附来源编号，可逐条回溯原始材料。
+      报告不构成法律、税务或投资意见，涉资质与宣称事项请以监管口径为准。
+    </p>
+    <div class="footrow">
+      <span class="mono">reportId KERN-2026-1008-014</span>
+      <span>模型 <span data-slot="report.model">kern-supervisor v2</span></span>
+      <span>模板 report-template@v1</span>
+      <span>生成耗时 <span data-slot="report.duration">11m 42s</span></span>
+      <span>共 <b data-slot="count.claims">28</b> 条结论 · <b data-slot="count.sections">8</b> 个区块 · <b data-slot="count.tables">6</b> 张表</span>
+      <span class="no-print"><a href="#top">回到顶部 ↑</a></span>
+    </div>
+  </footer>
+</article>
+
+</body>
+</html>
