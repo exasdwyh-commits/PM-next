@@ -63,6 +63,7 @@ jobs:
       - run: npx prisma generate
       - run: npx prisma migrate deploy
       - run: npm run test:home-experience
+      - run: npm run test:healthcare-innovation
       - run: npm run test:frontend-v3
       - run: npm run test:source-guards
       - run: npm run test:kern-project-map

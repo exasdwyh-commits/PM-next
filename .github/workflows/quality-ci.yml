@@ -37,6 +37,7 @@ jobs:
       - run: npm run test:fusion-core
       - run: npm run test:launch-auth
       - run: npm run test:frontend-v3
+      - run: npm run test:healthcare-innovation
       - run: npm run test:desktop-runtime
       - run: npm run test:kern-project-map
       - run: npm run typecheck
