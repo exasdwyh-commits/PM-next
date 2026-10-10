@@ -10,7 +10,7 @@
 
 import prisma from "@/shared/db";
 import { SessionContext } from "../identity/session";
-import { labelProductLifecycleStage } from "@/shared/status-labels";
+import { labelProductLifecycleStage, labelWorkItemStatus } from "@/shared/status-labels";
 
 /** 附加简报字段（2026-09-15 分层信息设计）。全部为真实聚合，无数据返回 null/空数组。 */
 export interface WorkspaceBriefingExtras {
@@ -125,7 +125,7 @@ export async function getWorkspaceOverview(
       todoItems.push({
         id: w.id,
         title: w.title,
-        meta: `${p.title} · ${w.status}`,
+        meta: `${p.title} · ${labelWorkItemStatus(w.status)}`,
         href: `/projects/${p.id}`,
         status: w.status,
         ownerName: p.owner?.name ?? null,

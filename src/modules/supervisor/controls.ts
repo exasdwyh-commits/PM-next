@@ -6,6 +6,7 @@ import { ConflictError, NotFoundError, UnprocessableEntityError } from "@/shared
 import type { SessionContext } from "@/modules/identity/session";
 import { applyPlanEdit, isTerminalNodeStatus, prepareNodeRerun, rejectionRerunRoot, type MissionPlanEdit } from "./plan";
 import { applyContractReview, contractAccepted, reviewFeedback, type ReviewVerdict } from "./contract";
+import { STATUS_LABEL } from "./report-format";
 import { recordPlaybookAcceptance } from "@/modules/playbooks/service";
 import { refreshMissionMetrics } from "./service";
 import { appendMissionEventsTx, type MissionEventInput } from "./events";
@@ -361,7 +362,7 @@ function mutate(session: SessionContext, snap: MissionSnapshot, control: Mission
       const ns = snap.state.nodes[control.nodeKey];
       if (!node || !ns) throw new NotFoundError("Step not found");
       if (node.kind === "SYNTHESIS") throw new UnprocessableEntityError("The synthesis step cannot be skipped; cancel instead");
-      if (isTerminalNodeStatus(ns.status)) throw new ConflictError(`Step already ${ns.status}`);
+      if (isTerminalNodeStatus(ns.status)) throw new ConflictError(`Step already ${STATUS_LABEL[ns.status] ?? ns.status}`);
       const state = JSON.parse(JSON.stringify(snap.state)) as MissionSnapshot["state"];
       const cancelChildIds = ns.status === "ACTIVE" && ns.taskId ? [ns.taskId] : [];
       state.nodes[node.key] = { ...state.nodes[node.key], status: "SKIPPED", reason: "USER_SKIPPED" };

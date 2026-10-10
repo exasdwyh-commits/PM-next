@@ -1,4 +1,5 @@
 import { Prisma, ProjectStage } from "@prisma/client";
+import { labelProjectStage } from "@/shared/status-labels";
 import { computeArtifactContentHash } from "../decisions/artifact-ref";
 import { readStructuredArtifact } from "../work/structured-artifacts";
 
@@ -50,7 +51,7 @@ export async function inspectLaunchProductionBasis(
     };
   }
   if (project.stage !== ProjectStage.DELIVERED) {
-    blockers.push(`G3 前必须完成真实生产交付，当前项目阶段为 ${project.stage}`);
+    blockers.push(`G3 前必须完成真实生产交付，当前项目阶段为 ${labelProjectStage(project.stage)}`);
   }
   if (!params.productVersionId || project.productVersionId !== params.productVersionId) {
     blockers.push("G3 当前产品版本与已交付项目版本不一致");

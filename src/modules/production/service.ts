@@ -1,5 +1,6 @@
 import prisma from "@/shared/db";
 import { createAuditEventInTx } from "@/shared/audit";
+import { labelProjectStage } from "@/shared/status-labels";
 import { ConflictError, ForbiddenError, NotFoundError, UnprocessableEntityError } from "@/shared/errors";
 import {
   DecisionPacketStatus,
@@ -177,7 +178,7 @@ export async function prepareProduction(session: SessionContext, projectId: stri
         return { projectId, stage: project.stage, revision: project.revision, alreadyPrepared: true };
       }
       throw new UnprocessableEntityError(
-        `新品只能从 SAMPLING 显式进入 PRODUCTION_PREP，当前阶段为 ${project.stage}`
+        `新品只能从 SAMPLING 显式进入 PRODUCTION_PREP，当前阶段为 ${labelProjectStage(project.stage)}`
       );
     }
     const prep = evaluateProductionPreparation(project as unknown as ProductionProjectInput);
@@ -233,7 +234,7 @@ export async function prepareProduction(session: SessionContext, projectId: stri
 
   if (project.stage !== ProjectStage.PRODUCTION_PREP) {
     throw new UnprocessableEntityError(
-      `固定产品应从 PRODUCTION_PREP 开始，当前阶段为 ${project.stage}`
+      `固定产品应从 PRODUCTION_PREP 开始，当前阶段为 ${labelProjectStage(project.stage)}`
     );
   }
 
@@ -346,7 +347,7 @@ export async function confirmProductionStart(
   assertProjectVisible(project, session);
   if (project.stage !== ProjectStage.PRODUCTION_PREP) {
     throw new UnprocessableEntityError(
-      `只有 PRODUCTION_PREP 阶段可以确认实际开工，当前阶段为 ${project.stage}`
+      `只有 PRODUCTION_PREP 阶段可以确认实际开工，当前阶段为 ${labelProjectStage(project.stage)}`
     );
   }
 
@@ -462,7 +463,7 @@ export async function confirmProductionDelivery(
   assertProjectVisible(project, session);
   if (project.stage !== ProjectStage.PRODUCTION) {
     throw new UnprocessableEntityError(
-      `只有 PRODUCTION 阶段可以确认交付，当前阶段为 ${project.stage}`
+      `只有 PRODUCTION 阶段可以确认交付，当前阶段为 ${labelProjectStage(project.stage)}`
     );
   }
 

@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { LaunchMilestoneStatus } from "@prisma/client";
+import { labelLaunchMilestoneStatus } from "@/shared/status-labels";
 
 export interface LaunchGateCheck {
   key: string;
@@ -100,7 +101,7 @@ export function evaluateGate(plan: {
       ? "尚无里程碑，谈不上完成"
       : unfinished.length === 0
         ? "全部里程碑已完成"
-        : `未完成 ${unfinished.length} 项：${unfinished.map((m) => `${m.title}（${m.status}）`).join("、")}`,
+        : `未完成 ${unfinished.length} 项：${unfinished.map((m) => `${m.title}（${labelLaunchMilestoneStatus(m.status)}）`).join("、")}`,
   });
 
   const blockers = checks.filter((c) => !c.ok).map((c) => c.detail);

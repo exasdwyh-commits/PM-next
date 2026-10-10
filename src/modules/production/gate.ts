@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { ProjectMode, ProjectStage } from "@prisma/client";
+import { labelProjectStage } from "@/shared/status-labels";
 import { buildArtifactRef, stableStringify, type ArtifactRef } from "../decisions/artifact-ref";
 import { readStructuredArtifact } from "../work/structured-artifacts";
 
@@ -209,7 +210,7 @@ export function evaluateProductionPreparation(
       detail:
         project.stage === ProjectStage.SAMPLING || project.stage === "SAMPLING"
           ? "新品已处于 SAMPLING"
-          : `新品必须先完成 G1 并进入 SAMPLING，当前阶段为 ${project.stage}`,
+          : `新品必须先完成 G1 并进入 SAMPLING，当前阶段为 ${labelProjectStage(project.stage)}`,
     });
 
     const selected = currentAcceptedProductionArtifacts(project);
@@ -238,7 +239,7 @@ export function evaluateProductionPreparation(
       detail:
         project.stage === ProjectStage.PRODUCTION_PREP || project.stage === "PRODUCTION_PREP"
           ? "固定产品已处于 PRODUCTION_PREP"
-          : `固定产品应处于 PRODUCTION_PREP，当前阶段为 ${project.stage}`,
+          : `固定产品应处于 PRODUCTION_PREP，当前阶段为 ${labelProjectStage(project.stage)}`,
     });
   }
 
@@ -266,7 +267,7 @@ export function evaluateProductionGate(
     detail:
       project.stage === ProjectStage.PRODUCTION_PREP || project.stage === "PRODUCTION_PREP"
         ? "项目处于 PRODUCTION_PREP"
-        : `正式 G2 只能在 PRODUCTION_PREP 提交，当前阶段为 ${project.stage}`,
+        : `正式 G2 只能在 PRODUCTION_PREP 提交，当前阶段为 ${labelProjectStage(project.stage)}`,
   });
 
   checks.push({

@@ -5,7 +5,7 @@
  * 同一份 MissionReport，按角色呈现不同
  */
 
-import type { MissionReport } from "./report-format";
+import { STATUS_LABEL, type MissionReport } from "./report-format";
 import { inferRoleFromText, type UserRole } from "@/modules/assistant-runtime/role-intelligence";
 
 export interface RoleAwareReport {
@@ -46,7 +46,7 @@ export function generateRoleAwareReport(report: MissionReport): Record<UserRole,
     reason: detected?.role === "product" ? detected.reason : "研发需要严谨",
     lede: `专业分析：${report.goal.slice(0, 50)}`,
     summary: report.conclusion || "",
-    keyPoints: report.steps.map(s => `${s.label}: ${s.status}`),
+    keyPoints: report.steps.map(s => `${s.label}: ${STATUS_LABEL[s.status] ?? s.status}`),
     suggestedActions: ["核验证据", "补齐缺口", "查看QA轨迹", "成本计算"],
     tools: ["成本计算", "合规检查", "证据核验", "QA轨迹", "依赖图", "时间线"],
   };
