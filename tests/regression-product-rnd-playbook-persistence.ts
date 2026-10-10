@@ -79,7 +79,7 @@ async function main() {
     console.log(`   落库证据: productId=${first.productId} identityCode=${fetched.identityCode}`);
 
     const projectLink = await prisma.project.findMany({
-      where: { product: { some: { id: first.productId! } } },
+      where: { productId: first.productId! },
       select: { id: true },
     });
     assert.deepEqual(projectLink.map((p) => p.id), [project.id], "产品必须挂回发起它的项目");
