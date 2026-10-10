@@ -141,12 +141,13 @@ async function main() {
     });
     assert.equal(leaked, 0, `失败路径不得留下半拉产品，实际 ${leaked}`);
 
-    console.log("▶ PLB-5 幂等记录实物凭据");
+    console.log("▶ PLB-5 幂等记录实物凭据（仅 CREATED 各留一条，含 PLB-3b 撞码补建）");
     const idemKeyPrefix = `product-rnd-playbook:${org.id}:create-product:`;
     const records = await prisma.idempotencyRecord.findMany({
       where: { key: { startsWith: idemKeyPrefix } },
     });
-    assert.equal(records.length, 2, `两次 CREATED 各留一条幂等记录，实际 ${records.length}`);
+    assert.equal(records.length, 3, `三次 CREATED（PLB-1 / PLB-3a / PLB-3b）各留一条幂等记录，实际 ${records.length}`);
+    assert.equal(new Set(records.map((r) => r.key)).size, 3, "键不得重复");
     for (const rec of records) {
       assert.equal(rec.commandScope, "product-rnd-playbook.create-product");
       assert.equal(rec.actorId, owner.id);
