@@ -5,7 +5,7 @@
  * Pure functions, isomorphic with frontend kern-role-intelligence.ts
  */
 
-export type UserRole = "leadership" | "product" | "sales";
+export type UserRole = "leadership" | "product" | "sales" | "operator";
 export type RoleSource = "manual" | "auto" | "kern" | "default";
 
 export interface RoleInference {
@@ -34,13 +34,21 @@ const SALES_KEYWORDS = [
   "购买", "成交", "转化", "增长", "趋势", "机会", "案例", "脚本"
 ];
 
+const OPERATOR_KEYWORDS = [
+  "操盘手", "操盘", "节奏", "排期", "甘特", "里程碑", "周计划", "卡点", "阻塞",
+  "SLA", "漏斗", "渠道准入", "复盘", "放量", "止损", "试销", "排兵布阵",
+  "关键路径", "缓冲", "协调"
+];
+
 const ROLE_SWITCH_PATTERNS: { pattern: RegExp; role: UserRole }[] = [
   { pattern: /(切换到|切到|改为|改成|用).{0,6}(领导|老板|直观|管理层|高管)/i, role: "leadership" },
   { pattern: /(切换到|切到|改为|改成|用).{0,6}(产品|研发|技术|专业|严谨|工程师)/i, role: "product" },
   { pattern: /(切换到|切到|改为|改成|用).{0,6}(销售|营销|卖点|客户|市场)/i, role: "sales" },
+  { pattern: /(切换到|切到|改为|改成|用).{0,6}(操盘|运营|节奏|排期|甘特)/i, role: "operator" },
   { pattern: /(领导|老板)视角|管理层视角|直观模式/i, role: "leadership" },
   { pattern: /(产品|研发|技术)视角|专业模式|严谨模式|工程师视角/i, role: "product" },
   { pattern: /(销售|营销|卖点)视角|销售模式|客户视角/i, role: "sales" },
+  { pattern: /(操盘|运营)视角|操盘模式|排期视角|节奏视角/i, role: "operator" },
 ];
 
 export function detectRoleSwitchIntent(text: string): UserRole | null {
@@ -56,15 +64,17 @@ export function inferRoleFromText(text: string): RoleInference | null {
   let leadershipScore = 0;
   let productScore = 0;
   let salesScore = 0;
+  let operatorScore = 0;
 
   for (const kw of LEADERSHIP_KEYWORDS) if (t.includes(kw.toLowerCase())) leadershipScore++;
   for (const kw of PRODUCT_KEYWORDS) if (t.includes(kw.toLowerCase())) productScore++;
   for (const kw of SALES_KEYWORDS) if (t.includes(kw.toLowerCase())) salesScore++;
+  for (const kw of OPERATOR_KEYWORDS) if (t.includes(kw.toLowerCase())) operatorScore++;
 
-  const total = leadershipScore + productScore + salesScore;
+  const total = leadershipScore + productScore + salesScore + operatorScore;
   if (total === 0) return null;
 
-  const max = Math.max(leadershipScore, productScore, salesScore);
+  const max = Math.max(leadershipScore, productScore, salesScore, operatorScore);
   const confidence = Math.min(0.95, max / Math.max(3, total) + 0.2);
 
   if (max === leadershipScore) {
@@ -73,13 +83,16 @@ export function inferRoleFromText(text: string): RoleInference | null {
   if (max === productScore) {
     return { role: "product", source: "auto", confidence, reason: `匹配研发关键词 ${productScore}个` };
   }
+  if (max === operatorScore) {
+    return { role: "operator", source: "auto", confidence, reason: `匹配操盘关键词 ${operatorScore}个` };
+  }
   return { role: "sales", source: "auto", confidence, reason: `匹配销售关键词 ${salesScore}个` };
 }
 
 export function inferRoleFromEnvelope(envelope: any): RoleInference | null {
   if (!envelope) return null;
   const suggested = envelope.meta?.suggestedRole || envelope.meta?.audience || envelope.suggestedRole || envelope.audience;
-  if (suggested && ["leadership", "product", "sales"].includes(suggested)) {
+  if (suggested && ["leadership", "product", "sales", "operator"].includes(suggested)) {
     return { role: suggested as UserRole, source: "kern", confidence: 0.9, reason: "Kern 建议的角色" };
   }
   return null;
@@ -97,6 +110,9 @@ export function expertsForRole(role: UserRole): string[] {
     case "sales":
       // 销售营销：市场+成本+产品
       return ["research_agent", "product_agent", "cost_bom_agent", "marketing_agent"];
+    case "operator":
+      // 操盘手：节奏+资源+渠道
+      return ["research_agent", "product_agent", "cost_bom_agent"];
     default:
       return [];
   }
@@ -110,6 +126,8 @@ export function collaborationModeForRole(role: UserRole): string {
       return "COUNCIL"; // 多专家会诊
     case "sales":
       return "PAIR"; // 市场+产品
+    case "operator":
+      return "PAIR"; // 节奏+资源
     default:
       return "SOLO";
   }
