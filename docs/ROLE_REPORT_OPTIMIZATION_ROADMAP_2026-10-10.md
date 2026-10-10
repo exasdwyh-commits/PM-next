@@ -29,11 +29,11 @@ PM-next：Kern 主 Agent 驱动的产品研发操作系统。核心哲学——*
 | B · 操盘手角色（四角色闭环） | #59 | ✅ main@7a8b7e6 | 一轮 CI 四红后修复：4 处穷举角色消费点（教训见 §6） |
 | 拆雷 · role-aware-report 销售假数据 | #60 | ✅ main@c1ac8960 | 批次A同类雷清零 |
 | C · 深度报告先三块（规格/BOM/验证） | #61 | ✅ main@5a83fdb3 | 甲方案 typed 通道已打通；合同测试9用例入 fusion 链 |
-| C+ · 拆 playbook 大雷 | — | ⏳ 在册，拍板开工 | 见 §4 雷① |
+| C+ · 拆 playbook 大雷 | 本批 | ✅ 本批完成 | 75 行假数据整段拆除，7 节点+蓝图改诚实缺省；钳制用例扩编 |
 | D · 知识库静态注入 | — | ⬜ 未开工 | 4 模块结构化+引用标注+回填通道 |
 | E · 收敛固化 | — | ⬜ 未开工 | V1/V2下线、demo收敛、golden全覆盖 |
 
-**下一动作（接手者照做）**：开 `fix/defuse-playbook-fake-data` 拆雷（§4 雷①已给触点）→ 批次 D 知识库 → 数据供给批（P0-1）→ E 收敛。
+**下一动作（接手者照做）**：批次 D 知识库（4 模块结构化+回填通道）→ 数据供给批（P0-1，①②块兑现）→ E 收敛固化。
 
 **快照基线**：main@5a83fdb3（2026-10-10 收工，push CI 11/11 绿）；路线文档本体 #62 已并入 main@2b6e1bb4。
 
@@ -68,7 +68,7 @@ PM-next：Kern 主 Agent 驱动的产品研发操作系统。核心哲学——*
 
 | # | 雷 | 位置 | 处置批次 | 状态 |
 |---|---|---|---|---|
-| ① | `formula_design/cost_optimization/gtm_strategy/product_blueprint` 等节点整片硬编码假数据（10.2元/8.0/7.8/82%/市场200亿…），经生产 API 可达 | `src/modules/product-rnd/playbook.ts`（入口 `src/app/api/playbook/new-product/route.ts`） | **批次 C+（下一批）** | ⏳ 触摸点已侦察，直接开拆 |
+| ① | `formula_design/cost_optimization/gtm_strategy/product_blueprint` 等节点整片硬编码假数据（10.2元/8.0/7.8/82%/市场200亿…），经生产 API 可达 | `src/modules/product-rnd/playbook.ts`（入口 `src/app/api/playbook/new-product/route.ts`） | 批次 C+ | ✅ 已拆：真实 research_ 节点保留；7 个无源节点与蓝图改诚实 BLOCKED（缺什么/如何补齐），全链 status 如实 BLOCKED；`tests/executive-report-deep-contract.test.ts` 防编造钳制用例纳入本文件 |
 | ② | demo 页 mock 假数字 | `src/app/demo-report/page.tsx` | 批次 E（已加「数字为示意」横幅护栏，PR #61） | 🟡 护栏已挂 |
 | ③ | sales keyPoints 硬编码 | `src/modules/supervisor/role-aware-report.ts` | — | ✅ #60 已拆 |
 
