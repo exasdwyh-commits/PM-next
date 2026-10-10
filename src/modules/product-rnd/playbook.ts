@@ -7,6 +7,7 @@ import { executeResearchNode } from "@/modules/supervisor/research-integration";
 import { autoIdentityCode } from "@/modules/products/service";
 import { checkOrRecordIdempotency } from "@/shared/idempotency";
 import prisma from "@/shared/db";
+import { Prisma } from "@prisma/client";
 import { createHash } from "node:crypto";
 
 export type PlaybookNodeKey =
@@ -95,19 +96,33 @@ export async function ensurePlaybookProduct(input: PlaybookInput): Promise<Playb
         // Product 的必填项是 identityCode / targetAudience / marketPath / devMode；
         // Playbook 阶段这些业务字段尚未由用户确认，按已解析信息落最小可用集，
         // 其余留给产品工作台补全（sourceKind=AI_EXTRACTED 标明来源）。
-        const product = await tx.product.create({
-          data: {
-            organizationId: input.organizationId,
-            projects: { connect: { id: input.projectId! } },
-            name: productName,
-            identityCode: autoIdentityCode(productName),
-            targetAudience: input.productIdea.slice(0, 200),
-            marketPath: "PENDING",
-            devMode: "PENDING",
-            sourceKind: "AI_EXTRACTED",
-            ownerId: input.userId,
-          },
-        });
+        // 组织内 identityCode 重复（极小概率随机尾缀撞码）时自动换码重试，
+        // 不把 P2002 当 FAILED 上抛 —— 这是编码策略问题，不是落库失败。
+        const createOnce = async (tx: Prisma.TransactionClient) => {
+          const maxAttempts = 3;
+          for (let attempt = 0; ; attempt += 1) {
+            try {
+              return await tx.product.create({
+                data: {
+                  organizationId: input.organizationId,
+                  projects: { connect: { id: input.projectId! } },
+                  name: productName,
+                  identityCode: autoIdentityCode(productName),
+                  targetAudience: input.productIdea.slice(0, 200),
+                  marketPath: "PENDING",
+                  devMode: "PENDING",
+                  sourceKind: "AI_EXTRACTED",
+                  ownerId: input.userId,
+                },
+              });
+            } catch (error) {
+              const code = (error as { code?: string } | null)?.code;
+              if (code === "P2002" && attempt < maxAttempts - 1) continue;
+              throw error;
+            }
+          }
+        };
+        const product = await createOnce(tx);
         return { status: 200, body: { productId: product.id } };
       }),
     );
