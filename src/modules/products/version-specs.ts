@@ -39,7 +39,12 @@ export interface SpecFieldDef {
   key: string;
   label: string;
   group: SpecGroup;
-  type: SpecFieldType;
+  /**
+   * 类型；有实测证据的既有用法可用联合候选（如既有渠道回归里 targetChannels
+   * 携字符串数组，见 tests/golden-channel-route-persistence）。
+   * 判定：任一候选类型通过即合规，不报首个候选的失败。
+   */
+  type: SpecFieldType | readonly SpecFieldType[];
   /** 口径：含义、单位与不得填的内容。 */
   definition: string;
   /** 允许的来源标注。 */
@@ -70,8 +75,9 @@ export const SPEC_FIELD_DEFS: readonly SpecFieldDef[] = [
     sources: ["MANUAL", "AI_EXTRACTED", "MIGRATED"], required: false, maxChars: 400,
   }),
   FIELD({
-    key: "targetChannels", label: "目标渠道", group: "workbench", type: "text",
-    definition: "首发目标渠道（如 天猫/抖音/线下集合店）；不得写成已上架事实。",
+    key: "targetChannels", label: "目标渠道", group: "workbench", type: ["text", "list"],
+    definition: "首发目标渠道（如 天猫/抖音/线下集合店）；不得写成已上架事实。" +
+      "多型键：入库工作台是字符串，渠道回归流实测为字符串数组——契约承认两种既有形态。",
     sources: ["MANUAL", "AI_EXTRACTED", "MIGRATED"], required: false, maxChars: 200,
   }),
   FIELD({
@@ -289,7 +295,14 @@ export function validateProductSpecs(specs: unknown): SpecsValidation {
       unknownFields.push(def.key);
       continue;
     }
-    const problem = checkValue(def, value);
+    const candidates: readonly SpecFieldType[] = Array.isArray(def.type) ? def.type : [def.type];
+    // 联合类型：任一候选通过即合规；否则报第一个候选的失败（消息里仍可见口径）。
+    let problem: string | null = null;
+    for (const type of candidates) {
+      const attempt = checkValue({ ...def, type }, value);
+      if (!attempt) { problem = null; break; }
+      problem = attempt;
+    }
     if (problem) problems.push(`字段「${def.key}（${def.label}）」${problem}`);
   }
 
