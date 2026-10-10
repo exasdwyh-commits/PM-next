@@ -5,7 +5,9 @@
 
 import { executeResearchNode } from "@/modules/supervisor/research-integration";
 import { autoIdentityCode } from "@/modules/products/service";
+import { checkOrRecordIdempotency } from "@/shared/idempotency";
 import prisma from "@/shared/db";
+import { createHash } from "node:crypto";
 
 export type PlaybookNodeKey =
   | "research_market"
@@ -40,16 +42,70 @@ export interface PlaybookNodeResult {
   durationMs?: number;
 }
 
-export interface PlaybookOutput {
-  missionId: string;
-  productIdea: string;
-  category: string;
-  nodes: PlaybookNodeResult[];
-  blueprint?: any;
+export interface PlaybookProductCreation {
+  status: "CREATED" | "REUSED" | "FAILED" | "NOT_ATTEMPTED";
   productId?: string;
-  status: "SUCCEEDED" | "BLOCKED" | "FAILED";
-  criticalPath: string;
-  totalDurationMs: number;
+  error?: string;
+}
+
+const PRODUCT_CREATION_LABEL: Record<PlaybookProductCreation["status"], string> = {
+  CREATED: "已创建",
+  REUSED: "复用已建产品（幂等重放，未重复建品）",
+  FAILED: "失败",
+  NOT_ATTEMPTED: "未触发（任务未成功或未关联项目）",
+};
+
+/**
+ * 对话确认后的产品落库。三件事必须同时成立（P0/R2）：
+ * 1. 真实落库：结果可查询（productId 回传，route 原文返回）；
+ * 2. 失败可感知：落库失败不能只剩 console.error——状态与错误文本进
+ *    PlaybookOutput.productCreation，随接口与关键路径一起回到对话；
+ * 3. 重复确认幂等：同一 组织×项目×产品构想 重复执行只建一次产品，
+ *    支撑是 IdempotencyRecord（checkOrRecordIdempotency 带唯一键的重放机制）。
+ *
+ * key 形如 `product-rnd-playbook:{orgId}:create-product:{sha256(projectId|productIdea)}`，
+ * 换构想/换项目自然产生新 key；不同操作者复用同 key 时既有守卫会判冲突并在此如实报 FAILED。
+ */
+export async function ensurePlaybookProduct(input: PlaybookInput): Promise<PlaybookProductCreation> {
+  if (!input.projectId) {
+    return { status: "NOT_ATTEMPTED" };
+  }
+  const digest = createHash("sha256")
+    .update(`${input.projectId}|${input.productIdea}`)
+    .digest("hex");
+  const idemKey = `product-rnd-playbook:${input.organizationId}:create-product:${digest}`;
+  const productName = input.productIdea.slice(0, 50);
+  try {
+    const outcome = await prisma.$transaction(async (tx) =>
+      checkOrRecordIdempotency(tx, idemKey, input.userId, "product-rnd-playbook.create-product", digest, async () => {
+        // Product 的必填项是 identityCode / targetAudience / marketPath / devMode；
+        // Playbook 阶段这些业务字段尚未由用户确认，按已解析信息落最小可用集，
+        // 其余留给产品工作台补全（sourceKind=AI_EXTRACTED 标明来源）。
+        const product = await tx.product.create({
+          data: {
+            organizationId: input.organizationId,
+            projects: { connect: { id: input.projectId! } },
+            name: productName,
+            identityCode: autoIdentityCode(productName),
+            targetAudience: input.productIdea.slice(0, 200),
+            marketPath: "PENDING",
+            devMode: "PENDING",
+            sourceKind: "AI_EXTRACTED",
+            ownerId: input.userId,
+          },
+        });
+        return { status: 200, body: { productId: product.id } };
+      }),
+    );
+    return outcome.wasReplayed
+      ? { status: "REUSED", productId: outcome.body.productId }
+      : { status: "CREATED", productId: outcome.body.productId };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    // 兼容收益之外的可感知：抛错文本进 productCreation.error，对话可直接看到。
+    console.error("[product-rnd/playbook] Product creation failed", error);
+    return { status: "FAILED", error: message };
+  }
 }
 
 const NODE_DEPENDENCIES: Record<PlaybookNodeKey, PlaybookNodeKey[]> = {
@@ -247,34 +303,16 @@ export async function executeNewProductPlaybook(input: PlaybookInput): Promise<P
   const blocked = nodes.filter((n) => n.status === "BLOCKED").length;
   const status = failed > 0 ? "FAILED" : blocked > 0 ? "BLOCKED" : "SUCCEEDED";
 
-  // 创建 Product (若成功)
-  let productId: string | undefined;
-  if (status === "SUCCEEDED" && input.projectId) {
-    try {
-      const productName = input.productIdea.slice(0, 50);
-      // Product 的必填项是 identityCode / targetAudience / marketPath / devMode；
-      // 早前这里传了不存在的 category/description/status 字段，落库必然失败。
-      // Playbook 阶段这些业务字段尚未由用户确认，按 playbook 已解析的信息落最小可用集，
-      // 其余留给产品工作台补全（sourceKind=AI_EXTRACTED 标明来源）。
-      const product = await prisma.product.create({
-        data: {
-          organizationId: input.organizationId,
-          projects: { connect: { id: input.projectId } },
-          name: productName,
-          identityCode: autoIdentityCode(productName),
-          targetAudience: input.productIdea.slice(0, 200),
-          marketPath: "PENDING",
-          devMode: "PENDING",
-          sourceKind: "AI_EXTRACTED",
-          ownerId: input.userId,
-        },
-      });
-      productId = product.id;
-    } catch (e) {
-      // Product 创建失败不影响 Playbook 状态
-      console.error("Product creation failed", e);
-    }
-  }
+  // 创建 Product（任务成功且关联项目时）：
+  // - 落库失败可感知（productCreation 字段 + 关键路径文字），不再只剩 console.error；
+  // - 重复执行同一 组织×项目×构想 不再重复建品（ensurePlaybookProduct 的幂等键）。
+  const productCreation: PlaybookProductCreation =
+    status === "SUCCEEDED" && input.projectId ? await ensurePlaybookProduct(input) : { status: "NOT_ATTEMPTED" };
+  const productId = productCreation.productId;
+  const productLine =
+    productCreation.status === "FAILED"
+      ? ` · 产品落库${PRODUCT_CREATION_LABEL.FAILED}：${(productCreation.error ?? "未知错误").slice(0, 120)}`
+      : ` · 产品落库${PRODUCT_CREATION_LABEL[productCreation.status]}${productId ? `（${productId}）` : ""}`;
 
   return {
     missionId: input.missionId,
@@ -283,8 +321,9 @@ export async function executeNewProductPlaybook(input: PlaybookInput): Promise<P
     nodes,
     blueprint: nodes.find((n) => n.nodeKey === "product_blueprint")?.output,
     productId,
+    productCreation,
     status,
-    criticalPath: executionOrder.map((k) => NODE_DESCRIPTIONS[k]).join(" → ") + ` · 总计${Math.round(totalDurationMs / 1000)}s · ${status}`,
+    criticalPath: executionOrder.map((k) => NODE_DESCRIPTIONS[k]).join(" → ") + ` · 总计${Math.round(totalDurationMs / 1000)}s · ${status}` + productLine,
     totalDurationMs,
   };
 }
