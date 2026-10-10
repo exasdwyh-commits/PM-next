@@ -310,3 +310,29 @@
 @media (prefers-reduced-motion: reduce) {
   .op-gbar.now { box-shadow: none; }
 }
+
+/* ===== 批次C 追加：执行层深度报告（deep）===== */
+.err-deep { display: grid; gap: 14px; }
+.deep-head h3 { margin: 0 0 10px; font-size: 15px; font-weight: 700; color: var(--er-ink); }
+.deep-nav { display: flex; flex-wrap: wrap; gap: 6px; }
+.deep-chip { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--er-line); color: var(--er-ink-2, #5B6472); background: var(--er-surface); }
+.deep-chip.ready { background: var(--er-ok-soft); color: var(--er-ok); border-color: var(--er-ok-line); }
+.deep-chip.unknown { background: var(--er-sunk, #F7F8FA); }
+
+.deep-block { background: var(--er-surface); border: 1px solid var(--er-line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 10px; }
+.deep-block h4 { margin: 0; font-size: 14px; font-weight: 700; color: var(--er-ink); }
+.deep-block h4 small { font-weight: 500; color: var(--er-ink-2, #5B6472); }
+.deep-bom td { font-variant-numeric: tabular-nums; }
+.deep-note { color: var(--er-ink-2, #5B6472); font-size: 11px; }
+.deep-nosource { color: var(--er-warn); font-weight: 600; }
+
+.deep-vtotals { display: flex; gap: 8px; flex-wrap: wrap; }
+.deep-gaps { border-top: 1px dashed var(--er-line); padding-top: 8px; font-size: 12px; }
+.deep-gaps strong { color: var(--er-warn); }
+.deep-gaps ul { margin: 6px 0 0; padding-left: 18px; color: var(--er-ink-2, #5B6472); display: grid; gap: 4px; }
+
+/* UNKNOWN 占位块：与不编契约同一语义 */
+.deep-gap { display: grid; gap: 4px; padding: 10px 12px; border: 1px dashed var(--er-warn-line); border-radius: 10px; background: var(--er-warn-soft); font-size: 12px; }
+.deep-gap strong { color: var(--er-warn); }
+.deep-gap small { color: var(--er-ink-2, #5B6472); }
+.deep-unknowns { display: grid; gap: 8px; }
