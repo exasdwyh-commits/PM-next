@@ -10,7 +10,7 @@ import "./role-switch.css";
 import { RoleTools } from "./role-tools";
 import "./role-tools.css";
 
-type Role = "leadership" | "product" | "sales";
+type Role = "leadership" | "product" | "sales" | "operator";
 
 /* 三态标注（系统级契约）：结论只携带事实属性，呈现层只翻译不发明。
  * FACT→事实；INFERENCE/ESTIMATE→推断；其余（含 OPINION/缺失）→UNKNOWN。 */
@@ -143,6 +143,227 @@ function SalesView({ report }: any) {
   );
 }
 
+
+// ===== 操盘手（批次B 新增角色）=====
+// 数据约定：全部来自 report.operator 投影（契约见 executive-report-types.ts）。
+// 原则：缺什么显示什么缺口块，写明缺什么/如何补齐，绝不编造排期、数字或状态。
+
+/** 甘特桶位：12 周分 6 桶，phase.window 用正则解析首个 W 编号映射桶位。 */
+const OP_BUCKETS = ["W1-2", "W3-4", "W5-6", "W7-8", "W9-10", "W11-12"];
+function opBucketIdx(window?: string | null): number {
+  if (!window) return -1;
+  const m = String(window).match(/W\s*(\d{1,2})/i);
+  if (!m) return -1;
+  const n = parseInt(m[1], 10);
+  if (n <= 2) return 0;
+  if (n <= 4) return 1;
+  if (n <= 6) return 2;
+  if (n <= 8) return 3;
+  if (n <= 10) return 4;
+  return 5;
+}
+function opStateCls(state?: string | null): "done" | "now" | "crit" | "plan" {
+  const v = (state || "").toLowerCase();
+  if (v === "done") return "done";
+  if (v === "active") return "now";
+  if (v === "critical") return "crit";
+  return "plan";
+}
+function opSevCls(sev?: string | null): "p0" | "p1" | "p2" {
+  const v = (sev || "").toLowerCase();
+  if (v === "p0" || v === "high") return "p0";
+  if (v === "p1" || v === "medium") return "p1";
+  return "p2";
+}
+function opSlaCls(status?: string | null): "ok" | "tight" | "late" | "unknown" {
+  const v = (status || "").toLowerCase();
+  if (v === "ok") return "ok";
+  if (v === "tight") return "tight";
+  if (v === "late") return "late";
+  return "unknown";
+}
+
+/** 缺口块：已知/缺/补齐三行，和 err-gap 同一诚实契约。 */
+function OpGap({ known, miss, fill }: { known: string; miss: string; fill: string }) {
+  return (
+    <div className="op-gap">
+      <strong>⚠️ 数据缺口</strong>
+      <small>已知：{known}</small>
+      <small>缺：{miss}</small>
+      <small>→ 如何补齐：{fill}</small>
+    </div>
+  );
+}
+
+function OperatorView({ report }: any) {
+  const op = report.operator ?? {};
+  const phases: any[] = op.phases ?? [];
+  const blockers: any[] = op.blockers ?? [];
+  const slas: any[] = op.slas ?? [];
+  const funnel: any[] = op.funnel ?? [];
+  const criteria: any[] = op.criteria ?? [];
+  const currentWeek: string | null = op.currentWeek ?? null;
+
+  return (
+    <div className="err-op">
+      {/* 头部三张简报砖 */}
+      <div className="op-brief">
+        <div className="op-tile">
+          <span>📅 当前节奏</span>
+          {currentWeek ? <strong>{currentWeek}</strong> : <em>UNKNOWN</em>}
+        </div>
+        <div className="op-tile">
+          <span>🚧 进行中阶段</span>
+          <strong>{phases.filter((x: any) => opStateCls(x?.state) === "now").length}</strong>
+        </div>
+        <div className="op-tile">
+          <span>⛔ 未解卡点</span>
+          <strong>{blockers.length}</strong>
+        </div>
+      </div>
+
+      {/* 1. 甘特 */}
+      <section className="op-sec">
+        <h3>🗓️ 排期甘特（按 phase.window 映射 6 桶位）</h3>
+        {phases.length === 0 ? (
+          <OpGap
+            known="envelope 未附带 operator.phases 投影"
+            miss="阶段名/时间窗（如 W1-2)/状态/负责人"
+            fill='让 kern 在回复中产出 operator.phases: [{ name, window:"Wn-m", state, owner }]'
+          />
+        ) : (
+          <div className="op-gantt">
+            <table>
+              <thead>
+                <tr>
+                  <th className="op-gantt-name">阶段</th>
+                  {OP_BUCKETS.map((b) => (
+                    <th key={b} className={currentWeek && b === currentWeek ? "wk is-now" : "wk"}>{b}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {phases.map((ph: any, i: number) => {
+                  const idx = opBucketIdx(ph?.window);
+                  const cls = opStateCls(ph?.state);
+                  return (
+                    <tr key={i}>
+                      <td className="op-gantt-name">
+                        <strong>{ph?.name || "未命名阶段"}</strong>
+                        {ph?.owner ? <small> · {ph.owner}</small> : null}
+                        {idx < 0 && <small className="op-gap-inline">时间窗缺失，未定位桶位</small>}
+                      </td>
+                      {OP_BUCKETS.map((_, bi) => (
+                        <td key={bi} className="wk">{bi === idx ? <span className={`op-gbar ${cls}`} title={ph?.note || ph?.window || ""} /> : null}</td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <small className="op-legend">■ 已完成　■ 进行中　■ 计划　■ 风险　｜ 状态未知一律按计划态弱化展示</small>
+          </div>
+        )}
+      </section>
+
+      {/* 2. 卡点 */}
+      <section className="op-sec">
+        <h3>⛔ 卡点清单</h3>
+        {blockers.length === 0 ? (
+          <OpGap
+            known="envelope 未附带 operator.blockers 投影"
+            miss="卡点标题/严重度（P0-P2)/负责人/预计解除时间"
+            fill='让 kern 产出 operator.blockers: [{ title, severity, owner, eta }]'
+          />
+        ) : (
+          <div className="op-blockers">
+            {blockers.map((b: any, i: number) => (
+              <div key={i} className={`op-alert ${opSevCls(b?.severity)}`}>
+                <span className="op-sev">{(b?.severity || "P2").toString().toUpperCase()}</span>
+                <div>
+                  <strong>{b?.title || "未命名卡点"}</strong>
+                  <small>{[b?.owner && `负责人:${b.owner}`, b?.eta && `预计解除:${b.eta}`, b?.note].filter(Boolean).join("　") || "负责人/解除时间待补"}</small>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* 3. SLA */}
+      <section className="op-sec">
+        <h3>⏱️ SLA 盯防</h3>
+        {slas.length === 0 ? (
+          <OpGap
+            known="envelope 未附带 operator.slas 投影"
+            miss="指标名/目标值/当前值/状态（ok|tight|late)"
+            fill='让 kern 产出 operator.slas: [{ name, target, current, status }]'
+          />
+        ) : (
+          <div className="op-sla">
+            {slas.map((x: any, i: number) => (
+              <div key={i} className="op-sla-row">
+                <span className={`op-chip ${opSlaCls(x?.status)}`}>{opSlaCls(x?.status) === "unknown" ? "UNKNOWN" : (x?.status || "").toString().toUpperCase()}</span>
+                <strong>{x?.name || "未命名指标"}</strong>
+                <small>目标 {x?.target || "—"} ｜ 当前 {x?.current ?? "—"}</small>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* 4. 渠道漏斗 */}
+      <section className="op-sec">
+        <h3>🔻 渠道准入漏斗</h3>
+        {funnel.length === 0 ? (
+          <OpGap
+            known="envelope 未附带 operator.funnel 投影"
+            miss="各阶段名称/数量/转化率"
+            fill='让 kern 产出 operator.funnel: [{ stage, count, rate }]，数据不足允许 count:"—" 显式标缺'
+          />
+        ) : (
+          <div className="err-table-wrap">
+            <table className="err-table err-table-full op-funnel">
+              <thead><tr><th>阶段</th><th>数量</th><th>转化率</th></tr></thead>
+              <tbody>
+                {funnel.map((f: any, i: number) => (
+                  <tr key={i}>
+                    <td>{f?.stage || "未命名阶段"}</td>
+                    <td>{f?.count ?? "—"}</td>
+                    <td>{f?.rate || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* 5. 复盘判据 */}
+      <section className="op-sec">
+        <h3>🧭 复盘判据（放量/止损以事实为准）</h3>
+        {criteria.length === 0 ? (
+          <OpGap
+            known="envelope 未附带 operator.criteria 投影"
+            miss="判据条目/结果/事实等级"
+            fill='让 kern 产出 operator.criteria: [{ item, result, kind:"fact|inference|estimate|unknown" }]'
+          />
+        ) : (
+          <div className="op-crit">
+            {criteria.map((c: any, i: number) => (
+              <div key={i} className="op-crit-row">
+                <ErrEv kind={c?.kind} />
+                <strong>{c?.item || "未命名判据"}</strong>
+                <small>{c?.result || "结果待补"}</small>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
 export function ExecutiveReportRoleBased({
   report,
   onOpenDecisions,
@@ -174,6 +395,7 @@ export function ExecutiveReportRoleBased({
             <button className={activeRole === "leadership" ? "is-active" : ""} onClick={() => { setLocalRole("leadership"); setManualRole("leadership"); }}>👔 领导层</button>
             <button className={activeRole === "product" ? "is-active" : ""} onClick={() => { setLocalRole("product"); setManualRole("product"); }}>🔬 产品研发</button>
             <button className={activeRole === "sales" ? "is-active" : ""} onClick={() => { setLocalRole("sales"); setManualRole("sales"); }}>💼 销售营销</button>
+            <button className={activeRole === "operator" ? "is-active" : ""} onClick={() => { setLocalRole("operator"); setManualRole("operator"); }}>🧭 操盘手</button>
           </div>
           {source !== "manual" && source !== "default" && (
             <small className="role-auto-hint">
@@ -191,6 +413,7 @@ export function ExecutiveReportRoleBased({
       {activeRole === "leadership" && <LeadershipView report={report} onOpenDecisions={onOpenDecisions} onOpenEvidence={onOpenEvidence} />}
       {activeRole === "product" && <ProductView report={report} onOpenDecisions={onOpenDecisions} onOpenEvidence={onOpenEvidence} />}
       {activeRole === "sales" && <SalesView report={report} />}
+      {activeRole === "operator" && <OperatorView report={report} />}
     </div>
   );
 }
