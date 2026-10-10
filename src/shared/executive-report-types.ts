@@ -34,6 +34,69 @@ export interface ExecutiveReportProvenance {
   researchSnapshotRef: string | null;
 }
 
+
+/**
+ * 操盘手角色投影（批次B，纯增量可选字段）。
+ *
+ * 设计约定：
+ * - 全部字段可选：后端 envelope 没有产出该投影时，前端一律渲染「UNKNOWN 缺口块」，
+ *   写明缺什么、如何补齐，绝不编造内容。
+ * - 数据轻嵌在现有 payload 上（report.operator），不动既有字段结构；
+ *   跑顺后再评估是否拆独立任务模型。
+ */
+
+/** 甘特阶段条：window 形如 "W1-2" / "W3-4"，前端按桶位正则映射。 */
+export interface ExecutiveReportOperatorPhase {
+  name?: string | null;
+  /** 例如 "W1-2"、"W3-4"；缺省时视图归入 UNDEFINED 缺口处理。 */
+  window?: string | null;
+  /** done | active | planned | critical；未知/未给一律视为 planned 弱化展示。 */
+  state?: string | null;
+  owner?: string | null;
+  note?: string | null;
+}
+
+/** RAG 式卡点：severity 用 P0/P1/P2 或 high/medium/low，视图统一归一。 */
+export interface ExecutiveReportOperatorBlocker {
+  title?: string | null;
+  severity?: string | null;
+  owner?: string | null;
+  eta?: string | null;
+  note?: string | null;
+}
+
+export interface ExecutiveReportOperatorSla {
+  name?: string | null;
+  target?: string | null;
+  current?: string | null;
+  /** ok | tight | late；未知时前端显示 UNKNOWN 章。 */
+  status?: string | null;
+}
+
+/** 渠道漏斗一层：stage + count/rate，count 允许字符串（后端可能给 "—"）。 */
+export interface ExecutiveReportOperatorFunnelStage {
+  stage?: string | null;
+  count?: string | number | null;
+  rate?: string | null;
+}
+
+/** 复盘判据：通过/未过/待定，带结论三态沿用 claimKind 语义。 */
+export interface ExecutiveReportOperatorCriterion {
+  item?: string | null;
+  result?: string | null;
+  /** fact | inference | estimate | unknown，与结论章共用三态徽章。 */
+  kind?: string | null;
+}
+
+export interface ExecutiveReportOperator {
+  currentWeek?: string | null;
+  phases?: ExecutiveReportOperatorPhase[];
+  blockers?: ExecutiveReportOperatorBlocker[];
+  slas?: ExecutiveReportOperatorSla[];
+  funnel?: ExecutiveReportOperatorFunnelStage[];
+  criteria?: ExecutiveReportOperatorCriterion[];
+}
+
 export interface ExecutiveReportPayload {
   summary?: string | null;
   verificationStatus?: string | null;
@@ -44,6 +107,8 @@ export interface ExecutiveReportPayload {
   recommendedActions?: string[];
   assumptions?: string[];
   advisoryNotes?: ExecutiveReportAdvisoryNote[];
+  /** 操盘手角色投影（可选；缺省时视图显示缺口块，不编数据）。 */
+  operator?: ExecutiveReportOperator;
   provenance?: ExecutiveReportProvenance;
   /** artifact 元信息（渲染头部用） */
   artifactId?: string;

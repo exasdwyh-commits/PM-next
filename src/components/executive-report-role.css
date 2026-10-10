@@ -244,3 +244,69 @@
   .err-role { background: #fff; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none; border-color: var(--er-line); }
   .err-kpi-grid .kpi strong { font-size: 22px; }
 }
+
+/* ===== 批次B 追加：操盘手（operator）角色 ===== */
+.err-role[data-role="operator"] { --er-role: #4F46E5; --er-role-soft: #EEF0FE; --er-role-line: #D9DEFB; }
+
+.err-op { display: grid; gap: 14px; padding: 4px 18px 18px; }
+
+/* 头部三张简报砖 */
+.op-brief { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.op-tile { background: var(--er-surface); border: 1px solid var(--er-line); border-top: 3px solid var(--er-role); border-radius: 10px; padding: 10px 12px; display: grid; gap: 4px; }
+.op-tile span { font-size: 12px; color: var(--er-ink-2, #5B6472); }
+.op-tile strong { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--er-ink); }
+.op-tile em { font-style: normal; font-size: 12px; font-weight: 700; padding: 2px 8px; width: max-content; border-radius: 999px; background: var(--er-warn-soft); color: var(--er-warn); border: 1px solid var(--er-warn-line); }
+
+/* 分区 */
+.op-sec { background: var(--er-surface); border: 1px solid var(--er-line); border-radius: 12px; padding: 12px 14px; }
+.op-sec h3 { margin: 0 0 10px; font-size: 14px; font-weight: 700; color: var(--er-ink); }
+
+/* 甘特 */
+.op-gantt { overflow-x: auto; }
+.op-gantt table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 12px; }
+.op-gantt th, .op-gantt td { border: 1px dashed var(--er-line); padding: 6px 8px; }
+.op-gantt .op-gantt-name { text-align: left; min-width: 180px; background: var(--er-sunk, #F7F8FA); }
+.op-gantt .wk { text-align: center; white-space: nowrap; color: var(--er-ink-2, #5B6472); }
+.op-gantt .wk.is-now { background: var(--er-role-soft); color: var(--er-role); font-weight: 700; }
+.op-gbar { display: block; height: 14px; border-radius: 7px; }
+.op-gbar.done { background: var(--er-ok); }
+.op-gbar.now { background: var(--er-role); box-shadow: 0 0 0 3px var(--er-role-soft); }
+.op-gbar.plan { background: var(--er-role-soft); border: 1px dashed var(--er-role-line); }
+.op-gbar.crit { background: var(--er-bad); }
+.op-legend { display: block; margin-top: 8px; color: var(--er-ink-2, #5B6472); font-size: 11px; }
+.op-gap-inline { color: var(--er-warn); }
+
+/* 卡点 */
+.op-blockers { display: grid; gap: 8px; }
+.op-alert { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--er-line); border-left: 4px solid var(--er-line); background: var(--er-surface); }
+.op-alert.p0 { border-left-color: var(--er-bad); background: var(--er-bad-soft); }
+.op-alert.p1 { border-left-color: var(--er-warn); background: var(--er-warn-soft); }
+.op-alert .op-sev { flex: none; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 6px; background: var(--er-sunk, #F7F8FA); border: 1px solid var(--er-line); }
+.op-alert strong { font-size: 13px; color: var(--er-ink); }
+.op-alert small { display: block; color: var(--er-ink-2, #5B6472); margin-top: 2px; }
+
+/* SLA */
+.op-sla { display: grid; gap: 6px; }
+.op-sla-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--er-line); border-radius: 10px; background: var(--er-surface); font-size: 13px; }
+.op-chip { flex: none; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--er-line); }
+.op-chip.ok { background: var(--er-ok-soft); color: var(--er-ok); border-color: var(--er-ok-line); }
+.op-chip.tight { background: var(--er-warn-soft); color: var(--er-warn); border-color: var(--er-warn-line); }
+.op-chip.late { background: var(--er-bad-soft); color: var(--er-bad); border-color: var(--er-bad-line); }
+.op-chip.unknown { background: var(--er-sunk, #F7F8FA); color: var(--er-ink-2, #5B6472); }
+
+/* 漏斗 */
+.op-funnel td { font-variant-numeric: tabular-nums; }
+
+/* 复盘判据 */
+.op-crit { display: grid; gap: 6px; }
+.op-crit-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border: 1px solid var(--er-line); border-radius: 10px; background: var(--er-surface); font-size: 13px; }
+.op-crit-row small { color: var(--er-ink-2, #5B6472); }
+
+/* 缺口块（与销售 err-gap 同一诚实语义：缺什么/如何补齐） */
+.op-gap { display: grid; gap: 4px; padding: 10px 12px; border: 1px dashed var(--er-warn-line); border-radius: 10px; background: var(--er-warn-soft); font-size: 12px; }
+.op-gap strong { color: var(--er-warn); }
+.op-gap small { color: var(--er-ink-2, #5B6472); }
+
+@media (prefers-reduced-motion: reduce) {
+  .op-gbar.now { box-shadow: none; }
+}
