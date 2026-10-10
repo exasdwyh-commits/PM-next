@@ -97,6 +97,86 @@ export interface ExecutiveReportOperator {
   criteria?: ExecutiveReportOperatorCriterion[];
 }
 
+
+/**
+ * 执行层深度报告（批次 C，report-full 九大块标准结构）。
+ * 原则沿用 operator 投影：全部可选；无实数据时以 sections[].ready=false 表达，
+ * 视图渲染 UNKNOWN 占位并附「如何补齐」，绝不整段消失或编造。
+ */
+
+export interface ExecutiveReportDeepSpecRow {
+  name?: string;
+  value?: string;
+  unit?: string;
+  note?: string;
+  /** 三态沿用结论章语义：FACT / INFERENCE / ESTIMATE / UNKNOWN。 */
+  claimKind?: string;
+  evidenceRef?: string;
+}
+
+export interface ExecutiveReportDeepSpec {
+  title?: string;
+  dosageForm?: string;
+  rows: ExecutiveReportDeepSpecRow[];
+}
+
+export interface ExecutiveReportDeepBomLine {
+  item?: string;
+  /** 数量/单价/合计允许字符串（后端可用 "—" 显式标缺）。 */
+  qty?: number | string;
+  uom?: string;
+  unitCost?: number | string;
+  total?: number | string;
+  /** 价格来源（supplier:xxx / quoteId）；无来源的报价不得出现。 */
+  sourceRef?: string | null;
+  note?: string;
+}
+
+export interface ExecutiveReportDeepBom {
+  currency?: string;
+  /** 口径（如「60 片/瓶 · 批产 N 瓶」）。 */
+  basis?: string;
+  lines: ExecutiveReportDeepBomLine[];
+}
+
+export interface ExecutiveReportDeepValidationItem {
+  claim?: string;
+  /** SUPPORTED / CONTRADICTED / NOT_FOUND / AMBIGUOUS / NO_VERIFICATION。 */
+  latestStatus?: string;
+  checkedAt?: string | null;
+  claimKind?: string;
+  evidenceLevel?: string;
+}
+
+export interface ExecutiveReportDeepValidation {
+  totals?: { claims: number; supported: number; unverified: number };
+  items: ExecutiveReportDeepValidationItem[];
+  /** 未闭合缺口（DataGap/知识债/零证据守卫等去重后的原文）。 */
+  gaps?: string[];
+  qaStatus?: string;
+}
+
+export type ExecutiveReportDeepSectionKey =
+  | "definition" | "bom" | "process" | "quality" | "economics"
+  | "compliance" | "fmea" | "validation" | "appendix";
+
+export interface ExecutiveReportDeepSection {
+  key: ExecutiveReportDeepSectionKey;
+  title: string;
+  /** 有实数据才 true；否则视图渲染 UNKNOWN 占位。 */
+  ready: boolean;
+  /** 缺数据时的「如何补齐」说明（UNKNOWN 占位块用）。 */
+  gap?: string;
+}
+
+export interface ExecutiveReportDeep {
+  spec?: ExecutiveReportDeepSpec;
+  bom?: ExecutiveReportDeepBom;
+  validation?: ExecutiveReportDeepValidation;
+  /** 九块骨架状态（渲染导航与占位块的数据源）。 */
+  sections: ExecutiveReportDeepSection[];
+}
+
 export interface ExecutiveReportPayload {
   summary?: string | null;
   verificationStatus?: string | null;
@@ -109,6 +189,8 @@ export interface ExecutiveReportPayload {
   advisoryNotes?: ExecutiveReportAdvisoryNote[];
   /** 操盘手角色投影（可选；缺省时视图显示缺口块，不编数据）。 */
   operator?: ExecutiveReportOperator;
+  /** 执行层深度报告（可选；缺省时视图渲染九块 UNKNOWN 占位骨架，不编数据）。 */
+  deepReport?: ExecutiveReportDeep;
   provenance?: ExecutiveReportProvenance;
   /** artifact 元信息（渲染头部用） */
   artifactId?: string;
