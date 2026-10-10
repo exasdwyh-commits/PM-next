@@ -44,7 +44,7 @@ function rowOfNode(layout: ReturnType<typeof layoutExecutionFlow>, key: string):
 }
 
 /** 计算线段交叉数：只统计共享端点之外的几何相交。 */
-function crossingCount(layout: ReturnType<typeof layoutExecutionFlow>): number {
+function crossingCount(layout: Pick<ReturnType<typeof layoutExecutionFlow>, "positions" | "edges">): number {
   const byKey = new Map(layout.positions.map((p) => [p.key, p]));
   const segs = layout.edges.map((e) => ({
     from: byKey.get(e.from)!,
