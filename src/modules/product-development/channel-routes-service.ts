@@ -1234,7 +1234,7 @@ export async function transitionChannelRouteStatus(
   const allowed = ROUTE_TRANSITIONS[route.status] || [];
   if (!allowed.includes(targetStatus)) {
     throw new UnprocessableEntityError(
-      `渠道路线状态不能从 ${route.status} 变更为 ${targetStatus}`
+      `渠道路线状态不能从 ${labelChannelSpecRouteStatus(route.status)} 变更为 ${labelChannelSpecRouteStatus(targetStatus)}`
     );
   }
   if (targetStatus === ChannelSpecRouteStatus.REJECTED && !reason) {
