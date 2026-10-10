@@ -93,10 +93,39 @@ async function main() {
     });
     assert.equal(countAfterReplay, 1, `二次确认后店内同名产品应仍为 1，实际 ${countAfterReplay}`);
 
-    console.log("▶ PLB-3 不同构想各自建品：幂等键互不串扰");
+    console.log("▶ PLB-3a 不同构想各自建品：幂等键互不串扰");
     const other = await ensurePlaybookProduct({ ...baseInput, productIdea: "运动后电解质水（R2 对照样品）" });
     assert.equal(other.status, "CREATED");
     assert.notEqual(other.productId, first.productId);
+
+    console.log("▶ PLB-3b 真实入库路径同码对抗：唯一约束与换码重试都在工作（工程证伪）");
+    const { createDevelopmentProduct } = await import("../src/modules/products/service");
+    const session = { userId: owner.id, organizationId: org.id, userEmail: owner.email, userName: owner.name };
+    const ingest = {
+      name: "查重样品产品",
+      coreIdea: "同码查重样品（验证唯一约束）",
+      targetAudience: "测试回归人群",
+      coreSellingPoints: "稳定可查",
+      targetChannels: "回归渠道",
+    } as const;
+    // 入库走组织对+名称生成 identityCode，同名两次必撞同码 → 依靠 service 的换码重试补建。
+    // 两次必须建成且码不同，证明 (organizationId, identityCode) 唯一约束+重试通道真实在守。
+    const ingestedA = await createDevelopmentProduct(session, { ...ingest });
+    const ingestedB = await createDevelopmentProduct(session, { ...ingest });
+    assert.notEqual(
+      ingestedA.product.identityCode,
+      ingestedB.product.identityCode,
+      "两次真实入库必须落出不同的 identityCode",
+    );
+    // playbook 路径同码对抗：换构想=换幂等键，即使 identityCode 前缀相同也能靠换码重试 CREATED。
+    const playbookDup = await ensurePlaybookProduct({ ...baseInput, productIdea: "查重样品产品" });
+    assert.equal(playbookDup.status, "CREATED", `撞码应自动换码建成，实际 ${playbookDup.status} (${playbookDup.error})`);
+    assert.ok(playbookDup.productId, "必须回传真实 productId");
+    const replayDup = await ensurePlaybookProduct({ ...baseInput, productIdea: "查重样品产品" });
+    assert.equal(replayDup.status, "REUSED");
+    assert.equal(replayDup.productId, playbookDup.productId);
+    const dupCount = await prisma.product.count({ where: { organizationId: org.id, name: "查重样品产品" } });
+    assert.equal(dupCount, 3, "同组织同名应按幂等键各成一行（重放不新增）");
 
     console.log("▶ PLB-4 落库前提不成立：失败可感知、不静默、不留半产品");
     const failing = await ensurePlaybookProduct({
