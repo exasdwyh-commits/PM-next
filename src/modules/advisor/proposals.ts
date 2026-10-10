@@ -15,6 +15,7 @@
 import crypto from "crypto";
 import prisma from "@/shared/db";
 import { ConflictError, ForbiddenError, NotFoundError, UnprocessableEntityError } from "@/shared/errors";
+import { labelActionProposalStatus } from "@/shared/status-labels";
 import { OrgRole, Prisma, Role } from "@prisma/client";
 import { SessionContext } from "../identity/session";
 import { createWorkItemInTx } from "../work/service";
@@ -859,7 +860,7 @@ export async function applyProposal(
         throw new UnprocessableEntityError("该提议已过期，不能应用");
       }
       if (proposal.status !== "PENDING_CONFIRMATION") {
-        throw new UnprocessableEntityError(`提议当前状态为 ${proposal.status}，不能应用`);
+        throw new UnprocessableEntityError(`提议当前状态为 ${labelActionProposalStatus(proposal.status)}，不能应用`);
       }
 
       await assertProposalMutationAuthorized(tx, session, {
@@ -1215,7 +1216,7 @@ export async function rejectProposal(
     }
     if (proposal.status !== "PENDING_CONFIRMATION") {
       throw new UnprocessableEntityError(
-        `提议当前状态为 ${proposal.status}，不能拒绝`
+        `提议当前状态为 ${labelActionProposalStatus(proposal.status)}，不能拒绝`
       );
     }
 

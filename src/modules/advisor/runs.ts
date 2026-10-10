@@ -17,6 +17,7 @@
 
 import prisma from "@/shared/db";
 import { NotFoundError, UnprocessableEntityError, ForbiddenError } from "@/shared/errors";
+import { labelAgentRunStatus } from "@/shared/status-labels";
 import { RunMode, AgentRunStatus } from "@prisma/client";
 import { SessionContext } from "../identity/session";
 import { getRuntimeStatus } from "@/shared/runtime-status";
@@ -207,7 +208,7 @@ export async function cancelInteractiveRun(
   // 已完成或已失败的运行不能取消
   const terminalStatuses: AgentRunStatus[] = ["SUCCEEDED", "FAILED", "CANCELLED"];
   if (terminalStatuses.includes(run.status)) {
-    throw new UnprocessableEntityError(`运行已处于终态：${run.status}`);
+    throw new UnprocessableEntityError(`运行已处于终态：${labelAgentRunStatus(run.status)}`);
   }
 
   const cancelledAt = new Date();
@@ -268,7 +269,7 @@ export async function claimRun(
 
   // 检查状态
   if (run.status !== "QUEUED") {
-    throw new UnprocessableEntityError(`运行状态不是 QUEUED：${run.status}`);
+    throw new UnprocessableEntityError(`运行状态不是 QUEUED：${labelAgentRunStatus(run.status)}`);
   }
 
   // 检查 TTL
