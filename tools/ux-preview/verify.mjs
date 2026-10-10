@@ -180,6 +180,9 @@ try {
     await page.locator('.kx-wb-setup-notice').waitFor();
     const text = await page.locator('.kx-wb-setup-notice').innerText();
     assert.ok(text.includes('模型尚未就绪')); assert.ok(text.includes('部分信息暂未更新'));
+    await page.getByRole('heading', { name: '工作空间信息待更新', exact: true }).waitFor();
+    const start = await page.locator('.kx-wb-start').innerText();
+    assert.equal(start.includes('尚未创建产品'), false); assert.equal(start.includes('第一次使用'), false);
     assert.ok((await page.locator('.kx-wb-setup-notice').boundingBox()).y < (await page.locator('.kx-wb-start').boundingBox()).y);
   });
   await choose('project');

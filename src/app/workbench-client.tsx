@@ -24,6 +24,7 @@ import "./workbench.css";
 import { Count, EmptyLine, Tag, type Tone } from "@/components/kx";
 
 const FIRST_PRODUCT_DRAFT = "我想创建第一个产品。请先问我最少必要信息，再帮我整理产品 Brief、关键假设和第一轮验证计划。";
+const CONTINUE_PRODUCT_DRAFT = "我想整理一个产品方向。请先确认目标与已有项目，再帮我梳理关键假设、需要的证据和下一步。";
 const START_EXAMPLES = [
   { title: "评估一个新品方向", hint: "从市场、合规和成本，梳理需要验证的假设。", icon: "flask", prompt: "我想评估一个新品方向。请先询问必要信息，再梳理市场、合规、成本假设；每项判断标注依据，缺少资料的明确写未知。" },
   { title: "做一份竞品调研", hint: "把对比、来源和仍然未知的部分整理清楚。", icon: "search", prompt: "我想做一份竞品调研。请先确认产品方向、目标市场和对比范围，再整理定位、价格和渠道；标注来源，不要编造数据。" },
@@ -199,6 +200,8 @@ export default function WorkbenchClient({
   const doingCount = desktopOverview?.runningCount ?? 0;
   // 已有独立项目（即使还没有产品）不能被误判为第一次使用。
   const isFirstUse = overview.portfolio.productCount === 0 && overview.portfolio.projectCount === 0;
+  // 降级读取中的零计数不证明没有产品或项目，入口可用但不能宣称首次使用。
+  const hasKnownEmptyWorkspace = isFirstUse && !overview.degraded;
   const showNeeds = !isFirstUse || ranked.total > 0 || overview.todos.count > 0 || overview.pendingDecisions.count > 0 || overview.blockers.count > 0;
   const showProducts = !isFirstUse || overview.productsInFlight.count > 0;
   const showAutomation = hasAutomationActivity || doingCount > 0;
@@ -260,8 +263,8 @@ export default function WorkbenchClient({
       <div className="kx-wb">
         <header className="kx-wb-head">
           <div>
-            <h1>{isFirstUse ? "欢迎使用 Kern" : "今日工作"}</h1>
-            <p>{isFirstUse ? "从一个产品想法开始。进度、证据和待办会在这里汇总。" : summary}</p>
+            <h1>{isFirstUse ? hasKnownEmptyWorkspace ? "欢迎使用 Kern" : "工作空间信息待更新" : "今日工作"}</h1>
+            <p>{isFirstUse ? hasKnownEmptyWorkspace ? "从一个产品想法开始。进度、证据和待办会在这里汇总。" : "部分信息暂未更新。可以继续整理目标，恢复后再查看项目与产品进度。" : summary}</p>
           </div>
           {!isFirstUse ? <Link href="/muse" className="hermes-outline-btn kx-wb-talk">
             去和 Kern 说
@@ -287,15 +290,15 @@ export default function WorkbenchClient({
           <>
             <section className="hermes-onboarding kx-wb-start" aria-labelledby="hermes-onboarding-title">
               <div className="kx-wb-start-copy">
-                <div className="kx-wb-start-eyebrow"><span>建立你的产品工作空间</span><Badge tone="info">尚未创建产品</Badge></div>
-                <h2 id="hermes-onboarding-title">第一次使用，三步就够了</h2>
+                <div className="kx-wb-start-eyebrow"><span>建立你的产品工作空间</span><Badge tone="info">{hasKnownEmptyWorkspace ? "尚未创建产品" : "信息暂未完整更新"}</Badge></div>
+                <h2 id="hermes-onboarding-title">{hasKnownEmptyWorkspace ? "第一次使用，三步就够了" : "从一个清晰的目标继续"}</h2>
                 <p>不用先研究 Agent、项目或治理对象。先告诉 Kern 你的产品想法，把模糊的方向变成可验证的下一步。</p>
-                <Link href={`/muse?query=${encodeURIComponent(FIRST_PRODUCT_DRAFT)}`} className="hermes-primary-btn kx-wb-start-cta">
-                  整理第一个产品想法 <Icon name="arrow" size={16} />
+                <Link href={`/muse?query=${encodeURIComponent(hasKnownEmptyWorkspace ? FIRST_PRODUCT_DRAFT : CONTINUE_PRODUCT_DRAFT)}`} className="hermes-primary-btn kx-wb-start-cta">
+                  {hasKnownEmptyWorkspace ? "整理第一个产品想法" : "整理一个产品方向"} <Icon name="arrow" size={16} />
                 </Link>
                 <small className="kx-wb-start-note">先整理目标；发起研究前，请确认模型与执行服务可用。</small>
               </div>
-              <ol className="kx-wb-start-steps" aria-label="首次使用步骤">
+              <ol className="kx-wb-start-steps" aria-label={hasKnownEmptyWorkspace ? "首次使用步骤" : "继续前可检查的事项"}>
                 <li>
                   <div className="kx-wb-start-step is-next"><span aria-hidden>1</span><div><strong>描述产品想法</strong><small>说清目标、受众与约束，Kern 先询问必要信息。</small></div></div>
                 </li>

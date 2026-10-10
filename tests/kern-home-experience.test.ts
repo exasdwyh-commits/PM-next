@@ -225,3 +225,13 @@ test("主动推送的个性化不会给空项目添出 undefined 建议", async 
   assert.equal(data.briefing.projectTitle, undefined);
   assert.ok(data.pushResults.every((result) => !result.detail?.includes("undefined")));
 });
+
+
+test("降级读取的零计数不宣称没有产品、首次使用或要求创建第一个产品", () => {
+  const source = read("src/app/workbench-client.tsx");
+  assert.ok(source.includes("hasKnownEmptyWorkspace = isFirstUse && !overview.degraded"));
+  assert.ok(source.includes('hasKnownEmptyWorkspace ? "尚未创建产品" : "信息暂未完整更新"'));
+  assert.ok(source.includes('hasKnownEmptyWorkspace ? "第一次使用，三步就够了" : "从一个清晰的目标继续"'));
+  assert.ok(source.includes("hasKnownEmptyWorkspace ? FIRST_PRODUCT_DRAFT : CONTINUE_PRODUCT_DRAFT"));
+  assert.ok(source.includes("请先确认目标与已有项目"));
+});
