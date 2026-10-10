@@ -234,6 +234,7 @@ export const STRUCTURED_ARTIFACT_REGISTRY = {
       { name: "risks", kind: "stringArray" },
       { name: "unknowns", kind: "stringArray" },
       { name: "nextActions", kind: "stringArray" },
+      { name: "tokenUsage", kind: "json", nullable: true },
     ],
   },
 } as const satisfies Record<string, StructuredArtifactSpec>;

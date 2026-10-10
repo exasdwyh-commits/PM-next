@@ -1,5 +1,21 @@
 import type { RichBlock } from "../artifacts/rich-blocks";
 import type { KernGraphV1 } from "./contracts";
+import type { TokenUsageRecordInput, TokenUsageSummary } from "../usage/token-usage";
+import {
+  TOKEN_USAGE_NOTICES,
+  formatCostUsd,
+  formatTokenCostLine,
+  formatTokenUsageSummary,
+  normalizeTokenUsageRecords,
+  summarizeTokenUsage,
+  toTokenUsageRecord,
+} from "../usage/token-usage";
+import type { ReportSection } from "./report-format";
+import {
+  PRODUCT_DEVELOPMENT_REPORT_FORMAT,
+  buildReportSection,
+  fitTextToBudget,
+} from "./report-format";
 
 /**
  * 大健康创新简报构建器（纯函数，不访问数据库、不抓网页、不凭空生成市场数字）。
@@ -8,7 +24,11 @@ import type { KernGraphV1 } from "./contracts";
  * 1. 科学证据与市场信号分级展示，FACT / INFERENCE / ASSUMPTION / UNKNOWN 不混用；
  * 2. 研发流程、合规门禁、最小验证和增长闭环串成一条可审计主线；
  * 3. 输出可直接复用现有 kern-ui rich blocks 与 KernGraphV1，做项目方案和成果展示；
- * 4. 健康宣称始终受证据与法规边界约束，本模块不提供医疗建议或法律意见。
+ * 4. 健康宣称始终受证据与法规边界约束，本模块不提供医疗建议或法律意见；
+ * 5. 报告不止复述输入：在证据与市场信号之上，给出产品分析、成本结构、销售机制、
+ *    风险登记册与分阶段营销策略，所有金额与市场数字一律待填写、不臆造；
+ * 6. 报告遵循开品报告标准格式（report-format.ts）：摘要先行、字数预算内收敛，
+ *    并可按公开参考价统计每次模型调用的 token 用量与估算成本（usage/token-usage.ts）。
  */
 
 export type InnovationBasis = "FACT" | "INFERENCE" | "ASSUMPTION" | "UNKNOWN";
@@ -76,6 +96,8 @@ export interface HealthcareInnovationInput {
   unknowns?: string[];
   regulatoryConfirmed?: boolean;
   stopRequested?: boolean;
+  /** 每次模型调用的 token 用量记录（可选；用于报告「Token 与成本统计」章节） */
+  tokenUsage?: TokenUsageRecordInput[] | null;
 }
 
 export interface NormalizedInnovationClaim {
@@ -162,6 +184,87 @@ export interface MarketingPrinciple {
   antiPattern: string;
 }
 
+export interface ProductAnalysis {
+  /** 一句话定位（含目标人群、类目与核心诉求） */
+  positioning: string;
+  /** 价值主张；证据不足时明确指出表达须降级 */
+  valueProposition: string;
+  /** 差异化方向（整体为推断，须经最小市场验证确认） */
+  differentiation: string[];
+  /** 使用场景（基于人群与期望结果推导，待访谈确认） */
+  useScenarios: string[];
+  /** 明确不做什么（来自约束与合规边界） */
+  nonGoals: string[];
+  summary: string;
+}
+
+export interface CostCategory {
+  key: string;
+  label: string;
+  /** 需要调用方补充的具体内容（报价、政策、费用等） */
+  placeholders: string;
+  /** 该类成本的口径或公式提示 */
+  formula: string;
+}
+
+export interface CostStructure {
+  categories: CostCategory[];
+  /** 单位毛利公式 */
+  unitEconomics: string;
+  /** 回本周期公式 */
+  breakEven: string;
+  /** 定价与验证预算前必须补齐的输入 */
+  missingInputs: string[];
+  summary: string;
+}
+
+export interface ChannelOption {
+  channel: string;
+  /** 适合条件 */
+  fitWhen: string;
+  pros: string[];
+  cons: string[];
+  /** 合规提示（广告、资质、宣称边界） */
+  complianceNotes: string[];
+  /** 最小验证方式 */
+  verification: string;
+  basis: InnovationBasis;
+}
+
+export type RiskCategory =
+  | "证据"
+  | "合规"
+  | "市场"
+  | "供应"
+  | "财务"
+  | "隐私伦理"
+  | "声誉"
+  | "运营";
+
+export interface RiskAssessmentRow {
+  risk: string;
+  category: RiskCategory;
+  likelihood: InnovationImpact;
+  impact: InnovationImpact;
+  mitigation: string;
+  /** 负责角色 */
+  owner: string;
+  /** 可观测的触发信号（用于及早止损） */
+  trigger: string;
+  basis: InnovationBasis;
+}
+
+export interface MarketingTactic {
+  /** 与 growthLoop 的阶段 label 对齐 */
+  stage: string;
+  tactic: string;
+  /** 依据的营销原则 */
+  rationale: string;
+  metric: string;
+  guardrail: string;
+  basis: InnovationBasis;
+}
+
 export interface HealthcareInnovationBrief {
   id: string;
   idea: string;
@@ -186,6 +289,22 @@ export interface HealthcareInnovationBrief {
   claims: NormalizedInnovationClaim[];
   marketSignals: NormalizedMarketSignal[];
   notices: string[];
+  /** 产品分析：定位、价值主张、差异化、场景与不做什么 */
+  productAnalysis: ProductAnalysis;
+  /** 成本结构：六类列支与单位经济/回本公式（金额一律待填写） */
+  costStructure: CostStructure;
+  /** 销售机制与渠道建议（推断，须经最小市场验证确认） */
+  salesMechanism: ChannelOption[];
+  /** 风险登记册：类别、可能性、影响、缓解、负责人与触发信号 */
+  riskRegister: RiskAssessmentRow[];
+  /** 分阶段营销策略（与增长闭环阶段对齐） */
+  marketingStrategy: MarketingTactic[];
+  /** 开品报告标准格式章节（摘要先行 + 字数预算内详细层） */
+  reportSections: ReportSection[];
+  /** 执行摘要层（可独立阅读，字数受预算约束） */
+  executiveSummary: string;
+  /** 模型调用 token 用量与估算成本；未提供用量时为 null */
+  tokenUsage: TokenUsageSummary | null;
 }
 
 const BASIS_SET: ReadonlySet<string> = new Set([
@@ -818,6 +937,457 @@ function complianceLabel(gate: ComplianceGate): string {
   return gate === "READY_FOR_REVIEW" ? "可进入人工法规审查" : "待确认";
 }
 
+const COST_CATEGORIES: CostCategory[] = [
+  {
+    key: "rnd",
+    label: "研发与打样",
+    placeholders: "配方开发、打样、感官与稳定性测试费用",
+    formula: "按项目一次性投入填写",
+  },
+  {
+    key: "material",
+    label: "原料与生产代工",
+    placeholders: "原料采购、代工费、最低起订量对应的单位成本",
+    formula: "计入单位完全成本",
+  },
+  {
+    key: "testing",
+    label: "检测认证与备案",
+    placeholders: "第三方检测、备案/注册费用与周期",
+    formula: "按产品类目路径填写",
+  },
+  {
+    key: "packaging",
+    label: "包装与仓储物流",
+    placeholders: "包材、仓储、履约配送费用",
+    formula: "计入单位完全成本",
+  },
+  {
+    key: "channel",
+    label: "渠道佣金与营销",
+    placeholders: "渠道佣金率、广告投放、内容制作费用",
+    formula: "渠道费用率 = 渠道费用 ÷ 销售收入",
+  },
+  {
+    key: "compliance",
+    label: "合规与客服储备",
+    placeholders: "广告审查、标签审核、客服与退款储备",
+    formula: "建议按销售收入比例预留",
+  },
+];
+
+function buildCostStructure(): CostStructure {
+  return {
+    categories: COST_CATEGORIES,
+    unitEconomics: "单位毛利 = 零售价 − 单位完全成本（原料 + 代工 + 包材 + 物流 + 渠道佣金 + 营销分摊）",
+    breakEven: "回本周期 = 固定投入（研发 + 检测 + 备案等一次性费用）÷ 月度毛利",
+    missingInputs: ["零售价与价格带确认", "供应商与代工报价", "检测与备案费用报价", "渠道佣金政策", "广告与内容预算"],
+    summary: "成本分六类列支，金额全部待填写；先用单位毛利与回本周期两条公式约束产品定义。",
+  };
+}
+
+const CHANNEL_LIBRARY: Array<Omit<ChannelOption, "basis">> = [
+  {
+    channel: "私域社群与内容电商",
+    fitWhen: "客单价中等、可沉淀人群、能持续产出合规内容",
+    pros: ["触达精准", "可积累信任资产", "适合最小验证"],
+    cons: ["规模有限", "依赖内容持续产出"],
+    complianceNotes: ["内容须先过广告审查", "保健食品须标明本品不能代替药物", "不得疾病预防/治疗宣称"],
+    verification: "小规模种草并私域成交，记录转化与复购",
+  },
+  {
+    channel: "平台电商",
+    fitWhen: "价格带清晰、可承担平台费用、有评价运营能力",
+    pros: ["流量大", "评价可沉淀"],
+    cons: ["平台扣点高", "退货率敏感"],
+    complianceNotes: ["详情页宣称须先过广告审查", "不得刷单与虚假好评"],
+    verification: "小规模投放链接，观察点击-收藏-加购-成交漏斗",
+  },
+  {
+    channel: "药店与商超终端",
+    fitWhen: "法规路径清晰、有线下铺货与动销能力",
+    pros: ["信任度高", "覆盖家庭采购人群"],
+    cons: ["进场费高", "账期长"],
+    complianceNotes: ["经营资质路径须确认（预包装食品备案或食品经营许可）", "标签与说明书须审核"],
+    verification: "先谈一两家门店做陈列测试，不压货不进量",
+  },
+  {
+    channel: "经销代理",
+    fitWhen: "有区域资源、能承担压货与回款",
+    pros: ["可快速覆盖区域"],
+    cons: ["价格体系难控", "串货与低价风险"],
+    complianceNotes: ["经销商广告物料须统一审核", "不得授权超范围宣称"],
+    verification: "签区域试销协议，约定退货与价格红线",
+  },
+];
+
+function buildSalesMechanism(input: {
+  marketSignals: NormalizedMarketSignal[];
+}): ChannelOption[] {
+  const mentioned = dedupeStrings(
+    input.marketSignals
+      .map((signal) => signal.channel)
+      .filter((channel): channel is string => Boolean(channel)),
+    4,
+  );
+  const scored = CHANNEL_LIBRARY.map((option) => {
+    const hit = mentioned.findIndex(
+      (channel) => option.channel.includes(channel) || channel.includes(option.channel),
+    );
+    return { option, score: hit >= 0 ? 100 - hit : 0 };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 3).map(({ option }) => ({ ...option, basis: "INFERENCE" as const }));
+}
+
+function classifyRiskCategory(risk: string): RiskCategory {
+  if (/法规|广告|宣称|合规|备案|注册|许可|标签/.test(risk)) return "合规";
+  if (/证据|功效|研究|科学|临床/.test(risk)) return "证据";
+  if (/市场|渠道|竞品|转化|留存|复购|投放/.test(risk)) return "市场";
+  if (/隐私|伦理|授权|匿名/.test(risk)) return "隐私伦理";
+  if (/成本|价格|毛利|回本|资金|财务|现金流/.test(risk)) return "财务";
+  if (/供应|原料|工艺|代工|稳定性/.test(risk)) return "供应";
+  if (/声誉|口碑|投诉|舆情|信任/.test(risk)) return "声誉";
+  return "运营";
+}
+
+const RISK_OWNER_BY_CATEGORY: Record<RiskCategory, string> = {
+  证据: "证据研究员",
+  合规: "法规与合规负责人",
+  市场: "增长与渠道负责人",
+  供应: "研发与供应链负责人",
+  财务: "产品负责人与财务",
+  隐私伦理: "法规与合规负责人",
+  声誉: "增长负责人",
+  运营: "项目负责人",
+};
+
+const RISK_TRIGGER_BY_CATEGORY: Record<RiskCategory, string> = {
+  证据: "出现无法溯源或与成品不匹配的功效宣称",
+  合规: "对外物料未通过广告审查时立即停投",
+  市场: "小规模验证的转化、留存低于预设阈值",
+  供应: "核心原料断供或工艺放大后指标失控",
+  财务: "定价会议上无法给出单位毛利与回本测算",
+  隐私伦理: "健康数据采集未做最小化与授权",
+  声誉: "退款率或客诉率异常升高",
+  运营: "里程碑连续延期且无止损动作",
+};
+
+function buildRiskRegister(input: {
+  risks: NormalizedInnovationRisk[];
+  evidence: EvidenceReadiness;
+  market: MarketReadiness;
+  complianceGate: ComplianceGate;
+}): RiskAssessmentRow[] {
+  const rows: RiskAssessmentRow[] = [];
+  const push = (
+    risk: string,
+    impact: InnovationImpact,
+    mitigation: string,
+    likelihood: InnovationImpact,
+    basis: InnovationBasis,
+  ) => {
+    const category = classifyRiskCategory(risk);
+    rows.push({
+      risk,
+      category,
+      likelihood,
+      impact,
+      mitigation,
+      owner: RISK_OWNER_BY_CATEGORY[category],
+      trigger: RISK_TRIGGER_BY_CATEGORY[category],
+      basis,
+    });
+  };
+  if (input.complianceGate === "HOLD") {
+    push("法规与广告宣称边界未确认", "HIGH", "先完成产品类目、备案/注册路径与广告审查", "HIGH", "FACT");
+  }
+  if (input.evidence.strongEvidenceCount < 2) {
+    push("科学证据不足或不匹配成品场景", "HIGH", "补做成品研究、人群研究或调整宣称", "HIGH", "INFERENCE");
+  }
+  if (input.market.verifiedCount < 2) {
+    push("市场信号缺少可追溯验证", "MEDIUM", "补充渠道、人群、竞品与支付意愿验证", "MEDIUM", "INFERENCE");
+  }
+  push(
+    "成本结构未填写，单位毛利与回本周期无法测算",
+    "HIGH",
+    "先完成六类成本列支与供应商报价，再做定价与验证预算",
+    "HIGH",
+    "FACT",
+  );
+  push(
+    "健康人群数据可能涉及隐私与伦理风险",
+    "MEDIUM",
+    "最小化采集、取得授权、匿名化处理并保留删除路径",
+    "MEDIUM",
+    "ASSUMPTION",
+  );
+  for (const risk of input.risks) {
+    push(risk.risk, risk.impact, risk.mitigation ?? "待补充缓解措施", "MEDIUM", risk.basis);
+  }
+  const seen = new Set<string>();
+  const out: RiskAssessmentRow[] = [];
+  for (const row of rows) {
+    if (seen.has(row.risk)) continue;
+    seen.add(row.risk);
+    out.push(row);
+    if (out.length >= 10) break;
+  }
+  return out;
+}
+
+function buildMarketingStrategy(growthLoop: GrowthLoopStage[]): MarketingTactic[] {
+  const tacticByStage: Record<string, { tactic: string; rationale: string }> = {
+    获客: { tactic: "以证据科普内容切入目标人群痛点，同一卖点分渠道投放并比较线索成本", rationale: "证据先于表达 + 可测量复盘" },
+    首次价值: { tactic: "提供清晰的首次使用指引与可感知价值，降低首次决策门槛", rationale: "人群场景驱动" },
+    留存复购: { tactic: "按使用场景设计会员权益与订阅/复购提醒", rationale: "全生命周期运营" },
+    收入与利润: { tactic: "测试定价梯度、组合销售与促销节奏，关注毛利而非单量", rationale: "可测量、可复盘" },
+    口碑推荐: { tactic: "鼓励老客分享真实体验，配合专家科普共创内容", rationale: "信任资产优先" },
+  };
+  return growthLoop.map((stage) => ({
+    stage: stage.label,
+    tactic: tacticByStage[stage.label]?.tactic ?? stage.experiment,
+    rationale: tacticByStage[stage.label]?.rationale ?? "渠道匹配价值",
+    metric: stage.metric,
+    guardrail: stage.guardrail,
+    basis: "INFERENCE" as const,
+  }));
+}
+
+function buildProductAnalysis(input: {
+  idea: string;
+  category: string;
+  targetUser: string;
+  desiredOutcome: string;
+  constraints: string[];
+  claims: NormalizedInnovationClaim[];
+  marketSignals: NormalizedMarketSignal[];
+}): ProductAnalysis {
+  const strongClaims = input.claims.filter(
+    (claim) => claim.basis === "FACT" && (claim.evidenceLevel === "A" || claim.evidenceLevel === "B"),
+  );
+  const positioning = `面向${input.targetUser}的${input.category}产品：「${input.idea}」，期望达成「${input.desiredOutcome}」。`;
+  const valueProposition =
+    strongClaims.length > 0
+      ? `价值主张：以「${strongClaims[0].claim}」为证据支撑（${strongClaims[0].evidenceLevel ?? "未分级"}级），服务「${input.desiredOutcome}」；表达边界以证据等级为准。`
+      : `价值主张：围绕「${input.desiredOutcome}」构建；当前缺少 A/B 级成品证据，功效表达须先降级或暂停。`;
+  const competitors = dedupeStrings(
+    input.marketSignals
+      .map((signal) => signal.competitor)
+      .filter((competitor): competitor is string => Boolean(competitor)),
+    3,
+  );
+  const differentiation: string[] = [];
+  if (strongClaims.length > 0) {
+    differentiation.push(`证据可解释的卖点：「${strongClaims[0].claim}」，须配合适用人群与边界表达`);
+  }
+  for (const competitor of competitors) {
+    differentiation.push(`与竞品「${competitor}」的差异化方向待用户洞察与渠道验证确认`);
+  }
+  differentiation.push("以上差异化均为推断（INFERENCE），须经最小市场验证确认");
+  const useScenarios = [
+    `场景：${input.targetUser}在日常健康管理中需要「${input.desiredOutcome}」；使用频次与剂量待产品定义确认`,
+    "更多真实场景待用户访谈补充，当前场景为假设（ASSUMPTION）",
+  ];
+  const nonGoals = dedupeStrings(
+    [
+      ...input.constraints,
+      "不做疾病预防、治疗类表达",
+      "不做未经证据支撑的功效承诺",
+      "不虚构市场规模与销量数字",
+    ],
+    4,
+  );
+  return {
+    positioning,
+    valueProposition,
+    differentiation: differentiation.slice(0, 4),
+    useScenarios,
+    nonGoals,
+    summary: fitTextToBudget(positioning, 100),
+  };
+}
+
+interface ReportBuildContext {
+  idea: string;
+  targetUser: string;
+  desiredOutcome: string;
+  complianceGate: ComplianceGate;
+  evidenceReadiness: EvidenceReadiness;
+  marketReadiness: MarketReadiness;
+  stagePlan: InnovationStage[];
+  growthLoop: GrowthLoopStage[];
+  riskRegister: RiskAssessmentRow[];
+  unknowns: string[];
+  against: string[];
+  sources: InnovationSource[];
+  claims: NormalizedInnovationClaim[];
+  notices: string[];
+  productAnalysis: ProductAnalysis;
+  costStructure: CostStructure;
+  salesMechanism: ChannelOption[];
+  marketingStrategy: MarketingTactic[];
+  tokenUsage: TokenUsageSummary | null;
+}
+
+function buildReportSections(ctx: ReportBuildContext): ReportSection[] {
+  const specOf = (id: string) => {
+    const spec = PRODUCT_DEVELOPMENT_REPORT_FORMAT.sections.find((item) => item.id === id);
+    if (!spec) fail(`报告格式缺少章节：${id}`);
+    return spec;
+  };
+  const impactZh = (impact: InnovationImpact) => ({ HIGH: "高", MEDIUM: "中", LOW: "低" }[impact]);
+  const { productAnalysis, costStructure, marketReadiness, evidenceReadiness } = ctx;
+
+  const sections: ReportSection[] = [];
+
+  sections.push(
+    buildReportSection(
+      specOf("opportunity"),
+      `机会：「${ctx.idea}」；目标人群 ${ctx.targetUser}；市场信号已核实 ${marketReadiness.verifiedCount} 条。`,
+      [
+        `期望结果：${ctx.desiredOutcome}。`,
+        `市场验证覆盖：${marketReadiness.coverageDimensions.join("、") || "暂无"}；缺口：${marketReadiness.missing.slice(0, 2).join("；") || "无"}。`,
+        "本节不含市场规模与销量估算，数字仅来自输入信号。",
+      ],
+    ),
+  );
+
+  sections.push(
+    buildReportSection(specOf("positioning"), productAnalysis.summary, [
+      productAnalysis.valueProposition,
+      ...productAnalysis.useScenarios.slice(0, 2),
+      `不做什么：${productAnalysis.nonGoals.join("；")}。`,
+    ]),
+  );
+
+  sections.push(
+    buildReportSection(
+      specOf("competition"),
+      `差异化：${productAnalysis.differentiation[0] ?? "待验证"}。`,
+      productAnalysis.differentiation.length > 0
+        ? productAnalysis.differentiation.slice(0, 3)
+        : ["暂无竞品信号，差异化待用户洞察确认。"],
+    ),
+  );
+
+  sections.push(
+    buildReportSection(specOf("cost-structure"), costStructure.summary, [
+      ...costStructure.categories.map((category) => `${category.label}：待填写（${category.placeholders}）；${category.formula}。`),
+      `单位经济：${costStructure.unitEconomics}。`,
+      `回本测算：${costStructure.breakEven}。`,
+    ]),
+  );
+
+  sections.push(
+    buildReportSection(
+      specOf("sales-mechanism"),
+      ctx.salesMechanism.length > 0
+        ? `建议先从「${ctx.salesMechanism[0].channel}」做最小验证；渠道佣金与履约能力待商务确认。`
+        : "暂无渠道建议，先补充市场信号。",
+      ctx.salesMechanism.map(
+        (channel) =>
+          `${channel.channel}：适合「${channel.fitWhen}」；优势${channel.pros.slice(0, 2).join("、")}；注意${channel.cons.slice(0, 2).join("、")}；合规${channel.complianceNotes[0] ?? "待确认"}；先做「${channel.verification}」。`,
+      ),
+    ),
+  );
+
+  sections.push(
+    buildReportSection(
+      specOf("risk-assessment"),
+      `共 ${ctx.riskRegister.length} 项风险，高影响 ${ctx.riskRegister.filter((row) => row.impact === "HIGH").length} 项；首要风险：${ctx.riskRegister[0]?.risk ?? "暂无"}。`,
+      ctx.riskRegister.slice(0, 5).map(
+        (row) =>
+          `${row.risk}（${row.category}；可能性${impactZh(row.likelihood)}、影响${impactZh(row.impact)}）：${row.mitigation}；负责人：${row.owner}；触发信号：${row.trigger}。`,
+      ),
+    ),
+  );
+
+  sections.push(
+    buildReportSection(
+      specOf("marketing-strategy"),
+      `按${ctx.marketingStrategy.map((tactic) => tactic.stage).join("、")}分阶段推进，每阶段绑定指标与合规 guardrail。`,
+      ctx.marketingStrategy.map(
+        (tactic) => `${tactic.stage}：${tactic.tactic}；指标：${tactic.metric}；guardrail：${tactic.guardrail}。`,
+      ),
+    ),
+  );
+
+  sections.push(
+    buildReportSection(
+      specOf("compliance"),
+      `合规门禁：${complianceLabel(ctx.complianceGate)}；当前不宜：${ctx.against[0] ?? "无"}。`,
+      [
+        ...ctx.against.slice(0, 2).map((item) => `不宜：${item}。`),
+        "门禁为 READY_FOR_REVIEW 仅表示可进入人工审查，不代表已批准上市。",
+      ],
+    ),
+  );
+
+  sections.push(
+    buildReportSection(
+      specOf("roadmap"),
+      `共 ${ctx.stagePlan.length} 个阶段串行推进：${ctx.stagePlan.map((stage) => stage.name).join("、")}。`,
+      ctx.stagePlan.slice(0, 6).map(
+        (stage) =>
+          `${stage.name}：交付「${stage.deliverables[0] ?? stage.objective}」；停止条件：${stage.stopConditions[0] ?? "待定义"}。`,
+      ),
+    ),
+  );
+
+  sections.push(
+    buildReportSection(
+      specOf("growth"),
+      `增长闭环覆盖：${ctx.growthLoop.map((stage) => stage.label).join("、")}。`,
+      ctx.growthLoop.map((stage) => `${stage.label}：指标 ${stage.metric}；guardrail ${stage.guardrail}。`),
+    ),
+  );
+
+  sections.push(
+    buildReportSection(
+      specOf("token-cost"),
+      ctx.tokenUsage ? formatTokenCostLine(ctx.tokenUsage) : "未提供模型用量数据，成本统计暂缺。",
+      ctx.tokenUsage
+        ? formatTokenUsageSummary(ctx.tokenUsage).slice(0, 4)
+        : [
+            "在输入中补充 tokenUsage（模型、输入/输出 token 数）后，可自动生成调用次数、用量与估算成本。",
+            ...TOKEN_USAGE_NOTICES.slice(0, 1),
+          ],
+    ),
+  );
+
+  sections.push(
+    buildReportSection(
+      specOf("appendix"),
+      `证据 ${ctx.claims.length} 条（A/B 级 ${evidenceReadiness.strongEvidenceCount} 条）；未知项 ${ctx.unknowns.length} 条；来源 ${ctx.sources.length} 个。`,
+      [
+        ...ctx.unknowns.slice(0, 3).map((item) => `未知：${item}。`),
+        `边界：${ctx.notices[0]}`,
+      ],
+    ),
+  );
+
+  return sections;
+}
+
+function buildBriefExecutiveSummary(input: {
+  recommendation: InnovationRecommendation;
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+  evidence: EvidenceReadiness;
+  market: MarketReadiness;
+  complianceGate: ComplianceGate;
+  tokenUsage: TokenUsageSummary | null;
+}): string {
+  const confidenceZh = { HIGH: "高", MEDIUM: "中", LOW: "低" }[input.confidence];
+  const parts = [
+    `建议：${recommendationLabel(input.recommendation)}（置信度${confidenceZh}）。`,
+    `证据准备度 ${input.evidence.score}/100（${stateLabel(input.evidence.state)}），市场准备度 ${input.market.score}/100（${stateLabel(input.market.state)}），合规门禁：${complianceLabel(input.complianceGate)}。`,
+    `关键缺口：${[...input.evidence.missing, ...input.market.missing].slice(0, 2).join("；") || "暂无关键缺口"}。`,
+  ];
+  if (input.tokenUsage) parts.push(formatTokenCostLine(input.tokenUsage));
+  return fitTextToBudget(parts.join(""), PRODUCT_DEVELOPMENT_REPORT_FORMAT.summaryLayerMaxChars);
+}
+
 export function buildHealthcareInnovationBrief(
   input: HealthcareInnovationInput,
 ): HealthcareInnovationBrief {
@@ -892,6 +1462,65 @@ export function buildHealthcareInnovationBrief(
   });
   const id = cleanOptionalText(input.id, "创新简报 id", 80) ?? `innovation-${hashText(idea)}`;
 
+  const tokenUsageRecords = normalizeTokenUsageRecords(input.tokenUsage).map((record) =>
+    toTokenUsageRecord(record),
+  );
+  const tokenUsage = tokenUsageRecords.length > 0 ? summarizeTokenUsage(tokenUsageRecords) : null;
+  const productAnalysis = buildProductAnalysis({
+    idea,
+    category,
+    targetUser,
+    desiredOutcome,
+    constraints,
+    claims,
+    marketSignals,
+  });
+  const costStructure = buildCostStructure();
+  const salesMechanism = buildSalesMechanism({ marketSignals });
+  const riskRegister = buildRiskRegister({
+    risks: risksInput,
+    evidence: evidenceReadiness,
+    market: marketReadiness,
+    complianceGate,
+  });
+  const stagePlan = buildStagePlan();
+  const growthLoop = buildGrowthLoop();
+  const marketingStrategy = buildMarketingStrategy(growthLoop);
+  const notices = [
+    "本简报用于研发优先级排序与方案讨论，不构成医疗建议、法律意见或上市批准。",
+    "健康功效表达必须绑定证据等级、来源与法规边界。",
+    "准备度评分仅用于内部排序，不等于市场规模或功效结论。",
+  ];
+  const reportSections = buildReportSections({
+    idea,
+    targetUser,
+    desiredOutcome,
+    complianceGate,
+    evidenceReadiness,
+    marketReadiness,
+    stagePlan,
+    growthLoop,
+    riskRegister,
+    unknowns,
+    against,
+    sources,
+    claims,
+    notices,
+    productAnalysis,
+    costStructure,
+    salesMechanism,
+    marketingStrategy,
+    tokenUsage,
+  });
+  const executiveSummary = buildBriefExecutiveSummary({
+    recommendation,
+    confidence,
+    evidence: evidenceReadiness,
+    market: marketReadiness,
+    complianceGate,
+    tokenUsage,
+  });
+
   return {
     id,
     idea,
@@ -905,8 +1534,8 @@ export function buildHealthcareInnovationBrief(
     complianceGate,
     evidenceReadiness,
     marketReadiness,
-    stagePlan: buildStagePlan(),
-    growthLoop: buildGrowthLoop(),
+    stagePlan,
+    growthLoop,
     marketingPrinciples: buildMarketingPrinciples(),
     risks,
     unknowns,
@@ -915,11 +1544,15 @@ export function buildHealthcareInnovationBrief(
     sources,
     claims,
     marketSignals,
-    notices: [
-      "本简报用于研发优先级排序与方案讨论，不构成医疗建议、法律意见或上市批准。",
-      "健康功效表达必须绑定证据等级、来源与法规边界。",
-      "准备度评分仅用于内部排序，不等于市场规模或功效结论。",
-    ],
+    notices,
+    productAnalysis,
+    costStructure,
+    salesMechanism,
+    riskRegister,
+    marketingStrategy,
+    reportSections,
+    executiveSummary,
+    tokenUsage,
   };
 }
 
@@ -1077,6 +1710,84 @@ export function buildHealthcareInnovationRichBlocks(
   }
   blocks.push({ type: "keypoints", title: "关键事实与推断", items: keypoints });
   blocks.push({
+    type: "table",
+    title: "成本结构（金额待填写）",
+    caption: "六类列支；金额全部待填写，本报告不估算具体数字",
+    cols: [{ label: "成本类目" }, { label: "待填写内容" }, { label: "口径" }],
+    rows: brief.costStructure.categories.map((category) => ({
+      cells: [category.label, category.placeholders, category.formula],
+    })),
+  });
+  blocks.push({
+    type: "table",
+    title: "单位经济与回本",
+    cols: [{ label: "项目" }, { label: "说明" }],
+    rows: [
+      { cells: ["单位毛利", brief.costStructure.unitEconomics], pick: true },
+      { cells: ["回本周期", brief.costStructure.breakEven] },
+      { cells: ["待补输入", brief.costStructure.missingInputs.join("；")] },
+    ],
+  });
+  blocks.push({
+    type: "table",
+    title: "销售机制与渠道建议",
+    caption: "渠道建议为推断（INFERENCE），须经最小市场验证确认",
+    cols: [{ label: "渠道" }, { label: "适合条件" }, { label: "优势" }, { label: "注意" }, { label: "合规提示" }],
+    rows: brief.salesMechanism.map((channel) => ({
+      cells: [
+        channel.channel,
+        channel.fitWhen,
+        channel.pros.slice(0, 2).join("、"),
+        channel.cons.slice(0, 2).join("、"),
+        channel.complianceNotes.slice(0, 2).join("；"),
+      ],
+    })),
+  });
+  blocks.push({
+    type: "table",
+    title: "风险评估矩阵",
+    cols: [{ label: "风险" }, { label: "可能性" }, { label: "影响" }, { label: "缓解措施" }, { label: "负责人" }],
+    rows: brief.riskRegister.slice(0, 8).map((row) => ({
+      cells: [row.risk, impactLabel(row.likelihood), impactLabel(row.impact), row.mitigation, row.owner],
+    })),
+  });
+  blocks.push({
+    type: "table",
+    title: "营销策略（分阶段）",
+    cols: [{ label: "阶段" }, { label: "动作" }, { label: "指标" }, { label: "Guardrail" }],
+    rows: brief.marketingStrategy.map((tactic) => ({
+      cells: [tactic.stage, tactic.tactic, tactic.metric, tactic.guardrail],
+    })),
+  });
+  if (brief.tokenUsage) {
+    const tokenSummary = brief.tokenUsage;
+    blocks.push({
+      type: "metrics",
+      title: "Token 与成本统计",
+      items: [
+        { label: "模型调用", value: `${tokenSummary.calls} 次`, basis: "fact" },
+        { label: "总 tokens", value: tokenSummary.totalTokens.toLocaleString("en-US"), basis: "fact" },
+        {
+          label: "输入 / 输出",
+          value: `${tokenSummary.totalInputTokens.toLocaleString("en-US")} / ${tokenSummary.totalOutputTokens.toLocaleString("en-US")}`,
+          basis: "fact",
+        },
+        {
+          label: "预估成本",
+          value:
+            tokenSummary.estimatedCostUsd !== null
+              ? formatCostUsd(tokenSummary.estimatedCostUsd)
+              : `${formatCostUsd(tokenSummary.knownCostUsd)}+`,
+          note:
+            tokenSummary.unknownPricingCalls > 0
+              ? "部分模型定价未知；公开参考价，以账单为准"
+              : "公开参考价，以账单为准",
+          basis: "inference",
+        },
+      ],
+    });
+  }
+  blocks.push({
     type: "callout",
     tone: brief.complianceGate === "HOLD" ? "warn" : "info",
     title: "边界",
@@ -1105,31 +1816,54 @@ export function buildHealthcareInnovationReply(
         return "当前方向不建议继续推进，先归档原因并重新定义机会。";
     }
   })();
-  return [
+  const renderSection = (id: string): string => {
+    const section = brief.reportSections.find((item) => item.id === id);
+    if (!section) return "";
+    return [
+      `### ${section.title}`,
+      section.summary,
+      ...section.details.map((detail) => `- ${detail}`),
+    ].join("\n");
+  };
+  const renderGroup = (title: string, ids: string[]): string =>
+    [`## ${title}`, ...ids.map(renderSection)].filter(Boolean).join("\n\n");
+  const parts: string[] = [
     `结论：${recommendationSentence}`,
     `证据准备度 ${brief.evidenceReadiness.score}/100（${stateLabel(brief.evidenceReadiness.state)}），市场准备度 ${brief.marketReadiness.score}/100（${stateLabel(brief.marketReadiness.state)}），合规门禁：${complianceLabel(brief.complianceGate)}。`,
-    "## 结论与准备度",
-    `**机会：** ${brief.idea}`,
-    `**目标人群：** ${brief.targetUser}`,
-    `**期望结果：** ${brief.desiredOutcome}`,
-    `**当前建议：** ${recommendationLabel(brief.recommendation)}`,
-    "## 研发流程",
-    brief.stagePlan
-      .map((stage, index) => `${index + 1}. **${stage.name}**：${stage.objective}`)
-      .join("\n"),
-    "## 增长与营销",
-    brief.marketingPrinciples
-      .map((principle) => `- **${principle.principle}**：${principle.practice}`)
-      .join("\n"),
-    "## 风险、未知与下一步",
-    "**风险**",
-    ...brief.risks.slice(0, 5).map((risk) => `- ${risk.risk}（影响${impactLabel(risk.impact)}）`),
-    "**未知**",
-    ...brief.unknowns.slice(0, 5).map((item) => `- ${item}`),
-    "**下一步**",
-    ...brief.nextActions.map((action, index) => `${index + 1}. ${action}`),
-    ...blocks.map(blockFence),
-  ].join("\n\n");
+    "## 执行摘要",
+    brief.executiveSummary,
+    ...(brief.tokenUsage
+      ? []
+      : ["- 模型成本：未提供 token 用量数据，暂无法估算；在输入中补充 tokenUsage 后自动生成。"]),
+    renderGroup("产品分析", ["opportunity", "positioning", "competition"]),
+    renderGroup("成本与销售机制", ["cost-structure", "sales-mechanism"]),
+    renderGroup("风险评估", ["risk-assessment"]),
+    [
+      "## 研发流程",
+      brief.stagePlan
+        .map((stage, index) => `${index + 1}. **${stage.name}**：${stage.objective}`)
+        .join("\n"),
+    ].join("\n"),
+    renderGroup("增长与营销", ["growth", "marketing-strategy"]),
+    [
+      "### 营销原则",
+      brief.marketingPrinciples
+        .map((principle) => `- **${principle.principle}**：${principle.practice}`)
+        .join("\n"),
+    ].join("\n"),
+    renderGroup("合规边界", ["compliance"]),
+    ...(brief.tokenUsage ? [renderGroup("Token 与成本统计", ["token-cost"])] : []),
+    renderGroup("附录：证据、未知与下一步", ["appendix"]),
+    [
+      "### 下一步",
+      ...brief.nextActions.map((action, index) => `${index + 1}. ${action}`),
+    ].join("\n"),
+  ];
+  let markdown = parts.filter(Boolean).join("\n\n");
+  if (markdown.length > PRODUCT_DEVELOPMENT_REPORT_FORMAT.maxBodyChars) {
+    markdown = `${fitTextToBudget(markdown, PRODUCT_DEVELOPMENT_REPORT_FORMAT.maxBodyChars)}\n\n> 报告正文超出字数预算，已按句边界收敛；完整结构化内容见简报字段与下方 kern-ui 块。`;
+  }
+  return [markdown, ...blocks.map(blockFence)].join("\n\n");
 }
 
 export function buildHealthcareInnovationGraph(
@@ -1269,5 +2003,6 @@ export function toHealthcareInnovationArtifactBusinessInput(
     risks: brief.risks.map((risk) => risk.risk),
     unknowns: brief.unknowns,
     nextActions: brief.nextActions,
+    tokenUsage: brief.tokenUsage,
   };
 }

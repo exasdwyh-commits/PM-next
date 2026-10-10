@@ -118,9 +118,45 @@ const artifactBusinessInput = toHealthcareInnovationArtifactBusinessInput(brief)
 
 推荐增长指标包括：有效触达成本、首单转化率、30/60/90 日留存、复购率、客单价、毛利率、渠道费用率、回本周期、退款率、客诉率、推荐率和内容复访率。具体目标值必须来自真实业务预算和实验设计，不能由本模块编造。
 
+## 报告深度：不止复述输入
+
+简报在证据与市场信号之上，追加四类有决策价值的分析（全部纯函数推导，数字一律待填写、不臆造）：
+
+- **产品分析**（`productAnalysis`）：一句话定位、价值主张（绑定 A/B 级证据；证据不足时明确指出表达须降级）、差异化方向（标注推断）、使用场景与明确不做什么。
+- **成本结构与盈利模型**（`costStructure`）：六类列支（研发打样、原料代工、检测认证备案、包装仓储物流、渠道佣金营销、合规客服储备），每类给出待填写内容与口径；另给两条公式——单位毛利 = 零售价 − 单位完全成本，回本周期 = 固定投入 ÷ 月度毛利。
+- **销售机制与渠道建议**（`salesMechanism`）：按市场信号里的渠道优先排序，给出私域社群/内容电商、平台电商、药店商超、经销代理等选项的适合条件、优劣势、合规提示与最小验证方式；整体标注 INFERENCE。
+- **风险登记册**（`riskRegister`）：在原有风险列表之上，追加类别（证据/合规/市场/供应/财务/隐私伦理/声誉/运营）、可能性、影响、缓解措施、负责人与可观测触发信号；成本未填写恒记为一条财务高风险。
+- **营销策略**（`marketingStrategy`）：按获客、首次价值、留存复购、收入与利润、口碑推荐五阶段给出具体动作，每条绑定指标、guardrail 与依据的营销原则。
+
+## 开品报告格式与防截断
+
+报告遵循 `docs/PRODUCT_DEVELOPMENT_REPORT_FORMAT.md` 定义的开品报告标准格式（`report-format.ts`）：
+
+- 报告被组织为 12 个固定章节（`reportSections`），每章有字数预算；`validateReportSections` 可独立校验。
+- 回复采用「执行摘要先行 + 分组详细展开」两层结构：执行摘要（≤400 字）可独立阅读，每章首句是该章摘要，只读首句即可掌握全文。
+- 正文整体收敛在 8000 字预算内（`PRODUCT_DEVELOPMENT_REPORT_FORMAT.maxBodyChars`）；超出时在句边界截断并追加说明，避免半句截断。
+- `REPORT_OUTPUT_CONTRACT` 是给生成型任务 agent 的输出契约文本，可直接拼入提示词约束输出篇幅与结构。
+
+## Token 与成本统计
+
+在输入里提供 `tokenUsage`（每次模型调用的模型、用途、输入/输出 token 数），报告会自动生成「Token 与成本统计」章节：
+
+- 调用次数、总 tokens（输入/输出拆分）、分模型用量；
+- 按厂商公开参考价估算美元成本（`src/modules/usage/token-usage.ts`，2026-10 核对）；未收录定价的模型不估算、不计入合计；
+- 口径恒标注「公开参考价，实际以账单为准」；未提供用量时明确写「未提供」，不得估算。
+
+```ts
+const brief = buildHealthcareInnovationBrief({
+  // ...其他输入
+  tokenUsage: [
+    { model: "gpt-4o", purpose: "创新简报生成", inputTokens: 8000, outputTokens: 4345 },
+  ],
+});
+```
+
 ## 项目成果展示
 
-`buildHealthcareInnovationReply` 使用现有 `kern-ui` rich blocks 输出决策、准备度、流程、策略对比、风险、来源、未知项、下一步和关键事实；`buildHealthcareInnovationGraph` 输出 `kern-graph/v1`，可复用现有项目图谱卡片展示已确认、推断和未知关系。
+`buildHealthcareInnovationReply` 使用现有 `kern-ui` rich blocks 输出决策、准备度、流程、策略对比、成本结构表、单位经济与回本表、渠道建议表、风险评估矩阵表、分阶段营销策略表、Token 成本指标、风险、来源、未知项、下一步和关键事实；`buildHealthcareInnovationGraph` 输出 `kern-graph/v1`，可复用现有项目图谱卡片展示已确认、推断和未知关系。
 
 `toHealthcareInnovationArtifactBusinessInput` 可作为 `HEALTHCARE_INNOVATION_BRIEF` 结构化成果的业务字段。写入结构化成果时仍必须走服务端信封：组织、项目、来源、指纹、数据性质、记录人和确认状态由服务端推导，不能由模型或请求体自行伪造。
 
