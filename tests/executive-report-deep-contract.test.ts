@@ -12,6 +12,13 @@ import {
   composeDeepReport,
   pickTaskDeep,
 } from "../src/modules/product-rnd/deep-report";
+import {
+  buildDeepSpecFromQuotes,
+  buildDeepBomFromQuotes,
+  normalizeQuoteRows,
+  MISSING_MARK,
+  type LoadedQuote,
+} from "../src/modules/product-rnd/supplier-quotes";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -145,4 +152,125 @@ test("deep report view renders UNKNOWN placeholders and three-state badges", () 
   assert.ok(src.includes("deep-gap"), "缺 UNKNOWN 占位块渲染");
   assert.ok(src.includes("deepReport"), "视图未消费 deepReport 契约");
   assert.ok(src.includes("ErrEv"), "三态徽章复用缺失");
+});
+
+// ─────────────────────────────────────────────
+// 5. P0-1 数据供给：真实资料点亮 ①② 块
+//
+// 这两块此前「很诚实地空着」——不是渲染缺陷，而是根本没有真实输入。
+// 本组用例守住两件事：有真实资料时必须点亮且每行带来源锚点；
+// 没有资料或某项缺数据时必须原样标缺，绝不回填 0 / 估算值。
+// ─────────────────────────────────────────────
+
+/** 造一条已入库的报价 / 规格行（字段与 loadProjectQuotes 的返回形状一致）。 */
+function fixtureQuote(
+  overrides: Partial<LoadedQuote> & { evidenceId: string; kind?: "SPEC" | "PRICE" }
+): LoadedQuote {
+  const evidenceId = overrides.evidenceId;
+  return {
+    id: `quote-${evidenceId}`,
+    organizationId: "org-1",
+    projectId: "project-1",
+    kind: overrides.kind ?? "SPEC",
+    supplier: null,
+    item: "原料A",
+    spec: null,
+    uom: null,
+    moq: null,
+    unitPrice: null,
+    currency: "CNY",
+    quotedAt: null,
+    note: null,
+    createdById: "user-1",
+    createdAt: new Date("2026-10-11T00:00:00Z"),
+    updatedAt: new Date("2026-10-11T00:00:00Z"),
+    evidence: {
+      id: evidenceId,
+      source: "供应商报价单",
+      verifyStatus: "UNVERIFIED",
+      originalFilename: "quote.pdf",
+      obtainedAt: new Date("2026-10-11T00:00:00Z"),
+    },
+    ...overrides,
+    // 放在最后：evidenceId 是本夹具的唯一来源锚点，不允许被 overrides 意外改写，
+    // 否则「每行带来源锚点」这条断言就失去意义。
+    evidenceId,
+  } as LoadedQuote;
+}
+
+test("P0-1: 真实规格资料点亮 ① 定义与规格块，每行必须带来源锚点", () => {
+  const spec = buildDeepSpecFromQuotes([
+    fixtureQuote({ evidenceId: "ev-1", kind: "SPEC", item: "每片重量", spec: "0.5", uom: "g" }),
+    fixtureQuote({ evidenceId: "ev-2", kind: "SPEC", item: "剂型", spec: "咀嚼片" }),
+  ]);
+  assert.ok(spec);
+  assert.equal(spec.rows.length, 2);
+  assert.equal(spec.rows[0].evidenceRef, "evidence:ev-1");
+  assert.equal(spec.rows[0].claimKind, "FACT", "来自真实资料的数字应标记为 FACT");
+
+  const deep = composeDeepReport({ spec });
+  const state = Object.fromEntries(deep.sections.map((s) => [s.key, s.ready]));
+  assert.equal(state.definition, true, "① 块应被真实规格资料点亮");
+  assert.equal(state.bom, false, "② 块无报价资料，必须保持 UNKNOWN");
+});
+
+test("P0-1: 真实报价点亮 ② BOM 块，行合计恒为标缺（无用量不算账）", () => {
+  const bom = buildDeepBomFromQuotes([
+    fixtureQuote({
+      evidenceId: "ev-3", kind: "PRICE", item: "赤藓糖醇",
+      unitPrice: 12.5, uom: "kg", moq: "500kg 起",
+    }),
+    fixtureQuote({ evidenceId: "ev-4", kind: "PRICE", item: "包材-瓶" }),
+  ]);
+  assert.ok(bom);
+  assert.equal(bom.lines.length, 2);
+  assert.equal(bom.lines[0].sourceRef, "evidence:ev-3");
+  assert.equal(bom.lines[0].unitCost, 12.5);
+  // 报价单没有用量 → 算行合计必须假设用量，那是编不是算，故一律显式标缺。
+  assert.equal(bom.lines[0].total, MISSING_MARK);
+
+  const deep = composeDeepReport({ bom });
+  const state = Object.fromEntries(deep.sections.map((s) => [s.key, s.ready]));
+  assert.equal(state.bom, true, "② 块应被真实报价点亮");
+});
+
+test("P0-1: 无真实资料时 ①② 块保持 UNKNOWN（不点亮、不编造）", () => {
+  assert.equal(buildDeepSpecFromQuotes([]), undefined);
+  assert.equal(buildDeepBomFromQuotes([]), undefined);
+  const deep = composeDeepReport({
+    spec: buildDeepSpecFromQuotes([]),
+    bom: buildDeepBomFromQuotes([]),
+  });
+  assert.ok(deep.sections.every((s) => s.ready === false));
+});
+
+test("P0-1: 报价行不得凭空生成数字（无单价即标缺）", () => {
+  const bom = buildDeepBomFromQuotes([
+    fixtureQuote({ evidenceId: "ev-5", kind: "PRICE", item: "原料X" }),
+  ]);
+  assert.ok(bom);
+  for (const line of bom.lines) {
+    assert.equal(line.unitCost, MISSING_MARK, `不得给 ${line.item} 凭空填单价`);
+    assert.equal(line.total, MISSING_MARK);
+  }
+});
+
+test("P0-1: 录入行校验拒绝空 item / 负单价 / 非法日期 / 超额行", () => {
+  assert.throws(() => normalizeQuoteRows("not-array"), /rows 必须是数组/);
+  assert.throws(() => normalizeQuoteRows([]), /rows 不能为空/);
+  assert.throws(() => normalizeQuoteRows([{ item: "   " }]), /缺少 item/);
+  assert.throws(() => normalizeQuoteRows([{ item: "A", unitPrice: -1 }]), /unitPrice 不能为负数/);
+  assert.throws(() => normalizeQuoteRows([{ item: "A", quotedAt: "上周" }]), /quotedAt 不是合法日期/);
+  assert.throws(
+    () => normalizeQuoteRows(Array.from({ length: 201 }, () => ({ item: "A" }))),
+    /rows 最多 200 行/
+  );
+
+  const ok = normalizeQuoteRows([
+    { item: " 赤藓糖醇 ", unitPrice: "12.5", quotedAt: "2026-10-01", spec: "食品级" },
+  ]);
+  assert.equal(ok.length, 1);
+  assert.equal(ok[0].item, "赤藓糖醇");
+  assert.equal(ok[0].unitPrice, 12.5);
+  assert.ok(ok[0].quotedAt instanceof Date);
 });

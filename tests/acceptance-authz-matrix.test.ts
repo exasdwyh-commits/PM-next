@@ -344,6 +344,30 @@ async function main() {
       originalFilename: "matrix.txt",
     },
   });
+  // P0-1 真实报价通道夹具：由 ownerA 本人录入，因此 owner 身份可删（验证「本人或 OWNER」口径），
+  // 其余身份一律 403。锚定 evidenceA —— 报价行必须挂真实资料，夹具也照此约束。
+  const supplierQuoteA = await prisma.supplierQuote.create({
+    data: {
+      organizationId: orgA.id,
+      projectId: projectA.id,
+      evidenceId: evidenceA.id,
+      kind: "PRICE",
+      supplier: "MATRIX_FIXTURE",
+      item: `${MARK} 原料`,
+      currency: "CNY",
+      createdById: ownerA.id,
+    },
+  });
+  // 成本情景夹具：此前 RESOLVERS 缺 /api/cost/scenarios/ 解析项，矩阵跑到该段就
+  // 抛「无法解析路由占位符」而异常终止，后面所有路由（含新增的报价通道）根本没被断言。
+  const costScenarioA = await prisma.costScenario.create({
+    data: {
+      organizationId: orgA.id,
+      name: `${MARK} 情景`,
+      productName: `${MARK} 产品`,
+      createdBy: ownerA.id,
+    },
+  });
   const feedbackA = await prisma.feedback.create({
     data: { projectId: projectA.id, targetType: "PROJECT", targetId: projectA.id, authorId: viewerA.id, content: `${MARK} 反馈`, topics: [] },
   });
@@ -562,6 +586,10 @@ async function main() {
     [/^\/api\/connectors\//, connectorA.id],
     [/^\/api\/schedules\//, scheduleA.id],
     [/^\/api\/playbooks\//, playbookA.id],
+    // P0-1：真实报价通道。放在最后 —— 前面的 projects/ 等前缀都不匹配它，顺序上无歧义。
+    [/^\/api\/supplier-quotes\//, supplierQuoteA.id],
+    // 成本情景：补上后矩阵才能跑过该段（此前缺项导致异常终止）。
+    [/^\/api\/cost\/scenarios\//, costScenarioA.id],
   ];
   const expand = (template: string): string => {
     if (!template.includes("{")) return template;
@@ -690,6 +718,9 @@ async function main() {
     // 顺序按外键依赖：先删引用方，再删被引用方
     // AnalysisRun.productVersionId / LaunchPlan.projectId·productId / Project.ownerId
     // / AuditEvent.actorId / AgentRun.userId / AgentTask.agentId 均为 restrict，必须显式先删
+    // P0-1 报价行外键到 Evidence/Project/User 都是 Cascade，但显式先删更稳（避免依赖级联顺序）
+    await prisma.supplierQuote.deleteMany({ where: { organizationId: { in: orgIds } } });
+    await prisma.costScenario.deleteMany({ where: { organizationId: { in: orgIds } } });
     await prisma.analysisRun.deleteMany({ where: { productVersion: { product: { organizationId: { in: orgIds } } } } });
     await prisma.launchPlan.deleteMany({ where: { organizationId: { in: orgIds } } });
     await prisma.artifact.deleteMany({ where: { workItem: { projectId: { in: projectIds } } } });

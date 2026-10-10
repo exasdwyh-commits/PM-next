@@ -657,6 +657,43 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     crossTenant: true,
   },
 
+  // ---------- P0-1 真实报价 / 资料入库通道 ----------
+  {
+    path: "/api/projects/{id}/supplier-quotes",
+    method: "GET",
+    authz: "已入库报价行：项目成员可读（跨组织必须看不到他组织行）",
+    expect: { anon: [401], foreign: [403], outsider: [403], viewer: [200] },
+    ownerGate: [200],
+    crossTenant: true,
+  },
+  {
+    path: "/api/projects/{id}/supplier-quotes",
+    method: "POST",
+    authz: "报价行结构化录入：需项目写角色（授权在 body 校验之前）",
+    expect: { anon: [401], foreign: [403], outsider: [403], viewer: [403] },
+    /**
+     * 断言 422 而不是 NOT_DENIED：矩阵夹具没有可作为 evidenceId 的证据占位符，
+     * 而本端点要求每行锚定真实资料。这里让 rows 为空触发 422 ——
+     * 422 出现在 requireProjectRole **之后**，同样证明「门禁已开」。
+     * （真正录入成功的正向链路在契约测试里覆盖，不依赖本矩阵的夹具。）
+     */
+    ownerGate: [422],
+    body: { evidenceId: "{{RUN_TAG}}-evidence", kind: "SPEC", rows: [] },
+    crossTenant: true,
+  },
+  {
+    path: "/api/supplier-quotes/{id}",
+    method: "DELETE",
+    authz: "删除报价行：仅限创建者本人或项目 OWNER",
+    /**
+     * foreign 是 404 不是 403：跨组织一律按「不存在」处理，不泄露资源存在性。
+     * outsider（同组织非项目成员）走到角色校验 → 403。
+     */
+    expect: { anon: [401], foreign: [404], outsider: [403], viewer: [403] },
+    /** 夹具由 owner 本人录入，故 owner 真删成功（200）—— 这是「本人可删」的正向验证。 */
+    ownerGate: [200],
+  },
+
   // ---------- 项目 ----------
   {
     path: "/api/projects",

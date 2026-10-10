@@ -82,6 +82,9 @@ model Organization {
   channelRuleProfiles  ChannelRuleProfileRecord[]
   channelSpecRoutes    ChannelSpecRoute[]
   potentialAssessments PotentialAssessmentRecord[]
+
+  // P0-1 真实报价 / 资料入库通道
+  supplierQuotes SupplierQuote[]
 }
 
 /**
@@ -216,6 +219,9 @@ model User {
   kernSchedules   KernSchedule[]
   kernPlaybooks   KernPlaybook[]
 
+  // P0-1 真实报价 / 资料入库通道
+  supplierQuotesCreated SupplierQuote[] @relation("SupplierQuoteCreator")
+
   @@index([organizationId, isSystem])
   @@index([organizationId])
 }
@@ -303,6 +309,8 @@ model Project {
   researchRuns    ResearchRun[]
   launchPlans     LaunchPlan[]
   knowledgeDebts  KnowledgeDebt[]
+  // P0-1：真实报价 / 规格资料行（深度报告 ①② 块的数据来源）
+  supplierQuotes  SupplierQuote[]
 
   @@index([organizationId])
   @@index([ownerId])
@@ -840,6 +848,8 @@ model Evidence {
   claims         EvidenceClaim[]
   sourceCaptures EvidenceSourceCapture[]
   resolvingGap   DataGap[]       @relation("GapResolvedByEvidence")
+  /// P0-1：由本资料结构化出来的报价 / 规格行（反向锚点，便于「来源→落库行」追溯）
+  supplierQuotes SupplierQuote[]
 
   @@index([projectId])
   @@index([nature])
@@ -3157,6 +3167,69 @@ model CostScenarioApproval {
   @@index([scenarioId])
   @@index([organizationId])
   @@index([status])
+}
+
+// -------------------------------------------------------------
+// P0-1 真实报价 / 资料入库通道（数据供给侧）
+// -------------------------------------------------------------
+
+/**
+ * 报价行用途：区分「规格 / 检测资料」与「价格资料」。
+ * 两者都是**真实上传资料的结构化行**，但分别点亮深度报告的不同块：
+ * SPEC → ① 产品定义与规格（formulation_agent）；PRICE → ② 配方与 BOM 成本（cost_bom_agent）。
+ */
+enum SupplierQuoteKind {
+  SPEC
+  PRICE
+}
+
+/**
+ * 供应商报价 / 规格资料行（P0-1 数据供给通道）
+ *
+ * 铁律（与全仓诚实口径一致，改动前先读这三行）：
+ * 1. **每行必须锚定一条真实 Evidence**：evidenceId 必填且必须属于同一项目。
+ *    没有来源的报价行不允许落库 —— 这正是本通道区别于「手填估算」的地方，
+ *    也是深度报告 ①② 块敢把数字显示出来的唯一理由。
+ * 2. **数值一律可空**：单价 / 数量没有资料支撑时保持 null，视图显式标缺，
+ *    绝不用默认值、区间中值或行业经验填充（雷① 的教训：宁可空着，不能编）。
+ * 3. 只有 `item`（物料 / 规格项名称）是必填主键，其余字段缺即缺，如实记录。
+ */
+model SupplierQuote {
+  id             String            @id @default(uuid())
+  organizationId String
+  projectId      String
+  /// 来源锚点：指向本项目内一条真实上传资料（报价单 / 检测报告 / 供应商资料）
+  evidenceId     String
+  kind           SupplierQuoteKind
+  /// 供应商 / 来源方名称；资料未标注时为空（视图显式标缺，不猜）
+  supplier       String?
+  /// 物料、原料或规格项名称 —— 唯一必填主键
+  item           String
+  /// 规格描述（如「纯度 ≥98%」「30 条/盒」）
+  spec           String?
+  /// 计价单位（kg / 片 / 瓶 …）
+  uom            String?
+  /// 最小起订量。用字符串：真实报价单常写「500kg 起」「1 吨/批」，
+  /// 强行数值化要么丢单位、要么被迫猜测，故原样保存。
+  moq            String?
+  /// 单价；无价格资料时为 null，不做任何估算填充
+  unitPrice      Float?
+  currency       String            @default("CNY")
+  /// 报价日期（区别于 createdAt 录入时间）：资料是否过期由它判定
+  quotedAt       DateTime?
+  note           String?
+  createdById    String
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  evidence     Evidence     @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("SupplierQuoteCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([projectId, kind])
+  @@index([evidenceId])
+  @@index([organizationId, createdAt])
 }
 
 // Extend existing models with relations

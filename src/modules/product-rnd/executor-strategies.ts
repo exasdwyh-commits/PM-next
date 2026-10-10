@@ -18,6 +18,11 @@ import { isProviderRuntimeConfigured } from "@/modules/model-gateway/provider-ru
 import { labelResearchRunStatus } from "@/shared/status-labels";
 import { ensureWorkerProjectAccess } from "@/modules/worker/identity";
 import { honestBlocked, type ExecutorDataGap, type ExecutorStrategy } from "@/modules/worker/executor";
+import {
+  buildDeepBomFromQuotes,
+  buildDeepSpecFromQuotes,
+  loadProjectQuotes,
+} from "@/modules/product-rnd/supplier-quotes";
 // ---------------------------------------------------------------------------
 // research_agent：把关联的 ResearchRun 真正推完（市场/竞品研究的确定性执行）
 // ---------------------------------------------------------------------------
@@ -357,20 +362,59 @@ const runFormulationAgent: ExecutorStrategy = async (context) => {
     "口感/工艺/制造成本约束",
     "目标人群与既有配方基线",
   ];
-  return honestBlocked({
+
+  const projectId = context.task.projectId;
+  if (!projectId) {
+    return honestBlocked({
+      summary: "配方与规格无法推进：任务未绑定项目。",
+      reason: "Formulation task has no project.",
+      missingInputs: ["project binding"],
+      dataGaps: [
+        {
+          fieldKey: "formulation_project_binding",
+          fieldName: "配方任务项目绑定",
+          description: "任务未绑定项目，无法定位已入库的规格资料。",
+        },
+      ],
+    });
+  }
+
+  await ensureWorkerProjectAccess(context.session, projectId);
+
+  // P0-1：真实规格资料入库后，① 规格块由这里点亮。
+  // 只消费「真实且未被判废」的资料（DEMO / REJECTED 在 loadProjectQuotes 里已排除）；
+  // 资料里没有的字段保持标缺，绝不推算 —— 这正是「宁可 UNKNOWN，绝不编造」的落点。
+  const quotes = await loadProjectQuotes(projectId, context.session.organizationId, "SPEC");
+  const spec = buildDeepSpecFromQuotes(quotes);
+
+  if (!spec) {
+    return honestBlocked({
+      summary:
+        "配方与规格无法推进：缺少原料候选、剂量、剂型与工艺约束输入。已按诚实缺省标记缺口，未生成任何配方数字。",
+      reason: "Formulation requires human input: no ingredient/dosage/format constraints on file.",
+      missingInputs: missing,
+      dataGaps: [
+        {
+          fieldKey: "formulation_constraints",
+          fieldName: "配方约束",
+          description: `缺少配方前置输入：${missing.join("、")}。无真实输入时不得生成配方与规格数字。`,
+        },
+      ],
+      extra: { projectId },
+    });
+  }
+
+  return {
+    kind: "SUCCEEDED",
     summary:
-      "配方与规格无法推进：缺少原料候选、剂量、剂型与工艺约束输入。已按诚实缺省标记缺口，未生成任何配方数字。",
-    reason: "Formulation requires human input: no ingredient/dosage/format constraints on file.",
-    missingInputs: missing,
-    dataGaps: [
-      {
-        fieldKey: "formulation_constraints",
-        fieldName: "配方约束",
-        description: `缺少配方前置输入：${missing.join("、")}。无真实输入时不得生成配方与规格数字。`,
-      },
-    ],
-    extra: { projectId: context.task.projectId },
-  });
+      `配方与规格：采用已入库的 ${quotes.length} 条真实规格资料行（逐条锚定上传资料），` +
+      `未生成任何推算数字。`,
+    result: {
+      kind: "FORMULATION_SPEC_FROM_SOURCES",
+      rowCount: quotes.length,
+      deep: { spec },
+    },
+  };
 };
 
 const runCostBomAgent: ExecutorStrategy = async (context) => {
@@ -380,20 +424,58 @@ const runCostBomAgent: ExecutorStrategy = async (context) => {
     "物流/税费/渠道佣金口径",
     "目标毛利率区间",
   ];
-  return honestBlocked({
+
+  const projectId = context.task.projectId;
+  if (!projectId) {
+    return honestBlocked({
+      summary: "成本与 BOM 无法推进：任务未绑定项目。",
+      reason: "Cost/BOM task has no project.",
+      missingInputs: ["project binding"],
+      dataGaps: [
+        {
+          fieldKey: "cost_project_binding",
+          fieldName: "成本任务项目绑定",
+          description: "任务未绑定项目，无法定位已入库的报价资料。",
+        },
+      ],
+    });
+  }
+
+  await ensureWorkerProjectAccess(context.session, projectId);
+
+  // P0-1：真实报价入库后，② BOM 块由这里点亮。
+  // 报价单没有用量，所以行合计一律标缺 —— 算合计必须假设用量，那是编不是算。
+  const quotes = await loadProjectQuotes(projectId, context.session.organizationId, "PRICE");
+  const bom = buildDeepBomFromQuotes(quotes);
+
+  if (!bom) {
+    return honestBlocked({
+      summary:
+        "成本与 BOM 无法推进：缺少可追溯的真实价格来源。已按诚实缺省标记缺口，未估算任何成本或毛利数字。",
+      reason: "Cost/BOM requires traceable price sources: none available.",
+      missingInputs: missing,
+      dataGaps: [
+        {
+          fieldKey: "cost_basis",
+          fieldName: "成本依据",
+          description: `缺少成本前置输入：${missing.join("、")}。价格必须绑定来源、规格、MOQ 与日期，否则不得给出 low/base/high 场景。`,
+        },
+      ],
+      extra: { projectId },
+    });
+  }
+
+  return {
+    kind: "SUCCEEDED",
     summary:
-      "成本与 BOM 无法推进：缺少可追溯的真实价格来源。已按诚实缺省标记缺口，未估算任何成本或毛利数字。",
-    reason: "Cost/BOM requires traceable price sources: none available.",
-    missingInputs: missing,
-    dataGaps: [
-      {
-        fieldKey: "cost_basis",
-        fieldName: "成本依据",
-        description: `缺少成本前置输入：${missing.join("、")}。价格必须绑定来源、规格、MOQ 与日期，否则不得给出 low/base/high 场景。`,
-      },
-    ],
-    extra: { projectId: context.task.projectId },
-  });
+      `成本与 BOM：采用已入库的 ${quotes.length} 条真实报价行（逐条锚定上传资料），` +
+      `${bom.basis ?? ""}未估算任何缺失项。`,
+    result: {
+      kind: "COST_BOM_FROM_SOURCES",
+      rowCount: quotes.length,
+      deep: { bom },
+    },
+  };
 };
 
 // ---------------------------------------------------------------------------
