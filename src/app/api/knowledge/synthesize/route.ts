@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/modules/identity/session";
 import { handleApiError } from "@/shared/api-handler";
+import { readJsonObjectBody } from "@/shared/request-body";
 import { routeKnowledge } from "@/modules/knowledge/router";
 import { synthesizeKnowledge } from "@/modules/knowledge/synthesis";
 import { bindKnowledgeToEvidence } from "@/modules/knowledge/evidence-bridge";
@@ -28,7 +29,10 @@ interface Body {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(req);
-    const raw = (await req.json().catch(() => ({}))) as Body;
+    // D-016：原来是 `req.json().catch(() => ({}))`，会把**畸形 JSON 也静默降级成 {}**，
+    // 调用方发错 body 却拿到"正常"结果。本路由入参全有默认值，改用标准三态解析：
+    // 空 body → {} 继续跑；畸形 JSON → 400；非对象 → 422。
+    const raw = (await readJsonObjectBody(req)) as Body;
 
     const query = typeof raw.query === "string" ? raw.query.trim().slice(0, 2000) : "";
     const scopes = Array.isArray(raw.scopes)

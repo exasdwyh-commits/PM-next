@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/modules/identity/session";
+import { handleApiError } from "@/shared/api-handler";
 import { runHarnessValidation } from "@/modules/cost-engine/harness/r1-r17-validation";
 
 export async function POST(req: NextRequest) {
@@ -12,8 +13,7 @@ export async function POST(req: NextRequest) {
     const result = runHarnessValidation({ category, role, htmlReport, richReport, costData, evidenceCount, verifiedCount });
     return NextResponse.json(result);
   } catch (e) {
-    console.error("harness validate error", e);
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+    return handleApiError(e, req);
   }
 }
 
@@ -24,7 +24,6 @@ export async function GET(req: NextRequest) {
     const result = runHarnessValidation({ category: "health_food", role: "product", evidenceCount: 10, verifiedCount: 7 });
     return NextResponse.json(result);
   } catch (e) {
-    console.error("harness validate error", e);
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+    return handleApiError(e, req);
   }
 }

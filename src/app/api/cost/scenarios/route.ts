@@ -52,8 +52,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ scenarios, stats });
   } catch (error) {
-    console.error("GET /api/cost/scenarios error:", error);
-    return NextResponse.json({ error: "Failed to fetch scenarios" }, { status: 500 });
+    return handleApiError(error, req);
   }
 }
 
@@ -142,7 +141,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ scenario }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/cost/scenarios error:", error);
-    return NextResponse.json({ error: "Failed to create scenario" }, { status: 500 });
+    return handleApiError(error, req);
   }
 }

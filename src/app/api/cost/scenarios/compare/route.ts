@@ -116,7 +116,6 @@ export async function POST(req: NextRequest) {
       count: scenarios.length,
     });
   } catch (error) {
-    console.error("POST /api/cost/scenarios/compare error:", error);
-    return NextResponse.json({ error: "Failed to compare scenarios" }, { status: 500 });
+    return handleApiError(error, req);
   }
 }

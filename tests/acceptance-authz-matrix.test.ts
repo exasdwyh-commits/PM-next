@@ -89,8 +89,11 @@ const MARK = CROSS_TENANT_MARKER;
  *   同批顺带补登两条**本就存在**的历史缺口：/api/feedback（3 方法）与 /api/feedback/{id}/disposition
  *   —— 它们在 main 上就有源码，矩阵却一直没登记，属遗留幽灵缺口，非 V2 引入。
  */
-const BASELINE_ROUTES = 117;
-const BASELINE_METHODS = 176;
+// 基线随路由增减同步。本次 +2 路由 / +3 方法：/api/projects/{id}/supplier-quotes（GET·POST）
+// 与 /api/supplier-quotes/{id}（DELETE）—— 即 P0-1 真实报价入库通道。
+// 另 +2 路由 / +2 方法是此前基线就已落后于源码的部分，本次一并校准到实测值。
+const BASELINE_ROUTES = 121;
+const BASELINE_METHODS = 181;
 
 let passed = 0;
 const failures: string[] = [];
@@ -344,6 +347,35 @@ async function main() {
       originalFilename: "matrix.txt",
     },
   });
+  // P0-1 真实报价通道夹具：由 ownerA 本人录入，因此 owner 身份可删（验证「本人或 OWNER」口径），
+  // 其余身份一律 403。锚定 evidenceA —— 报价行必须挂真实资料，夹具也照此约束。
+  const supplierQuoteA = await prisma.supplierQuote.create({
+    data: {
+      organizationId: orgA.id,
+      projectId: projectA.id,
+      evidenceId: evidenceA.id,
+      kind: "PRICE",
+      supplier: "MATRIX_FIXTURE",
+      item: `${MARK} 原料`,
+      currency: "CNY",
+      createdById: ownerA.id,
+    },
+  });
+  // 成本情景夹具：此前 RESOLVERS 缺 /api/cost/scenarios/ 解析项，矩阵跑到该段就
+  // 抛「无法解析路由占位符」而异常终止，后面所有路由（含新增的报价通道）根本没被断言。
+  //
+  // createdBy 刻意设为 ownerA：成本情景的改/删限创建者本人，owner 是创建者才能
+  // 覆盖到「创建者可删」这条真实路径（也因此 DELETE 条目必须排在矩阵本段最后，
+  // 否则 owner 删掉夹具会拖垮后续 {id} 读断言）。outsider/viewer 则拿到 403，
+  // 不会真删。
+  const costScenarioA = await prisma.costScenario.create({
+    data: {
+      organizationId: orgA.id,
+      name: `${MARK} 情景`,
+      productName: `${MARK} 产品`,
+      createdBy: ownerA.id,
+    },
+  });
   const feedbackA = await prisma.feedback.create({
     data: { projectId: projectA.id, targetType: "PROJECT", targetId: projectA.id, authorId: viewerA.id, content: `${MARK} 反馈`, topics: [] },
   });
@@ -562,6 +594,13 @@ async function main() {
     [/^\/api\/connectors\//, connectorA.id],
     [/^\/api\/schedules\//, scheduleA.id],
     [/^\/api\/playbooks\//, playbookA.id],
+    // P0-1：真实报价通道。放在最后 —— 前面的 projects/ 等前缀都不匹配它，顺序上无歧义。
+    [/^\/api\/supplier-quotes\//, supplierQuoteA.id],
+    // 成本情景：补上后矩阵才能跑过该段（此前缺项导致异常终止）。
+    // 用**真实夹具** —— 2026-10-11 已把该段语义定死（列表组织级共享 → 详情同组织 200；
+    // 改/删限创建者本人 → 同组织非创建者 403），占位符必须是真实存在的情景，
+    // 否则「同组织可读」「创建者可删」这两条真实路径根本没被断言。
+    [/^\/api\/cost\/scenarios\//, costScenarioA.id],
   ];
   const expand = (template: string): string => {
     if (!template.includes("{")) return template;
@@ -690,6 +729,9 @@ async function main() {
     // 顺序按外键依赖：先删引用方，再删被引用方
     // AnalysisRun.productVersionId / LaunchPlan.projectId·productId / Project.ownerId
     // / AuditEvent.actorId / AgentRun.userId / AgentTask.agentId 均为 restrict，必须显式先删
+    // P0-1 报价行外键到 Evidence/Project/User 都是 Cascade，但显式先删更稳（避免依赖级联顺序）
+    await prisma.supplierQuote.deleteMany({ where: { organizationId: { in: orgIds } } });
+    await prisma.costScenario.deleteMany({ where: { organizationId: { in: orgIds } } });
     await prisma.analysisRun.deleteMany({ where: { productVersion: { product: { organizationId: { in: orgIds } } } } });
     await prisma.launchPlan.deleteMany({ where: { organizationId: { in: orgIds } } });
     await prisma.artifact.deleteMany({ where: { workItem: { projectId: { in: projectIds } } } });
