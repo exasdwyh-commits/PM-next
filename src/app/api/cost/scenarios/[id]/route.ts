@@ -7,6 +7,20 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/shared/db";
 import { getServerSession } from "@/modules/identity/session";
 import { handleApiError } from "@/shared/api-handler";
+import { ForbiddenError } from "@/shared/errors";
+
+/**
+ * 成本情景是**组织级共享资产**（列表按 organizationId 对同组织成员开放），
+ * 但改/删是破坏性操作，只认创建者本人：
+ * - 跨组织：组织过滤查不到 → 404（不泄露资源存在性）
+ * - 同组织非创建者 → 403（明确告知无权，而不是让它变成"找不到"）
+ * 修前这里只按 organizationId 过滤，同组织任何成员都能改删他人情景。
+ */
+function assertOwner(scenario: { createdBy: string }, session: { userId: string }) {
+  if (scenario.createdBy !== session.userId) {
+    throw new ForbiddenError("只有成本情景的创建者可以修改或删除它");
+  }
+}
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -55,6 +69,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       where: { id: id, organizationId: session.organizationId },
     });
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    assertOwner(existing, session);
 
     // 创建新版本
     const latestVersion = await prisma.costScenarioVersion.findFirst({
@@ -117,6 +132,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       where: { id: id, organizationId: session.organizationId },
     });
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    assertOwner(existing, session);
 
     await prisma.costScenario.delete({ where: { id: id } });
 

@@ -1357,6 +1357,15 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
   // 一并登记以免留下第二批幽灵缺口。
 
   // ---------- 成本情景（CostScenario，组织级共享资产） ----------
+  //
+  // 语义（此前列表与详情互相矛盾，2026-10-11 定死）：
+  // 成本情景按 organizationId 组织级共享 —— 列表对所有同组织成员开放，
+  // 因此**读**操作（详情、评论/版本/审批单列表）同组织成员一律 200，跨组织 404。
+  // 而**破坏性操作**（改/删情景本体）只认创建者本人：同组织非创建者 403、跨组织 404。
+  // 非破坏性写入（发评论、建版本、提交审批）仍对同组织成员开放。
+  //
+  // 注：DELETE 条目刻意排在本段最后 —— owner 是夹具创建者，删除会真的删掉情景，
+  // 若排在前面会拖垮后续所有 {id} 读断言。
   {
     path: "/api/cost/scenarios",
     method: "GET",
@@ -1378,31 +1387,25 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
   {
     path: "/api/cost/scenarios/{id}",
     method: "GET",
-    authz: "成本情景详情：id + organizationId 双限定，跨组织查不到 404，不泄露存在性",
-    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
-    ownerGate: [404],
+    authz: "成本情景详情：组织级共享资产，同组织成员可读 200；跨组织查不到 404，不泄露存在性",
+    expect: { anon: [401], foreign: [404], outsider: [200], viewer: [200] },
+    ownerGate: [200],
   },
   {
     path: "/api/cost/scenarios/{id}",
     method: "PUT",
-    authz: "更新成本情景（自动落一个版本）：同上双限定，跨组织 404",
-    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
-    ownerGate: [404],
+    authz:
+      "更新成本情景：跨组织 404；同组织非创建者 403（破坏性操作限创建者本人，修前只按 organizationId 过滤，任何成员都能改他人情景）",
+    expect: { anon: [401], foreign: [404], outsider: [403], viewer: [403] },
+    ownerGate: [200],
     body: { name: "矩阵探测改名" },
-  },
-  {
-    path: "/api/cost/scenarios/{id}",
-    method: "DELETE",
-    authz: "删除成本情景：同上双限定，跨组织 404（不会误删他人资产）",
-    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
-    ownerGate: [404],
   },
   {
     path: "/api/cost/scenarios/{id}/approval",
     method: "POST",
-    authz: "提交审批：先查 scenario 是否属本组织（跨组织 404），再建审批单",
-    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
-    ownerGate: [404],
+    authz: "提交审批：先查 scenario 是否属本组织（跨组织 404）；同组织成员可提交 201",
+    expect: { anon: [401], foreign: [404], outsider: [201], viewer: [201] },
+    ownerGate: [201],
     body: {},
     phase: 3,
   },
@@ -1418,40 +1421,40 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
   {
     path: "/api/cost/scenarios/{id}/approval",
     method: "GET",
-    authz: "审批单列表：先确认 scenario 属本组织，跨组织 404",
-    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
-    ownerGate: [404],
+    authz: "审批单列表：先确认 scenario 属本组织（跨组织 404），同组织成员可读 200",
+    expect: { anon: [401], foreign: [404], outsider: [200], viewer: [200] },
+    ownerGate: [200],
   },
   {
     path: "/api/cost/scenarios/{id}/comments",
     method: "GET",
-    authz: "情景评论列表：先确认 scenario 属本组织，跨组织 404",
-    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
-    ownerGate: [404],
+    authz: "情景评论列表：先确认 scenario 属本组织（跨组织 404），同组织成员可读 200",
+    expect: { anon: [401], foreign: [404], outsider: [200], viewer: [200] },
+    ownerGate: [200],
   },
   {
     path: "/api/cost/scenarios/{id}/comments",
     method: "POST",
-    authz: "发表评论：先确认 scenario 属本组织，跨组织 404",
-    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
-    ownerGate: [404],
+    authz: "发表评论：非破坏性写入，同组织成员可发 200；跨组织 404",
+    expect: { anon: [401], foreign: [404], outsider: [200], viewer: [200] },
+    ownerGate: [200],
     body: { content: "矩阵探测评论" },
     phase: 3,
   },
   {
     path: "/api/cost/scenarios/{id}/versions",
     method: "GET",
-    authz: "版本历史：先确认 scenario 属本组织，跨组织 404",
-    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
-    ownerGate: [404],
+    authz: "版本历史：先确认 scenario 属本组织（跨组织 404），同组织成员可读 200",
+    expect: { anon: [401], foreign: [404], outsider: [200], viewer: [200] },
+    ownerGate: [200],
   },
   {
     path: "/api/cost/scenarios/{id}/versions",
     method: "POST",
-    authz: "回滚到指定版本：先确认 scenario 属本组织，跨组织 404",
-    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
-    ownerGate: [404],
-    body: { version: 1 },
+    authz: "新建版本：非破坏性写入，同组织成员可建 200；跨组织 404",
+    expect: { anon: [401], foreign: [404], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    body: {},
     phase: 3,
   },
   {
@@ -1462,6 +1465,21 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     ownerGate: [400],
     body: {},
     validationFirst: true,
+  },
+  {
+    // 必须排在本段最后：owner 是夹具创建者，删除会**真的删掉**这条情景。
+    //
+    // 顺序上有两个坑，都已规避：
+    // 1) 数组位置在本段末尾（排序稳定，同 phase 内保持数组序）；
+    // 2) 显式 phase 3 —— DELETE 默认按 phase 2 跑，会**早于** phase 3 的那几个
+    //    POST 子路由（approval/comments/versions），把情景先删掉害它们全拿 404。
+    path: "/api/cost/scenarios/{id}",
+    method: "DELETE",
+    authz:
+      "删除成本情景：跨组织 404；同组织非创建者 403（破坏性操作限创建者本人，修前同组织任何成员都能删他人情景）",
+    expect: { anon: [401], foreign: [404], outsider: [403], viewer: [403] },
+    ownerGate: [200],
+    phase: 3,
   },
 
   // ---------- 助手能力（用户自作用域：organizationId + userId 双限定） ----------

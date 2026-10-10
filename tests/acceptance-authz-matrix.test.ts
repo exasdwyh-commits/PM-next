@@ -363,6 +363,11 @@ async function main() {
   });
   // 成本情景夹具：此前 RESOLVERS 缺 /api/cost/scenarios/ 解析项，矩阵跑到该段就
   // 抛「无法解析路由占位符」而异常终止，后面所有路由（含新增的报价通道）根本没被断言。
+  //
+  // createdBy 刻意设为 ownerA：成本情景的改/删限创建者本人，owner 是创建者才能
+  // 覆盖到「创建者可删」这条真实路径（也因此 DELETE 条目必须排在矩阵本段最后，
+  // 否则 owner 删掉夹具会拖垮后续 {id} 读断言）。outsider/viewer 则拿到 403，
+  // 不会真删。
   const costScenarioA = await prisma.costScenario.create({
     data: {
       organizationId: orgA.id,
@@ -562,13 +567,6 @@ async function main() {
   await fs.promises.writeFile(path.join(uploadDir, `${RUN_TAG}-attachment.txt`), "matrix");
 
   /**
-   * 成本情景占位符专用：一个保证不存在的 id。
-   * 该段矩阵判据一律期望 404，用真实夹具会撞上「列表组织级共享 vs 详情 404」的语义矛盾，
-   * 详见下方 RESOLVERS 里的说明。
-   */
-  const MISSING_COST_SCENARIO_ID = `absent-cost-scenario-${RUN_TAG}`;
-
-  /**
    * 路由占位符按真实参数名映射到夹具。
    * 注：Next 路由把参数一律命名为 id/planId/runId，语义要靠路径前缀区分。
    */
@@ -599,16 +597,10 @@ async function main() {
     // P0-1：真实报价通道。放在最后 —— 前面的 projects/ 等前缀都不匹配它，顺序上无歧义。
     [/^\/api\/supplier-quotes\//, supplierQuoteA.id],
     // 成本情景：补上后矩阵才能跑过该段（此前缺项导致异常终止）。
-    //
-    // 注意这里刻意用**不存在的 id**，而不是上面刚建的 costScenarioA.id。
-    // 矩阵里 /api/cost/scenarios/{id} 一类条目对 foreign/outsider/owner 一律期望 404，
-    // 这组判据是在「夹具里根本没有 CostScenario」的年代写下的；若把占位符换成真实夹具，
-    // 同组织身份就会拿到 200 而判红 —— 那属于**产品语义决策**（列表按 organizationId
-    // 共享、详情却要 404，两者本身就矛盾），不该由本分支顺手改判据来"修绿"。
-    //
-    // 用不存在的 id 反而更有价值：它真实验证了本分支补上的「父情景双限定」——
-    // 情景不存在 / 属他组织时必须 404，而不是回一个空数组 200。
-    [/^\/api\/cost\/scenarios\//, MISSING_COST_SCENARIO_ID],
+    // 用**真实夹具** —— 2026-10-11 已把该段语义定死（列表组织级共享 → 详情同组织 200；
+    // 改/删限创建者本人 → 同组织非创建者 403），占位符必须是真实存在的情景，
+    // 否则「同组织可读」「创建者可删」这两条真实路径根本没被断言。
+    [/^\/api\/cost\/scenarios\//, costScenarioA.id],
   ];
   const expand = (template: string): string => {
     if (!template.includes("{")) return template;
