@@ -1,85 +1,72 @@
 "use client";
 
-import * as React from "react";
-import { DailyBriefingRich, DailyBriefingData } from "@/components/daily-briefing-rich";
-import "@/components/daily-briefing-rich.css";
+import { useEffect, useState } from "react";
+import type { DailyBriefingOutput } from "@/modules/assistant-runtime/capabilities/daily-briefing";
+import { defaultCategoryKey } from "@/modules/tenant";
 import { useRole } from "@/components/role-context";
+import { isDailyBriefingSnapshot } from "../briefing-summary";
+import { DailyBriefingSummary } from "./daily-briefing-summary";
+import { Btn } from "./kit";
 
-export function DailyBriefing({ projectId, category = "health_food" }: { projectId?: string; category?: string }) {
+type BriefingState =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "ready"; data: DailyBriefingOutput };
+
+export function DailyBriefing({
+  projectId,
+  category = defaultCategoryKey(),
+  onAction,
+}: {
+  projectId?: string;
+  category?: string;
+  onAction?: (draft: string) => void;
+}) {
   const { role } = useRole();
-  const [data, setData] = React.useState<DailyBriefingData | null>(null);
-  const [loading, setLoading] = React.useState(true);
+  const [state, setState] = useState<BriefingState>({ status: "loading" });
+  const [retry, setRetry] = useState(0);
 
-  const fetchBriefing = React.useCallback(async () => {
-    try {
-      const params = new URLSearchParams();
-      if (projectId) params.set("projectId", projectId);
-      if (category) params.set("category", category);
-      params.set("role", role);
-      const res = await fetch(`/api/assistant/daily-briefing?${params.toString()}`);
-      if (res.ok) {
-        const json = await res.json();
-        setData(json.briefing);
-      } else {
-        // fallback mock
-        setData({
-          todos: 3,
-          decisions: 2,
-          gaps: 4,
-          risks: 1,
-          evidenceRate: 70,
-          workRate: 62,
-          verifiedCount: 7,
-          totalEvidence: 10,
-          doneWork: 5,
-          totalWork: 8,
-          category: category || "health_food",
-          projectTitle: "多酚软糖项目",
-          suggestions: ["补充80℃烘焙温度证据", "优化成本到8元以内", "准备蓝帽子认证材料", "生成多酚功效销售话术"],
-          generatedAt: new Date().toISOString(),
+  useEffect(() => {
+    const controller = new AbortController();
+    setState({ status: "loading" });
+    const params = new URLSearchParams({ category, role });
+    if (projectId) params.set("projectId", projectId);
+
+    const load = async () => {
+      try {
+        const response = await fetch(`/api/assistant/daily-briefing?${params}`, {
+          signal: controller.signal,
+          cache: "no-store",
         });
+        if (!response.ok) {
+          throw new Error(response.status === 401
+            ? "登录状态已过期，请重新登录后重试。"
+            : "暂时无法读取项目数据，请稍后重试。");
+        }
+        const json: unknown = await response.json();
+        const data = json && typeof json === "object" && "briefing" in json ? json.briefing : null;
+        if (!isDailyBriefingSnapshot(data)) throw new Error("简报数据不完整，请重试。未展示示例统计。");
+        if (!controller.signal.aborted) setState({ status: "ready", data });
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setState({ status: "error", message: error instanceof Error ? error.message : "无法读取项目简报，请重试。" });
       }
-    } catch {
-      setData({
-        todos: 3,
-        decisions: 2,
-        gaps: 4,
-        risks: 1,
-        evidenceRate: 70,
-        workRate: 62,
-        verifiedCount: 7,
-        totalEvidence: 10,
-        doneWork: 5,
-        totalWork: 8,
-        category: category || "health_food",
-        projectTitle: "多酚软糖项目",
-        suggestions: ["补充80℃烘焙温度证据", "优化成本到8元以内", "准备蓝帽子认证材料", "生成多酚功效销售话术"],
-        generatedAt: new Date().toISOString(),
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId, category, role]);
+    };
+    void load();
+    // 切换视角或卸载时取消旧请求，避免慢回执覆盖新状态。
+    return () => controller.abort();
+  }, [projectId, category, role, retry]);
 
-  React.useEffect(() => {
-    fetchBriefing();
-  }, [fetchBriefing]);
-
-  if (loading) {
-    return <div className="daily-briefing-rich" style={{ padding: 20, textAlign: "center", fontSize: 11, color: "#9099a6" }}>Kern正在生成每日简报... {category} · {role}视角 · 富可视化</div>;
+  if (state.status === "loading") {
+    return <div className="m-briefing-status" role="status" aria-busy="true"><span className="m-briefing-skeleton" aria-hidden /><span>正在读取项目简报…</span></div>;
   }
-
-  if (!data) return null;
-
-  return (
-    <DailyBriefingRich
-      data={data}
-      onAction={(action) => {
-        // Dispatch to parent or trigger Kern dialogue
-        console.log("Daily briefing action:", action);
-        // Could trigger: window.dispatchEvent(new CustomEvent('kern-action', { detail: action }))
-        window.dispatchEvent(new CustomEvent("kern-daily-action", { detail: { action, category, role } }));
-      }}
-    />
-  );
+  if (state.status === "error") {
+    return (
+      <div className="m-briefing-status" data-error="true" role="alert">
+        <div><strong>项目简报暂时不可用</strong><p>{state.message}</p></div>
+        <Btn size="sm" v="ghost" onClick={() => setRetry((value) => value + 1)}>重试</Btn>
+      </div>
+    );
+  }
+  return <DailyBriefingSummary data={state.data} onAction={onAction} />;
 }

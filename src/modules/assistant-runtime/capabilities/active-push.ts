@@ -23,6 +23,24 @@ export interface ActivePushOutput {
   personalized: boolean;
 }
 
+/** 兼容空简报：只构建消息，不发送、不安排任务。 */
+export function buildActivePushMessage(briefing: DailyBriefingOutput, projectId?: string) {
+  const hasProjects = briefing.projectCount > 0;
+  const projectTitle = briefing.projectTitle || "项目概览";
+  const evidenceText = briefing.totalEvidence > 0
+    ? `已核实证据 ${briefing.verifiedCount}/${briefing.totalEvidence}`
+    : "尚无证据记录";
+  const suggestion = briefing.suggestions[0];
+  return normalizeMessage({
+    title: hasProjects ? `【${projectTitle}】每日简报 · ${briefing.decisions}待决策 ${briefing.gaps}缺口` : "每日简报 · 尚未创建项目",
+    body: hasProjects
+      ? `${projectTitle}：${briefing.gaps} 条证据待核实，${briefing.decisions} 项待决策，${evidenceText}。${suggestion ? `建议下一步：${suggestion}。` : "本次没有新增建议。"}`
+      : "当前尚未创建项目。可以先整理产品目标，再开始第一个项目。",
+    level: briefing.risks > 1 ? "attention" : "info",
+    link: projectId ? `/projects/${projectId}` : "/muse",
+  });
+}
+
 const PUSH_CRON = {
   morning: "0 9 * * 1-5", // 工作日 9:00
   evening: "0 18 * * 1-5", // 工作日 18:00
@@ -53,12 +71,7 @@ export async function generateActivePush(
   const channels = listNotifyChannels();
   const activeChannels = channels.filter((c) => c.state === "active").map((c) => c.id);
 
-  const message = normalizeMessage({
-    title: `【${personalizedBriefing.projectTitle}】每日简报 · ${personalizedBriefing.decisions}待决策 ${personalizedBriefing.gaps}缺口`,
-    body: `早上好，${personalizedBriefing.projectTitle}还有${personalizedBriefing.gaps}个缺口需解决，${personalizedBriefing.decisions}项待决策，证据可信度${personalizedBriefing.evidenceRate}%，建议今日推进${personalizedBriefing.suggestions[0]}。`,
-    level: personalizedBriefing.risks > 1 ? "attention" : "info",
-    link: input.projectId ? `/projects/${input.projectId}` : "/muse",
-  });
+  const message = buildActivePushMessage(personalizedBriefing, input.projectId);
 
   // 模拟推送结果 (实际 dispatch 在 notify 模块)
   const pushResults = activeChannels.map((ch) => ({
@@ -94,6 +107,8 @@ function personalizeBriefing(
   memoryItems: any[],
   role?: string
 ): DailyBriefingOutput {
+  // 没有项目或建议时保持空，避免把 undefined 拼成个性化业务建议。
+  if (briefing.projectCount === 0 || briefing.suggestions.length === 0) return briefing;
   // 根据记忆偏好调整建议
   const prefCategories = memoryItems
     .filter((m: any) => m.content?.includes("保健食品") || m.content?.includes("化妆品") || m.content?.includes("普通食品") || m.content?.includes("跨境"))

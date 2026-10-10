@@ -17,6 +17,8 @@ export default defineConfig([
     ".tmp-pg/**",
     ".uploads/**",
     "outputs/**",
+    // Independently checked, read-only CI fixture package with Next shims.
+    "tools/ux-preview/**",
   ]),
   {
     files: ["**/*.{ts,tsx}"],

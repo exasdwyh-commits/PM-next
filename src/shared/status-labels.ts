@@ -276,6 +276,7 @@ export const ARTIFACT_TYPE_LABELS: Record<string, string> = {
   PRODUCTION_RECORD: "生产记录",
   COST_SCENARIO: "成本情景",
   BUSINESS_OBSERVATION: "业务观察",
+  HEALTHCARE_INNOVATION_BRIEF: "大健康创新简报",
 };
 
 /** 反馈（咨询台）状态 */

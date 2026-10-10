@@ -15,7 +15,8 @@ import { reducedMotion } from "@/components/motion/motion";
 import { RoleProvider, useRole } from "@/components/role-context";
 import { KernRoleBar } from "./components/kern-role-bar";
 import { DailyBriefing } from "./components/daily-briefing";
-import "@/components/daily-briefing-rich.css";
+import { ConversationTools } from "./components/conversation-tools";
+import "./home-experience.css";
 import { detectRoleSwitchIntent, inferRoleFromText } from "@/components/kern-role-intelligence";
 import { dedupeMissionCards } from "./conversation-view";
 import { ConclusionDecisions } from "./components/conclusion-decisions";
@@ -870,7 +871,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
   useEffect(() => { setReader(null); }, [conversationId]);
   const prefill = useCallback((text: string) => {
     const current = draftRef.current.trim();
-    updateDraft(current ? `${current}\n${text}` : text);
+    if (text.trim()) updateDraft(current ? `${current}\n${text}` : text);
     if (window.matchMedia("(max-width: 1099px)").matches) setReader(null);
     window.requestAnimationFrame(() => {
       const ta = document.querySelector<HTMLTextAreaElement>(".m-dock textarea");
@@ -900,6 +901,8 @@ export default function KernClient({ model }: { model: StudioModel }) {
     if (!b || !("text" in b)) return null;
     return { text: b.text, artifacts: b.kind === "text" ? b.artifacts ?? [] : [] };
   }, [messages]);
+
+  const isHome = conversationId === null && !sending && messages.length === 0;
 
   return (
     <KernHostContext.Provider value={host}>
@@ -956,35 +959,13 @@ export default function KernClient({ model }: { model: StudioModel }) {
                 <span>搜索或跳转</span>
                 <kbd>⌘K</kbd>
               </button>
-              <Btn size="sm" v="ghost" onClick={() => setSheet({ kind: "memory" })} aria-haspopup="dialog" aria-expanded={sheet?.kind === "memory"} aria-label="记忆" title="Kern 记住的关于你的事">
-                <I.spark />
-                <span>记忆</span>
-              </Btn>
-              <Btn size="sm" v="ghost" onClick={() => setSheet({ kind: "vault" })} aria-haspopup="dialog" aria-expanded={sheet?.kind === "vault"} aria-label="凭证" title="Kern 替你保管的凭证（永不显示明文）">
-                <I.shield />
-                <span>凭证</span>
-              </Btn>
-              <Btn size="sm" v="ghost" onClick={() => setSheet({ kind: "connectors" })} aria-haspopup="dialog" aria-expanded={sheet?.kind === "connectors"} aria-label="连接" title="接入外部系统（MCP），Kern 就能用它们的工具">
-                <I.source />
-                <span>连接</span>
-              </Btn>
-              <Btn size="sm" v="ghost" onClick={() => setSheet({ kind: "library" })} aria-haspopup="dialog" aria-expanded={sheet?.kind === "library"} aria-label="产出" title="Kern 完成的任务，随时再下载成文档、表格或演示稿">
+              <Btn size="sm" v="ghost" onClick={() => setSheet({ kind: "library" })} aria-haspopup="dialog" aria-expanded={sheet?.kind === "library"} aria-label="产出" title="查看已完成任务的文档、表格与演示稿">
                 <I.plan />
                 <span>产出</span>
               </Btn>
-              <Btn size="sm" v="ghost" onClick={() => setSheet({ kind: "schedules" })} aria-haspopup="dialog" aria-expanded={sheet?.kind === "schedules"} aria-label="定时" title="每日简报、提醒与定期重跑：Kern 按时主动来找你">
-                <I.clock />
-                <span>定时</span>
-              </Btn>
-              {conversation && messages.length > 0 ? (
-                <Btn size="sm" v="ghost" onClick={() => void copyThread()} aria-label={copied ? "已复制全文" : "复制全文"} title={copied ? "已复制到剪贴板" : "复制全文为 Markdown"}>
-                  {copied ? <I.check /> : <I.copy />}
-                </Btn>
-              ) : null}
-              <Btn size="sm" v="ghost" onClick={() => setSheet({ kind: "trail" })} aria-haspopup="dialog" aria-expanded={sheet?.kind === "trail"} aria-label="轨迹" title="Kern 做过的每一步">
-                <I.trail />
-                <span>轨迹</span>
-              </Btn>
+              <ConversationTools onOpen={(kind) => setSheet({ kind })}
+                onCopy={conversation && messages.length > 0 ? () => void copyThread() : undefined} copied={copied} />
+
             </div>
           </div>
         </header>
@@ -992,7 +973,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
         {!model.modelReady ? (
           <div className="m-notice" role="status">
             <i aria-hidden />
-            <span>当前没有可用的模型配置。可以先补齐任务信息、查看计划或演示；正式开始前请检查模型、检索和后台执行服务。</span>
+            <span>模型尚未就绪。可以先整理目标，开始研究前请检查模型与执行服务。</span>
             <a href="/settings#models">查看状态</a>
           </div>
         ) : null}
@@ -1003,18 +984,17 @@ export default function KernClient({ model }: { model: StudioModel }) {
             <Btn size="sm" v="ghost" onClick={() => setFeedback(null)} aria-label="关闭提示"><I.close /></Btn>
           </div>
         ) : null}
-        {/* Role bar stays pinned; the daily briefing lives inside the scroll lane of an empty
-            conversation only — pinned above the scroller it squeezed .m-scroll to 0px on mobile. */}
-        <div style={{ padding: '0 16px', flex: 'none' }}><KernRoleBar /></div>
-        <div className="m-scroll" ref={scrollRef} onScroll={onScroll}>
+        {/* 简报留在滚动区内且默认折叠；置于欢迎入口之后，不挤压手机对话画布。 */}
+        <div className="m-role-wrap"><KernRoleBar /></div>
+        <div className="m-scroll" data-home={isHome ? "true" : undefined} ref={scrollRef} onScroll={onScroll}>
           <ConclusionDecisions key={conversationId ?? "new"}
             replies={messages.filter(m => m.author === "user" && m.state === "success" && !m.id.startsWith("local-")).flatMap(m => m.blocks.flatMap(b => b.kind === "text" ? [b.text] : []))}
             disabled={sending || Boolean(processing) || Boolean(decisionBusy)} send={send}>
-          <div className="m-lane">
-            {conversationId === null && !sending && messages.length === 0 ? (
+          <div className="m-lane m-conversation-lane">
+            {isHome ? (
               <>
-              <DailyBriefing category="health_food" />
-              <Blank seeds={brief.suggestions} attention={brief.attention} userName={model.user.name} onSeed={updateDraft} onOpen={pickConversation} />
+              <Blank seeds={brief.suggestions} attention={brief.attention} userName={model.user.name} modelReady={model.modelReady} onSeed={prefill} onOpen={pickConversation} />
+              <DailyBriefing onAction={prefill} />
               </>
             ) : (
               <>
@@ -1062,6 +1042,8 @@ export default function KernClient({ model }: { model: StudioModel }) {
           config={runtimeConfig}
           onConfigChange={updateRuntimeConfig}
           capabilities={runtime.capabilities}
+          runtimeConnected={runtime.connected}
+          modelReady={model.modelReady}
           onTrust={() => setSheet({ kind: "trust" })}
         />
       </main>

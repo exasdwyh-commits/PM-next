@@ -30,6 +30,22 @@ type Area = {
 
 const AREAS: Area[] = [
   {
+    id: "demo-surfaces",
+    label: "Demonstration Surfaces",
+    type: "DEMO_UI",
+    layer: 0,
+    prefixes: ["src/app/demo-"],
+    detail: "Explicit demo routes; source presence does not establish production use.",
+  },
+  {
+    id: "prompt-assets",
+    label: "Prompt Assets",
+    type: "PROMPT_ASSET",
+    layer: 4,
+    prefixes: ["src/modules/kern-prompts/"],
+    detail: "Prompt templates and expert descriptions; use is proven only by observed imports.",
+  },
+  {
     id: "chat-ui",
     label: "Kern Chat",
     type: "CHAT_UI",
@@ -493,7 +509,7 @@ export interface ArchifyArchitectureSpec {
 }
 
 function archifyType(node: KernGraphNode): ArchifyArchitectureSpec["components"][number]["type"] {
-  if (node.type === "CHAT_UI" || node.type === "WORKBENCH") return "frontend";
+  if (node.type === "CHAT_UI" || node.type === "WORKBENCH" || node.type === "DEMO_UI") return "frontend";
   if (node.type === "GOVERNANCE") return "security";
   if (node.type === "PERSISTENCE") return "database";
   if (node.type === "MODEL_GATEWAY") return "cloud";

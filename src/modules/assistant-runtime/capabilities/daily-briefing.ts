@@ -1,7 +1,8 @@
 /**
  * Daily Briefing Capability - P4 日常助理
- * 生成每日简报：待办+待决策+缺口+风险+Kern建议，4类专用，角色自适应
+ * 只汇总真实项目记录；没有项目时保持空，不用示例项目或行业模板冒充业务事实。
  */
+import { defaultCategoryKey } from "@/modules/tenant";
 
 export interface DailyBriefingInput {
   organizationId: string;
@@ -23,89 +24,85 @@ export interface DailyBriefingOutput {
   doneWork: number;
   totalWork: number;
   category: string;
+  projectId?: string;
   projectTitle?: string;
+  /** 本次实际读取的项目数，不代表组织项目总数。 */
+  projectCount: number;
+  scopeLabel: string;
   suggestions: string[];
   generatedAt: string;
 }
 
-const CATEGORY_SUGGESTIONS: Record<string, string[]> = {
-  regular_food: ["补充SC资质证据", "优化包材成本到1.0元", "准备性价比卖点PPT", "核实日常刚需市场数据"],
-  health_food: ["补充80℃烘焙温度证据", "优化成本到8元以内", "准备蓝帽子认证材料", "生成多酚功效销售话术"],
-  cross_border_food: ["补充进口资质", "优化国际物流成本", "准备跨境背书材料", "核实保税仓发货流程"],
-  cosmetics: ["补充化妆品备案", "优化玻璃瓶包材成本", "准备透明质酸卖点PPT", "核实烟酰胺美白证据"],
-};
+interface BriefingMemory {
+  kind?: string;
+  content?: string;
+}
 
-export async function generateDailyBriefing(input: DailyBriefingInput & { memories?: any[] }, prisma: any): Promise<DailyBriefingOutput> {
-  const category = input.category || "health_food";
-  
-  // 查询项目数据
-  let project = null;
-  let evidences: any[] = [];
-  let workItems: any[] = [];
-  let decisions: any[] = [];
-  let gaps: any[] = [];
+export async function generateDailyBriefing(
+  input: DailyBriefingInput & { memories?: BriefingMemory[] },
+  prisma: any,
+): Promise<DailyBriefingOutput> {
+  const category = input.category || defaultCategoryKey();
+  let projects: any[] = [];
 
   if (input.projectId) {
-    project = await prisma.project.findFirst({
+    const project = await prisma.project.findFirst({
       where: { id: input.projectId, organizationId: input.organizationId },
-      include: {
-        evidences: true,
-        workItems: true,
-        decisionPackets: true,
-      },
+      include: { evidences: true, workItems: true, decisionPackets: true },
     });
-    if (project) {
-      evidences = project.evidences || [];
-      workItems = project.workItems || [];
-      decisions = (project.decisionPackets || []).filter((d: any) => d.status === "IN_REVIEW");
-      // gaps from evidence insight
-      gaps = evidences.filter((e: any) => e.verifyStatus !== "VERIFIED").slice(0, 4);
-    }
+    if (project) projects = [project];
   } else {
-    // 查询组织下所有项目聚合
-    const projects = await prisma.project.findMany({
+    projects = await prisma.project.findMany({
       where: { organizationId: input.organizationId },
       include: { evidences: true, workItems: true, decisionPackets: true },
+      orderBy: { updatedAt: "desc" },
       take: 5,
     });
-    evidences = projects.flatMap((p: any) => p.evidences || []);
-    workItems = projects.flatMap((p: any) => p.workItems || []);
-    decisions = projects.flatMap((p: any) => (p.decisionPackets || []).filter((d: any) => d.status === "IN_REVIEW"));
-    project = projects[0];
   }
 
-  const verifiedCount = evidences.filter((e: any) => e.verifyStatus === "VERIFIED").length;
+  const evidences = projects.flatMap((p) => p.evidences || []);
+  const workItems = projects.flatMap((p) => p.workItems || []);
+  const decisions = projects.flatMap((p) =>
+    (p.decisionPackets || []).filter((d: any) => d.status === "IN_REVIEW"),
+  );
+  // 聚合和单项目采用同一口径，不把缺口截成四条后再当作总数。
+  const gaps = evidences.filter((e) => e.verifyStatus !== "VERIFIED");
+  const verifiedCount = evidences.filter((e) => e.verifyStatus === "VERIFIED").length;
   const totalEvidence = evidences.length;
   const evidenceRate = totalEvidence ? Math.round((verifiedCount / totalEvidence) * 100) : 0;
-
-  const doneWork = workItems.filter((w: any) => w.status === "ACCEPTED").length;
+  const doneWork = workItems.filter((w) => w.status === "ACCEPTED").length;
   const totalWork = workItems.length;
+  const todos = totalWork - doneWork;
   const workRate = totalWork ? Math.round((doneWork / totalWork) * 100) : 0;
 
-  let suggestions = CATEGORY_SUGGESTIONS[category] || CATEGORY_SUGGESTIONS.health_food;
+  // 建议来自已读取的记录，不预设产品、预算、材料或专业 Agent 已执行。
+  const suggestions: string[] = [];
+  if (projects.length > 0) {
+    if (decisions.length > 0) suggestions.push(`审查 ${decisions.length} 项待决策事项`);
+    if (gaps.length > 0) suggestions.push(`核实 ${gaps.length} 条尚未核实的证据`);
+    if (todos > 0) suggestions.push(`梳理 ${todos} 项未完成工作和负责人`);
+    if (totalEvidence === 0) suggestions.push("补充第一条可追溯的项目证据");
+    if (totalWork === 0) suggestions.push("整理项目目标并建立第一项工作");
 
-  // 上下文记忆个性化
-  if (input.memories && input.memories.length > 0) {
-    const prefs = input.memories.filter((m: any) => m.kind === "PREFERENCE" || m.content?.includes("偏好")).slice(0, 2);
-    if (prefs.length > 0) {
-      suggestions = [`基于记忆偏好 ${prefs[0].content.slice(0, 20)}，${suggestions[0]}`, ...suggestions.slice(1)];
+    const preference = input.memories?.find((m) =>
+      !!m.content && (m.kind === "PREFERENCE" || m.content.includes("偏好")),
+    );
+    if (preference?.content && suggestions.length > 0) {
+      suggestions[0] = `结合已记录的偏好「${preference.content.slice(0, 20)}」，${suggestions[0]}`;
     }
-    // 纠正记忆影响风险
-    const corrections = input.memories.filter((m: any) => m.kind === "CORRECTION").slice(0, 1);
-    if (corrections.length > 0) {
-      suggestions.push(`注意纠正：${corrections[0].content.slice(0, 30)}`);
-    }
+    const correction = input.memories?.find((m) => m.kind === "CORRECTION" && !!m.content);
+    if (correction?.content) suggestions.push(`复核已记录的纠正：${correction.content.slice(0, 30)}`);
   }
 
-  // 风险预警逻辑
+  // 分母为零表示尚无记录，不等于低可信或项目失败。
   let risks = 0;
-  if (evidenceRate < 50) risks++;
+  if (totalEvidence > 0 && evidenceRate < 50) risks++;
   if (decisions.length > 3) risks++;
   if (gaps.length > 5) risks++;
-  if (workRate < 30 && totalWork > 0) risks++;
+  if (totalWork > 0 && workRate < 30) risks++;
 
   return {
-    todos: workItems.filter((w: any) => w.status !== "ACCEPTED").length,
+    todos,
     decisions: decisions.length,
     gaps: gaps.length,
     risks,
@@ -116,7 +113,12 @@ export async function generateDailyBriefing(input: DailyBriefingInput & { memori
     doneWork,
     totalWork,
     category,
-    projectTitle: project?.title || "多酚软糖项目",
+    projectId: projects.length === 1 ? projects[0].id : undefined,
+    projectTitle: projects.length === 1
+      ? projects[0].title
+      : projects.length > 1 ? `${projects.length} 个项目概览` : undefined,
+    projectCount: projects.length,
+    scopeLabel: input.projectId ? "当前项目" : "最近 5 个项目（非组织全量）",
     suggestions,
     generatedAt: new Date().toISOString(),
   };

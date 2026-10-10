@@ -221,6 +221,22 @@ export const STRUCTURED_ARTIFACT_REGISTRY = {
       { name: "basis", kind: "string" },
     ],
   },
+  HEALTHCARE_INNOVATION_BRIEF: {
+    scope: "project",
+    businessFields: [
+      { name: "recommendation", kind: "enum", enumValues: ["PROCEED_TO_VALIDATE", "NEEDS_EVIDENCE", "PAUSE", "REJECT"] },
+      { name: "summary", kind: "string" },
+      { name: "evidenceReadiness", kind: "json" },
+      { name: "marketReadiness", kind: "json" },
+      { name: "stagePlan", kind: "json" },
+      { name: "growthLoop", kind: "json" },
+      { name: "claims", kind: "json" },
+      { name: "risks", kind: "stringArray" },
+      { name: "unknowns", kind: "stringArray" },
+      { name: "nextActions", kind: "stringArray" },
+      { name: "tokenUsage", kind: "json", nullable: true },
+    ],
+  },
 } as const satisfies Record<string, StructuredArtifactSpec>;
 
 export type StructuredArtifactType = keyof typeof STRUCTURED_ARTIFACT_REGISTRY;

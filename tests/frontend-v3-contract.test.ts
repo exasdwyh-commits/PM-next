@@ -47,7 +47,8 @@ test("management conversations route back through Kern", () => {
   assert.ok(home.includes('href="/muse"'));
   assert.ok(home.includes("/muse?query="), "management handoff must enter the Kern operating shell");
   assert.ok(home.includes("需要你处理"));
-  assert.ok(home.includes("Kern 正在工作"));
+  assert.ok(home.includes("最近 {workforceActivity.windowHours} 小时记录"), "historical activity must not claim current execution");
+  assert.equal(stripComments(home).includes("Kern 正在工作 ·"), false);
   assert.ok(home.includes("第一次使用，三步就够了"), "empty org must have first-use onboarding");
 });
 
