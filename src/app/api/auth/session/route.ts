@@ -9,7 +9,45 @@ import { handleApiError } from "@/shared/api-handler";
 import { readJsonObjectBody } from "@/shared/request-body";
 import { ForbiddenError, UnauthorizedError, UnprocessableEntityError } from "@/shared/errors";
 import prisma from "@/shared/db";
-import { LOCAL_TEST_EMAIL, LOCAL_TEST_ORG, LOCAL_TEST_SESSION_DAYS, localTestRequestAllowed } from "@/modules/identity/local-test-policy";
+import { LOCAL_TEST_EMAIL, LOCAL_TEST_ORG, LOCAL_TEST_SESSION_DAYS, localTestRequestAllowed, emailForRole } from "@/modules/identity/local-test-policy";
+
+/**
+ * 取（或按需创建）局域网测试账号。
+ *
+ * 为什么要自动创建：局域网免密模式下，用户只需要**选一个角色**就能进，
+ * 不该还要先跑脚本建号。每个角色对应一个常驻账号，好处是 session / 审计里
+ * 能直接看出是谁以什么视角在用；账号固定也让「选角色」的响应是幂等的。
+ *
+ * 组织不存在时一并创建——LOCAL_TEST_ORG 只服务这个模式。
+ *
+ * 注意：`User` 表**没有 role 字段**（role 在 ProjectMember / OrganizationMember 上），
+ * 视角角色由客户端 role-context 存储，不入库。
+ */
+async function ensureLocalTestUser(email: string) {
+  const existing = await prisma.user.findUnique({ where: { email }, include: { organization: true } });
+  if (existing) return existing;
+
+  const org =
+    (await prisma.organization.findUnique({ where: { code: LOCAL_TEST_ORG } })) ??
+    (await prisma.organization.create({ data: { code: LOCAL_TEST_ORG, name: "Kern 局域网测试" } }));
+
+  return prisma.user.create({
+    data: {
+      email,
+      name: ROLE_NAMES[email] ?? "局域网测试用户",
+      organizationId: org.id,
+      // 无口令：局域网免密模式不使用密码登录（正式密码登录走 authenticateUser）。
+      passwordHash: null,
+    },
+    include: { organization: true },
+  });
+}
+
+const ROLE_NAMES: Record<string, string> = {
+  "local-leadership@kern.invalid": "管理者（局域网）",
+  "local-product@kern.invalid": "产品经理（局域网）",
+  "local-sales@kern.invalid": "运营销售（局域网）",
+};
 
 /**
  * B01-01 登录：
@@ -31,11 +69,9 @@ export async function POST(req: NextRequest) {
     const body = await readJsonObjectBody(req);
     if (body.localTest === true) {
       if (!localTestRequestAllowed(req.headers)) throw new ForbiddenError("Local test login is disabled");
-      const user = await prisma.user.findUnique({
-        where: { email: LOCAL_TEST_EMAIL },
-        include: { organization: true },
-      });
-      if (!user || !user.isActive || user.isSystem || user.organization.code !== LOCAL_TEST_ORG) {
+      const email = emailForRole(typeof body.role === "string" ? body.role : null);
+      const user = await ensureLocalTestUser(email);
+      if (!user.isActive || user.isSystem || user.organization.code !== LOCAL_TEST_ORG) {
         throw new ForbiddenError("Local test account is unavailable");
       }
       return await issueSession(user.id, false, LOCAL_TEST_SESSION_DAYS);

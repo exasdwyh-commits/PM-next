@@ -130,3 +130,84 @@
   .kx-input, .kx-btn { height: 48px; }
   .kx-input { font-size: 16px; }
 }
+
+/* ── 角色即登录（局域网免密入口）────────────────────────────────────────
+   全部令牌取自 Kern Design Foundation，与 .kx-input / .kx-btn 同一套，
+   不引入硬编码色值。 */
+.kx-role-entry { display: flex; flex-direction: column; gap: 14px; }
+.kx-role-entry h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -.03em; }
+
+.kx-role-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 4px;
+}
+
+/* 卡片本身是可点的按钮：整块热区，避免只点中文字 */
+.kx-role-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 132px;
+  padding: 16px 14px;
+  border: 1px solid var(--k-line-2);
+  border-radius: var(--k-r);
+  background: var(--k-surface);
+  color: var(--k-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: var(--m-tr-ui);
+}
+.kx-role-card:hover:not(:disabled) {
+  border-color: var(--k-brand);
+  box-shadow: 0 8px 22px -12px var(--k-brand-ring);
+  transform: translateY(-1px);
+}
+.kx-role-card:focus-visible { outline: 2px solid var(--k-brand); outline-offset: 2px; }
+.kx-role-card:disabled { opacity: .7; cursor: not-allowed; transform: none; }
+
+.kx-role-icon { font-size: 24px; line-height: 1; }
+.kx-role-label { font-size: 15px; font-weight: 600; }
+.kx-role-desc { font-size: 12.5px; line-height: 1.5; color: var(--k-ink-3); }
+/* 进入中的提示绝对定位在卡片底部，避免撑高卡片导致布局跳动 */
+.kx-role-hint {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  font-size: 12px;
+  color: var(--k-brand);
+}
+
+/* 折叠入口：长得像文字而不是第二个主按钮，避免和角色卡片抢主次 */
+.kx-login-link {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--k-ink-3);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.kx-login-link:hover { color: var(--k-brand); }
+.kx-login-link:focus-visible { outline: 2px solid var(--k-brand); outline-offset: 2px; }
+
+/* 嵌套的账号登录表单：上边框分隔 + 负边距收紧，避免和角色卡片粘连 */
+.kx-login-form--nested {
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--k-line-2);
+}
+
+/* 窄屏（与 .kx-login 的既有断点保持一致）：三列退化为一列 */
+@media (max-width: 720px) {
+  .kx-role-grid { grid-template-columns: 1fr; }
+  .kx-role-card { min-height: 0; }
+}
