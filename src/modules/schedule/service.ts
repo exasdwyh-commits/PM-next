@@ -123,8 +123,30 @@ export async function createSchedule(session: SessionContext, input: CreateSched
     const dup = await prisma.kernSchedule.findFirst({ where: { organizationId: session.organizationId, userId: session.userId, kind: "DAILY_BRIEF" }, select: { id: true } });
     if (dup) throw new UnprocessableEntityError("已经有一个每日简报了，改它的时间即可");
   }
-  const row = await prisma.kernSchedule.create({
-    data: { organizationId: session.organizationId, userId: session.userId, kind: input.kind, title: title!, cron: input.cron, timezone: tz, payload: toJson(payload), conversationId, nextRunAt },
+  // 并发下的两处 check-then-act：上限计数、以及「每日简报只能有一个」，中间都没有
+  // 原子性——两个并发请求都能读到空的 findFirst / count = MAX-1 并双双建行。
+  // schema 上这两条都没有唯一约束兜底（KernSchedule 只有索引）。上面的检查保留作
+  // 快速失败，这里锁住本用户行后重检一次，与 workforce claim 的 `FOR UPDATE` 同一套路。
+  const row = await prisma.$transaction(async (tx) => {
+    await tx.$queryRawUnsafe(
+      'SELECT "id" FROM "User" WHERE "id" = $1 AND "organizationId" = $2 FOR UPDATE',
+      session.userId,
+      session.organizationId
+    );
+    const n = await tx.kernSchedule.count({
+      where: { organizationId: session.organizationId, userId: session.userId },
+    });
+    if (n >= MAX_SCHEDULES_PER_USER) throw new UnprocessableEntityError(`最多 ${MAX_SCHEDULES_PER_USER} 个定时`);
+    if (input.kind === "DAILY_BRIEF") {
+      const dup = await tx.kernSchedule.findFirst({
+        where: { organizationId: session.organizationId, userId: session.userId, kind: "DAILY_BRIEF" },
+        select: { id: true },
+      });
+      if (dup) throw new UnprocessableEntityError("已经有一个每日简报了，改它的时间即可");
+    }
+    return tx.kernSchedule.create({
+      data: { organizationId: session.organizationId, userId: session.userId, kind: input.kind, title: title!, cron: input.cron, timezone: tz, payload: toJson(payload), conversationId, nextRunAt },
+    });
   });
   return view(row);
 }
