@@ -127,8 +127,10 @@ test("role report components contain no fabricated demo numbers", () => {
     "src/components/executive-report-role-based.tsx",
     "src/modules/product-rnd/deep-report.ts",
     "src/modules/supervisor/role-aware-report.ts",
+    // 批次C+：playbook 大雷已拆，纳入同一钳制
+    "src/modules/product-rnd/playbook.ts",
   ];
-  const FORBIDDEN = ["10.2元", "82%留存", "留存率 82%", "多酚留存82", "成本仅10", "299元,价格带", "市场200亿"];
+  const FORBIDDEN = ["10.2元", "82%留存", "留存率 82%", "多酚留存82", "成本仅10", "299元,价格带", "市场200亿", "方案A 成本最优", "目标8元", "多酚+低聚果糖", "蓝帽子已合规", "evidenceCount: 10"];
   for (const rel of targets) {
     const src = fs.readFileSync(path.join(ROOT, rel), "utf-8");
     for (const bad of FORBIDDEN) {
