@@ -120,7 +120,8 @@ export function ExecutionFlow({ status, events = [], connected = true, activity 
                 const completed = source.status === "SUCCEEDED" && target.status === "SUCCEEDED";
                 return <g key={`${edge.from}:${edge.to}`} data-flowing={flowing || undefined} data-done={completed || undefined} data-selected={selectedKey === edge.from || selectedKey === edge.to || undefined}>
                   <path className="m-flow-wire" pathLength="1" d={path} />
-                  {flowing ? <path className="m-flow-current" d={path} /> : null}
+                  {/* pathLength="1" 归一：与 .m-flow-current 的归一 dash 配合，流动速度与线长无关，长短线不再「有的动有的不动」。 */}
+                  {flowing ? <path className="m-flow-current" pathLength="1" d={path} /> : null}
                 </g>;
               })}
             </svg>
