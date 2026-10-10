@@ -304,10 +304,12 @@ function RunControls({
   controls,
   config,
   onChange,
+  modelReady,
 }: {
   controls: ConversationControls;
   config: ConversationRuntimeConfig;
   onChange: (next: Partial<ConversationRuntimeConfig>) => void;
+  modelReady: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<RunTab>("capabilities");
@@ -345,8 +347,8 @@ function RunControls({
         aria-haspopup="dialog"
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="m-auto-dot" aria-hidden data-t={staleModel ? "warn" : undefined} />
-        <span>{model ? model.label : staleModel ? "模型已停用" : "Auto · Kern"}</span>
+        <span className="m-auto-dot" aria-hidden data-t={staleModel || !modelReady ? "warn" : undefined} />
+        <span>{!modelReady ? "模型未就绪" : model ? model.label : staleModel ? "模型已停用" : "Auto · Kern"}</span>
         {custom ? <small>+{custom} 项自定义</small> : <small>高级</small>}
         <svg className="m-auto-chev" width="10" height="10" viewBox="0 0 10 10" aria-hidden><path d="M2.5 6.2 5 3.8l2.5 2.4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </button>
@@ -427,6 +429,8 @@ export function Dock({
   config,
   onConfigChange,
   capabilities,
+  runtimeConnected = false,
+  modelReady = true,
   onTrust,
 }: {
   value: string;
@@ -438,8 +442,11 @@ export function Dock({
   config: ConversationRuntimeConfig;
   onConfigChange: (config: ConversationRuntimeConfig) => void;
   capabilities: string[];
+  runtimeConnected?: boolean;
+  modelReady?: boolean;
   onTrust: () => void;
 }) {
+  const dock = useRef<HTMLDivElement>(null);
   const ta = useRef<HTMLTextAreaElement>(null);
   const composing = useRef(false);
   useEffect(() => {
@@ -448,6 +455,20 @@ export function Dock({
     input.style.height = "auto";
     input.style.height = `${Math.min(input.scrollHeight, 200)}px`;
   }, [value]);
+  // 输入区增长、手机安全区或换行都按真实高度给会话留空间，避免遮住最后一条消息。
+  useEffect(() => {
+    const element = dock.current;
+    const main = element?.closest<HTMLElement>(".m-main");
+    if (!element || !main) return;
+    const measure = () => main.style.setProperty("--m-dock-space", `${Math.ceil(element.getBoundingClientRect().height) + 24}px`);
+    measure();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(element);
+    return () => {
+      observer?.disconnect();
+      main.style.removeProperty("--m-dock-space");
+    };
+  }, []);
   const patch = (next: Partial<ConversationRuntimeConfig>) =>
     onConfigChange({ ...config, ...next });
   // slash 快捷指令：以 / 开头且无空格时弹出模板，选中填入输入框（不直接发送）。
@@ -463,7 +484,7 @@ export function Dock({
   };
 
   return (
-    <div className="m-dock">
+    <div className="m-dock" ref={dock}>
       <form
         className="m-dock-inner"
         onSubmit={(e) => { e.preventDefault(); onSend(); }}
@@ -485,7 +506,7 @@ export function Dock({
             }
             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); }
           }}
-          placeholder="给 Kern 发消息，或直接交代一件事（/ 有快捷指令）"
+          placeholder="想推进什么？说说你的目标、背景和约束…"
           aria-label="对 Kern 说"
           aria-expanded={slashHits.length > 0}
           aria-controls={slashHits.length > 0 ? "m-slash-menu" : undefined}
@@ -513,13 +534,13 @@ export function Dock({
           </div>
         ) : null}
         <div className="m-dock-bar">
-          <RunControls controls={controls} config={config} onChange={patch} />
-          <button type="button" className="m-pill m-runtime-pill" onClick={onTrust}>
+          <RunControls controls={controls} config={config} onChange={patch} modelReady={modelReady} />
+          <button type="button" className="m-pill m-runtime-pill" onClick={onTrust} title={runtimeConnected ? "查看本机连接与可用能力" : "查看连接本机的方法与权限"}>
             <I.mac />
-            {capabilities.length} 项本机能力
+            {runtimeConnected ? capabilities.length ? `${capabilities.length} 项本机能力` : "本机已连接" : "连接本机"}
           </button>
           {draftSaved && value.trim() ? <span className="m-kbd">草稿已保存</span> : null}
-          <span className="m-kbd">Enter 发送 · Shift+Enter 换行</span>
+          <span className="m-kbd">/ 快捷指令 · Enter 发送</span>
           <button type="submit" className="m-send" disabled={sending || value.trim().length === 0} aria-label={sending ? "正在发送" : "发送"} aria-busy={sending}>
             <I.send />
           </button>
@@ -538,6 +559,7 @@ export function Blank({
   seeds,
   attention,
   userName,
+  modelReady = true,
   onSeed,
   onOpen,
 }: {
@@ -552,6 +574,7 @@ export function Blank({
     completedRecently?: number;
   };
   userName?: string;
+  modelReady?: boolean;
   onSeed: (p: string) => void;
   onOpen?: (conversationId: string) => void;
 }) {
@@ -585,15 +608,17 @@ export function Blank({
            DESIGN.md「Motion」明确不使用循环装饰动画、「Avoid」明确不堆装饰性
            光晕；此处既无信息也无动作，故移除而不是修圆。 */}
         <div>
+          <span className="m-home-kicker">Kern · 产品协作空间</span>
           <h2 suppressHydrationWarning>{greeting()}{userName ? `，${userName.replace(/\s*[（(].*$/, "")}` : ""}</h2>
           <p>
             {needs.length ? `有 ${needs.length} 件事需要你。` : "目前没有需要你操心的事。"}
             {attention?.completedRecently ? `过去一天完成了 ${attention.completedRecently} 项工作。` : ""}
             {doing.length
               ? `Kern 正在推进 ${doing.length} 项工作。`
-              : "直接说目标，能做的我会自己推进。"}
+              : modelReady ? "把目标告诉我，先梳理依据和下一步。" : "先整理目标，模型就绪后再开始研究与执行。"}
             {attention?.handledQuietly ? ` 另有 ${attention.handledQuietly} 项已安静处理完。` : ""}
           </p>
+          <button type="button" className="m-home-focus" onClick={() => onSeed("")}>写下一个目标 <I.send /></button>
         </div>
       </header>
 
@@ -639,8 +664,8 @@ export function Blank({
       )}
 
       <section className="m-home-sec" aria-label="开始">
-        <h3>交给 Kern</h3>
-        <Bento label="可以直接交给 Kern 的事" tiles={seeds.map((s) => ({ id: s.id, title: s.title, hint: s.why }))} onPick={(id) => onSeed(seeds.find((s) => s.id === id)?.prompt ?? "")} />
+        <div className="m-home-sec-head"><h3>或者，从这些工作开始</h3><span className="m-home-seed-hint">选择后填入草稿，不会自动发送</span></div>
+        <Bento label="选择一个目标模板" tiles={seeds.map((s) => ({ id: s.id, title: s.title, hint: s.why }))} onPick={(id) => onSeed(seeds.find((s) => s.id === id)?.prompt ?? "")} />
       </section>
     </div>
   );
