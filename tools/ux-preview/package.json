@@ -1,0 +1,17 @@
+{
+  "name": "pm-next-ux-preview",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5173",
+    "build": "vite build",
+    "check": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "vite": "^6.4.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

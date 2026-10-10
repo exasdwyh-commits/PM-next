@@ -156,3 +156,24 @@ console.log(
     `Coverage: ${files.length - unmapped.length}/${files.length} source files mapped (${((1 - unmappedRatio) * 100).toFixed(1)}%)`,
   ].join("\n")
 );
+
+// Coverage regression: classify real compatibility surfaces explicitly, not via a catch-all.
+const compatibilityFiles: ProjectSourceFile[] = [
+  { path: "src/app/demo-cost-rich/page.tsx", imports: [] },
+  { path: "src/modules/kern-prompts/index.ts", imports: [] },
+];
+assert.deepEqual(listUnmappedSourceFiles(compatibilityFiles), []);
+assert.deepEqual(
+  listUnmappedSourceFiles([{ path: "src/modules/not-yet-classified/index.ts" }]),
+  ["src/modules/not-yet-classified/index.ts"],
+  "unknown future modules must still trip the coverage guard"
+);
+const compatibilityGraph = buildProjectArchitectureGraph({
+  id: "compatibility-source-fixture", title: "Compatibility source fixture", files: compatibilityFiles,
+});
+assert.ok(compatibilityGraph.nodes.some((node) => node.id === "demo-surfaces"));
+assert.ok(compatibilityGraph.nodes.some((node) => node.id === "prompt-assets"));
+assert.equal(
+  toArchifyArchitectureSpec(compatibilityGraph).components.find((node) => node.id === "demo-surfaces")?.type,
+  "frontend"
+);

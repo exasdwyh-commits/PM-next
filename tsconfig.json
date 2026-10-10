@@ -39,6 +39,7 @@
     ".next-local-test/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "tools/ux-preview"
   ]
 }

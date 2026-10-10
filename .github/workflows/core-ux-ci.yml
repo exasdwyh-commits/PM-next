@@ -1,0 +1,120 @@
+name: Core UX CI
+
+on:
+  pull_request:
+    paths:
+      - "src/app/muse/**"
+      - "src/app/workbench*"
+      - "src/app/theme/quiet-enterprise.css"
+      - "src/components/kx/**"
+      - "src/modules/assistant-runtime/capabilities/**"
+      - "src/modules/visual-intelligence/**"
+      - "tests/kern-home-experience.test.ts"
+      - "tests/kern-project-map.ts"
+      - "tests/frontend-v3-contract.test.ts"
+      - "tools/ux-preview/**"
+      - "tsconfig.json"
+      - "eslint.config.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/core-ux-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: core-ux-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: Core contracts and types
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: hermes_ux_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d hermes_ux_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://hermes_test:hermes_test@localhost:5432/hermes_ux_test
+      TEST_DATABASE_URL: postgresql://hermes_test:hermes_test@localhost:5432/hermes_ux_test
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Provision isolated non-admin test role
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE hermes_test LOGIN PASSWORD 'hermes_test' NOSUPERUSER NOCREATEDB NOCREATEROLE"
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "ALTER DATABASE hermes_ux_test OWNER TO hermes_test"
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - run: npm run test:home-experience
+      - run: npm run test:frontend-v3
+      - run: npm run test:source-guards
+      - run: npm run test:kern-project-map
+      - run: npm run typecheck
+      - name: Lint changed production files and contracts
+        run: >-
+          npx eslint src/app/muse/muse-client.tsx src/app/muse/components/shell.tsx
+          src/app/muse/components/conversation-tools.tsx src/app/muse/components/kern-role-bar.tsx
+          src/app/muse/components/daily-briefing.tsx src/app/muse/components/daily-briefing-summary.tsx
+          src/app/muse/briefing-summary.ts src/app/workbench-client.tsx src/components/kx/index.tsx
+          src/modules/assistant-runtime/capabilities/daily-briefing.ts
+          src/modules/assistant-runtime/capabilities/active-push.ts
+          src/modules/visual-intelligence/project-map-builder.ts
+          tests/kern-home-experience.test.ts tests/kern-project-map.ts tests/frontend-v3-contract.test.ts
+
+  browser:
+    name: Desktop and mobile fixture evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgresql://hermes_test:hermes_test@localhost:5432/hermes_ux_fixture_unused
+      OUTPUT_DIR: /tmp/pm-next-ui-evidence
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            tools/ux-preview/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm ci --prefix tools/ux-preview
+      - run: npm run check --prefix tools/ux-preview
+      - run: npm run build --prefix tools/ux-preview
+      - run: npx playwright install --with-deps chromium
+      - name: Install Chinese system fonts
+        run: sudo apt-get install -y fonts-noto-cjk
+      - name: Verify actual components with read-only synthetic scenarios
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUTPUT_DIR"
+          npm run dev --prefix tools/ux-preview > "$OUTPUT_DIR/vite.log" 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          node tools/ux-preview/verify.mjs 2>&1 | tee "$OUTPUT_DIR/browser-checks.log"
+      - name: Upload UI evidence (fixtures only, no production data)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-ux-fixture-evidence-${{ github.sha }}
+          path: /tmp/pm-next-ui-evidence
+          if-no-files-found: warn
+          retention-days: 14
