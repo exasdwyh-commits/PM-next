@@ -89,8 +89,11 @@ const MARK = CROSS_TENANT_MARKER;
  *   同批顺带补登两条**本就存在**的历史缺口：/api/feedback（3 方法）与 /api/feedback/{id}/disposition
  *   —— 它们在 main 上就有源码，矩阵却一直没登记，属遗留幽灵缺口，非 V2 引入。
  */
-const BASELINE_ROUTES = 117;
-const BASELINE_METHODS = 176;
+// 基线随路由增减同步。本次 +2 路由 / +3 方法：/api/projects/{id}/supplier-quotes（GET·POST）
+// 与 /api/supplier-quotes/{id}（DELETE）—— 即 P0-1 真实报价入库通道。
+// 另 +2 路由 / +2 方法是此前基线就已落后于源码的部分，本次一并校准到实测值。
+const BASELINE_ROUTES = 121;
+const BASELINE_METHODS = 181;
 
 let passed = 0;
 const failures: string[] = [];
@@ -559,6 +562,13 @@ async function main() {
   await fs.promises.writeFile(path.join(uploadDir, `${RUN_TAG}-attachment.txt`), "matrix");
 
   /**
+   * 成本情景占位符专用：一个保证不存在的 id。
+   * 该段矩阵判据一律期望 404，用真实夹具会撞上「列表组织级共享 vs 详情 404」的语义矛盾，
+   * 详见下方 RESOLVERS 里的说明。
+   */
+  const MISSING_COST_SCENARIO_ID = `absent-cost-scenario-${RUN_TAG}`;
+
+  /**
    * 路由占位符按真实参数名映射到夹具。
    * 注：Next 路由把参数一律命名为 id/planId/runId，语义要靠路径前缀区分。
    */
@@ -589,7 +599,16 @@ async function main() {
     // P0-1：真实报价通道。放在最后 —— 前面的 projects/ 等前缀都不匹配它，顺序上无歧义。
     [/^\/api\/supplier-quotes\//, supplierQuoteA.id],
     // 成本情景：补上后矩阵才能跑过该段（此前缺项导致异常终止）。
-    [/^\/api\/cost\/scenarios\//, costScenarioA.id],
+    //
+    // 注意这里刻意用**不存在的 id**，而不是上面刚建的 costScenarioA.id。
+    // 矩阵里 /api/cost/scenarios/{id} 一类条目对 foreign/outsider/owner 一律期望 404，
+    // 这组判据是在「夹具里根本没有 CostScenario」的年代写下的；若把占位符换成真实夹具，
+    // 同组织身份就会拿到 200 而判红 —— 那属于**产品语义决策**（列表按 organizationId
+    // 共享、详情却要 404，两者本身就矛盾），不该由本分支顺手改判据来"修绿"。
+    //
+    // 用不存在的 id 反而更有价值：它真实验证了本分支补上的「父情景双限定」——
+    // 情景不存在 / 属他组织时必须 404，而不是回一个空数组 200。
+    [/^\/api\/cost\/scenarios\//, MISSING_COST_SCENARIO_ID],
   ];
   const expand = (template: string): string => {
     if (!template.includes("{")) return template;

@@ -198,8 +198,11 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     method: "POST",
     authz: "会话归属校验：非组织内本人会话一律 404；校验前有内容非空检查",
     expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
-    ownerGate: [201],
-    body: { content: "矩阵探测消息" },
+    // 202 而非 201：acceptKernMessage 以 `replayed ? 200 : 202` 返回，成功写入走 202。
+    ownerGate: [202],
+    // clientMessageId 是 acceptKernMessage 首行校验的必填项（/^[A-Za-z0-9_-]{8,100}$/）。
+    // 漏写会让四类身份全部卡在 422，归属校验根本走不到 —— 那样"非本人 404"就成了假绿。
+    body: { content: "矩阵探测消息", clientMessageId: "matrix-probe-0001" },
     validationFirst: true,
   },
 
@@ -1476,6 +1479,9 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     authz: "同上，走 POST 变体；记忆范围不变",
     expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
     ownerGate: [200],
+    // 入参全有默认值，但路由是裸 `req.json()`：不发 body 会在解析处就 400，
+    // 权限路径根本走不到 —— 带上空对象才能真的探到「登录后可用」这一门禁。
+    body: {},
     crossTenant: true,
   },
   {
@@ -1500,6 +1506,8 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     authz: "同上，POST 变体；记忆范围不变",
     expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
     ownerGate: [200],
+    // 同 active-push：裸 req.json() + 不发 body = 400，需带空对象才能探到真实门禁。
+    body: {},
     crossTenant: true,
   },
   {
@@ -1515,6 +1523,8 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     authz: "同上，POST 变体",
     expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
     ownerGate: [200],
+    // 同上：裸 req.json()，入参全有默认值但不发 body 会先撞 400。
+    body: {},
   },
   {
     path: "/api/assistant/project-tracking",

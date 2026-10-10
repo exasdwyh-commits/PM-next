@@ -8,6 +8,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const session = await getServerSession(req);
     const { id } = await params;
     const scenarioId = id;
+    // 同 approval：先用双限定确认父情景存在，避免「没有这个情景」也回 200 空数组。
+    const scenario = await prisma.costScenario.findFirst({
+      where: { id: scenarioId, organizationId: session.organizationId },
+    });
+    if (!scenario) return NextResponse.json({ error: "Scenario not found" }, { status: 404 });
+
     const comments = await prisma.costScenarioComment.findMany({
       where: { scenarioId, organizationId: session.organizationId },
       include: { user: { select: { id: true, name: true, email: true } } },
@@ -15,8 +21,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     });
     return NextResponse.json({ comments });
   } catch (e) {
-    console.error("GET comments error", e);
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+    return handleApiError(e, req);
   }
 }
 
@@ -49,7 +54,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Extract @ mentions and create notifications (future)
     return NextResponse.json({ comment });
   } catch (e) {
-    console.error("POST comments error", e);
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+    return handleApiError(e, req);
   }
 }

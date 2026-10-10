@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/shared/db";
 import { getServerSession } from "@/modules/identity/session";
 import { handleApiError } from "@/shared/api-handler";
+import { readJsonObjectBody } from "@/shared/request-body";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -17,7 +18,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
     if (!scenario) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const body = await req.json().catch(() => ({}));
+    // D-016：禁止 `req.json().catch(() => ({}))` 静默降级。本路由入参全有默认值
+    // （approverId 可空、comment 有兜底），故用标准三态解析：空 body → {} 继续跑，
+    // 畸形 JSON → 400，非对象 → 422。
+    const body = await readJsonObjectBody(req);
     const approverId = body.approverId;
 
     const approval = await prisma.costScenarioApproval.create({
@@ -42,8 +46,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     return NextResponse.json({ approval }, { status: 201 });
   } catch (error) {
-    console.error(`POST /api/cost/scenarios/[id]/approval error:`, error);
-    return NextResponse.json({ error: "Failed to submit approval" }, { status: 500 });
+    return handleApiError(error, req);
   }
 }
 
@@ -88,8 +91,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     return NextResponse.json({ approval: updatedApproval });
   } catch (error) {
-    console.error(`PUT /api/cost/scenarios/[id]/approval error:`, error);
-    return NextResponse.json({ error: "Failed to update approval" }, { status: 500 });
+    return handleApiError(error, req);
   }
 }
 
@@ -97,6 +99,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const session = await getServerSession(req);
     const { id } = await params;
+    // 先按「id + organizationId」双限定确认父情景存在：不存在的情景 / 他组织情景
+    // 一律 404，而不是返回空数组 200 —— 后者会让调用方分不清「没有审批」和「没有这个情景」。
+    const scenario = await prisma.costScenario.findFirst({
+      where: { id: id, organizationId: session.organizationId },
+    });
+    if (!scenario) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
     const approvals = await prisma.costScenarioApproval.findMany({
       where: { scenarioId: id, organizationId: session.organizationId },
       include: {
@@ -108,7 +117,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     return NextResponse.json({ approvals });
   } catch (error) {
-    console.error(`GET /api/cost/scenarios/[id]/approval error:`, error);
-    return NextResponse.json({ error: "Failed to fetch approvals" }, { status: 500 });
+    return handleApiError(error, req);
   }
 }

@@ -42,8 +42,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     return NextResponse.json({ scenario });
   } catch (error) {
-    console.error(`GET /api/cost/scenarios/[id] error:`, error);
-    return NextResponse.json({ error: "Failed to fetch scenario" }, { status: 500 });
+    return handleApiError(error, req);
   }
 }
 
@@ -106,8 +105,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     return NextResponse.json({ scenario: updated });
   } catch (error) {
-    console.error(`PUT /api/cost/scenarios/[id] error:`, error);
-    return NextResponse.json({ error: "Failed to update scenario" }, { status: 500 });
+    return handleApiError(error, req);
   }
 }
 
@@ -124,7 +122,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error(`DELETE /api/cost/scenarios/[id] error:`, error);
-    return NextResponse.json({ error: "Failed to delete scenario" }, { status: 500 });
+    return handleApiError(error, req);
   }
 }
