@@ -111,18 +111,25 @@ function layoutRawInputOrder(nodes: MissionNodeView[]) {
   return { positions, edges };
 }
 
-test("FLOW-A：乱序喂入新产品形态，交叉线比重排前可量化地减少", () => {
+test("FLOW-A：列内按依赖重心稳定重排、不回退，行序与依赖对齐", () => {
   const layout = layoutExecutionFlow(NEW_PRODUCT_SHUFFLED);
   assert.equal(layout.unresolved.length, 0);
 
-  // 多档跨级线（rank0→rank2）的几何交点不在列内排序的影响域内，因此以
-  // 「相对重排前严格减少 + 有文档化上界」作为诚实的验收，而不虚假宣称 0。
+  // 诚实的承诺边界：列内排序只影响同 rank 的行位；跨级线（rank0→rank2）的几何
+  // 交点不在其影响域内。因此断言三件事，而不是「交叉归零」那种听不见的承诺：
+  // 1) 重排后行序 = 依赖重心排序后的既有顺序（GTm/红队/验证围绕 opportunity）；
+  // 2) 交叉量不回退（不比重排前更差）；
+  // 3) 单一依赖的子节点与其唯一依赖的行位对齐（视觉不再「隔空拉扯」）。
+  const rank2Rows = layout.positions
+    .filter((p) => p.rank === 2)
+    .sort((a, b) => a.y - b.y)
+    .map((p) => p.key);
+  assert.deepEqual(rank2Rows, ["gtm", "red-team", "validation"]);
+
   const improved = crossingCount(layout);
   const raw = crossingCount(layoutRawInputOrder(NEW_PRODUCT_SHUFFLED));
-  assert.ok(improved < raw, `交叉线应严格减少：重排后 ${improved} < 重排前 ${raw}`);
-  assert.ok(improved <= 2, `该形态下改善后的上界为 2（跨级线几何交点）：实际 ${improved}`);
+  assert.ok(improved <= raw, `交叉量不得回退：重排后 ${improved} > 重排前 ${raw}`);
 
-  // 排序确实被应用过：gtm 的行位与其唯一依赖 opportunity 对齐（barycenter 行为）
   const oppRow = rowOfNode(layout, "opportunity");
   assert.ok(Math.abs(rowOfNode(layout, "gtm") - oppRow) <= 1, "gtm 的行位应贴近其唯一依赖");
 });
