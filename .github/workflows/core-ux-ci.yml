@@ -63,6 +63,9 @@ jobs:
       - run: npx prisma generate
       - run: npx prisma migrate deploy
       - run: npm run test:home-experience
+      - run: npm run test:healthcare-innovation
+      - run: npm run test:report-format
+      - run: npm run test:token-usage
       - run: npm run test:frontend-v3
       - run: npm run test:source-guards
       - run: npm run test:kern-project-map
@@ -76,7 +79,11 @@ jobs:
           src/modules/assistant-runtime/capabilities/daily-briefing.ts
           src/modules/assistant-runtime/capabilities/active-push.ts
           src/modules/visual-intelligence/project-map-builder.ts
+          src/modules/visual-intelligence/report-format.ts
+          src/modules/visual-intelligence/healthcare-innovation-brief.ts
+          src/modules/usage/token-usage.ts
           tests/kern-home-experience.test.ts tests/kern-project-map.ts tests/frontend-v3-contract.test.ts
+          tests/healthcare-innovation.test.ts tests/report-format.test.ts tests/token-usage.test.ts
 
   browser:
     name: Desktop and mobile fixture evidence
