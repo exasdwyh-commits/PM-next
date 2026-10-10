@@ -96,7 +96,149 @@ function ProductView({ report, onOpenDecisions, onOpenEvidence }: any) {
         <div className="err-sec"><h4>⚠️ 风险清单 (需工具流程跟进)</h4><ul>{risks.map((r: string, i: number) => <li key={i}>{r}</li>)}</ul><button onClick={onOpenDecisions}>🛠️ 生成风险应对计划</button></div>
         <div className="err-sec"><h4>❓ UNKNOWN 缺口（每条须给出补齐路径）</h4><ul>{unknowns.map((u: string, i: number) => <li key={i}>{u}</li>)}</ul><button onClick={onOpenEvidence}>📎 去补证据</button></div>
       </div>
+      <DeepReportSections report={report} />
       <RoleTools />
+    </div>
+  );
+}
+
+
+// ===== 执行层深度报告（批次 C · 产品角色）=====
+// 九大块骨架（report-full 标准结构）：①规格 ②BOM ⑧验证 三块实渲，
+// 其余六块 UNKNOWN 占位浮现架；数据一律来自 report.deepReport，
+// 缺块渲染占位并写明「如何补齐」，绝不编造。
+function DeepGap({ title, fill }: { title: string; fill?: string }) {
+  return (
+    <div className="deep-gap">
+      <strong>⚠️ UNKNOWN · {title}</strong>
+      <small>→ 如何补齐：{fill || "待数据生产者接入"}</small>
+    </div>
+  );
+}
+function deepStatusCls(status?: string | null): "ok" | "tight" | "late" | "unknown" {
+  const v = (status || "").toUpperCase();
+  if (v === "SUPPORTED") return "ok";
+  if (v === "AMBIGUOUS") return "tight";
+  if (v === "CONTRADICTED" || v === "NOT_FOUND") return "late";
+  return "unknown";
+}
+function DeepReportSections({ report }: any) {
+  const deep = report.deepReport ?? null;
+  const sections: any[] = Array.isArray(deep?.sections) ? deep.sections : [];
+  const byKey = new Map<string, any>(sections.map((x: any) => [x.key, x]));
+  const unknownRest = sections.filter(
+    (x: any) => !x.ready && !["definition", "bom", "validation"].includes(x.key)
+  );
+  const totals = deep?.validation?.totals ?? null;
+  return (
+    <div className="err-deep">
+      <div className="deep-head">
+        <h3>📑 执行层深度报告（九大块 · report-full 标准结构）</h3>
+        <div className="deep-nav">
+          {sections.map((x: any) => (
+            <span key={x.key} className={`deep-chip ${x.ready ? "ready" : "unknown"}`} title={x.ready ? "有实数据" : x.gap || "缺数据"}>
+              {x.ready ? "✓" : "□"} {x.title}
+            </span>
+          ))}
+          {sections.length === 0 && (
+            <DeepGap title="九块骨架缺失" fill="服务端未返回 deepReport.sections；由 orchestrator 聚合时附带骨架" />
+          )}
+        </div>
+      </div>
+
+      {/* ① 产品定义与规格 */}
+      {deep?.spec ? (
+        <section className="deep-block">
+          <h4>① 产品定义与规格{deep.spec.title ? <small> · {deep.spec.title}</small> : null}{deep.spec.dosageForm ? <small> · 剂型：{deep.spec.dosageForm}</small> : null}</h4>
+          <div className="err-table-wrap">
+            <table className="err-table-full">
+              <thead><tr><th>项目</th><th>取值</th><th>三态</th><th>来源</th></tr></thead>
+              <tbody>
+                {deep.spec.rows.map((r: any, i: number) => (
+                  <tr key={i}>
+                    <td>{r.name}</td>
+                    <td>{r.value}{r.unit ? ` ${r.unit}` : ""}{r.note ? <small>（{r.note}）</small> : null}</td>
+                    <td><ErrEv kind={r.claimKind} /></td>
+                    <td>{r.evidenceRef || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : (
+        <DeepGap title="① 产品定义与规格" fill={byKey.get("definition")?.gap} />
+      )}
+
+      {/* ② 配方与 BOM 成本 */}
+      {deep?.bom ? (
+        <section className="deep-block">
+          <h4>② 配方与 BOM 成本{deep.bom.basis ? <small> · {deep.bom.basis}</small> : null}</h4>
+          <div className="err-table-wrap">
+            <table className="err-table-full deep-bom">
+              <thead><tr><th>物料</th><th>数量</th><th>单价</th><th>合计</th><th>来源</th></tr></thead>
+              <tbody>
+                {deep.bom.lines.map((l: any, i: number) => (
+                  <tr key={i}>
+                    <td>{l.item}{l.note ? <small>（{l.note}）</small> : null}</td>
+                    <td>{l.qty ?? "—"}{l.uom ? ` ${l.uom}` : ""}</td>
+                    <td>{l.unitCost ?? "—"}</td>
+                    <td>{l.total ?? "—"}</td>
+                    <td>{l.sourceRef || <span className="deep-nosource">无来源（不得用作报价依据）</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <small className="deep-note">货币：{deep.bom.currency || "CNY"} ｜ 无 sourceRef 的数字仅作结构示意，不得报价</small>
+        </section>
+      ) : (
+        <DeepGap title="② 配方与 BOM 成本" fill={byKey.get("bom")?.gap} />
+      )}
+
+      {/* ⑧ 验证计划与待拍板 */}
+      {deep?.validation ? (
+        <section className="deep-block">
+          <h4>⑧ 验证计划与待拍板{deep.validation.qaStatus ? <small> · QA：{deep.validation.qaStatus}</small> : null}</h4>
+          {totals && (
+            <div className="deep-vtotals">
+              <span className="op-chip ok">已支持 {totals.supported}</span>
+              <span className="op-chip late">未闭合 {totals.unverified}</span>
+              <span className="op-chip unknown">claim 共 {totals.claims}</span>
+            </div>
+          )}
+          <div className="err-table-wrap">
+            <table className="err-table-full">
+              <thead><tr><th>结论</th><th>最新核验</th><th>时间</th><th>三态</th><th>等级</th></tr></thead>
+              <tbody>
+                {deep.validation.items.map((v: any, i: number) => (
+                  <tr key={i}>
+                    <td>{v.claim}</td>
+                    <td><span className={`op-chip ${deepStatusCls(v.latestStatus)}`}>{v.latestStatus || "NO_VERIFICATION"}</span></td>
+                    <td>{v.checkedAt || "—"}</td>
+                    <td><ErrEv kind={v.claimKind} /></td>
+                    <td>{v.evidenceLevel || "?"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {Array.isArray(deep.validation.gaps) && deep.validation.gaps.length > 0 && (
+            <div className="deep-gaps"><strong>未闭合缺口：</strong>
+              <ul>{deep.validation.gaps.map((g: string, i: number) => <li key={i}>{g}</li>)}</ul>
+            </div>
+          )}
+        </section>
+      ) : (
+        <DeepGap title="⑧ 验证计划与待拍板" fill={byKey.get("validation")?.gap} />
+      )}
+
+      {/* 其余六块 UNKNOWN 占位浮现架 */}
+      {unknownRest.length > 0 && (
+        <div className="deep-unknowns">
+          {unknownRest.map((x: any) => <DeepGap key={x.key} title={x.title} fill={x.gap} />)}
+        </div>
+      )}
     </div>
   );
 }
