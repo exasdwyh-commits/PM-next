@@ -289,7 +289,16 @@ test("产品分析、销售机制、风险登记册与营销策略来自输入�
     assert.ok(["HIGH", "MEDIUM", "LOW"].includes(row.impact));
   }
   assert.ok(brief.riskRegister.some((row) => row.category === "财务"));
-  assert.ok(brief.riskRegister.some((row) => row.category === "合规"));
+  assert.ok(brief.riskRegister.some((row) => row.category === "隐私伦理"));
+  const weakBrief = buildHealthcareInnovationBrief(
+    makeInput({ sources: [], evidence: [], marketSignals: [], regulatoryConfirmed: false }),
+  );
+  for (const category of ["合规", "证据", "市场", "财务"]) {
+    assert.ok(
+      weakBrief.riskRegister.some((row) => row.category === category),
+      `缺证据输入下风险登记册应包含「${category}」类风险`,
+    );
+  }
 
   assert.deepEqual(
     brief.marketingStrategy.map((tactic) => tactic.stage),
