@@ -5,6 +5,7 @@ import {
   TOKEN_USAGE_NOTICES,
   formatCostUsd,
   formatTokenCostLine,
+  formatTokenCount,
   formatTokenUsageSummary,
   normalizeTokenUsageRecords,
   summarizeTokenUsage,
@@ -1766,10 +1767,10 @@ export function buildHealthcareInnovationRichBlocks(
       title: "Token 与成本统计",
       items: [
         { label: "模型调用", value: `${tokenSummary.calls} 次`, basis: "fact" },
-        { label: "总 tokens", value: tokenSummary.totalTokens.toLocaleString("en-US"), basis: "fact" },
+        { label: "总 tokens", value: formatTokenCount(tokenSummary.totalTokens), basis: "fact" },
         {
           label: "输入 / 输出",
-          value: `${tokenSummary.totalInputTokens.toLocaleString("en-US")} / ${tokenSummary.totalOutputTokens.toLocaleString("en-US")}`,
+          value: `${formatTokenCount(tokenSummary.totalInputTokens)} / ${formatTokenCount(tokenSummary.totalOutputTokens)}`,
           basis: "fact",
         },
         {

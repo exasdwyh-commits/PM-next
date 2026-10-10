@@ -222,6 +222,11 @@ export function createTokenUsageTracker(): TokenUsageTracker {
   return new TokenUsageTracker();
 }
 
+/** 千分位格式化：确定性实现，不依赖运行时 locale（数字格式化不用带语言标签的 toLocaleString）。 */
+export function formatTokenCount(value: number): string {
+  return String(Math.trunc(value)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
 /** 美元格式化：最多 6 位小数，去掉多余的 0；小于 $0.000001 的正值写作 <$0.000001。 */
 export function formatCostUsd(value: number): string {
   if (!Number.isFinite(value) || value <= 0) return "$0";
@@ -233,7 +238,7 @@ export function formatCostUsd(value: number): string {
 /** 一句话成本行（给执行摘要）：调用次数、token 用量、估算成本与口径说明。 */
 export function formatTokenCostLine(summary: TokenUsageSummary): string {
   if (summary.calls === 0) return "未提供模型用量数据，成本统计暂缺。";
-  const tokens = `${summary.totalTokens.toLocaleString("en-US")} tokens（输入 ${summary.totalInputTokens.toLocaleString("en-US")} / 输出 ${summary.totalOutputTokens.toLocaleString("en-US")}）`;
+  const tokens = `${formatTokenCount(summary.totalTokens)} tokens（输入 ${formatTokenCount(summary.totalInputTokens)} / 输出 ${formatTokenCount(summary.totalOutputTokens)}）`;
   const cost =
     summary.estimatedCostUsd !== null
       ? `按公开参考价预估约 ${formatCostUsd(summary.estimatedCostUsd)}`
@@ -244,7 +249,7 @@ export function formatTokenCostLine(summary: TokenUsageSummary): string {
 /** 多行成本统计（给「Token 与成本统计」章节）。 */
 export function formatTokenUsageSummary(summary: TokenUsageSummary): string[] {
   const lines = [
-    `调用次数：${summary.calls} 次；合计 ${summary.totalTokens.toLocaleString("en-US")} tokens（输入 ${summary.totalInputTokens.toLocaleString("en-US")} / 输出 ${summary.totalOutputTokens.toLocaleString("en-US")}）。`,
+    `调用次数：${summary.calls} 次；合计 ${formatTokenCount(summary.totalTokens)} tokens（输入 ${formatTokenCount(summary.totalInputTokens)} / 输出 ${formatTokenCount(summary.totalOutputTokens)}）。`,
     summary.estimatedCostUsd !== null
       ? `预估成本：约 ${formatCostUsd(summary.estimatedCostUsd)}（公开参考价，${TOKEN_PRICING_AS_OF} 核对）。`
       : `预估成本：已收录定价部分约 ${formatCostUsd(summary.knownCostUsd)}；${summary.unknownPricingCalls} 次调用模型定价未收录，未估算。`,
@@ -254,7 +259,7 @@ export function formatTokenUsageSummary(summary: TokenUsageSummary): string[] {
     .slice(0, 5)
     .map(
       ([model, entry]) =>
-        `${model}：${entry.calls} 次，${entry.totalTokens.toLocaleString("en-US")} tokens${
+        `${model}：${entry.calls} 次，${formatTokenCount(entry.totalTokens)} tokens${
           entry.estimatedCostUsd !== null ? `，约 ${formatCostUsd(entry.estimatedCostUsd)}` : "，定价未知"
         }`,
     );
