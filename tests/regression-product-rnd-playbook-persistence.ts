@@ -156,6 +156,8 @@ async function main() {
     await prisma.idempotencyRecord.deleteMany({
       where: { key: { startsWith: `product-rnd-playbook:${org.id}:create-product:` } },
     });
+    // PLB-3b 走真实入库渠道写下审计行（actorId FK 阻组织级联删），先清审计再删组织。
+    await prisma.auditEvent.deleteMany({ where: { actorId: owner.id } });
     await prisma.organization.delete({ where: { id: org.id } });
     await prisma.$disconnect();
   }
