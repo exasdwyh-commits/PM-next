@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { WorkforceStudioData } from "@/modules/workforce/studio";
+import { labelAgentRunStatus, labelAgentTaskStatus } from "@/shared/status-labels";
 
 type Agent = WorkforceStudioData["agents"][number];
 type Task = WorkforceStudioData["tasks"][number];
@@ -13,11 +14,14 @@ type Execution = { status: string; clientMessageId: string; outputMessageId: str
 type Receipt = { execution: Execution; output: string; workerReady: boolean };
 type Messages = { executions: Execution[]; messages: { id: string; content: string }[]; workerReady: boolean };
 const terminal = new Set(["SUCCEEDED", "FAILED", "CANCELLED"]);
-const labels: Record<string, string> = {
-  QUEUED: "等待执行", RUNNING: "正在处理", BLOCKED: "遇到阻塞", WAITING_HUMAN: "需要你", SUBMITTED: "待复核",
-  SUCCEEDED: "执行完成", FAILED: "执行失败", CANCELLED: "已取消", CREATED: "已交接", ACCEPTED: "已接收", COMPLETED: "已返回",
-  ACTIVE: "已启用", PAUSED: "已暂停", ARCHIVED: "已归档", WAITING_CONFIRMATION: "等待确认",
+// 一个 Status 位会同时渲染 4 个不同枚举，早先共用一张平表会互相串味：
+// 交接的 FAILED 会拿到「执行失败」这种任务措辞，任务措辞又和
+// executive-report / product-rnd-panel 走的 AGENT_TASK_STATUS_LABELS 不一致。
+// 任务与执行运行直接复用权威表，交接与员工生命周期各自单独登记。
+const delegationLabels: Record<string, string> = {
+  CREATED: "已交接", ACCEPTED: "已接收", COMPLETED: "已返回", FAILED: "交接失败", CANCELLED: "已取消",
 };
+const agentLabels: Record<string, string> = { ACTIVE: "已启用", PAUSED: "已暂停", ARCHIVED: "已归档" };
 const roles: Record<string, [string, string]> = {
   PRODUCT_LEAD: ["团队负责人", "#e5c878"], PRODUCT: ["产品策略", "#81b5cb"], MARKET_RESEARCH: ["市场研究", "#90bfa8"],
   SCIENTIFIC_EVIDENCE: ["科学证据", "#aaa5d9"], FORMULATION: ["配方设计", "#cdb08e"], COMPLIANCE: ["法规合规", "#8fc7c0"],
@@ -30,7 +34,14 @@ function color(agent: Agent) { return roles[agent.roleKey]?.[1] ?? "#99b6aa"; }
 function date(value: string) {
   return new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Shanghai" }).format(new Date(value));
 }
-function Status({ value }: { value: string }) { return <span className={`ws-status ws-status-${value.toLowerCase()}`}><i aria-hidden />{labels[value] ?? value}</span>; }
+type StatusKind = "task" | "run" | "handoff" | "agent";
+function statusText(value: string, kind: StatusKind): string {
+  if (kind === "task") return labelAgentTaskStatus(value);
+  if (kind === "run") return labelAgentRunStatus(value);
+  if (kind === "handoff") return delegationLabels[value] ?? value;
+  return agentLabels[value] ?? value;
+}
+function Status({ value, kind }: { value: string; kind: StatusKind }) { return <span className={`ws-status ws-status-${value.toLowerCase()}`}><i aria-hidden />{statusText(value, kind)}</span>; }
 function Avatar({ agent, small = false }: { agent: Agent; small?: boolean }) {
   return <span className={`ws-avatar${small ? " ws-avatar-small" : ""}`} style={{ "--agent-color": color(agent) } as CSSProperties} aria-hidden>{role(agent).slice(0, 1)}</span>;
 }
@@ -193,7 +204,7 @@ export default function StudioClient({ initial }: { initial: WorkforceStudioData
     return <button key={task.id} className="ws-task-row" onClick={() => setDetail({ kind: "task", id: task.id })}>
       <span className="ws-task-goal">{task.goal}</span>
       <span className="ws-assignee">{agent && <Avatar agent={agent} small />}{agent ? role(agent) : "员工"}</span>
-      <Status value={task.status} /><time dateTime={task.updatedAt}>{date(task.updatedAt)}</time>
+      <Status value={task.status} kind="task" /><time dateTime={task.updatedAt}>{date(task.updatedAt)}</time>
     </button>;
   }
 
@@ -212,7 +223,7 @@ export default function StudioClient({ initial }: { initial: WorkforceStudioData
         <div className="ws-team-list">{data.agents.map(agent => {
           const working = data.tasks.some(task => task.agentId === agent.id && task.status === "RUNNING");
           const needsYou = attention.some(task => task.agentId === agent.id);
-          return <button key={agent.id} className="ws-member" onClick={() => { setDetail({ kind: "agent", id: agent.id }); setTeamOpen(false); }}><Avatar agent={agent} small /><span><b>{role(agent)}</b><small>{agent.name}</small></span><i className={`ws-member-dot ${working ? "working" : needsYou ? "attention" : agent.status !== "ACTIVE" ? "paused" : ""}`} aria-label={working ? "正在处理" : needsYou ? "需要关注" : labels[agent.status]} /></button>;
+          return <button key={agent.id} className="ws-member" onClick={() => { setDetail({ kind: "agent", id: agent.id }); setTeamOpen(false); }}><Avatar agent={agent} small /><span><b>{role(agent)}</b><small>{agent.name}</small></span><i className={`ws-member-dot ${working ? "working" : needsYou ? "attention" : agent.status !== "ACTIVE" ? "paused" : ""}`} aria-label={working ? "正在处理" : needsYou ? "需要关注" : agentLabels[agent.status]} /></button>;
         })}{!data.agents.length && <p className="ws-sidebar-empty">团队尚未建立。<Link href="/workforce">去初始化团队 ↗</Link></p>}</div>
         <footer className="ws-sidebar-footer"><Link href="/workforce">⚙ 团队管理与审批</Link><Link href="/manage">项目工作台 ↗</Link><span className="ws-user"><span>{data.viewer.name.slice(0, 1)}</span>{data.viewer.name}</span></footer>
       </aside>
@@ -228,7 +239,7 @@ export default function StudioClient({ initial }: { initial: WorkforceStudioData
             <label htmlFor="ws-assignment" className="ws-sr-only">交办给 Kern 的目标</label><textarea id="ws-assignment" ref={textRef} value={draft} onChange={event => setDraft(event.target.value)} maxLength={40_000} placeholder="把目标交给 Kern，例如：分析这款产品的竞品，列出需要补充的证据…" rows={3} disabled={!restored || sending} />
             <div className="ws-composer-bottom"><span><span className="ws-kern-mini" aria-hidden>K</span>交给 Kern，统一协调</span><button className="ws-primary" type="submit" disabled={!restored || sending || !draft.trim()}>{sending ? "接收中…" : "交办"}<span aria-hidden>↑</span></button></div>
           </form> : <div className="ws-receipt" aria-live="polite">
-            <div className="ws-receipt-head"><span className="ws-section-label">本次交办</span>{receipt ? <Status value={receipt.execution.status} /> : <span>{sending ? "正在接收…" : "待确认接收"}</span>}</div>
+            <div className="ws-receipt-head"><span className="ws-section-label">本次交办</span>{receipt ? <Status value={receipt.execution.status} kind="run" /> : <span>{sending ? "正在接收…" : "待确认接收"}</span>}</div>
             <p className="ws-receipt-goal">{pending.text}</p>
             {receipt?.output && <details className="ws-reply" open={tab === "overview"}><summary>查看回复</summary><div className="ws-output">{receipt.output}</div></details>}
             {receipt?.execution.error && <p className="ws-warning">{receipt.execution.error}</p>}
@@ -242,12 +253,12 @@ export default function StudioClient({ initial }: { initial: WorkforceStudioData
         <div className="ws-content">
           {tab === "overview" && <>
             <div className="ws-stats"><div><span>进行中的员工任务</span><b>{busy}<small> / {data.tasks.length}</small></b></div><div><span>需要你关注</span><b className={attention.length ? "ws-amber" : ""}>{attention.length}</b></div><div><span>已返回的交接</span><b>{data.handoffs.filter(item => item.status === "COMPLETED").length}</b></div><div><span>员工执行完成</span><b>{completed}</b></div></div>
-            <section className="ws-section"><div className="ws-section-head"><h2>需要你关注</h2><span>{attention.length}</span></div>{attention.length ? attention.map(task => <button key={task.id} className="ws-attention-row" onClick={() => setDetail({ kind: "task", id: task.id })}>{agents.get(task.agentId) && <Avatar agent={agents.get(task.agentId)!} small />}<span><b>{task.goal}</b><small>{task.blockedReason ?? (task.status === "SUBMITTED" ? "结果已提交，等待复核。" : "打开详情，查看需要处理的问题。")}</small></span><Status value={task.status} /><span aria-hidden>↗</span></button>) : <div className="ws-quiet"><span aria-hidden>✓</span>目前没有等待你处理的事项。</div>}</section>
+            <section className="ws-section"><div className="ws-section-head"><h2>需要你关注</h2><span>{attention.length}</span></div>{attention.length ? attention.map(task => <button key={task.id} className="ws-attention-row" onClick={() => setDetail({ kind: "task", id: task.id })}>{agents.get(task.agentId) && <Avatar agent={agents.get(task.agentId)!} small />}<span><b>{task.goal}</b><small>{task.blockedReason ?? (task.status === "SUBMITTED" ? "结果已提交，等待复核。" : "打开详情，查看需要处理的问题。")}</small></span><Status value={task.status} kind="task" /><span aria-hidden>↗</span></button>) : <div className="ws-quiet"><span aria-hidden>✓</span>目前没有等待你处理的事项。</div>}</section>
           </>}
           {tab !== "handoffs" && <section className="ws-section"><div className="ws-section-head"><h2>{tab === "overview" ? "最近任务" : "任务"}</h2>{tab === "overview" ? <button onClick={() => setTab("tasks")}>查看全部 ↗</button> : <span>{tasks.length} 条</span>}</div>{tab === "tasks" && <div className="ws-filters"><label className="ws-sr-only" htmlFor="ws-search">搜索任务</label><input id="ws-search" value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索任务目标…" /><label className="ws-sr-only" htmlFor="ws-person">负责人</label><select id="ws-person" value={filter} onChange={event => setFilter(event.target.value)}><option value="">全部成员</option>{data.agents.map(agent => <option key={agent.id} value={agent.id}>{role(agent)} · {agent.name}</option>)}</select></div>}<div className="ws-task-table"><div className="ws-table-head"><span>任务目标</span><span>负责人</span><span>状态</span><span>更新于</span></div>{(tab === "overview" ? tasks.slice(0, 6) : tasks).map(taskRow)}{!tasks.length && <div className="ws-empty"><b>{filter || query ? "没有匹配的任务" : "从一件工作开始"}</b><p>{filter || query ? "调整搜索或负责人筛选。" : "上方交办由 Kern 接收；产生的员工任务会显示在这里。"}</p></div>}</div></section>}
           {tab === "handoffs" && <section className="ws-section"><div className="ws-section-head"><h2>交接记录</h2><span>最近 {data.limits.handoffs} 条</span></div><div className="ws-filters"><label htmlFor="ws-handoff-person">关联成员</label><select id="ws-handoff-person" value={filter} onChange={event => setFilter(event.target.value)}><option value="">全部成员</option>{data.agents.map(agent => <option key={agent.id} value={agent.id}>{role(agent)}</option>)}</select></div><div className="ws-handoffs">{handoffs.map(item => {
             const from = agents.get(item.fromAgentId)!; const to = agents.get(item.toAgentId)!; const task = data.tasks.find(task => task.id === item.childTaskId);
-            return <button className="ws-handoff" key={item.id} onClick={() => setDetail({ kind: "handoff", id: item.id })}><div className="ws-handoff-route"><Avatar agent={from} small /><b>{role(from)}</b><span aria-hidden>→</span><Avatar agent={to} small /><b>{role(to)}</b><Status value={item.status} /></div><h3>{task?.goal ?? "已交接任务"}</h3><p>{item.reason}</p>{task?.summary && <div className="ws-handoff-preview">返回摘要：{task.summary}</div>}<footer><time dateTime={item.updatedAt}>{date(item.updatedAt)}</time><span>查看回执 ↗</span></footer></button>;
+            return <button className="ws-handoff" key={item.id} onClick={() => setDetail({ kind: "handoff", id: item.id })}><div className="ws-handoff-route"><Avatar agent={from} small /><b>{role(from)}</b><span aria-hidden>→</span><Avatar agent={to} small /><b>{role(to)}</b><Status value={item.status} kind="handoff" /></div><h3>{task?.goal ?? "已交接任务"}</h3><p>{item.reason}</p>{task?.summary && <div className="ws-handoff-preview">返回摘要：{task.summary}</div>}<footer><time dateTime={item.updatedAt}>{date(item.updatedAt)}</time><span>查看回执 ↗</span></footer></button>;
           })}{!handoffs.length && <div className="ws-empty"><span className="ws-empty-icon" aria-hidden>⇄</span><b>交接有迹可循</b><p>员工之间发生委派后，这里会记录交给谁、为什么交接，以及返回的运行摘要。</p></div>}</div></section>}
           <footer className="ws-main-footer"><span>仅显示你可查看的工作 · 最近 {data.limits.tasks} 个任务</span><time dateTime={data.generatedAt}>更新于 {date(data.generatedAt)}</time></footer>
           <div className="ws-worker-health"><span><i className={data.workers.conversation.status === "running" ? "ready" : ""} />对话执行：{data.workers.conversation.status === "running" ? "心跳正常" : "未检测到可用进程"}</span><span><i className={data.workers.executor.status === "running" ? "ready" : ""} />员工执行：{data.workers.executor.status === "running" ? "心跳正常" : "未检测到可用进程"}</span><Link href="/workforce">查看团队与执行设置 ↗</Link></div>
@@ -256,9 +267,9 @@ export default function StudioClient({ initial }: { initial: WorkforceStudioData
     </div>
     <dialog ref={dialogRef} className="ws-dialog" aria-labelledby="ws-detail-title" onCancel={() => setDetail(null)} onClose={() => setDetail(null)} onClick={event => { if (event.target === event.currentTarget) setDetail(null); }}>
       <div className="ws-drawer"><header><span className="ws-section-label">{detail?.kind === "agent" ? "员工档案" : detail?.kind === "handoff" ? "交接回执" : "任务详情"}</span><button autoFocus aria-label="关闭详情" onClick={() => setDetail(null)}>×</button></header>
-        {selectedAgent ? <><div className="ws-agent-heading"><Avatar agent={selectedAgent} /><div><h2 id="ws-detail-title">{role(selectedAgent)}</h2><p>{selectedAgent.name}</p></div></div><Status value={selectedAgent.status} /><p className="ws-detail-description">{selectedAgent.description ?? "尚未填写职责说明。"}</p><h3>职责与配置</h3><dl><dt>模型策略</dt><dd>{selectedAgent.modelPolicyKey ?? "采用组织默认策略"}</dd><dt>并行任务上限</dt><dd>{selectedAgent.maxConcurrentTasks}</dd><dt>可见范围</dt><dd>{selectedAgent.accessMode === "ORGANIZATION" ? "组织共享" : "仅本人及组织管理员"}</dd></dl><h3>已启用技能</h3><div className="ws-skill-list">{selectedAgent.skills.map(skill => <div key={skill.key}><b>{skill.name}</b>{skill.tools.length > 0 && <small>工具：{skill.tools.join("、")}</small>}</div>)}{!selectedAgent.skills.length && <p>尚未绑定可用技能。</p>}</div><p className="ws-detail-note">启用状态表示员工配置已开启。实际执行仍取决于执行进程、模型和工具权限。</p><h3>最近任务</h3><div className="ws-agent-tasks">{data.tasks.filter(task => task.agentId === selectedAgent.id).slice(0, 5).map(task => <button key={task.id} onClick={() => setDetail({ kind: "task", id: task.id })}><span>{task.goal}</span><Status value={task.status} /></button>)}{!data.tasks.some(task => task.agentId === selectedAgent.id) && <p>暂无可查看的任务。</p>}</div><button className="ws-primary" onClick={() => { setFilter(selectedAgent.id); setTab("tasks"); setDetail(null); }}>查看此员工的任务</button></> : selectedTask ? <>
-          <h2 id="ws-detail-title">{selectedTask.goal}</h2><Status value={selectedTask.status} />
-          {selectedHandoff && <><h3>交接路径</h3><p>{role(agents.get(selectedHandoff.fromAgentId)!)} → {role(agents.get(selectedHandoff.toAgentId)!)}</p><Status value={selectedHandoff.status} /><h3>交接原因</h3><p className="ws-detail-description">{selectedHandoff.reason}</p>{selectedHandoff.parentTaskId && <button className="ws-text-button" onClick={() => setDetail({ kind: "task", id: selectedHandoff.parentTaskId! })}>查看发起任务 ↗</button>}</>}
+        {selectedAgent ? <><div className="ws-agent-heading"><Avatar agent={selectedAgent} /><div><h2 id="ws-detail-title">{role(selectedAgent)}</h2><p>{selectedAgent.name}</p></div></div><Status value={selectedAgent.status} kind="agent" /><p className="ws-detail-description">{selectedAgent.description ?? "尚未填写职责说明。"}</p><h3>职责与配置</h3><dl><dt>模型策略</dt><dd>{selectedAgent.modelPolicyKey ?? "采用组织默认策略"}</dd><dt>并行任务上限</dt><dd>{selectedAgent.maxConcurrentTasks}</dd><dt>可见范围</dt><dd>{selectedAgent.accessMode === "ORGANIZATION" ? "组织共享" : "仅本人及组织管理员"}</dd></dl><h3>已启用技能</h3><div className="ws-skill-list">{selectedAgent.skills.map(skill => <div key={skill.key}><b>{skill.name}</b>{skill.tools.length > 0 && <small>工具：{skill.tools.join("、")}</small>}</div>)}{!selectedAgent.skills.length && <p>尚未绑定可用技能。</p>}</div><p className="ws-detail-note">启用状态表示员工配置已开启。实际执行仍取决于执行进程、模型和工具权限。</p><h3>最近任务</h3><div className="ws-agent-tasks">{data.tasks.filter(task => task.agentId === selectedAgent.id).slice(0, 5).map(task => <button key={task.id} onClick={() => setDetail({ kind: "task", id: task.id })}><span>{task.goal}</span><Status value={task.status} kind="task" /></button>)}{!data.tasks.some(task => task.agentId === selectedAgent.id) && <p>暂无可查看的任务。</p>}</div><button className="ws-primary" onClick={() => { setFilter(selectedAgent.id); setTab("tasks"); setDetail(null); }}>查看此员工的任务</button></> : selectedTask ? <>
+          <h2 id="ws-detail-title">{selectedTask.goal}</h2><Status value={selectedTask.status} kind="task" />
+          {selectedHandoff && <><h3>交接路径</h3><p>{role(agents.get(selectedHandoff.fromAgentId)!)} → {role(agents.get(selectedHandoff.toAgentId)!)}</p><Status value={selectedHandoff.status} kind="handoff" /><h3>交接原因</h3><p className="ws-detail-description">{selectedHandoff.reason}</p>{selectedHandoff.parentTaskId && <button className="ws-text-button" onClick={() => setDetail({ kind: "task", id: selectedHandoff.parentTaskId! })}>查看发起任务 ↗</button>}</>}
           <dl><dt>负责人</dt><dd>{agents.get(selectedTask.agentId)?.name}</dd><dt>最后更新</dt><dd>{date(selectedTask.updatedAt)}</dd></dl>
           {selectedTask.blockedReason && <><h3>需要处理的问题</h3><p className="ws-detail-description ws-warning">{selectedTask.blockedReason}</p></>}
           {selectedTask.error && <><h3>执行说明</h3><p className="ws-detail-description ws-warning">{selectedTask.error}</p></>}
