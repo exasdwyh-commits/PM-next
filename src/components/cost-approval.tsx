@@ -37,11 +37,11 @@ export function CostApproval({
   const pendingApproval = approvals.find(a => a.status === "PENDING_APPROVAL");
 
   const statusConfig: Record<string, { label: string; color: string; icon: string }> = {
-    DRAFT: { label: "草稿", color: "#6b7280", icon: "📝" },
-    PENDING_APPROVAL: { label: "待审批", color: "#d97706", icon: "⏳" },
-    APPROVED: { label: "已批准", color: "#0b7a4f", icon: "✅" },
-    REJECTED: { label: "已驳回", color: "#b32b23", icon: "❌" },
-    ARCHIVED: { label: "已归档", color: "#6b7280", icon: "📦" },
+    DRAFT: { label: "草稿", color: "var(--ink-muted)", icon: "📝" },
+    PENDING_APPROVAL: { label: "待审批", color: "var(--warn)", icon: "⏳" },
+    APPROVED: { label: "已批准", color: "var(--ok)", icon: "✅" },
+    REJECTED: { label: "已驳回", color: "var(--block)", icon: "❌" },
+    ARCHIVED: { label: "已归档", color: "var(--ink-muted)", icon: "📦" },
   };
 
   const currentConfig = statusConfig[currentStatus] || statusConfig.DRAFT;
@@ -61,7 +61,7 @@ export function CostApproval({
       <div className="approval-actions">
         {currentStatus === "DRAFT" && (
           <>
-            <button className="primary" onClick={() => { setShowComment(true); }} style={{ background: "#0f1116" }}>📤 提交审批</button>
+            <button className="primary" onClick={() => { setShowComment(true); }} style={{ background: "var(--deep)" }}>📤 提交审批</button>
             <small>提交后进入待审批，产品审核→领导审批</small>
           </>
         )}
@@ -72,8 +72,8 @@ export function CostApproval({
             <small>待审批：{pendingApproval.requester?.name || "申请人"}提交，{new Date(pendingApproval.createdAt).toLocaleString()}</small>
           </>
         )}
-        {currentStatus === "APPROVED" && <small style={{ color: "#0b7a4f" }}>✅ 已批准，可进入生产</small>}
-        {currentStatus === "REJECTED" && <small style={{ color: "#b32b23" }}>❌ 已驳回，需修改后重新提交</small>}
+        {currentStatus === "APPROVED" && <small style={{ color: "var(--ok)" }}>✅ 已批准，可进入生产</small>}
+        {currentStatus === "REJECTED" && <small style={{ color: "var(--block)" }}>❌ 已驳回，需修改后重新提交</small>}
       </div>
 
       {showComment && (

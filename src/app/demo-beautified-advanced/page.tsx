@@ -52,7 +52,7 @@ export default function DemoBeautifiedAdvancedPage() {
 
   return (
     <RoleProvider>
-      <div style={{ padding: 16, display: "grid", gap: 20, maxWidth: 1400, margin: "0 auto", background: "var(--color-bg-muted, #f6f7f9)", minHeight: "100vh" }}>
+      <div style={{ padding: 16, display: "grid", gap: 20, maxWidth: 1400, margin: "0 auto", background: "var(--color-bg-muted, var(--surface-soft))", minHeight: "100vh" }}>
         {/* Header - Glass + Mesh Gradient */}
         <MeshGradientBg category={category}>
           <GlassCard category={category} hover3d magnetic className="bento-item span-4" style={{ padding: 24 } as any}>
@@ -61,7 +61,7 @@ export default function DemoBeautifiedAdvancedPage() {
                 <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.1 }}>
                   <GradientText category={category}>✨ 全面美化 · 档3重度 · Linear/Notion级</GradientText>
                 </h1>
-                <p style={{ margin: 0, fontSize: 12, color: "#4b5563", lineHeight: 1.6, maxWidth: 600 }}>
+                <p style={{ margin: 0, fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.6, maxWidth: 600 }}>
                   OKLCH色彩 + Mesh Gradient + Glassmorphism backdrop-blur + Bento Dashboard + 渐变文字 + 磁性按钮 + 3D卡片 + CountUp + 自定义图表渐变+阴影+动画 + Dark Mode + Spring动效 + 视差 + 骨架屏精致
                 </p>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
@@ -71,15 +71,15 @@ export default function DemoBeautifiedAdvancedPage() {
                     { id: "cross_border_food", label: "🌍跨境食品", color: "#0891b2" },
                     { id: "cosmetics", label: "💄化妆品", color: "#db2777" },
                   ].map(c => (
-                    <button key={c.id} onClick={() => setCategory(c.id)} style={{ padding: "8px 14px", borderRadius: 999, border: category === c.id ? `2px solid ${c.color}` : "1px solid #e7e9ef", background: category === c.id ? c.color : "white", color: category === c.id ? "white" : c.color, fontWeight: 700, fontSize: 11, boxShadow: category === c.id ? `0 8px 24px ${c.color}30` : "0 1px 2px rgba(0,0,0,0.04)", transform: category === c.id ? "scale(1.05)" : "scale(1)", transition: "all 250ms cubic-bezier(0.34,1.56,0.64,1)" }}>{c.label}</button>
+                    <button key={c.id} onClick={() => setCategory(c.id)} style={{ padding: "8px 14px", borderRadius: 999, border: category === c.id ? `2px solid ${c.color}` : "1px solid var(--line)", background: category === c.id ? c.color : "var(--surface)", color: category === c.id ? "var(--surface)" : c.color, fontWeight: 700, fontSize: 11, boxShadow: category === c.id ? `0 8px 24px ${c.color}30` : "0 1px 2px rgba(0,0,0,0.04)", transform: category === c.id ? "scale(1.05)" : "scale(1)", transition: "all 250ms cubic-bezier(0.34,1.56,0.64,1)" }}>{c.label}</button>
                   ))}
                 </div>
               </div>
               <div style={{ display: "grid", gap: 8, alignItems: "center" }}>
                 <DarkModeToggle />
                 <div style={{ display: "flex", gap: 8 }}>
-                  <div style={{ padding: "8px 12px", borderRadius: 12, background: "white", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", fontSize: 11, fontWeight: 700 }}><AnimatedCounter value={70} suffix="%" /> 可信</div>
-                  <div style={{ padding: "8px 12px", borderRadius: 12, background: "white", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", fontSize: 11, fontWeight: 700 }}><AnimatedCounter value={62} suffix="%" /> 完成</div>
+                  <div style={{ padding: "8px 12px", borderRadius: 12, background: "var(--surface)", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", fontSize: 11, fontWeight: 700 }}><AnimatedCounter value={70} suffix="%" /> 可信</div>
+                  <div style={{ padding: "8px 12px", borderRadius: 12, background: "var(--surface)", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", fontSize: 11, fontWeight: 700 }}><AnimatedCounter value={62} suffix="%" /> 完成</div>
                 </div>
               </div>
             </div>
@@ -153,7 +153,7 @@ export default function DemoBeautifiedAdvancedPage() {
             <div><strong>图表:</strong> 自定义Donut渐变+阴影+动画 + Bar Race shimmer + Waterfall利润 + Radar 5维 + tooltip精致</div>
             <div><strong>其他:</strong> Dark Mode prefers-color-scheme + data-theme + toggle + skeleton shimmer + focus ring + scrollbar 6px + typography层次</div>
           </div>
-          <small style={{ fontSize: 10, color: "#9099a6" }}>💡 全面美化一步到位，从&quot;能用&quot;到&quot;精致&quot;到&quot;惊艳&quot;，达到 Linear/Notion 级，4类沉浸感 + 角色自适应 + 3D+磁性+视差+渐变+阴影+动效，日常使用愉悦，客户演示惊艳</small>
+          <small style={{ fontSize: 10, color: "var(--ink-muted)" }}>💡 全面美化一步到位，从&quot;能用&quot;到&quot;精致&quot;到&quot;惊艳&quot;，达到 Linear/Notion 级，4类沉浸感 + 角色自适应 + 3D+磁性+视差+渐变+阴影+动效，日常使用愉悦，客户演示惊艳</small>
         </GlassCard>
       </div>
     </RoleProvider>

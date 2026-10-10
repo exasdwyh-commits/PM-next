@@ -194,7 +194,7 @@ export function BomImport({
         <label htmlFor="excel-upload" style={{ cursor: "pointer", display: "grid", gap: 4, placeItems: "center" }}>
           <span style={{ fontSize: 20 }}>📊</span>
           <strong style={{ fontSize: 12 }}>拖拽Excel/CSV到此处或点击上传</strong>
-          <small style={{ fontSize: 10, color: "#6b7280" }}>支持CSV/TSV，Excel导出为CSV后拖拽，自动解析BOM</small>
+          <small style={{ fontSize: 10, color: "var(--ink-muted)" }}>支持CSV/TSV，Excel导出为CSV后拖拽，自动解析BOM</small>
         </label>
       </div>
 

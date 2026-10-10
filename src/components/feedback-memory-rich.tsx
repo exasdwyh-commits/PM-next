@@ -45,9 +45,9 @@ export function FeedbackMemoryRich({ category = "health_food", onFeedback }: any
       <div className="feedback-section">
         <h4>💬 提交反馈 · {catInfo.name}</h4>
         <div className="feedback-types">
-          <button className={feedbackType === "thumbs_up" ? "is-active" : ""} style={{ borderColor: feedbackType === "thumbs_up" ? catInfo.color : undefined, background: feedbackType === "thumbs_up" ? catInfo.color : "white", color: feedbackType === "thumbs_up" ? "white" : "#111" } as any} onClick={() => setFeedbackType("thumbs_up")}>👍 有用 · 记为偏好</button>
-          <button className={feedbackType === "thumbs_down" ? "is-active" : ""} style={{ borderColor: feedbackType === "thumbs_down" ? "#f59e0b" : undefined, background: feedbackType === "thumbs_down" ? "#f59e0b" : "white", color: feedbackType === "thumbs_down" ? "white" : "#111" } as any} onClick={() => setFeedbackType("thumbs_down")}>👎 无用 · 记为避免</button>
-          <button className={feedbackType === "correction" ? "is-active" : ""} style={{ borderColor: feedbackType === "correction" ? "#dc2626" : undefined, background: feedbackType === "correction" ? "#dc2626" : "white", color: feedbackType === "correction" ? "white" : "#111" } as any} onClick={() => setFeedbackType("correction")}>✏️ 纠正 · 含原因</button>
+          <button className={feedbackType === "thumbs_up" ? "is-active" : ""} style={{ borderColor: feedbackType === "thumbs_up" ? catInfo.color : undefined, background: feedbackType === "thumbs_up" ? catInfo.color : "white", color: feedbackType === "thumbs_up" ? "white" : "var(--ink)" } as any} onClick={() => setFeedbackType("thumbs_up")}>👍 有用 · 记为偏好</button>
+          <button className={feedbackType === "thumbs_down" ? "is-active" : ""} style={{ borderColor: feedbackType === "thumbs_down" ? "var(--warn)" : undefined, background: feedbackType === "thumbs_down" ? "var(--warn)" : "white", color: feedbackType === "thumbs_down" ? "white" : "var(--ink)" } as any} onClick={() => setFeedbackType("thumbs_down")}>👎 无用 · 记为避免</button>
+          <button className={feedbackType === "correction" ? "is-active" : ""} style={{ borderColor: feedbackType === "correction" ? "var(--block)" : undefined, background: feedbackType === "correction" ? "var(--block)" : "white", color: feedbackType === "correction" ? "white" : "var(--ink)" } as any} onClick={() => setFeedbackType("correction")}>✏️ 纠正 · 含原因</button>
         </div>
         <div className="feedback-input">
           <textarea placeholder={feedbackType === "thumbs_up" ? "例如: 偏好保健食品，关注蓝帽子认证" : feedbackType === "thumbs_down" ? "例如: 避免用通用模板" : "例如: 不要用通用6模板，要4类专用，原因是..."} value={content} onChange={(e) => setContent(e.target.value)} style={{ borderColor: catInfo.color } as any} />
@@ -60,9 +60,9 @@ export function FeedbackMemoryRich({ category = "health_food", onFeedback }: any
         <h4>🧠 记忆看板 · {memories.length}条 · {catInfo.icon} {catInfo.name}</h4>
         <div className="memory-grid">
           {memories.map((m, idx) => (
-            <div key={idx} className={`memory-card ${m.kind.toLowerCase()} ${m.pinned ? "is-pinned" : ""}`} style={{ animationDelay: `${idx * 80}ms`, borderColor: m.pinned ? catInfo.color : "#e7e9ef", background: m.pinned ? `${catInfo.color}08` : "white" } as any}>
+            <div key={idx} className={`memory-card ${m.kind.toLowerCase()} ${m.pinned ? "is-pinned" : ""}`} style={{ animationDelay: `${idx * 80}ms`, borderColor: m.pinned ? catInfo.color : "var(--line)", background: m.pinned ? `${catInfo.color}08` : "white" } as any}>
               <div className="memory-header">
-                <span className={`kind ${m.kind.toLowerCase()}`} style={{ background: m.kind === "PREFERENCE" ? catInfo.color : m.kind === "CORRECTION" ? "#dc2626" : "#6b7280", color: "white" }}>{m.kind === "PREFERENCE" ? "偏好" : m.kind === "CORRECTION" ? "纠正" : "事实"}</span>
+                <span className={`kind ${m.kind.toLowerCase()}`} style={{ background: m.kind === "PREFERENCE" ? catInfo.color : m.kind === "CORRECTION" ? "var(--block)" : "var(--ink-muted)", color: "white" }}>{m.kind === "PREFERENCE" ? "偏好" : m.kind === "CORRECTION" ? "纠正" : "事实"}</span>
                 {m.pinned && <span className="pinned" style={{ background: catInfo.color, color: "white" }}>📌 固定</span>}
                 <small>使用 {m.useCount}次</small>
               </div>
@@ -81,10 +81,10 @@ export function FeedbackMemoryRich({ category = "health_food", onFeedback }: any
         <h4>🧪 Harness 评估 · {harnessSamples.length}样本 · Outcome证明变好才Promotion</h4>
         <div className="harness-grid">
           {harnessSamples.map((s, idx) => (
-            <div key={idx} className={`harness-card ${s.outcome}`} style={{ animationDelay: `${idx * 100}ms`, borderColor: s.promoted ? "#0b7a4f" : "#e7e9ef", background: s.promoted ? "#ecfdf5" : "white" } as any}>
+            <div key={idx} className={`harness-card ${s.outcome}`} style={{ animationDelay: `${idx * 100}ms`, borderColor: s.promoted ? "var(--ok)" : "var(--line)", background: s.promoted ? "var(--ok-bg)" : "white" } as any}>
               <div className="harness-header">
                 <strong>Query: {s.query}</strong>
-                <span className={`outcome ${s.outcome}`} style={{ background: s.outcome === "better" ? "#0b7a4f" : s.outcome === "worse" ? "#dc2626" : "#6b7280", color: "white" }}>{s.outcome === "better" ? "变好" : s.outcome === "worse" ? "变差" : "相同"} {s.rate}</span>
+                <span className={`outcome ${s.outcome}`} style={{ background: s.outcome === "better" ? "var(--ok)" : s.outcome === "worse" ? "var(--block)" : "var(--ink-muted)", color: "white" }}>{s.outcome === "better" ? "变好" : s.outcome === "worse" ? "变差" : "相同"} {s.rate}</span>
                 {s.promoted && <span className="promoted">🚀 已Promotion</span>}
               </div>
               <div className="harness-compare">
@@ -93,7 +93,7 @@ export function FeedbackMemoryRich({ category = "health_food", onFeedback }: any
                 <div className="compare-col"><small>Actual</small><p>{s.actual}</p></div>
               </div>
               <div className="harness-actions">
-                <button style={{ background: s.promoted ? "#0b7a4f" : catInfo.color, color: "white" }}>{s.promoted ? "已Promotion 可回滚" : "Promotion"}</button>
+                <button style={{ background: s.promoted ? "var(--ok)" : catInfo.color, color: "white" }}>{s.promoted ? "已Promotion 可回滚" : "Promotion"}</button>
                 <small>禁止模型自评, 需真实Outcome</small>
               </div>
             </div>

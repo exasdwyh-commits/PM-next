@@ -17,10 +17,10 @@ function getCategoryFromReport(report: any): string {
 }
 
 const RISK_CONFIG: any = {
-  LOW: { label: "低风险", tone: "ok", icon: "check", color: "#0b7a4f" },
-  MEDIUM: { label: "中风险", tone: "warn", icon: "alert", color: "#f59e0b" },
-  HIGH: { label: "高风险", tone: "danger", icon: "alert", color: "#ef4444" },
-  CRITICAL: { label: "极高风险", tone: "danger", icon: "block", color: "#991b1b" },
+  LOW: { label: "低风险", tone: "ok", icon: "check", color: "var(--ok)" },
+  MEDIUM: { label: "中风险", tone: "warn", icon: "alert", color: "var(--warn)" },
+  HIGH: { label: "高风险", tone: "danger", icon: "alert", color: "var(--block)" },
+  CRITICAL: { label: "极高风险", tone: "danger", icon: "block", color: "var(--block)" },
 };
 
 export default function ChallengeReportCardRich({ report }: { report: any }) {
@@ -113,7 +113,7 @@ export default function ChallengeReportCardRich({ report }: { report: any }) {
           <summary style={{ fontWeight: 600, fontSize: 12 }}>查看证据缺口（{report.scientificGaps?.length || 0}）与科学冲突（{report.scientificConflicts?.length || 0}）· {catInfo.name}专用</summary>
           <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
             {report.scientificGaps?.length > 0 && (
-              <div><div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 6 }}>证据缺口</div>{report.scientificGaps.map((g: any, i: number) => <div key={i} style={{ fontSize: 12, padding: "4px 0", borderBottom: "1px dashed #e7e9ef" }}><strong>{g.ingredient}</strong> · {g.description}</div>)}</div>
+              <div><div style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-muted)", marginBottom: 6 }}>证据缺口</div>{report.scientificGaps.map((g: any, i: number) => <div key={i} style={{ fontSize: 12, padding: "4px 0", borderBottom: "1px dashed var(--line)" }}><strong>{g.ingredient}</strong> · {g.description}</div>)}</div>
             )}
           </div>
         </details>

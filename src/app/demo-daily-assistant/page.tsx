@@ -35,9 +35,9 @@ export default function DemoDailyAssistantPage() {
       <div style={{ padding: 16, display: "grid", gap: 16, maxWidth: 1200, margin: "0 auto" }}>
         <h1>🏢 Kern 日常助理 + 产品研发 + 营销落地 · P4-P6 Demo · 富可视化</h1>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={() => setActive("daily")} style={{ padding: "8px 14px", borderRadius: 8, border: active === "daily" ? "2px solid #0f1116" : "1px solid #e7e9ef", background: active === "daily" ? "#0f1116" : "white", color: active === "daily" ? "white" : "black", fontWeight: 700 }}>📅 日常助理 Daily Briefing</button>
-          <button onClick={() => setActive("product")} style={{ padding: "8px 14px", borderRadius: 8, border: active === "product" ? "2px solid #7c3aed" : "1px solid #e7e9ef", background: active === "product" ? "#7c3aed" : "white", color: active === "product" ? "white" : "black", fontWeight: 700 }}>🧪 产品研发驾驶舱</button>
-          <button onClick={() => setActive("marketing")} style={{ padding: "8px 14px", borderRadius: 8, border: active === "marketing" ? "2px solid #db2777" : "1px solid #e7e9ef", background: active === "marketing" ? "#db2777" : "white", color: active === "marketing" ? "white" : "black", fontWeight: 700 }}>💼 营销落地</button>
+          <button onClick={() => setActive("daily")} style={{ padding: "8px 14px", borderRadius: 8, border: active === "daily" ? "2px solid var(--deep)" : "1px solid var(--line)", background: active === "daily" ? "var(--deep)" : "var(--surface)", color: active === "daily" ? "var(--on-dark)" : "var(--ink)", fontWeight: 700 }}>📅 日常助理 Daily Briefing</button>
+          <button onClick={() => setActive("product")} style={{ padding: "8px 14px", borderRadius: 8, border: active === "product" ? "2px solid #7c3aed" : "1px solid var(--line)", background: active === "product" ? "#7c3aed" : "var(--surface)", color: active === "product" ? "var(--on-dark)" : "var(--ink)", fontWeight: 700 }}>🧪 产品研发驾驶舱</button>
+          <button onClick={() => setActive("marketing")} style={{ padding: "8px 14px", borderRadius: 8, border: active === "marketing" ? "2px solid #db2777" : "1px solid var(--line)", background: active === "marketing" ? "#db2777" : "var(--surface)", color: active === "marketing" ? "var(--on-dark)" : "var(--ink)", fontWeight: 700 }}>💼 营销落地</button>
           <div style={{ display: "flex", gap: 6, marginLeft: 12 }}>
             {[
               { id: "regular_food", label: "🍪普通" },
@@ -45,12 +45,12 @@ export default function DemoDailyAssistantPage() {
               { id: "cross_border_food", label: "🌍跨境" },
               { id: "cosmetics", label: "💄化妆品" },
             ].map(c => (
-              <button key={c.id} onClick={() => setCategory(c.id)} style={{ padding: "6px 10px", borderRadius: 8, border: category === c.id ? "2px solid #0f1116" : "1px solid #e7e9ef", background: category === c.id ? "#f6f7f9" : "white", fontSize: 11 }}>{c.label}</button>
+              <button key={c.id} onClick={() => setCategory(c.id)} style={{ padding: "6px 10px", borderRadius: 8, border: category === c.id ? "2px solid var(--deep)" : "1px solid var(--line)", background: category === c.id ? "var(--surface-soft)" : "var(--surface)", fontSize: 11 }}>{c.label}</button>
             ))}
           </div>
         </div>
 
-        <div style={{ padding: 12, background: "#f6f7f9", borderRadius: 8, fontSize: 11 }}>
+        <div style={{ padding: 12, background: "var(--surface-soft)", borderRadius: 8, fontSize: 11 }}>
           <strong>当前:</strong> {active} · {category} · 角色自适应 👔领导/🔬研发/💼销售 · 4类专用 · 富可视化18组件+8动效 · 3秒首屏 · Kern智能统筹
         </div>
 

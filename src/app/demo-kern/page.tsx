@@ -71,37 +71,37 @@ export default function DemoKernPage() {
     <div style={{ padding: 24, maxWidth: 1400, margin: "0 auto", display: "grid", gap: 40 }}>
       <header style={{ display: "grid", gap: 8 }}>
         <h1 style={{ fontSize: 26, fontWeight: 800 }}>Kern 对话全形态 - 三角色优化演示</h1>
-        <p style={{ color: "#666", lineHeight: 1.7, fontSize: 14 }}>
+        <p style={{ color: "var(--ink-muted)", lineHeight: 1.7, fontSize: 14 }}>
           按你最新要求：<strong>领导层直观 / 产品研发专业严谨可信度第一工具丰富 / 销售营销卖点突出工具型</strong><br />
           每种问题，Kern 会输出不同形态（表格、图表、决策卡等），现在每种形态都按三角色重构。
         </p>
       </header>
 
-      <section style={{ padding: 16, background: "#f0f2f6", borderRadius: 12, display: "grid", gap: 10 }}>
+      <section style={{ padding: 16, background: "var(--surface-soft)", borderRadius: 12, display: "grid", gap: 10 }}>
         <h3 style={{ margin: 0, fontSize: 14 }}>🎯 三角色定义</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, fontSize: 12, lineHeight: 1.6 }}>
-          <div style={{ background: "white", padding: 12, borderRadius: 10, border: "1px solid #e7e9ef" }}>
+          <div style={{ background: "var(--surface)", padding: 12, borderRadius: 10, border: "1px solid var(--line)" }}>
             <strong>👔 领导层 · 直观</strong><br />一页看懂结论，KPI卡片，图表，极简决策，无学术术语，10秒决策
           </div>
-          <div style={{ background: "white", padding: 12, borderRadius: 10, border: "1px solid #e7e9ef" }}>
+          <div style={{ background: "var(--surface)", padding: 12, borderRadius: 10, border: "1px solid var(--line)" }}>
             <strong>🔬 产品研发 · 严谨</strong><br />专业严谨，可信度第一，工具流程丰富，证据溯源、验证计划、QA轨迹、成本计算
           </div>
-          <div style={{ background: "white", padding: 12, borderRadius: 10, border: "1px solid #e7e9ef" }}>
+          <div style={{ background: "var(--surface)", padding: 12, borderRadius: 10, border: "1px solid var(--line)" }}>
             <strong>💼 销售营销 · 卖点</strong><br />卖点突出，工具型，销售支撑，竞品对比、市场数据、一键生成PPT/话术
           </div>
         </div>
       </section>
 
       {mockEnvelopes.map((item, idx) => (
-        <section key={idx} style={{ display: "grid", gap: 16, borderTop: idx === 0 ? "none" : "1px solid #eee", paddingTop: idx === 0 ? 0 : 32 }}>
+        <section key={idx} style={{ display: "grid", gap: 16, borderTop: idx === 0 ? "none" : "1px solid var(--surface-soft)", paddingTop: idx === 0 ? 0 : 32 }}>
           <div style={{ display: "grid", gap: 4 }}>
             <h2 style={{ fontSize: 18, fontWeight: 700 }}>{idx + 1}. {item.label}</h2>
-            <p style={{ fontSize: 13, color: "#666", background: "#f6f6f6", padding: "6px 10px", borderRadius: 8, width: "fit-content" }}>用户问：{item.question}</p>
+            <p style={{ fontSize: 13, color: "var(--ink-muted)", background: "var(--surface-soft)", padding: "6px 10px", borderRadius: 8, width: "fit-content" }}>用户问：{item.question}</p>
           </div>
 
           <div style={{ display: "grid", gap: 20 }}>
             <div style={{ display: "grid", gap: 8 }}>
-              <h3 style={{ fontSize: 12, fontWeight: 700, color: "#999" }}>现有 V1</h3>
+              <h3 style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-faint)" }}>现有 V1</h3>
               <ResponseView envelope={item.envelope} />
             </div>
             <div style={{ display: "grid", gap: 8 }}>
@@ -109,14 +109,14 @@ export default function DemoKernPage() {
               <ResponseViewV2 envelope={item.envelope} defaultView="leadership" />
             </div>
             <div style={{ display: "grid", gap: 8 }}>
-              <h3 style={{ fontSize: 12, fontWeight: 700, color: "#0f1116" }}>V3 三角色版 (领导/产品/销售) ← 最新</h3>
+              <h3 style={{ fontSize: 12, fontWeight: 700, color: "var(--deep)" }}>V3 三角色版 (领导/产品/销售) ← 最新</h3>
               <ResponseRoleBased envelope={item.envelope} role="leadership" />
             </div>
           </div>
         </section>
       ))}
 
-      <section style={{ padding: 20, background: "#0f1116", color: "white", borderRadius: 16, display: "grid", gap: 12 }}>
+      <section style={{ padding: 20, background: "var(--deep)", color: "var(--on-dark)", borderRadius: 16, display: "grid", gap: 12 }}>
         <h3 style={{ margin: 0, fontSize: 16 }}>✅ 三角色优化总结</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, fontSize: 12, lineHeight: 1.7 }}>
           <div>

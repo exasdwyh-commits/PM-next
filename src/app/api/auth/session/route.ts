@@ -29,7 +29,10 @@ async function ensureLocalTestUser(email: string) {
 
   const org =
     (await prisma.organization.findUnique({ where: { code: LOCAL_TEST_ORG } })) ??
-    (await prisma.organization.create({ data: { code: LOCAL_TEST_ORG, name: "Kern 局域网测试" } }));
+    // 正常不该走到创建：LOCAL_TEST_ORG 默认指向已有演示数据的组织。
+    // 若走到了，说明部署未配 KERN_LOCAL_TEST_ORG_CODE 且该组织不存在 ——
+    // 此时建出来的是空组织，登录后任务准备度会全红（见 local-test-policy 的说明）。
+    (await prisma.organization.create({ data: { code: LOCAL_TEST_ORG, name: `Kern 测试工作区（${LOCAL_TEST_ORG}）` } }));
 
   return prisma.user.create({
     data: {

@@ -35,7 +35,7 @@ export default function DemoBeautifiedPage() {
 
   return (
     <RoleProvider>
-      <div style={{ padding: 16, display: "grid", gap: 24, maxWidth: 1200, margin: "0 auto", background: "var(--color-bg-muted, #f6f7f9)", minHeight: "100vh" }}>
+      <div style={{ padding: 16, display: "grid", gap: 24, maxWidth: 1200, margin: "0 auto", background: "var(--color-bg-muted, var(--surface-soft))", minHeight: "100vh" }}>
         <div className="card-beautified" data-category={category} style={{ padding: 20, display: "grid", gap: 12 }}>
           <h1 style={{ margin: 0, font: "800 22px/1.2 var(--font-sans)", letterSpacing: "-0.02em" }}>✨ 前端 UI 美化提升 · 档1轻量美化 · 零风险 · 立即提升30%</h1>
           <p style={{ margin: 0, font: "400 12px/1.6 var(--font-sans)", color: "var(--color-ink-muted)" }}>
@@ -48,7 +48,7 @@ export default function DemoBeautifiedPage() {
               { id: "cross_border_food", label: "🌍跨境食品", color: "#0891b2" },
               { id: "cosmetics", label: "💄化妆品", color: "#db2777" },
             ].map(c => (
-              <button key={c.id} className="btn-beautified primary" data-category={c.id} onClick={() => setCategory(c.id)} style={{ background: category === c.id ? c.color : "white", color: category === c.id ? "white" : c.color, borderColor: c.color }}>{c.label}</button>
+              <button key={c.id} className="btn-beautified primary" data-category={c.id} onClick={() => setCategory(c.id)} style={{ background: category === c.id ? c.color : "var(--surface)", color: category === c.id ? "var(--surface)" : c.color, borderColor: c.color }}>{c.label}</button>
             ))}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
@@ -77,9 +77,9 @@ export default function DemoBeautifiedPage() {
         <div className="card-beautified" style={{ padding: 16, display: "grid", gap: 12 }}>
           <h3 className="title-beautified">🎨 美化对比 · Before vs After</h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
-            <div style={{ padding: 12, border: "1px dashed #e7e9ef", borderRadius: 12, background: "white" }}>
+            <div style={{ padding: 12, border: "1px dashed var(--line)", borderRadius: 12, background: "var(--surface)" }}>
               <strong style={{ fontSize: 11 }}>Before: 扁平无阴影</strong>
-              <div style={{ marginTop: 8, padding: 12, border: "1px solid #e7e9ef", borderRadius: 8, background: "white" }}>卡片无阴影，无hover，无彩色阴影，按钮无gradient</div>
+              <div style={{ marginTop: 8, padding: 12, border: "1px solid var(--line)", borderRadius: 8, background: "var(--surface)" }}>卡片无阴影，无hover，无彩色阴影，按钮无gradient</div>
             </div>
             <div className="card-beautified" data-category={category} style={{ padding: 12 }}>
               <strong style={{ fontSize: 11 }}>After: 层次+阴影+hover lift+彩色阴影</strong>

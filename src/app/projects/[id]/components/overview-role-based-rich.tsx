@@ -58,7 +58,7 @@ export function OverviewRoleBasedRich({ project, gaps, evidenceInsight, opportun
             <button className={role === "product" ? "is-active" : ""} onClick={() => setManualRole("product")}>🔬 研发</button>
             <button className={role === "sales" ? "is-active" : ""} onClick={() => setManualRole("sales")}>💼 销售</button>
           </div>
-          <small style={{ fontSize: 10, color: "#9099a6" }}>可手动切换，也可对Kern说&quot;切换到销售视角&quot;</small>
+          <small style={{ fontSize: 10, color: "var(--ink-muted)" }}>可手动切换，也可对Kern说&quot;切换到销售视角&quot;</small>
           <div className="category-badge-rich" style={{ background: catInfo.color, color: "white" }}>{catInfo.icon} {catInfo.name}</div>
         </div>
       </div>
@@ -89,7 +89,7 @@ export function OverviewRoleBasedRich({ project, gaps, evidenceInsight, opportun
             <div className="chart-card">
               <h4>📊 证据可信度 · {catInfo.name}</h4>
               <div className="donut">
-                <svg viewBox="0 0 42 42" width="100" height="100"><circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#f0f2f6" strokeWidth="3" /><circle cx="21" cy="21" r="15.9" fill="transparent" stroke={catInfo.color} strokeWidth="3.5" strokeDasharray={`${evidenceRate} ${100 - evidenceRate}`} strokeDashoffset="25" strokeLinecap="round" style={{ animation: "drawDonut 1s ease-out both" } as any} /><text x="21" y="22" textAnchor="middle" fontSize="7" fontWeight="700">{evidenceRate}%</text></svg>
+                <svg viewBox="0 0 42 42" width="100" height="100"><circle cx="21" cy="21" r="15.9" fill="transparent" stroke="var(--surface-soft)" strokeWidth="3" /><circle cx="21" cy="21" r="15.9" fill="transparent" stroke={catInfo.color} strokeWidth="3.5" strokeDasharray={`${evidenceRate} ${100 - evidenceRate}`} strokeDashoffset="25" strokeLinecap="round" style={{ animation: "drawDonut 1s ease-out both" } as any} /><text x="21" y="22" textAnchor="middle" fontSize="7" fontWeight="700">{evidenceRate}%</text></svg>
                 <div><strong>{verifiedCount}条已核实</strong><small>共{totalEvidence}条 · Kern已核验 · {catInfo.name}专用</small><div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>{selling.map(s => <span key={s} style={{ padding: "2px 6px", borderRadius: 99, background: `${catInfo.color}15`, color: catInfo.color, fontSize: 10 }}>{s}</span>)}</div></div>
               </div>
             </div>

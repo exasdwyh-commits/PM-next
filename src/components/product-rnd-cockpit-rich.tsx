@@ -57,7 +57,7 @@ export function ProductRndCockpitRich({ project, category = "health_food", onOpt
         <div className="cockpit-overview">
           <div className="kpi-grid">
             <div className="kpi ok" style={{ animationDelay: "0ms" }}><span>✅ 配方完成度</span><strong>85%</strong><small>{content.formula.slice(0, 20)}</small><div className="kpi-bar"><div className="fill" style={{ width: "85%", background: catInfo.color }}></div></div></div>
-            <div className="kpi brand" style={{ animationDelay: "80ms" }}><span>💰 成本</span><strong>¥10.2</strong><small>目标¥8.0 · 需优化</small><div className="kpi-bar"><div className="fill" style={{ width: "70%", background: "#f59e0b" }}></div></div></div>
+            <div className="kpi brand" style={{ animationDelay: "80ms" }}><span>💰 成本</span><strong>¥10.2</strong><small>目标¥8.0 · 需优化</small><div className="kpi-bar"><div className="fill" style={{ width: "70%", background: "var(--warn)" }}></div></div></div>
             <div className="kpi warn" style={{ animationDelay: "160ms" }}><span>📦 合规</span><strong>{content.compliance.short}</strong><small>已检查 · {catInfo.name}专用</small></div>
             <div className="kpi bad" style={{ animationDelay: "240ms" }}><span>⚠️ 风险</span><strong>1</strong><small>成本偏高需优化</small></div>
           </div>
@@ -88,7 +88,7 @@ export function ProductRndCockpitRich({ project, category = "health_food", onOpt
               <h4>💡 成本优化3方案对比 · {catInfo.icon} {catInfo.name} · Kern生成 · 富可视化</h4>
               <div className="scheme-grid">
                 {schemes.map((s, idx) => (
-                  <div key={idx} className="scheme-card" style={{ animationDelay: `${idx * 100}ms`, borderColor: idx === 0 ? catInfo.color : "#e7e9ef", background: idx === 0 ? `${catInfo.color}08` : "white" }}>
+                  <div key={idx} className="scheme-card" style={{ animationDelay: `${idx * 100}ms`, borderColor: idx === 0 ? catInfo.color : "var(--line)", background: idx === 0 ? `${catInfo.color}08` : "white" }}>
                     <div className="scheme-header"><strong>{s.name}</strong>{idx === 0 && <span className="badge" style={{ background: catInfo.color, color: "white" }}>推荐</span>}</div>
                     <div className="scheme-kpi"><span>成本</span><strong>¥{s.cost}</strong><span>利润 {s.margin}</span><span>风险 {s.risk}</span></div>
                     <small>{s.desc} · {catInfo.name}专用</small>
@@ -104,7 +104,7 @@ export function ProductRndCockpitRich({ project, category = "health_food", onOpt
             <h4>📅 时间线 · 甘特图 · 关键路径 · {catInfo.name}</h4>
             <div className="timeline-grid">
               <div className="timeline-item done" style={{ borderLeft: `3px solid ${catInfo.color}` }}><div className="dot" style={{ background: catInfo.color }}></div><div><strong>配方确定</strong><small>已完成 · 2024-10-01 · 多酚+低聚果糖+软糖基质</small></div><span className="status done">已完成</span></div>
-              <div className="timeline-item running" style={{ borderLeft: `3px solid #f59e0b` }}><div className="dot" style={{ background: "#f59e0b" }}></div><div><strong>成本优化</strong><small>进行中 · 目标8元 · Kern调度中 · 预计今日完成</small></div><span className="status running">进行中</span></div>
+              <div className="timeline-item running" style={{ borderLeft: `3px solid var(--warn)` }}><div className="dot" style={{ background: "var(--warn)" }}></div><div><strong>成本优化</strong><small>进行中 · 目标8元 · Kern调度中 · 预计今日完成</small></div><span className="status running">进行中</span></div>
               <div className="timeline-item queued"><div className="dot"></div><div><strong>合规检查</strong><small>待开始 · {content.compliance.short} · 依赖成本优化</small></div><span className="status queued">待开始</span></div>
               <div className="timeline-item queued"><div className="dot"></div><div><strong>供应商打样</strong><small>待开始 · 3家供应商 · 依赖合规</small></div><span className="status queued">待开始</span></div>
               <div className="timeline-item queued"><div className="dot"></div><div><strong>测试+上市</strong><small>待开始 · 预计2024-11-15上市 · {catInfo.name}专用</small></div><span className="status queued">待开始</span></div>

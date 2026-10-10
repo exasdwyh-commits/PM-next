@@ -25,7 +25,7 @@ export function CustomDonut({ value, total = 100, category = "health_food", size
             <stop offset="100%" stopColor={catInfo.color} stopOpacity={0.6} />
           </linearGradient>
         </defs>
-        <circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#f0f2f6" strokeWidth="3" />
+        <circle cx="21" cy="21" r="15.9" fill="transparent" stroke="var(--surface-soft)" strokeWidth="3" />
         <circle
           cx="21" cy="21" r="15.9" fill="transparent"
           stroke={`url(#grad-${category})`} strokeWidth="3.5"
@@ -33,8 +33,8 @@ export function CustomDonut({ value, total = 100, category = "health_food", size
           strokeDashoffset="25" strokeLinecap="round"
           style={{ transition: "stroke-dasharray 1s cubic-bezier(0.16,1,0.3,1)" }}
         />
-        <text x="21" y="20" textAnchor="middle" fontSize="8" fontWeight="800" fill="#0f1116">{percentage}%</text>
-        {label && <text x="21" y="25" textAnchor="middle" fontSize="3.5" fontWeight="500" fill="#6b7280">{label}</text>}
+        <text x="21" y="20" textAnchor="middle" fontSize="8" fontWeight="800" fill="var(--deep)">{percentage}%</text>
+        {label && <text x="21" y="25" textAnchor="middle" fontSize="3.5" fontWeight="500" fill="var(--ink-muted)">{label}</text>}
       </svg>
     </div>
   );
@@ -86,7 +86,7 @@ export function CustomWaterfall({ data, category = "health_food" }: { data: { la
         return (
           <div key={idx} className="waterfall-item" style={{ animationDelay: `${idx * 100}ms` }}>
             <div className="waterfall-label"><span>{item.label}</span><small>{isProfit ? "利润" : "成本"}</small></div>
-            <div className="waterfall-bar" style={{ height: `${Math.abs(item.value) * 2}px`, background: isProfit ? "linear-gradient(135deg,#0b7a4f,#10b981)" : catInfo.gradient, boxShadow: isProfit ? "0 4px 12px rgba(11,122,79,0.15)" : catInfo.shadow } as any}>
+            <div className="waterfall-bar" style={{ height: `${Math.abs(item.value) * 2}px`, background: isProfit ? "linear-gradient(135deg,var(--ok),#10b981)" : catInfo.gradient, boxShadow: isProfit ? "0 4px 12px rgba(11,122,79,0.15)" : catInfo.shadow } as any}>
               <span>¥{item.value}</span>
             </div>
             <div className="waterfall-cumulative">累计 ¥{cumulative.toFixed(1)}</div>
@@ -122,11 +122,11 @@ export function CustomRadar({ data, category = "health_food" }: { data: { label:
     <div className="custom-radar">
       <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}>
         {gridPoints.map((pts, idx) => (
-          <polygon key={idx} points={pts} fill="none" stroke="#f0f2f6" strokeWidth="0.5" opacity={0.5 + idx * 0.15} />
+          <polygon key={idx} points={pts} fill="none" stroke="var(--surface-soft)" strokeWidth="0.5" opacity={0.5 + idx * 0.15} />
         ))}
         {data.map((_, i) => {
           const angle = i * angleStep - Math.PI / 2;
-          return <line key={i} x1={center} y1={center} x2={center + radius * Math.cos(angle)} y2={center + radius * Math.sin(angle)} stroke="#f0f2f6" strokeWidth="0.5" />;
+          return <line key={i} x1={center} y1={center} x2={center + radius * Math.cos(angle)} y2={center + radius * Math.sin(angle)} stroke="var(--surface-soft)" strokeWidth="0.5" />;
         })}
         <polygon points={points} fill={catInfo.color} fillOpacity={0.2} stroke={catInfo.color} strokeWidth="1.5" strokeLinejoin="round" style={{ filter: `drop-shadow(${catInfo.shadow})` }} />
         {data.map((d, i) => {

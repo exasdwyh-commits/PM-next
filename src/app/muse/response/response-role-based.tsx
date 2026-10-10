@@ -29,6 +29,9 @@ function Inline({ text, onRef }: { text: string; onRef: (n: number) => void }) {
   return <>{inline(text, "i")}</>;
 }
 
+/** 提示框语气 → 中文标签。与 rich-blocks 的 CALLOUT_LABEL 保持一致。 */
+const TONE_LABEL: Record<string, string> = { info: "说明", ok: "已确认", warn: "注意", blocked: "受阻" };
+
 // 领导层：直观友好
 function LeadershipBlock({ b, onRef }: { b: Block; onRef: (n: number) => void }) {
   switch (b.type) {
@@ -76,8 +79,22 @@ function LeadershipBlock({ b, onRef }: { b: Block; onRef: (n: number) => void })
           {b.risks[0] && <small>⚠️ 风险：{b.risks[0]}</small>}
         </div>
       );
+    case "callout":
+      return (
+        <div className={`rb-call-lead ${b.tone}`} role="note">
+          <strong>{TONE_LABEL[b.tone] ?? "说明"}：{b.title}</strong>
+          <p>{b.body}</p>
+        </div>
+      );
+    case "unknown":
+      return (
+        <div className="rb-unknown-lead">
+          <strong>仍需确认</strong>
+          <ul>{b.items.map((it, i) => <li key={i}><Inline text={it.question} onRef={onRef} /></li>)}</ul>
+        </div>
+      );
     default:
-      return <div className="rb-other-lead">{b.type} · 领导视图已简化</div>;
+      return <div className="rb-other-lead">{b.title ? `${b.title} · 领导视图已简化` : "该内容在领导视图已简化"}</div>;
   }
 }
 
@@ -150,8 +167,48 @@ function ProductBlock({ b, onRef }: { b: Block; onRef: (n: number) => void }) {
           {b.steps.map((s) => <div key={s.key} className={`step ${s.state}`}><span className="dot" /><div><b>{s.label}</b><small>{s.agent}</small>{s.delta && <Prose text={s.delta} variant="compact" />}</div></div>)}
         </div>
       );
+    case "callout":
+      return (
+        <div className={`rb-call ${b.tone}`} role="note">
+          <strong>{TONE_LABEL[b.tone] ?? "说明"}：{b.title}</strong>
+          <p>{b.body}</p>
+        </div>
+      );
+    case "unknown":
+      return (
+        <div className="rb-unknown">
+          {b.items.map((it, i) => (
+            <div key={i} className="rb-unknown-item">
+              <span className="q">?</span>
+              <div>
+                <strong><Inline text={it.question} onRef={onRef} /></strong>
+                {it.needs ? <small>需要：<Inline text={it.needs} onRef={onRef} /></small> : null}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    case "decision":
+      return (
+        <div className="rb-dec">
+          <div className="rb-dec-head">
+            <strong><Inline text={b.headline} onRef={onRef} /></strong>
+            <span className="conf">{CONFIDENCE_LABEL[b.confidence] ?? ""}</span>
+          </div>
+          <div className="rb-dec-cols">
+            <div><b>建议</b><ul>{b.recommend.map((x, i) => <li key={i}><Inline text={x} onRef={onRef} /></li>)}</ul></div>
+            <div><b>反对</b><ul>{b.against.map((x, i) => <li key={i}><Inline text={x} onRef={onRef} /></li>)}</ul></div>
+            <div><b>风险</b><ul>{b.risks.map((x, i) => <li key={i}><Inline text={x} onRef={onRef} /></li>)}</ul></div>
+          </div>
+        </div>
+      );
     default:
-      return <div className="rb-block-full"><strong>{b.title || b.type}</strong><Prose text={JSON.stringify(b).slice(0, 200)} /></div>;
+      return (
+        <div className="rb-unsupported">
+          {b.title ? <strong>{b.title}</strong> : null}
+          <span>该内容暂不支持在当前视角展开，可切换到其他视角查看。</span>
+        </div>
+      );
   }
 }
 
@@ -226,7 +283,7 @@ function SalesBlock({ b, onRef }: { b: Block; onRef: (n: number) => void }) {
         </div>
       );
     default:
-      return <div className="rb-sales-other"><span className="rb-sales-badge">工具</span><strong>{b.title || b.type}</strong><p>此内容可转化为销售工具</p></div>;
+      return <div className="rb-sales-other"><span className="rb-sales-badge">工具</span><strong>{b.title || "补充信息"}</strong><p>此内容可转化为销售工具</p></div>;
   }
 }
 
@@ -335,9 +392,9 @@ export function ResponseRoleBased({
                 )
               ))}
             </div>
-            {askState?.busy && !askState.selected ? <p style={{ fontSize: 12, color: "#6b7280", marginTop: 8 }}>正在提交选择…</p> : null}
-            {askState?.selected ? <p style={{ fontSize: 12, color: "#0b7a4f", marginTop: 8 }}>已选择：{askState.selected}</p> : null}
-            {askState?.error ? <p style={{ fontSize: 12, color: "#b32b23", marginTop: 8 }}>{askState.error}</p> : null}
+            {askState?.busy && !askState.selected ? <p style={{ fontSize: 12, color: "var(--ink-muted)", marginTop: 8 }}>正在提交选择…</p> : null}
+            {askState?.selected ? <p style={{ fontSize: 12, color: "var(--ok)", marginTop: 8 }}>已选择：{askState.selected}</p> : null}
+            {askState?.error ? <p style={{ fontSize: 12, color: "var(--block)", marginTop: 8 }}>{askState.error}</p> : null}
           </div>
         )}
       </article>

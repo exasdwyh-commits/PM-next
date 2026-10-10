@@ -1,7 +1,21 @@
 // The launch script also binds the server to 127.0.0.1; hostname checks alone
 // cannot establish that a request came from the local machine.
 export const LOCAL_TEST_EMAIL = "local-test@kern.invalid";
-export const LOCAL_TEST_ORG = "KERN_LOCAL_TEST";
+
+/**
+ * 局域网测试账号所属组织。
+ *
+ * ⚠️ 这个值决定**测试账号能看到什么**，改错会让整个演示不可用：
+ * 2026-10-10 实测踩过——原先默认 `KERN_LOCAL_TEST` 是登录时**新建的空组织**，
+ * 而 13 个 agent、12 个模型 profile、16 条策略全在 `HERMES_FOOD_DEV`。
+ * 结果登录后任务准备度检查全红：
+ *   · 「计划所需团队成员未初始化或已停用」← 该组织 0 个 agent
+ *   · 「部分步骤没有符合策略的已配置模型」← 该组织 0 个 profile/policy
+ *
+ * 故默认复用**有完整演示数据的组织**。部署到别处时用
+ * `KERN_LOCAL_TEST_ORG_CODE` 指定自己的组织 code，不要指向空组织。
+ */
+export const LOCAL_TEST_ORG = process.env.KERN_LOCAL_TEST_ORG_CODE?.trim() || "HERMES_FOOD_DEV";
 export const LOCAL_TEST_SESSION_DAYS = 30;
 
 /**

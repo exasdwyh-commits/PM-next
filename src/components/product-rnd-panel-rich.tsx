@@ -97,12 +97,12 @@ export function ProductRndPanelRich({ project, workItems = [], evidences = [] }:
         <div className="chart-card">
           <h5>📊 研发进度</h5>
           <div className="bar"><span>已完成</span><div className="track"><div className="fill" style={{ width: `${progress}%`, background: catInfo.color }}></div></div><strong>{progress}%</strong></div>
-          <div className="bar"><span>进行中</span><div className="track"><div className="fill" style={{ width: `${100 - progress}%`, background: "#f59e0b" }}></div></div><strong>{100 - progress}%</strong></div>
+          <div className="bar"><span>进行中</span><div className="track"><div className="fill" style={{ width: `${100 - progress}%`, background: "var(--warn)" }}></div></div><strong>{100 - progress}%</strong></div>
         </div>
         <div className="chart-card">
           <h5>📚 证据可信度</h5>
           <div className="donut">
-            <svg viewBox="0 0 42 42" width="60" height="60"><circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#f0f2f6" strokeWidth="3" /><circle cx="21" cy="21" r="15.9" fill="transparent" stroke={catInfo.color} strokeWidth="3.5" strokeDasharray={`${progress} ${100 - progress}`} strokeDashoffset="25" strokeLinecap="round" /><text x="21" y="22" textAnchor="middle" fontSize="6" fontWeight="700">{progress}%</text></svg>
+            <svg viewBox="0 0 42 42" width="60" height="60"><circle cx="21" cy="21" r="15.9" fill="transparent" stroke="var(--surface-soft)" strokeWidth="3" /><circle cx="21" cy="21" r="15.9" fill="transparent" stroke={catInfo.color} strokeWidth="3.5" strokeDasharray={`${progress} ${100 - progress}`} strokeDashoffset="25" strokeLinecap="round" /><text x="21" y="22" textAnchor="middle" fontSize="6" fontWeight="700">{progress}%</text></svg>
             <div><strong>{doneCount}已完成</strong><small>共{totalCount} · {catInfo.name}</small></div>
           </div>
         </div>

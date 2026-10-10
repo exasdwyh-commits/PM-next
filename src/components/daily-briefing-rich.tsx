@@ -135,7 +135,7 @@ export function DailyBriefingRich({ data, onAction }: { data: DailyBriefingData;
         <div className="chart-card">
           <h4>📊 证据可信度 · {catInfo.name}</h4>
           <div className="donut">
-            <svg viewBox="0 0 42 42" width="100" height="100"><circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#f0f2f6" strokeWidth="3" /><circle cx="21" cy="21" r="15.9" fill="transparent" stroke={catInfo.color} strokeWidth="3.5" strokeDasharray={`${data.evidenceRate} ${100 - data.evidenceRate}`} strokeDashoffset="25" strokeLinecap="round" style={{ animation: "drawDonut 1s ease-out both" } as any} /><text x="21" y="22" textAnchor="middle" fontSize="7" fontWeight="700">{data.evidenceRate}%</text></svg>
+            <svg viewBox="0 0 42 42" width="100" height="100"><circle cx="21" cy="21" r="15.9" fill="transparent" stroke="var(--surface-soft)" strokeWidth="3" /><circle cx="21" cy="21" r="15.9" fill="transparent" stroke={catInfo.color} strokeWidth="3.5" strokeDasharray={`${data.evidenceRate} ${100 - data.evidenceRate}`} strokeDashoffset="25" strokeLinecap="round" style={{ animation: "drawDonut 1s ease-out both" } as any} /><text x="21" y="22" textAnchor="middle" fontSize="7" fontWeight="700">{data.evidenceRate}%</text></svg>
             <div><strong>{data.verifiedCount}条已核实</strong><small>共{data.totalEvidence}条 · Kern已核验 · A/B级{data.verifiedCount} · {catInfo.name}专用</small><div className="selling-chips">{selling.map(s => <span key={s} style={{ background: `${catInfo.color}15`, color: catInfo.color }}>{s}</span>)}</div></div>
           </div>
         </div>

@@ -1514,6 +1514,10 @@ button,a { -webkit-tap-highlight-color:transparent; }
   display:grid;
   gap:14px;
 }
+.hermes-workspace-cost {
+  display:grid;
+  gap:14px;
+}
 .hermes-workspace-summary {
   display:grid;
   grid-template-columns:repeat(4,minmax(0,1fr));

@@ -93,9 +93,9 @@ export function ComplianceEvidenceManager({
         <label htmlFor={`evidence-upload-${complianceItem.id}`} style={{ cursor: "pointer", display: "grid", gap: 4, placeItems: "center" }}>
           <span style={{ fontSize: 20 }}>📤</span>
           <strong style={{ fontSize: 11 }}>拖拽证书/报告到此处或点击上传</strong>
-          <small style={{ fontSize: 9, color: "#6b7280" }}>支持PDF/Word/图片/Excel，自动关联到{complianceItem.label}</small>
+          <small style={{ fontSize: 9, color: "var(--ink-muted)" }}>支持PDF/Word/图片/Excel，自动关联到{complianceItem.label}</small>
         </label>
-        {uploading && <small style={{ color: "#0b7a4f" }}>上传中...</small>}
+        {uploading && <small style={{ color: "var(--ok)" }}>上传中...</small>}
       </div>
 
       <div className="evidence-list">

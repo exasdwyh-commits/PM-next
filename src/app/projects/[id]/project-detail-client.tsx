@@ -938,7 +938,8 @@ export default function ProjectDetailClient({
 
         {activeWorkspaceTab === "cost" && (
           <div className="hermes-workspace-cost">
-            <CostCalculatorModular productName={project.title} productCategory={project.category || "保健品"} />
+            {/* 不写死品类兜底：缺省时 getTemplateForProduct 已有自己的默认模板，行为不变 */}
+            <CostCalculatorModular productName={project.title} productCategory={project.category ?? undefined} />
           </div>
         )}
 

@@ -13,9 +13,9 @@ export function BillingDashboardRich({ quota, recentRuns, usageByDay, category =
 
   const q = quota || { limit: 300, used: 299, remaining: 1, rate: 99 };
   const getQuotaColor = (rate: number) => {
-    if (rate < 70) return "#0b7a4f";
-    if (rate < 90) return "#f59e0b";
-    return "#dc2626";
+    if (rate < 70) return "var(--ok)";
+    if (rate < 90) return "var(--warn)";
+    return "var(--block)";
   };
 
   return (
@@ -43,7 +43,7 @@ export function BillingDashboardRich({ quota, recentRuns, usageByDay, category =
           <div className="quota-labels"><span>0</span><span>70%</span><span>90%</span><span>{q.limit}</span></div>
         </div>
         {q.rate >= 90 && (
-          <div className="quota-warning" style={{ borderColor: "#dc2626", background: "#fef2f2" }}>
+          <div className="quota-warning" style={{ borderColor: "var(--block)", background: "var(--block-bg)" }}>
             <strong>⚠️ 配额预警 · {q.rate}%</strong>
             <p>月度调用已达 {q.used}/{q.limit}，剩余 {q.remaining}，下次调用将原子检查，若 299/300 时仍尝试启动将被诚实 BLOCKED，需等待下月或申请扩容</p>
           </div>
@@ -76,7 +76,7 @@ export function BillingDashboardRich({ quota, recentRuns, usageByDay, category =
               { id: "2", missionId: "mission_123", taskClass: "research_regulatory", profileKey: "claude-3", status: "SUCCEEDED", estimatedTokens: 800, actualTokens: 820, startedAt: new Date().toISOString() },
               { id: "3", missionId: "mission_124", taskClass: "assistant_synthesis", profileKey: "local", status: "RUNNING", estimatedTokens: 500, startedAt: new Date().toISOString() },
             ]).map((run: any, idx: number) => (
-              <div key={run.id} className={`run-item ${run.status.toLowerCase()}`} style={{ animationDelay: `${idx * 80}ms`, borderLeft: `3px solid ${run.status === "SUCCEEDED" ? "#0b7a4f" : run.status === "RUNNING" ? "#f59e0b" : "#dc2626"}` } as any}>
+              <div key={run.id} className={`run-item ${run.status.toLowerCase()}`} style={{ animationDelay: `${idx * 80}ms`, borderLeft: `3px solid ${run.status === "SUCCEEDED" ? "var(--ok)" : run.status === "RUNNING" ? "var(--warn)" : "var(--block)"}` } as any}>
                 <div className="run-header">
                   <strong>{run.taskClass}</strong>
                   <span className={`status ${run.status.toLowerCase()}`}>{labelModelRunStatus(run.status)}</span>
@@ -94,8 +94,8 @@ export function BillingDashboardRich({ quota, recentRuns, usageByDay, category =
         <div className="guard-chips">
           <span style={{ background: `${catInfo.color}15`, color: catInfo.color }}>mission_started</span>
           <span style={{ background: `${catInfo.color}15`, color: catInfo.color }}>model_call</span>
-          <span style={{ background: "#f59e0b15", color: "#f59e0b" }}>research_call</span>
-          <span style={{ background: "#0b7a4f15", color: "#0b7a4f" }}>desktop_action</span>
+          <span style={{ background: "var(--warn-bg)", color: "var(--warn)" }}>research_call</span>
+          <span style={{ background: "var(--ok-bg)", color: "var(--ok)" }}>desktop_action</span>
         </div>
       </div>
 

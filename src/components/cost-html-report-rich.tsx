@@ -128,8 +128,8 @@ export function CostHtmlReportRich({
 
       {viewMode === "split" && (
         <div style={{ display: "grid", gridTemplateColumns: "380px 1fr", gap: "16px", minHeight: "800px" }}>
-          <div style={{ border: "1px solid #e7e9ef", borderRadius: "16px", overflow: "hidden", background: "white" }}>
-            <div style={{ padding: "10px 14px", background: "#fafbfc", borderBottom: "1px solid #e7e9ef", fontSize: 12, fontWeight: 600 }}>💬 Kern对话卡 · 摘要层</div>
+          <div style={{ border: "1px solid var(--line)", borderRadius: "16px", overflow: "hidden", background: "white" }}>
+            <div style={{ padding: "10px 14px", background: "var(--surface-soft)", borderBottom: "1px solid var(--line)", fontSize: 12, fontWeight: 600 }}>💬 Kern对话卡 · 摘要层</div>
             <div style={{ padding: "12px", maxHeight: "800px", overflowY: "auto" }}>
               <ResponseView envelope={envelope} defaultDensity="summary" />
             </div>

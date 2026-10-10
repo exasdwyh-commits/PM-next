@@ -320,17 +320,19 @@ function BlockView({ b, onRef }: { b: Block; onRef: (n: number) => void }) {
     case "html":
       return (
         <Section title={(b as any).title || "🎨 富可视化Artifact"} full={(b as any).full}>
-          <div className="kr-html-artifact" style={{ border: "1px solid #e7e9ef", borderRadius: "12px", overflow: "hidden", background: "white" }}>
+          <div className="kr-html-artifact" style={{ border: "1px solid var(--line)", borderRadius: "12px", overflow: "hidden", background: "var(--surface)" }}>
             {(b as any).artifact ? (
-              <div style={{ padding: "8px 12px", background: "#fafbfc", borderBottom: "1px solid #e7e9ef", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <small style={{ fontSize: "11px", color: "#6b7280" }}>🎨 富可视化 · 通过harness R17 · {(b as any).html?.length || 0}字符</small>
-                <span style={{ background: "#0f1116", color: "white", padding: "2px 8px", borderRadius: "99px", fontSize: "10px" }}>Artifact</span>
+              <div style={{ padding: "8px 12px", background: "var(--surface-soft)", borderBottom: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <small style={{ fontSize: "11px", color: "var(--ink-muted)" }}>🎨 富可视化 · 通过harness R17 · {(b as any).html?.length || 0}字符</small>
+                <span style={{ background: "var(--deep)", color: "var(--on-dark)", padding: "2px 8px", borderRadius: "99px", fontSize: "10px" }}>Artifact</span>
               </div>
             ) : null}
             <iframe
               srcDoc={(b as any).html}
               title={(b as any).title || "富可视化"}
               sandbox="allow-same-origin allow-scripts"
+              // artifact 是脱离本应用主题的独立 HTML 文档，内容多按浅底设计；
+              // 此处若改用主题令牌，暗色主题下会让深色正文压在深底上变得不可读，故恒定白底。
               style={{ width: "100%", height: `${(b as any).height || 600}px`, border: 0, background: "white" }}
             />
           </div>

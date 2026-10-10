@@ -60,7 +60,7 @@ export function ProjectTrackingRich({ tracking, category = "health_food", onActi
         <div className="tracking-timeline">
           <div className="timeline-grid">
             {data.timeline.map((item: any, idx: number) => {
-              const statusCfg = item.status === "done" ? { color: "#0b7a4f", bg: "#ecfdf5", label: "已完成" } : item.status === "running" ? { color: "#f59e0b", bg: "#fffbeb", label: "进行中" } : { color: "#6b7280", bg: "#f9fafb", label: "待开始" };
+              const statusCfg = item.status === "done" ? { color: "var(--ok)", bg: "var(--ok-bg)", label: "已完成" } : item.status === "running" ? { color: "var(--warn)", bg: "var(--warn-bg)", label: "进行中" } : { color: "var(--ink-muted)", bg: "var(--surface-soft)", label: "待开始" };
               return (
                 <div key={item.key} className={`timeline-item ${item.status}`} style={{ animationDelay: `${idx * 80}ms`, borderLeft: `3px solid ${statusCfg.color}`, background: statusCfg.bg } as any}>
                   <div className="dot" style={{ background: statusCfg.color }}></div>
@@ -115,8 +115,8 @@ export function ProjectTrackingRich({ tracking, category = "health_food", onActi
         <p>当前阻塞：成本偏高需优化到8元以内，Kern已调度 cost_bom_agent + supplier_agent，完成后自动触发合规检查。关键路径剩余 {data.totalWork - data.doneWork} 项，预计 {data.estimatedLaunch} 上市。</p>
         <div className="insight-chips">
           <span style={{ background: `${catInfo.color}15`, color: catInfo.color }}>成本→合规 自动</span>
-          <span style={{ background: "#f59e0b15", color: "#f59e0b" }}>合规→供应商 排队</span>
-          <span style={{ background: "#0b7a4f15", color: "#0b7a4f" }}>配方→成本 已完成</span>
+          <span style={{ background: "var(--warn-bg)", color: "var(--warn)" }}>合规→供应商 排队</span>
+          <span style={{ background: "var(--ok-bg)", color: "var(--ok)" }}>配方→成本 已完成</span>
         </div>
       </div>
     </div>

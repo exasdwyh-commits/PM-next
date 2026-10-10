@@ -196,11 +196,11 @@ export function CostScenarioManager({
           {selectedScenarioForDetail ? (
             <CostApproval scenario={selectedScenarioForDetail} approvals={[]} onSubmit={() => setMsg({ tone: "ok", text: "已提交审批，产品审核→领导审批" })} onApprove={() => setMsg({ tone: "ok", text: "已批准" })} onReject={() => setMsg({ tone: "ok", text: "已驳回" })} />
           ) : (
-            <div style={{ padding: 20, textAlign: "center", color: "#6b7280", fontSize: 12, border: "1px dashed #e7e9ef", borderRadius: 8 }}>
+            <div style={{ padding: 20, textAlign: "center", color: "var(--ink-muted)", fontSize: 12, border: "1px dashed var(--line)", borderRadius: 8 }}>
               请先在列表中选择一个方案，点击&quot;📂 加载&quot;旁的选择，选择后在此查看审批流
               <div style={{ marginTop: 8, display: "flex", gap: 6, justifyContent: "center" }}>
                 {scenarios.slice(0, 3).map(s => (
-                  <button key={s.id} onClick={() => setSelectedScenarioForDetail(s)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #e7e9ef", background: "white", fontSize: 10, cursor: "pointer" }}>{s.name}</button>
+                  <button key={s.id} onClick={() => setSelectedScenarioForDetail(s)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid var(--line)", background: "white", fontSize: 10, cursor: "pointer" }}>{s.name}</button>
                 ))}
               </div>
             </div>
@@ -213,11 +213,11 @@ export function CostScenarioManager({
           {selectedScenarioForDetail ? (
             <CostCollaboration scenario={selectedScenarioForDetail} comments={[]} onAddComment={(content: string) => setMsg({ tone: "ok", text: `评论：${content}` })} />
           ) : (
-            <div style={{ padding: 20, textAlign: "center", color: "#6b7280", fontSize: 12, border: "1px dashed #e7e9ef", borderRadius: 8 }}>
+            <div style={{ padding: 20, textAlign: "center", color: "var(--ink-muted)", fontSize: 12, border: "1px dashed var(--line)", borderRadius: 8 }}>
               请先在列表中选择一个方案
               <div style={{ marginTop: 8, display: "flex", gap: 6, justifyContent: "center" }}>
                 {scenarios.slice(0, 3).map(s => (
-                  <button key={s.id} onClick={() => setSelectedScenarioForDetail(s)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #e7e9ef", background: "white", fontSize: 10, cursor: "pointer" }}>{s.name}</button>
+                  <button key={s.id} onClick={() => setSelectedScenarioForDetail(s)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid var(--line)", background: "white", fontSize: 10, cursor: "pointer" }}>{s.name}</button>
                 ))}
               </div>
             </div>

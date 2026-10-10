@@ -72,7 +72,7 @@ export function MarketingLandingRich({ category = "health_food", productName = "
                 </div>
                 <div className="slide" style={{ animationDelay: "300ms", borderLeft: `3px solid ${catInfo.color}` }}>
                   <strong>Slide 4: 成本+利润 · 4类专用</strong>
-                  <div className="chart"><div className="bar"><span>成本</span><div className="track"><div className="fill" style={{ width: "30%", background: catInfo.color }}></div></div><strong>¥{content.costSummary}</strong></div><div className="bar"><span>竞品</span><div className="track"><div className="fill" style={{ width: "90%", background: "#f59e0b" }}></div></div><strong>¥{content.price}</strong></div><div className="bar"><span>利润</span><div className="track"><div className="fill" style={{ width: `${Math.round((1 - parseFloat(content.costSummary) / parseFloat(content.price)) * 100)}%`, background: "#0b7a4f" }}></div></div><strong>{Math.round((1 - parseFloat(content.costSummary) / parseFloat(content.price)) * 100)}%</strong></div></div>
+                  <div className="chart"><div className="bar"><span>成本</span><div className="track"><div className="fill" style={{ width: "30%", background: catInfo.color }}></div></div><strong>¥{content.costSummary}</strong></div><div className="bar"><span>竞品</span><div className="track"><div className="fill" style={{ width: "90%", background: "var(--warn)" }}></div></div><strong>¥{content.price}</strong></div><div className="bar"><span>利润</span><div className="track"><div className="fill" style={{ width: `${Math.round((1 - parseFloat(content.costSummary) / parseFloat(content.price)) * 100)}%`, background: "var(--ok)" }}></div></div><strong>{Math.round((1 - parseFloat(content.costSummary) / parseFloat(content.price)) * 100)}%</strong></div></div>
                 </div>
               </div>
             </div>
@@ -141,7 +141,7 @@ export function MarketingLandingRich({ category = "health_food", productName = "
             <div className="market-preview">
               <h4>📊 市场增长图 · {catInfo.icon} {catInfo.name} · 4类专用</h4>
               <div className="market-chart">
-                <div className="bar"><span>2022</span><div className="track"><div className="fill" style={{ width: "40%", background: "#e7e9ef" }}></div></div><small>100亿</small></div>
+                <div className="bar"><span>2022</span><div className="track"><div className="fill" style={{ width: "40%", background: "var(--line)" }}></div></div><small>100亿</small></div>
                 <div className="bar"><span>2023</span><div className="track"><div className="fill" style={{ width: "60%", background: catInfo.color, opacity: 0.6 }}></div></div><small>150亿 +50%</small></div>
                 <div className="bar"><span>2024</span><div className="track"><div className="fill" style={{ width: "80%", background: catInfo.color }}></div></div><small>200亿 +33% · {catInfo.name}趋势</small></div>
                 <div className="bar"><span>2025预测</span><div className="track"><div className="fill" style={{ width: "100%", background: catInfo.color }}></div></div><strong>260亿 +30% · 健康趋势</strong></div>
@@ -154,9 +154,9 @@ export function MarketingLandingRich({ category = "health_food", productName = "
             <div className="compliance-preview">
               <h4>✅ 合规可宣称清单 · {catInfo.icon} {catInfo.name} · {content.compliance.summary}</h4>
               <div className="compliance-list">
-                <div className="compliance-item ok" style={{ borderLeft: `3px solid #0b7a4f` }}><strong>✅ {content.compliance.summary}</strong><small>已合规 · 可宣称 · {catInfo.name}专用</small><span className="lvl A">A级</span></div>
-                <div className="compliance-item ok" style={{ borderLeft: `3px solid #0b7a4f` }}><strong>✅ 多酚功效可宣称</strong><small>多酚留存82%已验证 · lab_test A级 · 可宣称&quot;富含多酚&quot;</small><span className="lvl A">A级</span></div>
-                <div className="compliance-item warn" style={{ borderLeft: `3px solid #f59e0b` }}><strong>⚠️ 功能声称需注意</strong><small>不能宣称&quot;治疗&quot;，可宣称&quot;有助于&quot; · {catInfo.name}专用边界</small><span className="lvl B">B级</span></div>
+                <div className="compliance-item ok" style={{ borderLeft: `3px solid var(--ok)` }}><strong>✅ {content.compliance.summary}</strong><small>已合规 · 可宣称 · {catInfo.name}专用</small><span className="lvl A">A级</span></div>
+                <div className="compliance-item ok" style={{ borderLeft: `3px solid var(--ok)` }}><strong>✅ 多酚功效可宣称</strong><small>多酚留存82%已验证 · lab_test A级 · 可宣称&quot;富含多酚&quot;</small><span className="lvl A">A级</span></div>
+                <div className="compliance-item warn" style={{ borderLeft: `3px solid var(--warn)` }}><strong>⚠️ 功能声称需注意</strong><small>不能宣称&quot;治疗&quot;，可宣称&quot;有助于&quot; · {catInfo.name}专用边界</small><span className="lvl B">B级</span></div>
                 <div className="compliance-item"><strong>📋 标签合规</strong><small>配料表+营养成分表+保质期+贮存条件已核实 · {content.compliance.summary}</small><span className="lvl A">A级</span></div>
               </div>
             </div>

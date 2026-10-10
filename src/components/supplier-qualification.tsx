@@ -100,9 +100,9 @@ export function SupplierQualificationManager({
   };
 
   const statusLabel: Record<string, { label: string; color: string }> = {
-    valid: { label: "有效", color: "#0b7a4f" },
-    expiring: { label: "即将过期", color: "#d97706" },
-    expired: { label: "已过期", color: "#b32b23" },
+    valid: { label: "有效", color: "var(--ok)" },
+    expiring: { label: "即将过期", color: "var(--warn)" },
+    expired: { label: "已过期", color: "var(--block)" },
   };
 
   return (
@@ -117,7 +117,7 @@ export function SupplierQualificationManager({
         <label htmlFor={`qual-upload-${supplier.id}`} style={{ cursor: "pointer", display: "grid", gap: 4, placeItems: "center" }}>
           <span style={{ fontSize: 20 }}>🏅</span>
           <strong style={{ fontSize: 11 }}>拖拽资质文件到此处或点击上传</strong>
-          <small style={{ fontSize: 9, color: "#6b7280" }}>营业执照/认证/检测报告，自动检查过期</small>
+          <small style={{ fontSize: 9, color: "var(--ink-muted)" }}>营业执照/认证/检测报告，自动检查过期</small>
         </label>
       </div>
 

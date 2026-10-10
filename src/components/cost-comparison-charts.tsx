@@ -22,10 +22,10 @@ export function CostComparisonCharts({
     { key: "totalMaterialCost", label: "原料", color: "#7c3aed" },
     { key: "totalManufacturingCost", label: "生产", color: "#06b6d4" },
     { key: "totalPackagingCost", label: "包装", color: "#8b5cf6" },
-    { key: "totalLogisticsCost", label: "物流", color: "#f59e0b" },
-    { key: "totalComplianceCost", label: "合规", color: "#ef4444" },
+    { key: "totalLogisticsCost", label: "物流", color: "var(--warn)" },
+    { key: "totalComplianceCost", label: "合规", color: "var(--block)" },
     { key: "totalChannelCost", label: "渠道", color: "#10b981" },
-    { key: "totalCost", label: "总成本", color: "#0f1116" },
+    { key: "totalCost", label: "总成本", color: "var(--deep)" },
   ];
 
   const maxTotal = Math.max(...scenarios.map(s => s.totalCost), 1);
@@ -81,8 +81,8 @@ export function CostComparisonCharts({
                 { label: "原料", value: scenario.totalMaterialCost, color: "#7c3aed" },
                 { label: "生产", value: scenario.totalManufacturingCost, color: "#06b6d4" },
                 { label: "包装", value: scenario.totalPackagingCost, color: "#8b5cf6" },
-                { label: "物流", value: scenario.totalLogisticsCost, color: "#f59e0b" },
-                { label: "合规", value: scenario.totalComplianceCost, color: "#ef4444" },
+                { label: "物流", value: scenario.totalLogisticsCost, color: "var(--warn)" },
+                { label: "合规", value: scenario.totalComplianceCost, color: "var(--block)" },
                 { label: "渠道", value: scenario.totalChannelCost, color: "#10b981" },
               ];
               const max = Math.max(...items.map(i => i.value), 1);
@@ -117,8 +117,8 @@ export function CostComparisonCharts({
                 { label: "原料", value: scenario.totalMaterialCost, color: "#7c3aed" },
                 { label: "生产", value: scenario.totalManufacturingCost, color: "#06b6d4" },
                 { label: "包装", value: scenario.totalPackagingCost, color: "#8b5cf6" },
-                { label: "物流", value: scenario.totalLogisticsCost, color: "#f59e0b" },
-                { label: "合规", value: scenario.totalComplianceCost, color: "#ef4444" },
+                { label: "物流", value: scenario.totalLogisticsCost, color: "var(--warn)" },
+                { label: "合规", value: scenario.totalComplianceCost, color: "var(--block)" },
                 { label: "渠道", value: scenario.totalChannelCost, color: "#10b981" },
               ].map(item => {
                 const start = cumulative;
@@ -142,7 +142,7 @@ export function CostComparisonCharts({
                     ))}
                     <div className="wf-bar total">
                       <small>总计</small>
-                      <div className="wf-track"><div className="wf-fill" style={{ height: "100%", background: "#0f1116" }}><span>¥{scenario.totalCost.toFixed(1)}</span></div></div>
+                      <div className="wf-track"><div className="wf-fill" style={{ height: "100%", background: "var(--deep)" }}><span>¥{scenario.totalCost.toFixed(1)}</span></div></div>
                     </div>
                   </div>
                 </div>
@@ -154,8 +154,8 @@ export function CostComparisonCharts({
 
       <div className="comparison-summary">
         <div className="summary-row">
-          <span>最低总成本</span><strong style={{ color: "#0b7a4f" }}>¥{comparison.totalCost?.min.toFixed(2)}</strong>
-          <span>最高</span><strong style={{ color: "#b32b23" }}>¥{comparison.totalCost?.max.toFixed(2)}</strong>
+          <span>最低总成本</span><strong style={{ color: "var(--ok)" }}>¥{comparison.totalCost?.min.toFixed(2)}</strong>
+          <span>最高</span><strong style={{ color: "var(--block)" }}>¥{comparison.totalCost?.max.toFixed(2)}</strong>
           <span>均值</span><strong>¥{comparison.totalCost?.avg.toFixed(2)}</strong>
           <span>节省</span><strong>¥{(comparison.totalCost ? comparison.totalCost.max - comparison.totalCost.min : 0).toFixed(2)}</strong>
         </div>

@@ -52,7 +52,7 @@ export function CollaborationPlannerRich({ plan, steps = [], category = "health_
       <div className="steps-timeline">
         {steps.map((step: any, idx: number) => (
           <div key={step.key || idx} className={`step-item ${step.status?.toLowerCase() || "queued"}`} style={{ animationDelay: `${idx * 80}ms` }}>
-            <div className="step-dot" style={{ background: step.status === "done" || step.status === "SUCCEEDED" ? catInfo.color : step.status === "running" || step.status === "RUNNING" ? "#f59e0b" : "#e7e9ef" }}></div>
+            <div className="step-dot" style={{ background: step.status === "done" || step.status === "SUCCEEDED" ? catInfo.color : step.status === "running" || step.status === "RUNNING" ? "var(--warn)" : "var(--line)" }}></div>
             <div className="step-content">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <strong>{step.label || step.key || `步骤${idx + 1}`}</strong>

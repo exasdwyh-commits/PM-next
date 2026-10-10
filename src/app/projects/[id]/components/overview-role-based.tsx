@@ -45,7 +45,7 @@ export function OverviewRoleBased({ project, gaps, evidenceInsight, opportunity,
             <button className={role === "product" ? "is-active" : ""} onClick={() => setManualRole("product")}>🔬 研发</button>
             <button className={role === "sales" ? "is-active" : ""} onClick={() => setManualRole("sales")}>💼 销售</button>
           </div>
-          <small style={{ fontSize: 10, color: "#9099a6" }}>可手动切换，也可对Kern说“切换到销售视角”</small>
+          <small style={{ fontSize: 10, color: "var(--ink-muted)" }}>可手动切换，也可对Kern说“切换到销售视角”</small>
         </div>
       </div>
 
@@ -75,7 +75,7 @@ export function OverviewRoleBased({ project, gaps, evidenceInsight, opportunity,
             <div className="chart-card">
               <h4>📊 证据可信度</h4>
               <div className="donut">
-                <svg viewBox="0 0 42 42" width="80" height="80"><circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#f0f2f6" strokeWidth="3" /><circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#0b7a4f" strokeWidth="3.5" strokeDasharray={`${evidenceRate} ${100 - evidenceRate}`} strokeDashoffset="25" strokeLinecap="round" /><text x="21" y="22" textAnchor="middle" fontSize="7" fontWeight="700">{evidenceRate}%</text></svg>
+                <svg viewBox="0 0 42 42" width="80" height="80"><circle cx="21" cy="21" r="15.9" fill="transparent" stroke="var(--surface-soft)" strokeWidth="3" /><circle cx="21" cy="21" r="15.9" fill="transparent" stroke="var(--ok)" strokeWidth="3.5" strokeDasharray={`${evidenceRate} ${100 - evidenceRate}`} strokeDashoffset="25" strokeLinecap="round" /><text x="21" y="22" textAnchor="middle" fontSize="7" fontWeight="700">{evidenceRate}%</text></svg>
                 <div><strong>{verifiedCount}条已核实</strong><small>共{totalEvidence}条 · Kern已核验</small></div>
               </div>
             </div>

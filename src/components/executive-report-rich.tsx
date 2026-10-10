@@ -123,12 +123,12 @@ export function ExecutiveReportRich({ report }: { report: ExecutiveReportPayload
           <h4>📊 证据等级分布</h4>
           <div className="donut-wrap">
             <svg viewBox="0 0 42 42" width="100" height="100">
-              <circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#f0f2f6" strokeWidth="3" />
+              <circle cx="21" cy="21" r="15.9" fill="transparent" stroke="var(--surface-soft)" strokeWidth="3" />
               {[
-                { v: levels.A, color: "#0b7a4f" },
+                { v: levels.A, color: "var(--ok)" },
                 { v: levels.B, color: "#7c3aed" },
-                { v: levels.C, color: "#f59e0b" },
-                { v: levels.D, color: "#ef4444" },
+                { v: levels.C, color: "var(--warn)" },
+                { v: levels.D, color: "var(--block)" },
               ].map((seg, i, arr) => {
                 const total = Object.values(levels).reduce((a, b) => a + b, 0) || 1;
                 const offset = arr.slice(0, i).reduce((acc, s) => acc + (s.v / total) * 100, 0);
@@ -137,13 +137,13 @@ export function ExecutiveReportRich({ report }: { report: ExecutiveReportPayload
                 return <circle key={i} cx="21" cy="21" r="15.9" fill="transparent" stroke={seg.color} strokeWidth="3.5" strokeDasharray={`${dash} ${100 - dash}`} strokeDashoffset={25 - offset} strokeLinecap="round" style={{ animation: `drawDonut 1s ease-out ${i * 150}ms both` }} />;
               })}
               <text x="21" y="22" textAnchor="middle" fontSize="7" fontWeight="800">{verifiedRate}%</text>
-              <text x="21" y="26" textAnchor="middle" fontSize="3" fill="#6b7280">可信</text>
+              <text x="21" y="26" textAnchor="middle" fontSize="3" fill="var(--ink-muted)">可信</text>
             </svg>
             <div className="levels">
-              <span><i style={{ background: "#0b7a4f" }}></i>A高可信 {levels.A}</span>
+              <span><i style={{ background: "var(--ok)" }}></i>A高可信 {levels.A}</span>
               <span><i style={{ background: "#7c3aed" }}></i>B较可信 {levels.B}</span>
-              <span><i style={{ background: "#f59e0b" }}></i>C待加强 {levels.C}</span>
-              <span><i style={{ background: "#ef4444" }}></i>D待核实 {levels.D}</span>
+              <span><i style={{ background: "var(--warn)" }}></i>C待加强 {levels.C}</span>
+              <span><i style={{ background: "var(--block)" }}></i>D待核实 {levels.D}</span>
             </div>
           </div>
         </div>
@@ -152,7 +152,7 @@ export function ExecutiveReportRich({ report }: { report: ExecutiveReportPayload
           <h4>📈 结论完成度</h4>
           <div className="bars">
             <div className="bar"><span>已核实</span><div className="track"><div className="fill" style={{ width: `${verifiedRate}%`, background: catInfo.color }}></div></div><strong>{verifiedRate}%</strong></div>
-            <div className="bar"><span>待加强</span><div className="track"><div className="fill" style={{ width: `${100 - verifiedRate}%`, background: "#f59e0b" }}></div></div><strong>{100 - verifiedRate}%</strong></div>
+            <div className="bar"><span>待加强</span><div className="track"><div className="fill" style={{ width: `${100 - verifiedRate}%`, background: "var(--warn)" }}></div></div><strong>{100 - verifiedRate}%</strong></div>
           </div>
         </div>
       </div>

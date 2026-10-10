@@ -147,7 +147,7 @@ export function CostCalculatorModular({
             <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}>
               <input type="checkbox" checked={locale === "en"} onChange={e => { const newLocale = e.target.checked ? "en" : "zh"; setLocaleState(newLocale); setLocale(newLocale); }} /> 英文双语(P3-3, 跨境)
             </label>
-            {shouldShowBilingual(templateId) && <small style={{ fontSize: 10, color: "#6b7280" }}>🌍 跨境食品双语：{i18nT(templateId, locale)} / {i18nT(templateId, "en")}</small>}
+            {shouldShowBilingual(templateId) && <small style={{ fontSize: 10, color: "var(--ink-muted)" }}>🌍 跨境食品双语：{i18nT(templateId, locale)} / {i18nT(templateId, "en")}</small>}
           </div>
           {useVirtualList ? (
             <BomVirtualList items={bomItemsState.length > 0 ? bomItemsState : []} onUpdate={(id, field, value) => setBomItemsState(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item))} onRemove={(id) => setBomItemsState(prev => prev.filter(item => item.id !== id))} />
@@ -174,7 +174,7 @@ export function CostCalculatorModular({
                 onDelete={(qualId) => setSupplierQualifications(prev => ({ ...prev, [quote.id]: (prev[quote.id] || []).filter((q: any) => q.id !== qualId) }))}
               />
             ))}
-            {supplierQuotesState.length === 0 && <small style={{ color: "#6b7280" }}>请先在供应商Tab选用供应商，然后上传资质</small>}
+            {supplierQuotesState.length === 0 && <small style={{ color: "var(--ink-muted)" }}>请先在供应商Tab选用供应商，然后上传资质</small>}
           </div>
         </>
       )}
@@ -320,7 +320,7 @@ export function CostCalculatorModular({
               <div className="row"><span>保底供货价</span><strong>¥{result.supplyPriceFloor.toFixed(2)}</strong></div>
               <div className="row"><span>建议供货价</span><strong>¥{result.supplyPriceSuggested.toFixed(2)}</strong></div>
             </div>
-            <small style={{ color: "#6b7280" }}>📋 {template.name}合规：{compliance} · {costNotes}</small>
+            <small style={{ color: "var(--ink-muted)" }}>📋 {template.name}合规：{compliance} · {costNotes}</small>
           </div>
         </div>
       ) : (

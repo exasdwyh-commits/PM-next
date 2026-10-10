@@ -41,6 +41,12 @@
   --accent-wash: var(--k-brand-wash);
   --navy:        var(--k-ink);
 
+  /* —— 恒定深色（**不随主题翻转**，暗色块里刻意不覆盖）——
+     用于「深底徽标 / 暗场 / 翻底」等必须始终是深色的场景。
+     ⚠️ 不可用 --navy 顶替：--navy = --k-ink，暗色主题下会翻成浅色，
+     配 --on-dark（白字）即成白底白字、整段不可读。 */
+  --deep: #0f1116;
+
   /* —— 状态语义 ok / warn / block / neutral —— */
   --ok:       var(--k-ok);  --ok-ink: var(--k-ok);  --ok-bg: var(--k-ok-soft);  --ok-line: var(--k-ok-line);
   --warn:     var(--k-warn);  --warn-ink: var(--k-warn);  --warn-bg: var(--k-warn-soft);  --warn-line: var(--k-warn-line);

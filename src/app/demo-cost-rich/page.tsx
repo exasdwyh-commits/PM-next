@@ -30,9 +30,9 @@ export default function DemoCostRichPage() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>🎨 Kern + 富可视化 · 15组件+8动效 · 演示</h1>
-            <small style={{ fontSize: 11, color: "#6b7280" }}>Claude Web风格超越版 · 通过harness R1-R17 · 左侧对话卡+右侧Artifact数据同源</small>
+            <small style={{ fontSize: 11, color: "var(--ink-muted)" }}>Claude Web风格超越版 · 通过harness R1-R17 · 左侧对话卡+右侧Artifact数据同源</small>
           </div>
-          <select value={category} onChange={e => setCategory(e.target.value)} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #e7e9ef" }}>
+          <select value={category} onChange={e => setCategory(e.target.value)} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid var(--line)" }}>
             <option value="regular_food">🍪 普通食品</option>
             <option value="health_food">💊 保健食品</option>
             <option value="cross_border_food">🌍 跨境食品</option>
@@ -40,11 +40,11 @@ export default function DemoCostRichPage() {
           </select>
         </div>
 
-        <div style={{ background: "white", border: "1px solid #e7e9ef", borderRadius: 16, padding: 16 }}>
+        <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 16, padding: 16 }}>
           <CostCalculatorModular />
         </div>
 
-        <div style={{ background: "white", border: "1px solid #e7e9ef", borderRadius: 16, padding: 16 }}>
+        <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 16, padding: 16 }}>
           <h3 style={{ fontSize: 14, margin: "0 0 12px" }}>🎨 富可视化独立演示 · {category}</h3>
           {result ? (
             <CostHtmlReportRich

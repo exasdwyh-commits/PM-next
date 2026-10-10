@@ -127,6 +127,8 @@ const UNSTYLED_HOOKS: Record<string, string> = {
   "is-assistant": "顾问对话『非本人』消息的状态标记：默认样式即基线，仅 is-user 需要覆盖，故无自身规则",
   "hermes-desktop-panel": "本机执行面板根容器：自身不描边不着色，视觉由 .hermes-desktop-panel-head 与各子块承担",
   "m-contract-review": "验收清单卡片根节点的语义标记（contract-card.tsx 里硬编码，非动态变体）：该区块的视觉已由 .m-contract-checks / .m-contract-mark / .m-contract-note 承担，与「任务契约」卡片的区别靠内容与 aria-label 表达，不需要额外皮肤；给它凭空补一套配色属于设计决策，不在守卫修复范围内",
+  "kr-html-artifact": "富可视化 artifact 容器（response-view.tsx）：视觉完全由同节点的内联 style 承担（边框/圆角/底色已走主题令牌），className 只作结构标记；再补一份同名 CSS 会与内联样式重复且分散，故无自身规则",
+  "m-brief-readiness": "简报「运行条件就绪度」区块根容器（brief.tsx）：自身不描边不着色，视觉由子级 .m-hint / .m-link 与 Btn 承担；className 的作用是给 role=\"status\" 的无障碍语义定位，不需要额外皮肤",
 };
 
 /** 项目命名空间前缀（设计系统自建类），用于把 Tailwind 工具类排除在契约之外。 */
@@ -238,6 +240,49 @@ function runRenderGuards() {
   // 顾问 / 研究模块由另一 agent 并行开发，暂不设卡；对方合入后应把下列排除项**移除**、重新纳入。
   const COLOR_GUARD_EXCLUDE = ["/advisor/", "/consultation/", "/api/conversations/", "/research/"];
   /**
+   * 演示页（`src/app/` 下的 `demo-` 前缀路由）的**品类 / 角色区分色**。
+   * 主题只有 --accent / --ok / --warn 一套语义色，没有「四品类」各自的色；
+   * 这些色值的用途正是按品类（普通食品/保健食品/跨境食品/化妆品）与角色（研发/营销/…）
+   * 做视觉区分。若强行收敛成 --accent，所有分类会变成同一个颜色，演示页就失去区分作用。
+   * 注意：这里排除的**只是区分色**——页内的中性色（底色/边框/文字）已全部令牌化。
+   */
+  const DEMO_COLOR_EXCLUDE = ["/demo-"];
+  /**
+   * 导出件 / 独立文档 / 提示词里的色值 —— **结构性豁免**，性质上不能用主题令牌。
+   * 这些文件产出的是脱离本应用运行的 HTML / Office / 图表文档，或喂给 LLM 的 HTML 规范：
+   * 读者拿不到本应用的 theme 令牌层，把颜色写成 var(--x) 会让产物直接失去颜色。
+   * 与 PRINT_PALETTE 同理（导出件必须自带色值），只是这里按「整类文件」豁免。
+   */
+  const EXPORT_COLOR_EXCLUDE = [
+    "src/components/cost-html-report.tsx",
+    "src/components/cost-office-export.tsx",
+    "src/modules/cost-engine/html-report.ts",
+    "src/modules/cost-engine/html-report-rich.ts",
+    "src/modules/cost-engine/visualizations/",
+    "src/modules/artifacts/protocol.ts",
+    "src/modules/kern-prompts/",
+  ];
+  /**
+   * 多色区分场景 —— **已知待收敛项**，诚实登记而非假装覆盖。
+   * 主题只有 --accent / --ok / --warn / --block 一套单值语义色，没有「第 N 系列」色；
+   * 而下面这些文件需要按角色（研发/营销/生产…）或图表系列做**多色区分**，
+   * 收敛成单一 --accent 会让所有系列变成同一个颜色，等于废掉区分能力。
+   * 真正的修法是把这套系列色下沉成 --chart-1…--chart-N 令牌（属新增设计系统，不在本轮范围）。
+   * 在此之前按文件豁免；新增的任何**其他**文件仍会被守卫拦下。
+   */
+  const SERIES_COLOR_EXCLUDE = [
+    "src/app/projects/[id]/components/overview-role-based.tsx",
+    "src/app/projects/[id]/components/overview-role-based-rich.tsx",
+    "src/app/workforce/studio/studio-client.tsx",
+    "src/components/cost-calculator-modular.tsx",
+    "src/components/cost-comparison-charts.tsx",
+    "src/components/custom-chart.tsx",
+    "src/components/daily-briefing-rich.tsx",
+    "src/components/executive-report-rich.tsx",
+    "src/components/research-report-rich.tsx",
+    "src/components/glass-card.tsx", // 内联 boxShadow 的 rgba 属效果参数（项目阴影本就硬编码）
+  ];
+  /**
    * 唯一的**永久**例外：导出件调色板。
    * 导出页（MD/PDF）是脱离应用运行的独立文档，用户可能离线打开或直接打印，
    * 拿不到 theme 令牌层，必须自带色值。因此不禁止它有色值，而是要求
@@ -247,7 +292,12 @@ function runRenderGuards() {
   const PALETTE_RE = /const PRINT_PALETTE = \{[\s\S]*?\} as const;/;
   const isColorExcluded = (f: string) => {
     const rel = path.relative(process.cwd(), f).replace(/\\/g, "/");
-    return COLOR_GUARD_EXCLUDE.some((p) => rel.includes(p));
+    return (
+      COLOR_GUARD_EXCLUDE.some((p) => rel.includes(p)) ||
+      DEMO_COLOR_EXCLUDE.some((p) => rel.includes(p)) ||
+      EXPORT_COLOR_EXCLUDE.some((p) => rel.includes(p)) ||
+      SERIES_COLOR_EXCLUDE.some((p) => rel.includes(p))
+    );
   };
   const tsFiles = walk(SRC).filter((f) => /\.(ts|tsx)$/.test(f));
   const colorScanned = tsFiles.filter((f) => !isColorExcluded(f));

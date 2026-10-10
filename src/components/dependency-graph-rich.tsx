@@ -53,11 +53,11 @@ export function DependencyGraphRich({
 
   const getStatusConfig = (status: string) => {
     switch (status) {
-      case "done": return { color: "#0b7a4f", bg: "#ecfdf5", label: "已完成", icon: "✅" };
-      case "running": return { color: "#f59e0b", bg: "#fffbeb", label: "进行中", icon: "🔄" };
-      case "queued": return { color: "#6b7280", bg: "#f9fafb", label: "待开始", icon: "⏳" };
-      case "blocked": return { color: "#dc2626", bg: "#fef2f2", label: "阻塞", icon: "🚧" };
-      default: return { color: "#6b7280", bg: "#f9fafb", label: "未知", icon: "❓" };
+      case "done": return { color: "var(--ok)", bg: "var(--ok-bg)", label: "已完成", icon: "✅" };
+      case "running": return { color: "var(--warn)", bg: "var(--warn-bg)", label: "进行中", icon: "🔄" };
+      case "queued": return { color: "var(--ink-muted)", bg: "var(--surface-soft)", label: "待开始", icon: "⏳" };
+      case "blocked": return { color: "var(--block)", bg: "var(--block-bg)", label: "阻塞", icon: "🚧" };
+      default: return { color: "var(--ink-muted)", bg: "var(--surface-soft)", label: "未知", icon: "❓" };
     }
   };
 
@@ -80,10 +80,10 @@ export function DependencyGraphRich({
       </div>
 
       <div className="graph-legend">
-        <div className="legend-item"><span className="dot" style={{ background: "#0b7a4f" }}></span><small>已完成</small></div>
-        <div className="legend-item"><span className="dot" style={{ background: "#f59e0b" }}></span><small>进行中</small></div>
-        <div className="legend-item"><span className="dot" style={{ background: "#6b7280" }}></span><small>待开始</small></div>
-        <div className="legend-item"><span className="dot" style={{ background: "#dc2626" }}></span><small>阻塞</small></div>
+        <div className="legend-item"><span className="dot" style={{ background: "var(--ok)" }}></span><small>已完成</small></div>
+        <div className="legend-item"><span className="dot" style={{ background: "var(--warn)" }}></span><small>进行中</small></div>
+        <div className="legend-item"><span className="dot" style={{ background: "var(--ink-muted)" }}></span><small>待开始</small></div>
+        <div className="legend-item"><span className="dot" style={{ background: "var(--block)" }}></span><small>阻塞</small></div>
         <div className="legend-item"><span className="line"></span><small>依赖关系</small></div>
       </div>
 
@@ -92,7 +92,7 @@ export function DependencyGraphRich({
           {/* 依赖连线 */}
           <path d="M 120 80 L 200 80 L 200 120 L 280 120" stroke={catInfo.color} strokeWidth="2" fill="none" strokeDasharray="4 4" opacity={0.5} />
           <path d="M 360 120 L 440 120 L 440 80 L 520 80" stroke={catInfo.color} strokeWidth="2" fill="none" strokeDasharray="4 4" opacity={0.5} />
-          <path d="M 120 180 L 200 180 L 200 120 L 280 120" stroke="#f59e0b" strokeWidth="2" fill="none" opacity={0.4} />
+          <path d="M 120 180 L 200 180 L 200 120 L 280 120" stroke="var(--warn)" strokeWidth="2" fill="none" opacity={0.4} />
           <path d="M 600 80 L 680 80 L 680 150 L 600 150" stroke={catInfo.color} strokeWidth="2" fill="none" strokeDasharray="4 4" opacity={0.5} />
           <path d="M 600 180 L 680 180 L 680 150 L 600 150" stroke={catInfo.color} strokeWidth="2" fill="none" opacity={0.5} />
           {/* 关键路径高亮 */}
@@ -122,7 +122,7 @@ export function DependencyGraphRich({
                 <div className="node-meta">
                   <small>⏱️ {node.duration}</small>
                   {node.owner && <small>👤 {node.owner}</small>}
-                  {node.risk && <small style={{ color: "#dc2626" }}>⚠️ {node.risk}</small>}
+                  {node.risk && <small style={{ color: "var(--block)" }}>⚠️ {node.risk}</small>}
                 </div>
                 {node.dependsOn && node.dependsOn.length > 0 && (
                   <div className="node-deps">
@@ -160,8 +160,8 @@ export function DependencyGraphRich({
         <p>当阻塞原因解除时自动重试：成本优化完成后自动触发合规检查，合规通过后自动触发供应商打样。当前：成本优化进行中 → 完成后自动推进合规</p>
         <div className="advance-chips">
           <span style={{ background: `${catInfo.color}15`, color: catInfo.color }}>配方→成本 已自动</span>
-          <span style={{ background: "#f59e0b15", color: "#f59e0b" }}>成本→合规 待自动</span>
-          <span style={{ background: "#6b728015", color: "#6b7280" }}>合规→供应商 排队</span>
+          <span style={{ background: "var(--warn-bg)", color: "var(--warn)" }}>成本→合规 待自动</span>
+          <span style={{ background: "var(--line)", color: "var(--ink-muted)" }}>合规→供应商 排队</span>
         </div>
       </div>
     </div>
