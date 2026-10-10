@@ -77,3 +77,13 @@ tools/response-preview/kern-conversation.html
 /probe-*.js
 /trace
 /.codegraph/
+
+# 内部提示词 / 需求文档（含产品策略与内部作业指令，仓库为 public，禁止入库）
+docs/Kern-*.md
+
+# 本地调试凭证与排障脚本（cookies 含会话凭证）
+.cookies.txt
+.diag/
+
+# PM Worker 运行时（dev 变体）
+.pm-worker-dev/
