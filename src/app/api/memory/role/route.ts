@@ -31,8 +31,8 @@ export async function POST(req: NextRequest) {
     const role = typeof body.role === "string" ? body.role.trim() : "";
     const reason = typeof body.reason === "string" ? body.reason.trim() : undefined;
 
-    if (!["leadership", "product", "sales"].includes(role)) {
-      throw new UnprocessableEntityError("role must be leadership, product, or sales");
+    if (!["leadership", "product", "sales", "operator"].includes(role)) {
+      throw new UnprocessableEntityError("role must be leadership, product, sales, or operator");
     }
 
     const saved = await rememberRolePreference(session, role as UserRole, reason);
