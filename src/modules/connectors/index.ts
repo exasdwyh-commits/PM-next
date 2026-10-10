@@ -129,17 +129,31 @@ export async function addConnector(session: Owner, input: { name?: string; url: 
   }
   const name = (input.name?.trim() || found.server?.name || url.host).slice(0, 40);
   const id = randomUUID();
-  const row = await prisma.kernConnector.create({
-    data: {
-      id,
-      organizationId: session.organizationId,
-      userId: session.userId,
-      name,
-      slug: connectorSlug(name, id),
-      url: url.toString(),
-      tools: found.specs as unknown as Prisma.InputJsonValue,
-      refreshedAt: new Date(),
-    },
+  // 上面的计数检查只是快速失败（省掉 discover 的网络开销），并发下两个请求都能通过
+  // `count >= MAX`，最终静默超限。这里锁住本用户行后重检，与 workforce 里 claim 任务的
+  // `FOR UPDATE` 是同一套路：后到的请求会读到先到的行，拿到干净的 ConflictError。
+  const row = await prisma.$transaction(async (tx) => {
+    await tx.$queryRawUnsafe(
+      'SELECT "id" FROM "User" WHERE "id" = $1 AND "organizationId" = $2 FOR UPDATE',
+      session.userId,
+      session.organizationId
+    );
+    const n = await tx.kernConnector.count({
+      where: { userId: session.userId, organizationId: session.organizationId },
+    });
+    if (n >= MAX_CONNECTORS_PER_USER) throw new ConflictError(`最多接入 ${MAX_CONNECTORS_PER_USER} 个连接器`);
+    return tx.kernConnector.create({
+      data: {
+        id,
+        organizationId: session.organizationId,
+        userId: session.userId,
+        name,
+        slug: connectorSlug(name, id),
+        url: url.toString(),
+        tools: found.specs as unknown as Prisma.InputJsonValue,
+        refreshedAt: new Date(),
+      },
+    });
   });
   await prisma.auditEvent.create({
     data: {

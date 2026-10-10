@@ -56,17 +56,30 @@ export async function savePlaybookFromMission(session: SessionContext, missionTa
       : existing;
     return { item: view(item), created: false };
   }
-  const count = await prisma.kernPlaybook.count({ where: { organizationId: session.organizationId, userId: session.userId } });
-  if (count >= MAX_PLAYBOOKS_PER_USER) throw new UnprocessableEntityError(`最多保存 ${MAX_PLAYBOOKS_PER_USER} 个做法，可以先删掉不用的`);
-  const item = await prisma.kernPlaybook.create({
-    data: {
-      organizationId: session.organizationId,
-      userId: session.userId,
-      name: cleanName(name, core),
-      sourceGoal: core.slice(0, 500),
-      sourceMissionTaskId: missionTaskId,
-      plan: JSON.parse(JSON.stringify(templatizePlan(snap.plan))),
-    },
+  // 并发保存的 check-then-act：`count >= MAX` 与 `create` 之间没有原子性，两个并发
+  // 请求都能读到 count = MAX-1 并双双建行，静默超出上限。这里锁住本用户行再重检，
+  // 与 workforce 里 claim 任务的 `FOR UPDATE` 是同一套路：后到的那个会读到先到的行，
+  // 拿到干净的 UnprocessableEntityError，而不是把上限冲掉。
+  const item = await prisma.$transaction(async (tx) => {
+    await tx.$queryRawUnsafe(
+      'SELECT "id" FROM "User" WHERE "id" = $1 AND "organizationId" = $2 FOR UPDATE',
+      session.userId,
+      session.organizationId
+    );
+    const count = await tx.kernPlaybook.count({
+      where: { organizationId: session.organizationId, userId: session.userId },
+    });
+    if (count >= MAX_PLAYBOOKS_PER_USER) throw new UnprocessableEntityError(`最多保存 ${MAX_PLAYBOOKS_PER_USER} 个做法，可以先删掉不用的`);
+    return tx.kernPlaybook.create({
+      data: {
+        organizationId: session.organizationId,
+        userId: session.userId,
+        name: cleanName(name, core),
+        sourceGoal: core.slice(0, 500),
+        sourceMissionTaskId: missionTaskId,
+        plan: JSON.parse(JSON.stringify(templatizePlan(snap.plan))),
+      },
+    });
   });
   return { item: view(item), created: true };
 }
