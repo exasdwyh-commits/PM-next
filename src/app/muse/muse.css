@@ -56,8 +56,8 @@
   --m-t-display: var(--k-t-display); --m-t-title: var(--k-t-title); --m-t-lead: var(--k-t-lead);
   --m-t-body: var(--k-t-body);  --m-t-sm: var(--k-t-sm);  --m-t-xs: var(--k-t-xs);
 
-  --m-rail: 288px;
-  --m-lane: 760px;   /* 会话主轴宽度 */
+  --m-rail: var(--kx-chat-rail);
+  --m-lane: var(--kx-chat-width);   /* 会话主轴宽度，与输入区共用 */
 
   position: relative;
   min-height: 100vh; height: 100vh; overflow: hidden;
@@ -1169,8 +1169,8 @@
 /* 首页：一个清楚的问候 + 三个同级入口 */
 .m-home { gap: 28px; padding: 0 4px 24px; }
 /* KX-21 方案 B：空态内容贴近输入坞，视线不在屏幕上下来回跳；对话开始后内容原地上移，没有位置跳变 */
-.m-scroll:has(.m-home) { display: flex; flex-direction: column; }
-.m-scroll:has(.m-home) > .m-lane { margin: auto auto 0; }
+.m-scroll[data-home="true"] { display: block; }
+.m-scroll[data-home="true"] .m-conversation-lane { margin: 0 auto; }
 .m-home-head { gap: 14px; }
 .m-home-head h2 { font-size: var(--k-t-display); font-weight: 600; letter-spacing: -.025em; line-height: var(--k-lh-tight); }
 .m-home-head p { margin-top: 4px; font-size: var(--k-t-base); color: var(--k-ink-2); }

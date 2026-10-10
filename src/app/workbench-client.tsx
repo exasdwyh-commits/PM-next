@@ -23,6 +23,13 @@ import {
 import "./workbench.css";
 import { Count, EmptyLine, Tag, type Tone } from "@/components/kx";
 
+const FIRST_PRODUCT_DRAFT = "我想创建第一个产品。请先问我最少必要信息，再帮我整理产品 Brief、关键假设和第一轮验证计划。";
+const START_EXAMPLES = [
+  { title: "评估一个新品方向", hint: "从市场、合规和成本，梳理需要验证的假设。", icon: "flask", prompt: "我想评估一个新品方向。请先询问必要信息，再梳理市场、合规、成本假设；每项判断标注依据，缺少资料的明确写未知。" },
+  { title: "做一份竞品调研", hint: "把对比、来源和仍然未知的部分整理清楚。", icon: "search", prompt: "我想做一份竞品调研。请先确认产品方向、目标市场和对比范围，再整理定位、价格和渠道；标注来源，不要编造数据。" },
+  { title: "整理项目验证计划", hint: "明确里程碑、需要的证据和下一步负责人。", icon: "target", prompt: "我想整理一个项目的第一轮验证计划。请先了解目标、约束和现有资料，再列出里程碑、证据缺口和需要我确认的事项。" },
+] as const;
+
 interface OverviewItem extends BriefSourceItem {
   tier?: string | null;
   summary?: string | null;
@@ -190,6 +197,16 @@ export default function WorkbenchClient({
       : []),
   ];
   const doingCount = desktopOverview?.runningCount ?? 0;
+  // 已有独立项目（即使还没有产品）不能被误判为第一次使用。
+  const isFirstUse = overview.portfolio.productCount === 0 && overview.portfolio.projectCount === 0;
+  const showNeeds = !isFirstUse || ranked.total > 0 || overview.todos.count > 0 || overview.pendingDecisions.count > 0 || overview.blockers.count > 0;
+  const showProducts = !isFirstUse || overview.productsInFlight.count > 0;
+  const showAutomation = hasAutomationActivity || doingCount > 0;
+  // 新工作空间的告警放在开始入口前；正常的零异常不再单独占一张卡。
+  const showWarnings = !isFirstUse && warnItems.length > 0;
+  const showCompleted = overview.recentlyCompleted.count > 0;
+  const showAside = showAutomation || showWarnings || showCompleted;
+  const showOverview = showNeeds || showProducts || showAside;
 
   const summary = [
     `${ranked.total} 件待处理`,
@@ -243,61 +260,65 @@ export default function WorkbenchClient({
       <div className="kx-wb">
         <header className="kx-wb-head">
           <div>
-            <h1>今日</h1>
-            <p>{summary}</p>
+            <h1>{isFirstUse ? "欢迎使用 Kern" : "今日工作"}</h1>
+            <p>{isFirstUse ? "从一个产品想法开始。进度、证据和待办会在这里汇总。" : summary}</p>
           </div>
-          <Link href="/muse" className="hermes-outline-btn kx-wb-talk">
+          {!isFirstUse ? <Link href="/muse" className="hermes-outline-btn kx-wb-talk">
             去和 Kern 说
             <Icon name="arrow" size={14} />
-          </Link>
+          </Link> : null}
         </header>
 
         <DesktopConversationStrip overview={desktopOverview} />
 
-        {overview.portfolio.productCount === 0 ? (
-          <section className="hermes-onboarding" aria-labelledby="hermes-onboarding-title">
-            <div className="hermes-onboarding-head">
-              <div>
-                <h2 id="hermes-onboarding-title">第一次使用，三步就够了</h2>
-                <p>不用先研究 Agent、项目或治理对象。把基础环境准备好，然后直接告诉 Kern 你想做什么。</p>
+        {isFirstUse && warnItems.length > 0 ? (
+          <section className="kx-wb-setup-notice" aria-label="开始前需要检查" role="status">
+            <h2>开始前需要检查</h2>
+            {warnItems.map((item) => (
+              <div key={item.id} data-tone={item.tone}>
+                <span><strong>{item.title}</strong><small>{item.meta}</small></span>
+                {item.href ? <Link href={item.href}>查看状态 <Icon name="arrow" size={14} /></Link> : null}
               </div>
-              <Badge tone="info">尚未创建产品</Badge>
-            </div>
-
-            <div className="hermes-onboarding-steps">
-              <Link href="/settings" className="hermes-onboarding-step">
-                <span>1</span>
-                <div>
-                  <strong>确认 AI 与模型</strong>
-                  <small>配置可用模型；未配置时结构化治理能力仍可运行。</small>
-                </div>
-                <Icon name="arrow" size={14} />
-              </Link>
-              <Link href="/knowledge" className="hermes-onboarding-step">
-                <span>2</span>
-                <div>
-                  <strong>补充公司知识</strong>
-                  <small>导入产品、渠道、规范与历史资料，让建议带上公司上下文。</small>
-                </div>
-                <Icon name="arrow" size={14} />
-              </Link>
-              <Link
-                href={`/muse?query=${encodeURIComponent("我想创建第一个产品。请先问我最少必要信息，再帮我整理产品 Brief、关键假设和第一轮验证计划。")}`}
-                className="hermes-onboarding-step is-primary"
-              >
-                <span>3</span>
-                <div>
-                  <strong>告诉 Kern 你的产品想法</strong>
-                  <small>从对话开始，不需要先手工建立复杂项目结构。</small>
-                </div>
-                <Icon name="arrow" size={14} />
-              </Link>
-            </div>
+            ))}
           </section>
         ) : null}
 
-        <div className="kx-wb-cols">
+        {isFirstUse ? (
+          <>
+            <section className="hermes-onboarding kx-wb-start" aria-labelledby="hermes-onboarding-title">
+              <div className="kx-wb-start-copy">
+                <div className="kx-wb-start-eyebrow"><span>建立你的产品工作空间</span><Badge tone="info">尚未创建产品</Badge></div>
+                <h2 id="hermes-onboarding-title">第一次使用，三步就够了</h2>
+                <p>不用先研究 Agent、项目或治理对象。先告诉 Kern 你的产品想法，把模糊的方向变成可验证的下一步。</p>
+                <Link href={`/muse?query=${encodeURIComponent(FIRST_PRODUCT_DRAFT)}`} className="hermes-primary-btn kx-wb-start-cta">
+                  整理第一个产品想法 <Icon name="arrow" size={16} />
+                </Link>
+                <small className="kx-wb-start-note">先整理目标；发起研究前，请确认模型与执行服务可用。</small>
+              </div>
+              <ol className="kx-wb-start-steps" aria-label="首次使用步骤">
+                <li>
+                  <div className="kx-wb-start-step is-next"><span aria-hidden>1</span><div><strong>描述产品想法</strong><small>说清目标、受众与约束，Kern 先询问必要信息。</small></div></div>
+                </li>
+                <li>
+                  <Link href="/settings" className="kx-wb-start-step"><span aria-hidden>2</span><div><strong>检查运行状态</strong><small>确认可用模型、检索与后台执行服务。</small></div><Icon name="arrow" size={14} /></Link>
+                </li>
+                <li>
+                  <Link href="/knowledge" className="kx-wb-start-step"><span aria-hidden>3</span><div><strong>补充公司上下文</strong><small>导入产品、渠道和规范，让建议有依据。</small></div><Icon name="arrow" size={14} /></Link>
+                </li>
+              </ol>
+            </section>
+            <section className="kx-wb-start-examples" aria-labelledby="kx-wb-examples-title">
+              <div className="kx-wb-examples-head"><h2 id="kx-wb-examples-title">也可以从一件具体的工作开始</h2><span>选择后进入对话草稿，不会自动执行</span></div>
+              <div className="kx-wb-examples-grid">
+                {START_EXAMPLES.map((example) => <Link key={example.title} href={`/muse?query=${encodeURIComponent(example.prompt)}`} className="kx-wb-example"><Icon name={example.icon} size={20} /><strong>{example.title}</strong><p>{example.hint}</p><span>交给 Kern <Icon name="arrow" size={14} /></span></Link>)}
+              </div>
+            </section>
+          </>
+        ) : null}
+
+        {showOverview ? <div className="kx-wb-cols" data-aside={showAside ? "true" : "false"} data-main={showNeeds || showProducts ? "true" : "false"}>
           <div className="kx-wb-stack">
+            {showNeeds ? (
             <section className="kx-wb-card" aria-label="需要你处理">
               <CardHead title="需要你处理什么？" count={<Count n={ranked.total} bad />} />
               {top ? (
@@ -363,7 +384,9 @@ export default function WorkbenchClient({
                 <p className="kx-wb-more">还有 {ranked.total - 6} 件，请从对应产品继续处理。</p>
               ) : null}
             </section>
+            ) : null}
 
+            {showProducts ? (
             <section className="kx-wb-card" aria-label="核心工作推进">
               <CardHead
                 title="核心工作推进到哪里？"
@@ -398,19 +421,21 @@ export default function WorkbenchClient({
                 <EmptyLine>还没有正在推进的产品。可以去和 Kern 说一个产品想法，让它帮你开始。</EmptyLine>
               )}
             </section>
+            ) : null}
           </div>
 
           <aside className="kx-wb-stack" aria-label="Kern 与异常">
+            {showAutomation ? (
             <section className="kx-wb-card">
               <CardHead
-                title="Kern 正在做什么？"
+                title="自动化活动"
                 count={<Count n={doingCount + workforceActivity.attentionCount} />}
                 link={{ href: "/workforce", label: "自动化中心" }}
               />
               {hasAutomationActivity ? (
                 <>
                   <p className="kx-wb-line">
-                    Kern 正在工作 · 最近 {workforceActivity.windowHours} 小时：自动触发 {workforceActivity.triggeredCount} · 待复核{" "}
+                    最近 {workforceActivity.windowHours} 小时记录：自动触发 {workforceActivity.triggeredCount} · 待复核{" "}
                     {workforceActivity.returnReviewCount} · 等待人工 {waitingCount}
                   </p>
                   <div className="kx-wb-traces">
@@ -424,7 +449,9 @@ export default function WorkbenchClient({
                 <EmptyLine>最近 {workforceActivity.windowHours} 小时没有自动化活动。</EmptyLine>
               )}
             </section>
+            ) : null}
 
+            {showWarnings ? (
             <section className="kx-wb-card">
               <CardHead title="哪里异常？" count={<Count n={warnItems.length} bad />} />
               {warnItems.length > 0 ? (
@@ -461,7 +488,9 @@ export default function WorkbenchClient({
                 <EmptyLine tone="ok">没有异常。</EmptyLine>
               )}
             </section>
+            ) : null}
 
+            {showCompleted ? (
             <section className="kx-wb-card">
               <CardHead title="最近完成" count={<Count n={overview.recentlyCompleted.count} />} />
               {completedItems.length > 0 ? (
@@ -483,13 +512,15 @@ export default function WorkbenchClient({
                 <EmptyLine>最近还没有验收完成的工作项。</EmptyLine>
               )}
             </section>
+            ) : null}
           </aside>
-        </div>
+        </div> : null}
 
         <footer className="kx-wb-foot">
           {/* 2026-10-04：原先在此把组织 UUID 截断成 8 位展示（实现腔文案）。
               组织标识改由设置 · 账户承担，这里只陈述口径事实。 */}
           <span>{overview.meta.permissionLabel}</span>
+          {isFirstUse ? <span>数据更新于 {fmtDateTime(overview.meta.generatedAt)}</span> : null}
           {overview.earliestBlockerDueAt ? <span>最早阻塞截止 {fmtDate(overview.earliestBlockerDueAt)}</span> : null}
         </footer>
       </div>

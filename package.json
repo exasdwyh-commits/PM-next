@@ -81,6 +81,7 @@
     "muse:check": "node scripts/run-sh.js -c \"NODE_ENV=production tsx scripts/muse-check.ts\"",
     "test:assistant-persona": "tsx scripts/run-test.ts tests/assistant-persona-muse.ts",
     "test:frontend-v3": "node --import tsx --test tests/frontend-v3-contract.test.ts tests/kern-conversation-input.test.ts tests/product-cost-form.test.ts tests/project-workspace-input.test.ts",
+    "test:home-experience": "node --import tsx --test tests/kern-home-experience.test.ts",
     "test:form-input-validation": "tsx scripts/run-test.ts tests/regression-form-input-validation.ts",
     "test:launch-owner-candidates": "tsx scripts/run-test.ts tests/regression-launch-owner-candidates.ts",
     "desktop": "tsx scripts/hermes-desktop.ts",

@@ -270,12 +270,11 @@ export function Bento({
 }) {
   if (!tiles.length) return null;
   return (
-    <div className="kx-bento" role="list" aria-label={label}>
+    <div className="kx-bento" role="group" aria-label={label}>
       {tiles.map((t, i) => (
         <button
           key={t.id}
           type="button"
-          role="listitem"
           className="kx-bento-i"
           data-span={tiles.length >= 3 && i === 0 ? "wide" : undefined}
           onClick={() => onPick(t.id)}
