@@ -4,6 +4,7 @@
  */
 
 import { executeResearchNode } from "@/modules/supervisor/research-integration";
+import { STATUS_LABEL } from "@/modules/supervisor/report-format";
 import { autoIdentityCode } from "@/modules/products/service";
 import prisma from "@/shared/db";
 
@@ -284,7 +285,7 @@ export async function executeNewProductPlaybook(input: PlaybookInput): Promise<P
     blueprint: nodes.find((n) => n.nodeKey === "product_blueprint")?.output,
     productId,
     status,
-    criticalPath: executionOrder.map((k) => NODE_DESCRIPTIONS[k]).join(" → ") + ` · 总计${Math.round(totalDurationMs / 1000)}s · ${status}`,
+    criticalPath: executionOrder.map((k) => NODE_DESCRIPTIONS[k]).join(" → ") + ` · 总计${Math.round(totalDurationMs / 1000)}s · ${STATUS_LABEL[status] ?? status}`,
     totalDurationMs,
   };
 }

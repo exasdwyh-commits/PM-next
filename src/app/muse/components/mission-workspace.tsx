@@ -5,7 +5,7 @@
  * method, model, latency, sources, retries, the user's interventions.
  */
 import { useEffect, useMemo, useState } from "react";
-import { extractDecision } from "@/modules/supervisor/report-format";
+import { extractDecision, STATUS_LABEL } from "@/modules/supervisor/report-format";
 import type { AiState } from "../types";
 import {
   AGENT_LABEL,
@@ -57,15 +57,6 @@ export function laneState(status: string): AiState {
       return "idle";
   }
 }
-
-const STATUS_TEXT: Record<string, string> = {
-  PENDING: "等待中",
-  ACTIVE: "进行中",
-  SUCCEEDED: "完成",
-  BLOCKED: "受阻",
-  FAILED: "失败",
-  SKIPPED: "已跳过",
-};
 
 const ERROR_TEXT: [RegExp, string][] = [
   [/RERUN_LIMIT/, "这项任务重跑次数已到上限（5 次）"],
@@ -316,7 +307,7 @@ function LaneRow({
         </button>
         <span className="m-lane-meta">
           {last?.modelCalls.at(-1)?.latencyMs != null ? formatMs(last.modelCalls.at(-1)!.latencyMs) + " · " : ""}
-          {STATUS_TEXT[lane.status] ?? lane.status}
+          {STATUS_LABEL[lane.status] ?? lane.status}
         </span>
       </div>
       {!expanded ? (
