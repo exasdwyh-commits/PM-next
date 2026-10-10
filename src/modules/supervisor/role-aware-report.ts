@@ -67,7 +67,24 @@ export function generateRoleAwareReport(report: MissionReport): Record<UserRole,
     tools: ["销售PPT", "话术脚本", "竞品卡", "报价单", "市场图", "案例"],
   };
 
-  return { leadership, product, sales };
+  // Operator: 节奏/卡点视角 —— 关键字段全部来自 report.steps 派生，不编造排期数字
+  const blocked = report.steps.filter(s => s.status === "BLOCKED");
+  const running = report.steps.filter(s => s.status === "RUNNING");
+  const operator: RoleAwareReport = {
+    role: "operator",
+    confidence: detected?.role === "operator" ? detected.confidence : 0.6,
+    reason: detected?.role === "operator" ? detected.reason : "操盘需要节奏",
+    lede: `进度：${report.steps.filter(s => s.status === "SUCCEEDED").length}/${report.steps.length} 步完成，卡点 ${blocked.length} 项`,
+    summary: `进行中 ${running.length} 项，阻塞 ${blocked.length} 项；详细排期待 kern 产出 operator 投影`,
+    keyPoints: [
+      ...blocked.slice(0, 3).map(s => `⛔ 卡点：${s.label}`),
+      ...running.slice(0, 3).map(s => `▶ 进行：${s.label}`),
+    ],
+    suggestedActions: ["查看排期甘特", "疏通卡点", "盯 SLA", "复盘判据"],
+    tools: ["时间线", "依赖图", "风险应对"],
+  };
+
+  return { leadership, product, sales, operator };
 }
 
 export function selectBestRole(report: MissionReport): UserRole {
