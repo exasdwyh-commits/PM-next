@@ -76,7 +76,7 @@ export function calculateComplianceCost(category: string): { totalCost: number; 
   return { totalCost, totalDays, requiredCount, optionalCount };
 }
 
-export function getComplianceForRole(category: string, role: "leadership" | "product" | "sales"): ComplianceItem[] {
+export function getComplianceForRole(category: string, role: "leadership" | "product" | "sales" | "operator"): ComplianceItem[] {
   const all = getComplianceChecklist(category);
   if (role === "leadership") {
     // 领导只看必需项

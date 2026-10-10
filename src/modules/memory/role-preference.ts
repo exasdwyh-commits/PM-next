@@ -17,6 +17,7 @@ const ROLE_KEYWORDS: Record<UserRole, string[]> = {
   leadership: ["领导", "老板", "管理层", "直观"],
   product: ["产品", "研发", "技术", "工程师", "专业"],
   sales: ["销售", "营销", "卖点", "客户", "市场"],
+  operator: ["操盘手", "排期", "节奏", "甘特", "里程碑", "卡点", "SLA", "漏斗"],
 };
 
 export function parseRoleFromMemory(content: string): UserRole | null {
@@ -37,11 +38,17 @@ export function parseRoleFromMemory(content: string): UserRole | null {
       return "product";
     }
   }
+  if (content.includes("operator") || content.includes("操盘") || content.includes("排期") || content.includes("甘特")) {
+    if (content.includes("偏好角色") || content.includes("角色") || content.includes("视角") || content.includes("节奏")) {
+      return "operator";
+    }
+  }
   // Direct role mention
   if (content.includes("用户偏好角色：")) {
     if (content.includes("领导") || content.includes("leadership")) return "leadership";
     if (content.includes("销售") || content.includes("sales") || content.includes("营销")) return "sales";
     if (content.includes("产品") || content.includes("product") || content.includes("研发")) return "product";
+    if (content.includes("操盘") || content.includes("operator") || content.includes("排期")) return "operator";
   }
   return null;
 }
@@ -51,6 +58,7 @@ export function buildRolePreferenceContent(role: UserRole, reason?: string): str
     leadership: "领导层 (leadership) - 直观看的懂，一页看懂结论",
     product: "产品研发 (product) - 专业严谨，可信度第一",
     sales: "销售营销 (sales) - 卖点突出，销售支撑",
+    operator: "操盘手 (operator) - 节奏优先，排期卡点一目了然",
   }[role];
 
   const base = `${ROLE_PREFERENCE_PREFIX}${roleLabel}`;
@@ -109,12 +117,15 @@ export function detectRolePreferenceIntent(text: string): UserRole | null {
     { pattern: /(记住|记一下).{0,10}(我|用户).{0,10}(喜欢|偏好|常用|通常).{0,10}(领导|老板|直观)/i, role: "leadership" },
     { pattern: /(记住|记一下).{0,10}(我|用户).{0,10}(喜欢|偏好|常用|通常).{0,10}(产品|研发|技术)/i, role: "product" },
     { pattern: /(记住|记一下).{0,10}(我|用户).{0,10}(喜欢|偏好|常用|通常).{0,10}(销售|营销|卖点)/i, role: "sales" },
+    { pattern: /(记住|记一下).{0,10}(我|用户).{0,10}(喜欢|偏好|常用|通常).{0,10}(操盘|运营|排期|甘特|节奏)/i, role: "operator" },
     { pattern: /(以后|今后|默认).{0,10}(用|切|显示).{0,10}(领导|老板|直观)/i, role: "leadership" },
     { pattern: /(以后|今后|默认).{0,10}(用|切|显示).{0,10}(产品|研发|技术)/i, role: "product" },
     { pattern: /(以后|今后|默认).{0,10}(用|切|显示).{0,10}(销售|营销|卖点)/i, role: "sales" },
+    { pattern: /(以后|今后|默认).{0,10}(用|切|显示).{0,10}(操盘|运营|排期|甘特|节奏)/i, role: "operator" },
     { pattern: /我是(做)?(领导|老板|管理层)/i, role: "leadership" },
     { pattern: /我是(做)?(产品|研发|技术|工程师)/i, role: "product" },
     { pattern: /我是(做)?(销售|营销|市场)/i, role: "sales" },
+    { pattern: /我是(做)?(操盘手|运营|项目管理|pm)/i, role: "operator" },
   ];
 
   for (const { pattern, role } of patterns) {

@@ -46,7 +46,8 @@ export default function DemoReportPage() {
         <h1 style={{ fontSize: 24, fontWeight: 800 }}>PM-next 三角色优化演示</h1>
         <p style={{ color: "#666", lineHeight: 1.6, fontSize: 14 }}>
           按你最新要求：<strong>领导层直观 / 产品研发专业严谨可信度第一工具丰富 / 销售营销卖点突出工具型</strong><br />
-          下方展示 V1现有 vs V2三视图 vs V3三角色专业版
+          下方展示 V1现有 vs V2三视图 vs V3三角色专业版<br />
+          <strong style={{ color: "#B45309" }}>⚠️ 演示样张：本页所有数字（成本/留存率/市场规模等）均为示意，非真实数据，不得引用；真实报告以产品研发链路产出为准。</strong>
         </p>
       </header>
 

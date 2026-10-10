@@ -10,19 +10,21 @@ import {
   type RoleInference,
 } from "./kern-role-intelligence";
 
-export type UserRole = "leadership" | "product" | "sales";
+export type UserRole = "leadership" | "product" | "sales" | "operator";
 export type RoleSource = "manual" | "auto" | "kern" | "memory" | "default";
 
 export const ROLE_LABEL: Record<UserRole, string> = {
   leadership: "👔 领导层",
   product: "🔬 产品研发",
   sales: "💼 销售营销",
+  operator: "🧭 操盘手",
 };
 
 export const ROLE_DESC: Record<UserRole, string> = {
   leadership: "直观看的懂，一页看懂结论",
   product: "专业严谨，可信度第一，工具流程丰富",
   sales: "卖点突出，工具型，销售支撑",
+  operator: "节奏优先，排期卡点一目了然，复盘有据",
 };
 
 const STORAGE_KEY = "kern.user-role.v1";
@@ -73,18 +75,18 @@ export function RoleProvider({
       const savedAt = localStorage.getItem(STORAGE_AT_KEY);
       const savedKern = localStorage.getItem(STORAGE_KERN_KEY);
       const savedMemory = localStorage.getItem(STORAGE_MEMORY_KEY);
-      if (saved && ["leadership", "product", "sales"].includes(saved)) {
+      if (saved && ["leadership", "product", "sales", "operator"].includes(saved)) {
         setManualState({ role: saved, at: savedAt ? Number(savedAt) : Date.now() });
       }
       if (savedKern) {
         const parsed = JSON.parse(savedKern);
-        if (parsed?.role && ["leadership", "product", "sales"].includes(parsed.role)) {
+        if (parsed?.role && ["leadership", "product", "sales", "operator"].includes(parsed.role)) {
           setKernState(parsed);
         }
       }
       if (savedMemory) {
         const parsed = JSON.parse(savedMemory);
-        if (parsed?.role && ["leadership", "product", "sales"].includes(parsed.role)) {
+        if (parsed?.role && ["leadership", "product", "sales", "operator"].includes(parsed.role)) {
           setMemoryState(parsed);
         }
       }
@@ -94,7 +96,7 @@ export function RoleProvider({
       fetch("/api/memory/role", { cache: "no-store" })
         .then(r => r.json())
         .then(j => {
-          if (j.preference?.role && ["leadership", "product", "sales"].includes(j.preference.role)) {
+          if (j.preference?.role && ["leadership", "product", "sales", "operator"].includes(j.preference.role)) {
             const mem = {
               role: j.preference.role as UserRole,
               at: Date.now(),
@@ -208,6 +210,7 @@ export function RoleProvider({
       localStorage.removeItem("kern.role-count.leadership");
       localStorage.removeItem("kern.role-count.product");
       localStorage.removeItem("kern.role-count.sales");
+      localStorage.removeItem("kern.role-count.operator");
       fetch("/api/memory/role", { method: "DELETE" }).catch(() => {});
     } catch {}
   }, []);
@@ -218,9 +221,11 @@ export function RoleProvider({
       { pattern: /(记住|记一下).{0,10}(我|用户).{0,10}(喜欢|偏好|常用|通常).{0,10}(领导|老板|直观)/i, role: "leadership" as UserRole },
       { pattern: /(记住|记一下).{0,10}(我|用户).{0,10}(喜欢|偏好|常用|通常).{0,10}(产品|研发|技术)/i, role: "product" as UserRole },
       { pattern: /(记住|记一下).{0,10}(我|用户).{0,10}(喜欢|偏好|常用|通常).{0,10}(销售|营销|卖点)/i, role: "sales" as UserRole },
+      { pattern: /(记住|记一下).{0,10}(我|用户).{0,10}(喜欢|偏好|常用|通常).{0,10}(操盘|运营|排期|甘特|节奏)/i, role: "operator" as UserRole },
       { pattern: /(以后|今后|默认).{0,10}(用|切|显示).{0,10}(领导|老板|直观)/i, role: "leadership" as UserRole },
       { pattern: /(以后|今后|默认).{0,10}(用|切|显示).{0,10}(产品|研发|技术)/i, role: "product" as UserRole },
       { pattern: /(以后|今后|默认).{0,10}(用|切|显示).{0,10}(销售|营销|卖点)/i, role: "sales" as UserRole },
+      { pattern: /(以后|今后|默认).{0,10}(用|切|显示).{0,10}(操盘|运营|排期|甘特|节奏)/i, role: "operator" as UserRole },
     ];
     for (const { pattern, role } of memoryPatterns) {
       if (pattern.test(text)) {

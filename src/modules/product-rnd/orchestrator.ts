@@ -30,7 +30,8 @@ import {
   getLatestPublishedRun,
   startResearchRun,
 } from "@/modules/research/research-run";
-import type { ExecutiveReportPayload } from "@/shared/executive-report-types";
+import type { ExecutiveReportDeep, ExecutiveReportPayload } from "@/shared/executive-report-types";
+import { composeDeepReport, pickTaskDeep } from "./deep-report";
 import { describeAutoAdvance } from "./advance-retry";
 
 const PRODUCT_RND_SPECIALISTS = [
@@ -109,6 +110,9 @@ export interface ProductRndExecutiveReport {
     | "READY_FOR_HUMAN_REVIEW"
     | "PARTIAL"
     | "BLOCKED_BY_QA";
+  /** 执行层深度报告（批次 C 增量）：spec/bom 经 executorResult.deep 校验收编，
+   *  verification 由已落库核验记录聚合；其余六块以 sections 骨架 UNKNOWN 占位。 */
+  deepReport?: ExecutiveReportDeep;
 }
 
 function json(value: unknown): Prisma.InputJsonValue {
@@ -1006,6 +1010,15 @@ export function buildExecutiveReportPreview(
       knowledgeDebtRefs: stringList(parsed.knowledgeDebtRefs, 50),
       researchSnapshotRef: optionalString(parsed.researchSnapshotRef),
     },
+    deepReport: composeDeepReport({
+      spec: (parsed.deepReport as Record<string, unknown> | undefined)?.spec,
+      bom: (parsed.deepReport as Record<string, unknown> | undefined)?.bom,
+      validation: (parsed.deepReport as Record<string, unknown> | undefined)?.validation,
+      appendixCount:
+        objectList(parsed.sourceRefs, 50).length +
+        stringList(parsed.assumptions, 8).length +
+        stringList(parsed.unknowns, 12).length,
+    }),
   };
 }
 
@@ -1132,6 +1145,12 @@ export async function synthesizeProductRndExecutiveReport(
       : qaTask
         ? "BLOCKED_BY_QA"
         : "PARTIAL";
+
+  // 批次 C：执行层深度报告输入装配（typed 通道，不解析自由文本）。
+  // ①/② spec/bom 走 specialist executorResult.deep(schema 校验单点在 deep-report.ts)，
+  // 目前真实输入未接入时 specialist 诚实 BLOCKED → 两节自动 UNKNOWN，无回退无编造。
+  const deepSpecRaw = pickTaskDeep(parent.childTasks, "formulation_agent", "spec");
+  const deepBomRaw = pickTaskDeep(parent.childTasks, "cost_bom_agent", "bom");
 
   const [evidences, dataGaps, knowledgeDebts] = await Promise.all([
     prisma.evidence.findMany({
@@ -1330,6 +1349,26 @@ export async function synthesizeProductRndExecutiveReport(
       ? `research-snapshot:${latestResearch.snapshot.id}`
       : null,
     verificationStatus,
+    deepReport: composeDeepReport({
+      spec: deepSpecRaw,
+      bom: deepBomRaw,
+      // ⑧ 验证排期用已落库数据真渲：claims 最新核验状态 + 未闭合缺口 + QA 状态。
+      validation: {
+        items: evidences.flatMap((evidence) =>
+          evidence.claims.map((claim) => ({
+            claim: claim.value,
+            latestStatus: claim.verifications[0]?.supportStatus ?? "NO_VERIFICATION",
+            checkedAt: claim.verifications[0]?.checkedAt?.toISOString() ?? null,
+            claimKind: claim.kind,
+            evidenceLevel: claim.evidenceLevel,
+          }))
+        ),
+        gaps: uniqueUnknowns,
+        qaStatus: verificationStatus,
+      },
+      appendixCount:
+        evidences.length + uniqueUnknowns.length,
+    }),
   };
 
   const submitted = await submitWork(session, workItem.id, {

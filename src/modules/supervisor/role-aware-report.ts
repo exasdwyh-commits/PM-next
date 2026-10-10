@@ -56,18 +56,38 @@ export function generateRoleAwareReport(report: MissionReport): Record<UserRole,
     role: "sales",
     confidence: detected?.role === "sales" ? detected.confidence : 0.65,
     reason: detected?.role === "sales" ? detected.reason : "销售需要卖点",
-    lede: `🔥 卖点：${report.conclusion?.split("，")[0] || "产品具备竞争力"}`,
+    lede: `🔥 卖点：${report.conclusion?.split("，")[0] || "卖点待结论核实后生成"}`,
     summary: `基于 ${report.steps.length} 项研究，提炼核心卖点，适合客户沟通`,
-    keyPoints: [
-      "低糖多酚，健康趋势",
-      "成本10.2元，竞品299元，利润空间大",
-      "82%留存率已验证",
-    ],
+    // 拆雷：卖点只由报告数据派生，禁止写死任何数字/竞品结论（原硬编码 3 条已清除）
+    keyPoints: (() => {
+      const done = report.steps.filter(s => s.status === "SUCCEEDED").slice(0, 3);
+      if (done.length === 0) {
+        return ["暂无已核实卖点：缺已完成的证据/研究步骤；补齐：先完成证据核验，再由 kern 依据结论生成话术"];
+      }
+      return done.map(s => `✅ 已核实：${s.label}`);
+    })(),
     suggestedActions: ["生成销售PPT", "生成话术", "竞品对比", "报价单"],
     tools: ["销售PPT", "话术脚本", "竞品卡", "报价单", "市场图", "案例"],
   };
 
-  return { leadership, product, sales };
+  // Operator: 节奏/卡点视角 —— 关键字段全部来自 report.steps 派生，不编造排期数字
+  const blocked = report.steps.filter(s => s.status === "BLOCKED");
+  const running = report.steps.filter(s => s.status === "RUNNING");
+  const operator: RoleAwareReport = {
+    role: "operator",
+    confidence: detected?.role === "operator" ? detected.confidence : 0.6,
+    reason: detected?.role === "operator" ? detected.reason : "操盘需要节奏",
+    lede: `进度：${report.steps.filter(s => s.status === "SUCCEEDED").length}/${report.steps.length} 步完成，卡点 ${blocked.length} 项`,
+    summary: `进行中 ${running.length} 项，阻塞 ${blocked.length} 项；详细排期待 kern 产出 operator 投影`,
+    keyPoints: [
+      ...blocked.slice(0, 3).map(s => `⛔ 卡点：${s.label}`),
+      ...running.slice(0, 3).map(s => `▶ 进行：${s.label}`),
+    ],
+    suggestedActions: ["查看排期甘特", "疏通卡点", "盯 SLA", "复盘判据"],
+    tools: ["时间线", "依赖图", "风险应对"],
+  };
+
+  return { leadership, product, sales, operator };
 }
 
 export function selectBestRole(report: MissionReport): UserRole {

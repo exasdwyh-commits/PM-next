@@ -11,7 +11,7 @@
  * 3. Kern对话驱动：用户说"切换到销售视角"或 Kern 在 envelope 中建议
  */
 
-export type UserRole = "leadership" | "product" | "sales";
+export type UserRole = "leadership" | "product" | "sales" | "operator";
 export type RoleSource = "manual" | "auto" | "kern" | "default";
 
 export interface RoleInference {
@@ -40,17 +40,26 @@ const SALES_KEYWORDS = [
   "购买", "成交", "转化", "增长", "趋势", "机会", "案例", "脚本"
 ];
 
+const OPERATOR_KEYWORDS = [
+  "操盘手", "操盘", "节奏", "排期", "甘特", "里程碑", "周计划", "卡点", "阻塞",
+  "SLA", "漏斗", "渠道准入", "复盘", "放量", "止损", "试销", "排兵布阵",
+  "关键路径", "缓冲", "协调"
+];
+
 const ROLE_SWITCH_PATTERNS: { pattern: RegExp; role: UserRole }[] = [
   { pattern: /(切换到|切到|改为|改成|用).{0,6}(领导|老板|直观|管理层|高管)/i, role: "leadership" },
   { pattern: /(切换到|切到|改为|改成|用).{0,6}(产品|研发|技术|专业|严谨|工程师)/i, role: "product" },
   { pattern: /(切换到|切到|改为|改成|用).{0,6}(销售|营销|卖点|客户|市场)/i, role: "sales" },
+  { pattern: /(切换到|切到|改为|改成|用).{0,6}(操盘|运营|节奏|排期|甘特)/i, role: "operator" },
   { pattern: /(领导|老板)视角|管理层视角|直观模式/i, role: "leadership" },
   { pattern: /(产品|研发|技术)视角|专业模式|严谨模式|工程师视角/i, role: "product" },
   { pattern: /(销售|营销|卖点)视角|销售模式|客户视角/i, role: "sales" },
+  { pattern: /(操盘|运营)视角|操盘模式|排期视角|节奏视角/i, role: "operator" },
   // English
   { pattern: /switch to (leadership|executive|management)/i, role: "leadership" },
   { pattern: /switch to (product|engineering|technical|rd)/i, role: "product" },
   { pattern: /switch to (sales|marketing)/i, role: "sales" },
+  { pattern: /switch to (operator|operations|timeline|schedule)/i, role: "operator" },
 ];
 
 const PAGE_ROLE_MAP: Record<string, UserRole> = {
@@ -63,6 +72,10 @@ const PAGE_ROLE_MAP: Record<string, UserRole> = {
   "marketing": "sales",
   "cost": "product",
   "launch": "sales",
+  "gantt": "operator",
+  "schedule": "operator",
+  "milestone": "operator",
+  "operator": "operator",
 };
 
 export function detectRoleSwitchIntent(text: string): UserRole | null {
@@ -78,15 +91,17 @@ export function inferRoleFromText(text: string): RoleInference | null {
   let leadershipScore = 0;
   let productScore = 0;
   let salesScore = 0;
+  let operatorScore = 0;
 
   for (const kw of LEADERSHIP_KEYWORDS) if (t.includes(kw.toLowerCase())) leadershipScore++;
   for (const kw of PRODUCT_KEYWORDS) if (t.includes(kw.toLowerCase())) productScore++;
   for (const kw of SALES_KEYWORDS) if (t.includes(kw.toLowerCase())) salesScore++;
+  for (const kw of OPERATOR_KEYWORDS) if (t.includes(kw.toLowerCase())) operatorScore++;
 
-  const total = leadershipScore + productScore + salesScore;
+  const total = leadershipScore + productScore + salesScore + operatorScore;
   if (total === 0) return null;
 
-  const max = Math.max(leadershipScore, productScore, salesScore);
+  const max = Math.max(leadershipScore, productScore, salesScore, operatorScore);
   const confidence = Math.min(0.95, max / Math.max(3, total) + 0.2);
 
   if (max === leadershipScore) {
@@ -94,6 +109,9 @@ export function inferRoleFromText(text: string): RoleInference | null {
   }
   if (max === productScore) {
     return { role: "product", source: "auto", confidence, reason: `匹配研发关键词 ${productScore}个` };
+  }
+  if (max === operatorScore) {
+    return { role: "operator", source: "auto", confidence, reason: `匹配操盘关键词 ${operatorScore}个` };
   }
   return { role: "sales", source: "auto", confidence, reason: `匹配销售关键词 ${salesScore}个` };
 }
@@ -114,7 +132,7 @@ export function inferRoleFromEnvelope(envelope: any): RoleInference | null {
   
   // 检查自定义字段
   const suggested = envelope.meta?.suggestedRole || envelope.meta?.audience || envelope.suggestedRole || envelope.audience;
-  if (suggested && ["leadership", "product", "sales"].includes(suggested)) {
+  if (suggested && ["leadership", "product", "sales", "operator"].includes(suggested)) {
     return { role: suggested as UserRole, source: "kern", confidence: 0.9, reason: "Kern 建议的角色" };
   }
 
@@ -122,9 +140,13 @@ export function inferRoleFromEnvelope(envelope: any): RoleInference | null {
   if (envelope.kind === "CONCLUSION") {
     // 决策类默认领导，但如果有详细证据可能是产品
     const hasEvidence = envelope.blocks?.some((b: any) => b.type === "evidence" || b.type === "checklist" || b.type === "timeline");
-    const hasSales = envelope.blocks?.some((b: any) => 
+    const hasSales = envelope.blocks?.some((b: any) =>
       JSON.stringify(b).includes("卖点") || JSON.stringify(b).includes("竞品") || JSON.stringify(b).includes("客户价值")
     );
+    const hasTimeline = envelope.blocks?.some((b: any) =>
+      JSON.stringify(b).includes("排期") || JSON.stringify(b).includes("里程碑") || JSON.stringify(b).includes("SLA")
+    );
+    if (hasTimeline) return { role: "operator", source: "auto", confidence: 0.6, reason: "包含排期/里程碑内容" };
     if (hasSales) return { role: "sales", source: "auto", confidence: 0.65, reason: "包含销售卖点" };
     if (hasEvidence) return { role: "product", source: "auto", confidence: 0.6, reason: "包含详细证据/清单" };
     return { role: "leadership", source: "auto", confidence: 0.55, reason: "决策结论默认领导视角" };
@@ -189,12 +211,13 @@ export const KERN_NEEDS = {
     "领导层：压缩信息，一句话结论+KPI卡片+图表，10秒决策",
     "产品研发：展开细节，表格+溯源+验证计划+QA轨迹，工具流程丰富",
     "销售营销：提炼卖点，客户价值映射+竞品高亮+一键生成工具",
+    "操盘手：节奏优先，甘特+卡点+SLA+渠道漏斗+复盘判据",
   ],
   coordination: [
     "Kern作为主Agent，根据用户角色自动选择调用哪些专业Agent",
     "领导问 → Kern直接综合，不展开细节",
     "产品问 → Kern调用research_agent, scientific_evidence_agent, qa_verifier",
     "销售问 → Kern调用marketing_agent, research_agent, cost_bom_agent",
-    "输出时，Kern在 envelope.meta.suggestedRole 中标记建议角色，前端自动切换",
+    "操盘问 → Kern优先返回 operator 投影（节奏/卡点/SLA/漏斗），输出时，Kern在 envelope.meta.suggestedRole 中标记建议角色，前端自动切换",
   ],
 };

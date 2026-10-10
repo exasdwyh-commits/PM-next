@@ -169,7 +169,7 @@ export interface Ask {
   options: { label: string; consequence: string }[];
 }
 
-export type AudienceRole = "leadership" | "product" | "sales" | "auto";
+export type AudienceRole = "leadership" | "product" | "sales" | "operator" | "auto";
 
 export interface Meta {
   model: string;

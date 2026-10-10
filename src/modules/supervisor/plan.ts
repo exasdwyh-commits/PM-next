@@ -1,4 +1,5 @@
 import type { ModelTaskClass } from "@/modules/model-gateway";
+import { buildNewProductConclusionContract } from "./report-contract";
 import type { KernGoalPlanShadow } from "@/modules/assistant-runtime/goal-plan";
 import type { KernCollaborationPlanShadow } from "@/modules/assistant-runtime/collaboration-planner";
 import { HUMAN_GATE_IDS } from "@/modules/governance/protected-actions";
@@ -156,6 +157,13 @@ export function taskClassForAgent(agentCode: string): ModelTaskClass {
 const SYNTHESIS_OBJECTIVE =
   "综合所有已完成工作，给用户一份可以直接行动的结论：结论与建议、关键依据（事实/推断分开）、UNKNOWN 与下一步验证、主要风险，以及真正需要用户拍板的事项（没有就明确说没有）。";
 
+/**
+ * NEW_PRODUCT playbook 的汇总目标：在通用要求之上强制 R1 八节契约
+ * （supervisor/report-contract.ts，new-product-conclusion/v1）。
+ * 通用（非新产品）mission 的 SYNTHESIS 目标保持原样，不扩散影响面。
+ */
+const NEW_PRODUCT_SYNTHESIS_OBJECTIVE = `${SYNTHESIS_OBJECTIVE}\n\n${buildNewProductConclusionContract()}`;
+
 const QA_OBJECTIVE =
   "独立复核上游产出：是否回答了目标、证据是否支撑结论、是否存在相互矛盾、是否把推断写成了事实、是否遗漏关键风险。给出 PASS / REVISE / FAIL 及具体到节点的问题。";
 
@@ -255,7 +263,7 @@ export function buildNewProductMissionPlan(goal: string): MissionPlan {
     node("red-team", "RED_TEAM", "red_team",
       "证伪推荐方向：最可能失败的三条路径、被忽略的竞争/合规/供应风险、哪些结论证据最弱。", ["opportunity", "compliance", "economics"]),
     node("qa", "QA", "qa_verifier", QA_OBJECTIVE, ["validation", "gtm", "red-team"]),
-    node("synthesis", "SYNTHESIS", "hermes_pm", SYNTHESIS_OBJECTIVE, ["qa"], true),
+    node("synthesis", "SYNTHESIS", "hermes_pm", NEW_PRODUCT_SYNTHESIS_OBJECTIVE, ["qa"], true),
   ];
   return {
     version: "kern-mission-plan/v1",

@@ -12,6 +12,7 @@ import { isProviderRuntimeConfigured } from "@/modules/model-gateway/provider-ru
 import type { ExecutorOutcome, ExecutorStrategy } from "@/modules/worker/executor";
 import { extractNodeSignals, parseQaVerdict, type MissionNodeKind } from "./plan";
 import { extractMarkedClaims } from "./claims";
+import { buildNewProductConclusionContract, SPECIALIST_EVIDENCE_RULE } from "./report-contract";
 import { KERN_REPLY_FORMAT_PROMPT, normalizeReply } from "@/modules/assistant-runtime/reply-format";
 import { appendMissionEvents, type MissionEventInput } from "./events";
 import { chunkForReplay, demoDelayMs, demoOutput, DEMO_MODEL, DEMO_PROVIDER } from "./demo";
@@ -124,7 +125,7 @@ const defaultInvoker: MissionModelInvoker = async (input) => {
   } };
 };
 
-function kindInstructions(kind: MissionNodeKind, nodeKeys: string[]): string {
+function kindInstructions(kind: MissionNodeKind, nodeKeys: string[], opts?: { synthesisContract?: boolean }): string {
   if (kind === "QA") {
     return [
       "你是独立 QA。只复核，不重写。",
@@ -137,7 +138,12 @@ function kindInstructions(kind: MissionNodeKind, nodeKeys: string[]): string {
   if (kind === "SYNTHESIS") {
     return [
       "你是 Kern，用户的 Chief of Staff。你在向用户汇报一项你已经组织团队完成的工作。",
-      "用中文。开头一段直接给结论（1–2 句，可含 **推荐做「方向名」**），然后按以下 `##` 分节：\n## 结论与建议\n## 关键依据（每条标注 事实/推断；多方案对比用表格）\n## 待验证与下一步\n## 主要风险\n## 需要你决定的事（没有就写“目前不需要你决定”）",
+      opts?.synthesisContract
+        ? // 新产品研发 mission：汇总就是要拿去决策的产品报告，八节契约强制
+          // （supervisor/report-contract.ts；下游决策卡/decision probe 约定已在契约里交代）。
+          "用中文。开头一段直接给结论（1–2 句，可含 **推荐做「方向名」**）。本任务来自新产品研发 playbook，汇总是给决策者的产品报告，必须遵守以下输出契约（分节标题与顺序不要改）：\n" +
+          buildNewProductConclusionContract()
+        : "用中文。开头一段直接给结论（1–2 句，可含 **推荐做「方向名」**），然后按以下 `##` 分节：\n## 结论与建议\n## 关键依据（每条标注 事实/推断；多方案对比用表格）\n## 待验证与下一步\n## 主要风险\n## 需要你决定的事（没有就写“目前不需要你决定”）",
       KERN_REPLY_FORMAT_PROMPT,
       "不要罗列过程，不要夸大证据。上游失败或缺失的部分必须如实说明。",
       "分析、计算与测试假设的报告不要求用户批准采用建议；只有继续执行真实受保护动作或确有必要的战略取舍时，才列入需要用户决定的事项。不要把用户已明确的任务要求变成额外确认问题。",
@@ -150,6 +156,7 @@ function kindInstructions(kind: MissionNodeKind, nodeKeys: string[]): string {
   return [
     "完成你负责的这一部分，输出结构化结论：用 `###` 小标题分块，要点用 `- ` 列表，比较多个对象时用 Markdown 表格（数字列右对齐）。不要用 `#`/`##`，不要寒暄。",
     "区分事实与推断；没有来源的数字或判断必须标注“推断”或“UNKNOWN”，不要编造数据。",
+    SPECIALIST_EVIDENCE_RULE,
     "你没有联网或执行外部动作的权限，除非上下文里已给出资料或通过下方工具取得。",
   ].join("\n");
 }
@@ -237,6 +244,8 @@ export async function buildMissionNodeMessages(input: {
   skills: { name: string; instructions: string }[];
   node: MissionNodeContext;
   allNodeKeys: string[];
+  /** 父 mission 的 playbook（若有）；NEW_PRODUCT 时汇总节点改走 R1 八节契约。 */
+  missionPlaybook?: string;
   requestedByUserId?: string | null;
 }): Promise<ModelGatewayMessage[]> {
   const memory = input.requestedByUserId
@@ -258,7 +267,9 @@ export async function buildMissionNodeMessages(input: {
     input.skills.length
       ? "你的方法：\n" + input.skills.map((s) => `- ${s.name}：${s.instructions.slice(0, 600)}`).join("\n")
       : "",
-    kindInstructions(input.node.kind, input.allNodeKeys),
+    kindInstructions(input.node.kind, input.allNodeKeys, {
+      synthesisContract: input.missionPlaybook === "NEW_PRODUCT",
+    }),
     nodeUsesTools(input.node.kind)
       ? toolInstructions(toolsFor({ organizationId: "", ...webCapabilities(), askUser: async () => ({ mode: "ignore" }) }))
       : "",
@@ -326,7 +337,7 @@ export const runMissionNodeAgent: ExecutorStrategy = async (context): Promise<Ex
     };
   }
   const parentPlan = (task.parentTask?.contextSnapshot as Record<string, unknown> | null)?.plan as
-    | { nodes?: { key: string }[] }
+    | { nodes?: { key: string }[]; playbook?: string }
     | undefined;
   const allNodeKeys = (parentPlan?.nodes ?? []).map((n) => n.key);
 
@@ -338,6 +349,7 @@ export const runMissionNodeAgent: ExecutorStrategy = async (context): Promise<Ex
       .filter((s) => s.status === "ACTIVE"),
     node,
     allNodeKeys,
+    missionPlaybook: parentPlan?.playbook,
     requestedByUserId:
       ((task.parentTask?.contextSnapshot as Record<string, unknown> | null)?.requestedByUserId as string | undefined) ?? null,
   });

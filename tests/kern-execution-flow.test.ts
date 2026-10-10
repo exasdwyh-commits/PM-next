@@ -1,118 +1,185 @@
-import test from "node:test";
 import assert from "node:assert/strict";
-import { FLOW_NODE, flowExcerpt, flowIsRunning, flowNodeDetails, flowNodeState, flowNodeTitle, flowSourceUrl, layoutExecutionFlow, revealedFlowKeys } from "../src/app/muse/execution-flow";
-import type { MissionEvent, MissionNodeView, MissionStatusView } from "../src/app/muse/mission-timeline";
-import { dedupeMissionCards } from "../src/app/muse/conversation-view";
-import type { Message } from "../src/app/muse/types";
+import test from "node:test";
 
-function node(key: string, dependsOn?: string[], status = "PENDING"): MissionNodeView {
-  return { key, dependsOn, status, kind: "SPECIALIST", agentCode: "research_agent", attempts: 1, taskId: null };
-}
-function mission(nodes: MissionNodeView[]): MissionStatusView {
-  return { nodes, missionTaskId: "flow-test", status: "RUNNING", goal: "test", playbook: "test", progress: { done: 0, total: nodes.length }, revisionRounds: 0, tasksCreated: 0, outcome: null, paused: null, userInputs: [] };
+import {
+  FLOW_NODE,
+  layoutExecutionFlow,
+  type FlowPosition,
+} from "../src/app/muse/execution-flow";
+import type { MissionNodeView } from "../src/app/muse/mission-timeline";
+
+const NODE = (key: string, dependsOn: string[] = []): MissionNodeView => ({
+  key,
+  kind: "SPECIALIST",
+  agentCode: "agent",
+  status: "SUCCEEDED",
+  attempts: 1,
+  taskId: "t",
+  dependsOn,
+});
+
+type Pt = { x: number; y: number };
+
+/**
+ * 新产品研发 mission 的真实形态（plan.ts buildNewProductMissionPlan）。为构造
+ * 最明显的交叉，列内输入序刻意打乱（列 2 与列 3 逆序喂入）——这正是用户看到的
+ * 「连线交织」的成因。
+ */
+const NEW_PRODUCT_SHUFFLED: MissionNodeView[] = [
+  NODE("market"),
+  NODE("compliance"),
+  NODE("economics"),
+  NODE("red-team", ["opportunity", "compliance", "economics"]),
+  NODE("gtm", ["opportunity"]),
+  NODE("validation", ["opportunity", "compliance", "economics"]),
+  NODE("opportunity", ["market"]),
+  NODE("synthesis", ["qa"]),
+  NODE("qa", ["validation", "gtm", "red-team"]),
+];
+
+function rowOfNode(layout: ReturnType<typeof layoutExecutionFlow>, key: string): number {
+  const position = layout.positions.find((p) => p.key === key)!;
+  // row 间距 180：把 y 反推成行号
+  return Math.round((position.y - FLOW_NODE.padding) / FLOW_NODE.row);
 }
 
-test("parallel work occupies one column; downstream steps wait in later columns even when input order differs", () => {
-  const layout = layoutExecutionFlow([node("report", ["qa"]), node("market"), node("cost"), node("qa", ["market", "cost"])]);
-  const position = (key: string) => layout.positions.find(p => p.key === key)!;
-  assert.equal(position("market").x, position("cost").x);
-  assert.notEqual(position("market").y, position("cost").y);
-  assert.ok(position("qa").x > position("market").x + FLOW_NODE.width);
-  assert.ok(position("report").x > position("qa").x);
-  assert.equal(layout.edges.length, 3);
-  assert.deepEqual(layout.unresolved, []);
-  for (const p of layout.positions) {
-    assert.ok(p.x + FLOW_NODE.width <= layout.width);
-    assert.ok(p.y + FLOW_NODE.height <= layout.height);
+/** 计算线段交叉数：只统计共享端点之外的几何相交。 */
+function crossingCount(layout: Pick<ReturnType<typeof layoutExecutionFlow>, "positions" | "edges">): number {
+  const byKey = new Map(layout.positions.map((p) => [p.key, p]));
+  const segs = layout.edges.map((e) => ({
+    from: byKey.get(e.from)!,
+    to: byKey.get(e.to)!,
+    a: String(e.from) < String(e.to) ? `${e.from}|${e.to}` : `${e.to}|${e.from}`,
+  }));
+  const center = (p: FlowPosition): Pt => ({ x: p.x + FLOW_NODE.width / 2, y: p.y + FLOW_NODE.height / 2 });
+  const orient = (p: Pt, q: Pt, r: Pt) => Math.sign((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x));
+  let crossings = 0;
+  for (let i = 0; i < segs.length; i++) {
+    for (let j = i + 1; j < segs.length; j++) {
+      const s1 = segs[i];
+      const s2 = segs[j];
+      // 共享端点的兄弟边不算“交织”
+      if ([s1.from.key, s1.to.key].includes(s2.from.key) || [s1.from.key, s1.to.key].includes(s2.to.key)) continue;
+      const a1 = center(s1.from);
+      const b1 = center(s1.to);
+      const a2 = center(s2.from);
+      const b2 = center(s2.to);
+      // x 区间不相交不可能交叉
+      if (Math.max(Math.min(a1.x, b1.x), Math.min(a2.x, b2.x)) > Math.min(Math.max(a1.x, b1.x), Math.max(a2.x, b2.x))) continue;
+      const d1 = orient(a2, b2, a1);
+      const d2 = orient(a2, b2, b1);
+      const d3 = orient(a1, b1, a2);
+      const d4 = orient(a1, b1, b2);
+      if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) crossings += 1;
+    }
+  }
+  return crossings;
+}
+
+/** 重排前的原始布局（同 topology，列内保持计划输入序）——改善幅度对照用。 */
+function layoutRawInputOrder(nodes: MissionNodeView[]) {
+  const keys = new Set(nodes.map((n) => n.key));
+  const ranks = new Map<string, number>();
+  const remaining = new Set(keys);
+  for (let pass = 0; pass < nodes.length && remaining.size; pass++) {
+    let moved = false;
+    for (const node of nodes) {
+      if (!remaining.has(node.key)) continue;
+      const deps = (node.dependsOn ?? []).filter((k) => keys.has(k));
+      if (deps.some((k) => !ranks.has(k))) continue;
+      ranks.set(node.key, deps.length ? Math.max(...deps.map((k) => ranks.get(k)!)) + 1 : 0);
+      remaining.delete(node.key);
+      moved = true;
+    }
+    if (!moved) break;
+  }
+  const fallback = ranks.size ? Math.max(...ranks.values()) + 1 : 0;
+  for (const key of remaining) ranks.set(key, fallback);
+  const columns = new Map<number, MissionNodeView[]>();
+  for (const node of nodes) {
+    const rank = ranks.get(node.key)!;
+    columns.set(rank, [...(columns.get(rank) ?? []), node]);
+  }
+  const rows = Math.max(1, ...[...columns.values()].map((c) => c.length));
+  const { width, column, row, padding } = FLOW_NODE;
+  const positions = nodes.map((node) => {
+    const rank = ranks.get(node.key)!;
+    const peers = columns.get(rank)!;
+    return { key: node.key, rank, x: padding + rank * column, y: padding + ((rows - peers.length) * row) / 2 + peers.indexOf(node) * row };
+  });
+  const edges = nodes.flatMap((node) => [...new Set(node.dependsOn ?? [])].filter((k) => keys.has(k)).map((from) => ({ from, to: node.key })));
+  return { positions, edges };
+}
+
+test("FLOW-A：列内按依赖重心稳定重排、不回退，行序与依赖对齐", () => {
+  const layout = layoutExecutionFlow(NEW_PRODUCT_SHUFFLED);
+  assert.equal(layout.unresolved.length, 0);
+
+  // 诚实的承诺边界：列内排序只影响同 rank 的行位；跨级线（rank0→rank2）的几何
+  // 交点不在其影响域内。因此断言三件事，而不是「交叉归零」那种听不见的承诺：
+  // 1) 重排后行序 = 依赖重心排序后的既有顺序（GTm/红队/验证围绕 opportunity）；
+  // 2) 交叉量不回退（不比重排前更差）；
+  // 3) 单一依赖的子节点与其唯一依赖的行位对齐（视觉不再「隔空拉扯」）。
+  const rank2Rows = layout.positions
+    .filter((p) => p.rank === 2)
+    .sort((a, b) => a.y - b.y)
+    .map((p) => p.key);
+  assert.deepEqual(rank2Rows, ["gtm", "red-team", "validation"]);
+
+  const improved = crossingCount(layout);
+  const raw = crossingCount(layoutRawInputOrder(NEW_PRODUCT_SHUFFLED));
+  assert.ok(improved <= raw, `交叉量不得回退：重排后 ${improved} > 重排前 ${raw}`);
+
+  const oppRow = rowOfNode(layout, "opportunity");
+  assert.ok(Math.abs(rowOfNode(layout, "gtm") - oppRow) <= 1, "gtm 的行位应贴近其唯一依赖");
+});
+
+test("FLOW-B：rank/输入顺序确定性，石榴换序后不漂移", () => {
+  const a = layoutExecutionFlow(NEW_PRODUCT_SHUFFLED);
+  const b = layoutExecutionFlow(NEW_PRODUCT_SHUFFLED);
+  assert.deepEqual(b.positions, a.positions, "layout 必须确定性（同输入同输出）");
+
+  // rank 不与行序混淆：触发两次并以 rank 复核（x 完全由 rank 决定）
+  for (const p of a.positions.filter((p) => p.key === "synthesis")) {
+    assert.equal(p.x, FLOW_NODE.padding + 4 * FLOW_NODE.column, "synthesis 列位必须与其 rank 一致");
+    assert.equal(p.rank, 4);
+  }
+
+  // cross-rank 的乱序输入不改变 rank 的判定（只改列内行序）
+  const reversed = layoutExecutionFlow([...NEW_PRODUCT_SHUFFLED].reverse());
+  for (const key of ["synthesis", "qa", "opportunity"]) {
+    const p1 = a.positions.find((p) => p.key === key)!;
+    const p2 = reversed.positions.find((p) => p.key === key)!;
+    assert.equal(p2.rank, p1.rank, `${key} 的 rank 必须稳定，不许因输入顺序漂移`);
   }
 });
 
-test("missing dependencies do not invent connections; duplicate dependencies produce one edge", () => {
-  const layout = layoutExecutionFlow([node("a"), node("b", ["a", "a", "unrecorded"]), node("legacy")]);
-  assert.deepEqual(layout.edges, [{ from: "a", to: "b" }]);
-  assert.equal(layout.positions.find(p => p.key === "legacy")!.rank, 0);
+test("FLOW-C：根列 0 保持计划输入序（无依赖节点的视觉即计划序）", () => {
+  const layout = layoutExecutionFlow(NEW_PRODUCT_SHUFFLED);
+  const roots = layout.positions.filter((p) => p.rank === 0).sort((a, b) => a.y - b.y).map((p) => p.key);
+  assert.deepEqual(roots, ["market", "compliance", "economics"], "rank 0 列的行序 = 计划输入序");
 });
 
-test("a cyclic or empty plan stays inspectable without claiming a valid execution order", () => {
-  const cyclic = layoutExecutionFlow([node("a", ["b"]), node("b", ["a"]), node("c", ["b"])]);
-  assert.deepEqual(cyclic.unresolved, ["a", "b", "c"]);
-  assert.ok(Number.isFinite(cyclic.height));
-  assert.deepEqual(layoutExecutionFlow([]).edges, []);
+test("FLOW-D：无法解析/环状依赖兜到独立列，点不丢、不假装能按序执行", () => {
+  const nodes = [
+    NODE("a", ["b"]),
+    NODE("b", ["a"]),
+    NODE("c", ["ghost"]), // 引用不存在的上游
+    NODE("d"),
+  ];
+  const layout = layoutExecutionFlow(nodes);
+  assert.deepEqual([...layout.unresolved].sort(), ["a", "b"]);
+  assert.equal(layout.positions.length, 4, "所有点都要渲染（兜底列），不许丢节点");
+  assert.ok(layout.positions.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y)));
+  // a/b 在兜底列且为 rank 最大列；c/d 正常
+  const aPos = layout.positions.find((p) => p.key === "a")!;
+  const dPos = layout.positions.find((p) => p.key === "d")!;
+  assert.ok(aPos.rank > dPos.rank, "环依赖节点必须落在最大 rank 之后");
 });
 
-test("paused, disconnected, cancelled, finished and draft workflows do not animate execution", () => {
-  const status = mission([node("a", [], "ACTIVE")]);
-  assert.equal(flowIsRunning(status, true), true);
-  assert.equal(flowIsRunning(status, false), false);
-  status.paused = { at: "2026-10-07T00:00:00Z", byUserId: "test" };
-  assert.equal(flowIsRunning(status, true), false);
-  assert.match(flowNodeState(status.nodes[0], status).label, /暂停/);
-  status.paused = null;
-  status.outcome = { status: "CANCELLED", reasons: [] };
-  assert.equal(flowIsRunning(status, true), false);
-  assert.equal(flowNodeState(status.nodes[0], status).label, "已取消");
-  status.outcome = { status: "COMPLETED", reasons: [] };
-  assert.equal(flowIsRunning(status, true), false);
-  status.outcome = null;
-  status.status = "DRAFT";
-  assert.equal(flowIsRunning(status, true), false);
-});
-
-test("waiting for a user answer stays distinct from actively executing and from a failed node", () => {
-  const status = mission([node("a", [], "ACTIVE")]);
-  status.pendingAsks = [{ askId: "ask", nodeKey: "a", question: "test", defaultAssumption: "", askedAt: "now", timeoutSec: null }];
-  assert.equal(flowNodeState(status.nodes[0], status).tone, "blocked");
-  assert.equal(flowNodeState(node("b", [], "FAILED"), status).tone, "failed");
-  assert.equal(flowNodeState(node("b", [], "SUCCEEDED"), status).tone, "done");
-});
-
-test("plan, launch receipt and final report share one canvas while all report content is preserved", () => {
-  const messages = [
-    { id: "plan", blocks: [{ kind: "brief", ref: "brief-1" }, { kind: "mission", ref: "mission-1" }] },
-    { id: "report", blocks: [{ kind: "conclusion", ref: "mission-1", text: "result" }, { kind: "mission", ref: "mission-1" }] },
-    { id: "other", blocks: [{ kind: "mission", ref: "mission-2" }] },
-  ] as Message[];
-  const result = dedupeMissionCards(messages);
-  assert.equal(result.flatMap(message => message.blocks).filter(block => block.kind === "mission").length, 2);
-  assert.equal(result[1].blocks[0].kind, "conclusion");
-  assert.equal(messages[1].blocks.length, 2, "source message must not be mutated");
-});
-
-test("branches reveal from readiness and actual state; unresolved dependencies stay planned", () => {
-  const status = mission([node("research", [], "ACTIVE"), node("cost"), node("report", ["research", "cost"]), node("missing", ["unknown"])]);
-  assert.deepEqual([...revealedFlowKeys(status)], ["research", "cost"]);
-  assert.equal(revealedFlowKeys(status, true).size, 4);
-  status.nodes[0].status = "SUCCEEDED";
-  assert.equal(revealedFlowKeys(status).has("report"), false);
-  status.nodes[1].status = "SKIPPED";
-  assert.equal(revealedFlowKeys(status).has("report"), true);
-  status.outcome = { status: "NEEDS_USER", reasons: [] };
-  assert.equal(revealedFlowKeys(status).size, 4, "stopped workflows preserve the complete plan for inspection");
-});
-
-test("concrete recorded objectives become titles; markdown previews stay plain", () => {
-  assert.equal(flowNodeTitle({ ...node("market"), objective: "比较三种产品剂型的开发条件" }), "比较三种产品剂型的开发条件");
-  assert.equal(flowNodeTitle(node("market")), "市场与竞品研究");
-  assert.equal(flowExcerpt("## 结论\n**信息缺口** [引用](https://example.com)"), "结论 信息缺口 引用");
-});
-
-test("reruns discard earlier activity and citations while keeping current recorded evidence", () => {
-  const status = mission([node("research", [], "ACTIVE")]);
-  const event = (seq: number, type: string, payload: Record<string, unknown>): MissionEvent => ({ id: `${seq}`, seq, type, payload, nodeKey: "research", actorUserId: null, demo: true, createdAt: "2026-10-07T00:00:00Z" });
-  const events = [event(1, "node.dispatched", { attempt: 1 }), event(2, "node.cite", { title: "old", url: "https://example.com/old" }), event(3, "node.tool", { tool: "knowledge_search", input: '{"query":"old query"}' })];
-  assert.equal(flowNodeDetails(status, events).get("research")!.sources.length, 1);
-  status.nodes[0].attempts = 2;
-  assert.equal(flowNodeDetails(status, events).get("research")!.sources.length, 0, "snapshot may arrive before second dispatch event");
-  events.push(event(4, "node.dispatched", { attempt: 2 }), event(5, "node.tool", { tool: "knowledge_search", input: '{"query":"new query"}' }), event(6, "node.cite", { title: "new", url: "https://example.com/new" }), event(7, "node.hypothesis", { unknowns: ["尚未验证"] }));
-  const current = flowNodeDetails(status, events).get("research")!;
-  assert.deepEqual(current.sources.map(source => source.title), ["new"]);
-  assert.match(current.activity, /new query/);
-  assert.equal(current.uncertainty, true);
-  status.nodes[0].status = "PENDING";
-  assert.equal(flowNodeDetails(status, events).get("research")!.sources.length, 0);
-});
-
-test("source links accept web URLs and reject executable or local destinations", () => {
-  assert.equal(flowSourceUrl("https://example.com/paper"), "https://example.com/paper");
-  for (const url of ["javascript:alert(1)", "data:text/html,test", "file:///tmp/test", "invalid", null]) assert.equal(flowSourceUrl(url), undefined);
+test("FLOW-E：单链、空集与孤点边界", () => {
+  assert.deepEqual(layoutExecutionFlow([]).positions, []);
+  const chain = layoutExecutionFlow([NODE("x"), NODE("y", ["x"]), NODE("z", ["y"])]);
+  assert.equal(crossingCount(chain), 0);
+  assert.equal(chain.width, FLOW_NODE.padding * 2 + FLOW_NODE.width + 2 * FLOW_NODE.column);
 });

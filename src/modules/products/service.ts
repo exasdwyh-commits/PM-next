@@ -5,6 +5,7 @@ import { Prisma, ProductLifecycleStage, ProjectMode, Role } from "@prisma/client
 import { createAuditEventInTx } from "@/shared/audit";
 import { PRODUCT_WRITE_ROLES, requireProductRead, requireProductRole } from "../identity/product-access";
 import { assertObjectInput, assertOptionalBoolean, assertOptionalNonnegativeNumber, assertOptionalText, requiredText } from "@/shared/input-validation";
+import { SPECS_CONTRACT_VERSION, validateProductSpecs } from "./version-specs";
 import {
   BUSINESS_EVENT_TYPES,
   dispatchBusinessEvent,
@@ -84,6 +85,24 @@ export async function publishProductVersion(
   if (!params.specs || typeof params.specs !== "object" || Array.isArray(params.specs)) {
     throw new UnprocessableEntityError("versionTag and specs are required");
   }
+  // R3 工厂级参数标准（product-version-specs/v1）：specs 不再是自由 JSON。
+  // 已知字段做类型/枚举/值域/长度校验，违例即 422（每个 problem 都点名字段）；
+  // 缺省或显式 "UNKNOWN"/null 一律不阻断、不补造，按缺口透出（审计 + unknowns 投影）；
+  // 契约外的额外键透传不拦——不删既有自由扩展能力，只在审计里可见。
+  const specsVerdict = validateProductSpecs(params.specs);
+  if (!specsVerdict.ok) {
+    throw new UnprocessableEntityError(
+      `specs 不符合工厂级参数标准（${SPECS_CONTRACT_VERSION}）：${specsVerdict.problems.join("；")}`
+    );
+  }
+  const specsUnknownProjection =
+    specsVerdict.unknownFields.length > 0
+      ? {
+          ...(params.unknowns ?? {}),
+          specsContract: SPECS_CONTRACT_VERSION,
+          specsUnknown: specsVerdict.unknownFields,
+        }
+      : params.unknowns;
   for (const field of ["technicalAdvice", "experienceGoals", "currency"] as const) {
     assertOptionalText(params[field], field);
   }
@@ -100,7 +119,7 @@ export async function publishProductVersion(
         experienceGoals: params.experienceGoals,
         targetCost: params.targetCost,
         currency: params.currency || "CNY",
-        unknowns: params.unknowns,
+        unknowns: specsUnknownProjection,
         isImmutable: true,
         isConfirmed: params.isConfirmed ?? false, // R08: Business confirmation distinction
       },
@@ -116,6 +135,10 @@ export async function publishProductVersion(
         productId,
         versionTag: version.versionTag,
         isConfirmed: version.isConfirmed,
+        // R3 可追溯：本版本按哪份参数契约校验、有哪些缺口、有哪些契约外透传键。
+        specsContract: SPECS_CONTRACT_VERSION,
+        specsUnknownFields: specsVerdict.unknownFields,
+        specsExtraFields: specsVerdict.extras,
       } as Prisma.InputJsonValue,
     });
 
