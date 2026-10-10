@@ -42,6 +42,20 @@ export interface PlaybookNodeResult {
   durationMs?: number;
 }
 
+export interface PlaybookOutput {
+  missionId: string;
+  productIdea: string;
+  category: string;
+  nodes: PlaybookNodeResult[];
+  blueprint?: any;
+  productId?: string;
+  /** R2：产品落库状态与错误——失败可感知，重复确认幂等。 */
+  productCreation: PlaybookProductCreation;
+  status: "SUCCEEDED" | "BLOCKED" | "FAILED";
+  criticalPath: string;
+  totalDurationMs: number;
+}
+
 export interface PlaybookProductCreation {
   status: "CREATED" | "REUSED" | "FAILED" | "NOT_ATTEMPTED";
   productId?: string;
