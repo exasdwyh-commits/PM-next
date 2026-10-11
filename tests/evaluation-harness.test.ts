@@ -108,7 +108,7 @@ test("Harness：未经证据与人工确认的经营结果不能成为学习标�
   assert.equal(result.comparable, false);
 });
 
-test("Harness：能够区分 false positive / false negative / abstention", () => {
+test("Harness：能够区分 false positive / false negative / abstention / 已执行验证", () => {
   const make = (
     verdict: BacktestRecord["prediction"]["verdict"],
     outcome: BacktestRecord["outcome"]["outcome"]
@@ -133,15 +133,24 @@ test("Harness：能够区分 false positive / false negative / abstention", () =
   const summary = summarizeBacktests([
     make("VALIDATE", "SUCCESS"),
     make("VALIDATE", "FAILURE"),
+    make("PRIORITIZE_FOR_VALIDATION", "FAILURE"),
     make("DEPRIORITIZE", "SUCCESS"),
     make("DEPRIORITIZE", "FAILURE"),
     make("NEEDS_EVIDENCE", "SUCCESS"),
   ]);
 
-  assert.equal(summary.aligned, 2);
-  assert.equal(summary.falsePositive, 1);
+  assert.equal(summary.aligned, 1);
+  assert.equal(summary.falsePositive, 1, "只有「建议推进」且验证失败才是误判");
   assert.equal(summary.falseNegative, 1);
   assert.equal(summary.abstained, 1);
+  assert.equal(summary.validationExecuted, 2, "「建议低成本验证」两种结果都不算误判");
+
+  // 关键语义：花小钱验证、失败后及时止损是好建议，不能算判断错误。
+  const executed = evaluatePredictionAgainstOutcome(make("VALIDATE", "FAILURE"));
+  assert.equal(executed.alignment, "VALIDATION_EXECUTED");
+  assert.equal(executed.comparable, true);
+  const stillWrong = evaluatePredictionAgainstOutcome(make("PRIORITIZE_FOR_VALIDATION", "FAILURE"));
+  assert.equal(stillWrong.alignment, "FALSE_POSITIVE");
 });
 
 test("经验迭代：样本不足时只能形成候选，不得进入可复核状态", () => {

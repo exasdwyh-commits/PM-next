@@ -6,6 +6,35 @@ export function detectCompetitorResearch(goal: string): boolean {
   return /竞品|竞争对手|competitor\s+(research|analysis|comparison)/i.test(goal);
 }
 
+/**
+ * Did the user explicitly rule competitor research out for this mission?
+ *
+ * "线下门店，暂不做竞品调研" contains the keyword 竞品 while meaning the exact
+ * opposite, so keyword matching alone turns an explicit opt-out into a competitor
+ * mission. An explicit decline outranks any keyword hit.
+ */
+export function competitorResearchDeclined(text: string): boolean {
+  return /(暂不|不做|不需要|无需|先不|不再|跳过).{0,8}(竞品|竞争对手).{0,8}(调研|研究|分析|对比|比较)|(竞品|竞争对手).{0,8}(调研|研究|分析|对比|比较).{0,8}(暂不|不做|不需要|无需|先不|跳过)/.test(text);
+}
+
+/**
+ * Competitor-research intent for a mission.
+ *
+ * Intent comes from the original request plus what the user explicitly changed —
+ * never from the concatenated clarifying answers. A constraint that merely
+ * mentions 竞品 ("主要卖给谁：竞品公司的目标用户") must not silently turn a normal
+ * product brief into a competitor study, or the launch check will demand a
+ * research subject the user never asked for.
+ *
+ * Clarifying answers may only turn intent *off* (an explicit opt-out) or supply
+ * the research subject / links / scope for a mission that already is one.
+ */
+export function competitorResearchIntent(goal: string, clarification?: string | null): boolean {
+  if (competitorResearchDeclined(goal)) return false;
+  if (clarification && competitorResearchDeclined(clarification)) return false;
+  return detectCompetitorResearch(goal);
+}
+
 export function validCompetitorSubject(text: string): boolean {
   return !!text.trim() && !/^(定位|价格带|渠道|差异化|每个判断|未知|待填写|未填写|待补充|对象|待定|UNKNOWN|TBD)/i.test(text.trim());
 }
