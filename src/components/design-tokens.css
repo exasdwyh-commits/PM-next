@@ -53,15 +53,19 @@
   --role-product: #7c3aed;
   --role-sales: #db2777;
 
-  /* 中性 */
-  --color-ink: #0f1116;
-  --color-ink-muted: #6b7280;
-  --color-ink-faint: #9099a6;
-  --color-line: #e7e9ef;
-  --color-line-strong: #d1d5db;
-  --color-bg: #ffffff;
-  --color-bg-muted: #f6f7f9;
-  --color-bg-faint: #fafbfc;
+  /* 中性 —— 一律指向主题令牌，随亮/暗主题翻转。
+     2026-10-11 实测：原先写死 #ffffff / #f6f7f9，暗色主题下 .card-beautified
+     仍是白底，而文字色（--color-ink）已翻成浅色 → 浅底浅字，对比度 1.01 近乎不可读。
+     改指令牌后暗色下卡片底随 --k-surface 转深。品类色（--cat-*）与角色色不动：
+     它们是设计上的区分色，不是可读性问题。 */
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-bg: var(--surface);
+  --color-bg-muted: var(--surface-soft);
+  --color-bg-faint: var(--surface-faint);
 
   /* Font */
   --font-sans: ui-sans-system, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
