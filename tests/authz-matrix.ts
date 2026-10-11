@@ -219,6 +219,15 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     body: { config: { version: "kern-conversation-config/v1", modelProfileKey: null, advisorCodes: null, skillKeys: null, capabilityKeys: null } },
   },
 
+  // ---------- 产品研发报告：项目成员可读 ----------
+  {
+    path: "/api/reports/{id}",
+    method: "GET",
+    authz: "报告读取：同组织项目成员可读，跨组织或非项目成员统一 404",
+    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [200] },
+    ownerGate: [200],
+  },
+
   // ---------- Kern 富回复与 HTML 成果（kern-rich/v1，2026-10-09）：会话本人作用域 ----------
   {
     path: "/api/artifacts/{id}",

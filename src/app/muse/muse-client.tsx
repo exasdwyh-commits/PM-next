@@ -1,5 +1,6 @@
 "use client";
 
+import { executiveReportCitations, isExecutiveReportCitation } from "@/shared/executive-report-citation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -97,7 +98,7 @@ function fromApiMessage(message: ApiMessage): Message {
     if (readKernGraphCitation(raw)) return [];
     if (raw && typeof raw === "object" && (raw as Record<string, unknown>).kind === "kern-brief") return [];
     if (raw && typeof raw === "object" && (raw as Record<string, unknown>).kind === "kern-mission") return [];
-    if (isArtifactCitation(raw)) return [];
+    if (isArtifactCitation(raw) || isExecutiveReportCitation(raw)) return [];
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
     const item = raw as Record<string, unknown>;
     const ref = typeof item.ref === "string" ? item.ref : null;
@@ -125,6 +126,7 @@ function fromApiMessage(message: ApiMessage): Message {
     state: "success",
     blocks: [
       conclusionBlock(message.content, citations),
+      ...executiveReportCitations(citations).map(citation => ({ kind: "report" as const, citation })),
       ...graphs.map((graph) => ({ kind: "graph" as const, graph })),
       ...(hasBrief ? [{ kind: "brief" as const, ref: message.id }] : []),
       ...[...new Set(missionIds)].map((ref) => ({ kind: "mission" as const, ref })),

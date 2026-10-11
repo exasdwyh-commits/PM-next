@@ -3,6 +3,10 @@ import test from "node:test";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { executiveReportCitations } from "../src/shared/executive-report-citation";
 
 import {
   DEEP_SECTION_META,
@@ -14,6 +18,18 @@ import {
 } from "../src/modules/product-rnd/deep-report";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+test("legacy and explicit citations for the same report render once", () => {
+  const cards = executiveReportCitations([
+    { kind: "artifact", ref: "report-1", title: "产品研发综合报告" },
+    { kind: "executive-report", ref: "report-1", title: "产品研发综合报告", contentVersion: 2 },
+    { kind: "evidence", ref: "evidence-1", title: "证据" },
+    { kind: "executive-report", ref: "report-2", title: "另一份报告", contentVersion: { invalid: true } },
+  ]);
+  assert.equal(cards.length, 2);
+  assert.equal(cards[0].contentVersion, 2);
+  assert.equal(cards[1].contentVersion, undefined, "异常元数据不得进入 React 渲染");
+});
 
 // ─────────────────────────────────────────────
 // 1. 校验 fail-closed：畸形输入一律丢弃，不得流入报告体
@@ -140,9 +156,34 @@ test("role report components contain no fabricated demo numbers", () => {
 });
 
 test("deep report view renders UNKNOWN placeholders and three-state badges", () => {
-  const src = fs.readFileSync(path.join(ROOT, "src/components/executive-report-role-based.tsx"), "utf-8");
-  assert.ok(src.includes("DeepReportSections"), "ProductView 未挂载深度报告段");
-  assert.ok(src.includes("deep-gap"), "缺 UNKNOWN 占位块渲染");
-  assert.ok(src.includes("deepReport"), "视图未消费 deepReport 契约");
-  assert.ok(src.includes("ErrEv"), "三态徽章复用缺失");
+  const require = createRequire(import.meta.url);
+  require.extensions[".css"] = () => {};
+  const { ReportV3 } = require("../src/components/report-v3.tsx") as typeof import("../src/components/report-v3");
+  const html = renderToStaticMarkup(createElement(ReportV3, { report: {
+    deepReport: { sections: [], spec: { rows: [
+      { name: "已登记规格", value: "样品", claimKind: "FACT" },
+      { name: "预估规格", value: "待打样", claimKind: "ESTIMATE" },
+      { name: "未核实规格", value: "UNKNOWN" },
+    ] } },
+    unknowns: ["输入缺口：缺少报价", "Agent 未成功完成：等待补充"],
+    advisoryNotes: [
+      { agentCode: "science", status: "SUCCEEDED" },
+      { agentCode: "cost", status: "BLOCKED" },
+      { agentCode: "proxy", agentName: "负责人代签", status: "SUCCEEDED" },
+    ],
+  } }));
+  assert.match(html, /data-report-version="muse-v3"/);
+  assert.match(html, /已登记规格/);
+  assert.match(html, /预估规格/);
+  assert.match(html, /未核实规格/);
+  assert.match(html, />事实</);
+  assert.match(html, />推断 \/ 估算</);
+  assert.match(html, />UNKNOWN</);
+  assert.equal((html.match(/class="spec-row"/g) ?? []).length, 9, "缺省时仍显示全部九个专业段");
+  assert.match(html, /1 完成/);
+  assert.match(html, /1 阻塞 \/ 未完成/);
+  assert.match(html, /1 代签/);
+  assert.doesNotMatch(html, /2 完成/, "代签不得计入 Agent 完成数");
+  const wrapper = fs.readFileSync(path.join(ROOT, "src/components/executive-report-role-based.tsx"), "utf-8");
+  assert.match(wrapper, /<ReportV3 report=\{report\}/, "角色视图应复用同一份报告");
 });

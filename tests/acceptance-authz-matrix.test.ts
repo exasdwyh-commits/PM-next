@@ -89,8 +89,9 @@ const MARK = CROSS_TENANT_MARKER;
  *   同批顺带补登两条**本就存在**的历史缺口：/api/feedback（3 方法）与 /api/feedback/{id}/disposition
  *   —— 它们在 main 上就有源码，矩阵却一直没登记，属遗留幽灵缺口，非 V2 引入。
  */
-const BASELINE_ROUTES = 117;
-const BASELINE_METHODS = 176;
+// Muse v3 报告路由与此前已登记的成果版本路由计入基线。
+const BASELINE_ROUTES = 120;
+const BASELINE_METHODS = 179;
 
 let passed = 0;
 const failures: string[] = [];
@@ -315,6 +316,13 @@ async function main() {
   });
   const workItemA = await prisma.workItem.create({
     data: { projectId: projectA.id, title: `${MARK} 工作项`, target: "矩阵目标", deliverableReq: "矩阵交付要求" },
+  });
+  const reportA = await prisma.artifact.create({
+    data: {
+      organizationId: orgA.id, workItemId: workItemA.id, productVersionId: versionA.id,
+      type: "PRODUCT_RND_EXECUTIVE_REPORT", title: `${MARK} 产品研发综合报告`, schemaVersion: "1.0",
+      content: JSON.stringify({ schemaVersion: "1.0", summary: `${MARK} 报告夹具`, unknowns: ["输入缺口：待补资料"] }),
+    },
   });
   await prisma.workSubmission.create({
     data: { workItemId: workItemA.id, attempt: 1, inputRevision: 1, submittedById: ownerA.id, status: "PENDING" },
@@ -543,6 +551,7 @@ async function main() {
     [/^\/api\/attachments\//, evidenceA.id],
     [/^\/api\/conversations\//, convA.id],
     [/^\/api\/artifacts\//, artifactA.id],
+    [/^\/api\/reports\//, reportA.id],
     [/^\/api\/decision-packets\//, packetA.id],
     [/^\/api\/evidences\//, evidenceA.id],
     [/^\/api\/feedback\//, feedbackA.id],

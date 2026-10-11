@@ -1,9 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { ProductRndPanelRich } from "./product-rnd-panel-rich";
-import "./product-rnd-panel-rich.css";
-import { useRole } from "./role-context";
 import { Badge, Button, Empty, Panel, Thinking } from "@/components/ui";
 import { ExecutiveReportRoleBased } from "@/components/executive-report-role-based";
 import { identityHeaders } from "@/shared/client-identity";
@@ -61,6 +58,7 @@ interface ProductRndStatusResponse {
         title: string;
         contentVersion: number;
         createdAt: string;
+        reviewStatus?: string;
         preview: ExecutiveReportPayload | null;
       })
     | null;
@@ -173,7 +171,11 @@ export function ProductRndPanelOriginal({
 
   const parentTaskId = status?.parentTaskId ?? null;
   const tasks = status?.tasks ?? [];
-  const report = status?.latestReport?.preview ?? null;
+  const latestReport = status?.latestReport;
+  const report = React.useMemo(() => latestReport?.preview ? {
+    ...latestReport.preview, artifactId: latestReport.id, title: latestReport.title,
+    contentVersion: latestReport.contentVersion, createdAt: latestReport.createdAt,
+  } : null, [latestReport]);
   const notStarted = started === false && !parentTaskId && tasks.length === 0;
 
   const specialistTasks = tasks.filter((task) => task.agentCode !== "qa_verifier");
@@ -386,6 +388,7 @@ export function ProductRndPanelOriginal({
             <div className="hermes-rnd-report-wrap">
               <ExecutiveReportRoleBased
                 report={report}
+                reviewStatus={latestReport?.reviewStatus}
                 onOpenDecisions={onOpenDecisions}
                 onOpenEvidence={onOpenEvidence}
               />
@@ -407,12 +410,6 @@ export function ProductRndPanelOriginal({
 }
 
 
-export function ProductRndPanel(props: any) {
-  const { source } = useRole();
-  // useRole 在无 Provider 时返回 default 兜底，不会抛异常，
-  // 因此这里必须在顶层无条件调用，不能包在 try/catch 里（条件调用 Hook 会破坏渲染）
-  if (source !== "default") {
-    return <ProductRndPanelRich {...props} />;
-  }
+export function ProductRndPanel(props: React.ComponentProps<typeof ProductRndPanelOriginal>) {
   return <ProductRndPanelOriginal {...props} />;
 }
