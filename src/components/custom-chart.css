@@ -2,9 +2,9 @@
 .custom-bar-race { display: grid; gap: 12px; }
 .bar-race-item { display: grid; gap: 6px; animation: fadeInUp 0.4s cubic-bezier(0.16,1,0.3,1) both; }
 .bar-label { display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
-.bar-label span { color: #6b7280; }
+.bar-label span { color: var(--ink-muted); }
 .bar-label strong { font-weight: 700; }
-.bar-track { height: 12px; background: #f0f2f6; border-radius: 999px; overflow: hidden; position: relative; box-shadow: inset 0 1px 2px rgba(0,0,0,0.04); }
+.bar-track { height: 12px; background: var(--surface-soft); border-radius: 999px; overflow: hidden; position: relative; box-shadow: inset 0 1px 2px rgba(0,0,0,0.04); }
 .bar-fill { height: 100%; border-radius: 999px; position: relative; overflow: hidden; transition: width .56s cubic-bezier(0.16,1,0.3,1); display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; }
 /* 图表条高光原为 shimmer 无限扫过。图表是静态数据（无「进行中」语义），
    该扫光属纯装饰，按动效契约改为静态高光。 */
@@ -13,9 +13,9 @@
 .waterfall-item { display: grid; gap: 6px; align-items: center; justify-items: center; animation: fadeInUp 0.5s cubic-bezier(0.34,1.56,0.64,1) both; flex: 1; }
 .waterfall-label { display: grid; gap: 2px; text-align: center; }
 .waterfall-label span { font-size: 10px; font-weight: 700; }
-.waterfall-label small { font-size: 9px; color: #6b7280; }
+.waterfall-label small { font-size: 9px; color: var(--ink-muted); }
 .waterfall-bar { width: 100%; border-radius: 8px 8px 4px 4px; display: flex; align-items: flex-start; justify-content: center; padding-top: 4px; color: white; font-size: 9px; font-weight: 700; transition: height .56s cubic-bezier(0.16,1,0.3,1); min-height: 20px; }
-.waterfall-cumulative { font-size: 9px; color: #6b7280; font-weight: 600; }
+.waterfall-cumulative { font-size: 9px; color: var(--ink-muted); font-weight: 600; }
 .custom-radar { display: grid; gap: 12px; justify-items: center; animation: fadeInUp 0.5s cubic-bezier(0.16,1,0.3,1) both; }
 .radar-labels { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; font-size: 10px; }
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }

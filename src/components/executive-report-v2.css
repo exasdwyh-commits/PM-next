@@ -5,7 +5,7 @@
 /* 视图切换 */
 .er2-view-switch { display: flex; gap: 8px; flex-wrap: wrap; padding: 8px; background: var(--k-sunk); border-radius: 12px; border: 1px solid var(--k-line-soft); }
 .er2-view-switch button { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--k-line); background: var(--k-surface); font-size: 12px; font-weight: 600; cursor: pointer; }
-.er2-view-switch button.is-active { background: var(--k-ink); color: var(--k-surface); border-color: var(--k-ink); }
+.er2-view-switch button.is-active { background: var(--deep); color: var(--on-dark); border-color: var(--deep); }
 
 .er2-header { display: grid; gap: 14px; }
 .er2-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
@@ -88,14 +88,14 @@
 .er2-export-btn:hover { background: var(--k-sunk); }
 
 /* A: 老板式 */
-.er2-boss { display: grid; gap: 8px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--k-ink); background: var(--k-ink); color: white; }
+.er2-boss { display: grid; gap: 8px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--deep); background: var(--deep); color: var(--on-dark); }
 .er2-boss-badge { font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(255,255,255,0.15); padding: 2px 8px; border-radius: 99px; width: fit-content; }
 .er2-boss p { margin: 0; font-size: 14px; line-height: 1.7; }
 
 /* C: 行动式 */
 .er2-action { display: grid; gap: 12px; padding: 16px; border-radius: 16px; border: 1px solid var(--k-brand-line); background: linear-gradient(180deg, var(--k-brand-soft), var(--k-surface)); box-shadow: var(--k-sh-1); }
 .er2-action-header { display: flex; justify-content: space-between; align-items: center; }
-.er2-action-badge { font-size: 12px; font-weight: 800; background: var(--k-ink); color: white; padding: 4px 10px; border-radius: 99px; }
+.er2-action-badge { font-size: 12px; font-weight: 800; background: var(--deep); color: var(--on-dark); padding: 4px 10px; border-radius: 99px; }
 .er2-action-time { font-size: 11px; color: var(--k-ink-2); }
 .er2-action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .er2-action-item { display: grid; gap: 4px; padding: 10px 12px; background: var(--k-surface); border-radius: 10px; border: 1px solid var(--k-line-soft); }

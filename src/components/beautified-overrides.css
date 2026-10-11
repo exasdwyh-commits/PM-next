@@ -132,8 +132,8 @@ button[style*="background: #db2777"] {
   font: 700 10px/1.2 ui-sans-system, sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #6b7280;
-  background: #f6f7f9;
+  color: var(--ink-muted);
+  background: var(--surface-soft);
 }
 
 /* 徽章美化 */
@@ -156,7 +156,7 @@ button[style*="background: #db2777"] {
 .track {
   border-radius: 999px;
   overflow: hidden;
-  background: #f0f2f6;
+  background: var(--surface-soft);
   box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);
 }
 
@@ -186,11 +186,11 @@ button[style*="background: #db2777"] {
 .empty {
   border: 1px dashed #e7e9ef;
   border-radius: 12px;
-  background: #fafbfc;
+  background: var(--surface-soft);
   padding: 24px;
   text-align: center;
   font-size: 11px;
-  color: #9099a6;
+  color: var(--ink-faint);
 }
 
 /* 标题层次 */

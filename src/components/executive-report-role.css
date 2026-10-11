@@ -26,6 +26,32 @@
   --er-shadow-card: 0 1px 2px rgba(15, 27, 51, .04), 0 18px 40px -24px rgba(15, 27, 51, .28);
 }
 
+/* 暗色主题：本文件原先只有一套亮色令牌、无暗色适配，暗色下卡片仍是白底，
+   而全局文字色已翻成浅色 → 实测 .err-kpi-grid .kpi 白底配 #94A3B8 对比度仅 2.56。
+   此处按全局暗色基准补齐；亮色定义保持原样，不受影响。 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --er-canvas:     #0A0B10;
+    --er-surface:    #141821;
+    --er-surface-2:  #171B25;
+    --er-sunk:       #11151D;
+    --er-line:       #252A34;
+    --er-line-2:     #313744;
+    --er-ink:        #F2F4F8;
+    --er-ink-2:      #CBD1DC;
+    --er-ink-3:      #8A93A3;
+    --er-ink-4:      #6E7788;
+    --er-brand:      #7C74F0;
+    --er-brand-2:    #9D97FF;
+    --er-brand-soft: #1D1E3A;
+    --er-brand-line: #32346A;
+    --er-ok: #56D3A0;   --er-ok-soft: #10261E;   --er-ok-line: #1F4A39;
+    --er-warn: #E7B25C; --er-warn-soft: #2A1F0D; --er-warn-line: #523D18;
+    --er-bad: #F2837A;  --er-bad-soft: #2B1513;  --er-bad-line: #5A2723;
+  }
+}
+
 /* 角色主题色（挂在外层 data-role 上） */
 .err-role[data-role="leadership"] { --er-role: #2563EB; --er-role-soft: #EAF1FE; --er-role-line: #CFE0FD; }
 .err-role[data-role="product"]    { --er-role: #B45309; --er-role-soft: #FEF5E7; --er-role-line: #F8DDB0; }
