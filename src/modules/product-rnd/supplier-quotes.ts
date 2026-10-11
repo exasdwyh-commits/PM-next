@@ -18,8 +18,9 @@
  */
 
 import prisma from "@/shared/db";
-import type { SupplierQuoteKind } from "@prisma/client";
-import { UnprocessableEntityError } from "@/shared/errors";
+import { Role, type SupplierQuoteKind } from "@prisma/client";
+import { NotFoundError, UnprocessableEntityError } from "@/shared/errors";
+import { createAuditEventInTx } from "@/shared/audit";
 import {
   DEEP_BOM_LINES_CAP,
   DEEP_SPEC_ROWS_CAP,
@@ -247,4 +248,142 @@ export function buildDeepBomFromQuotes(
       `无用量依据，故不给出行合计。`,
     lines,
   };
+}
+
+// ---------------------------------------------------------------------------
+// 数据访问（仅供路由层调用；app 层不再直连数据库，见架构守卫 AL3）
+// ---------------------------------------------------------------------------
+
+/**
+ * 可录入报价的项目角色：与附件上传口对齐 —— 能往项目里写资料的角色即可录入报价。
+ * 收在模块层而非路由里，因为 app 层不得 import `@prisma/client`（AL3 同样拦截）。
+ */
+export const QUOTE_WRITE_ROLES: Role[] = [
+  Role.OWNER,
+  Role.DECISION_MAKER,
+  Role.FEEDBACK_PROVIDER,
+];
+
+/** 可删除他人报价行的角色：破坏性操作，非创建者须为项目 OWNER。 */
+export const QUOTE_DELETE_OVERRIDE_ROLES: Role[] = [Role.OWNER];
+
+/** 列表查询（GET）：项目下已入库行 + 来源资料摘要。 */
+export async function listProjectQuotes(params: {
+  projectId: string;
+  organizationId: string;
+  kind?: SupplierQuoteKindValue;
+}) {
+  return prisma.supplierQuote.findMany({
+    where: {
+      projectId: params.projectId,
+      organizationId: params.organizationId,
+      ...(params.kind ? { kind: params.kind as SupplierQuoteKind } : {}),
+    },
+    include: {
+      evidence: {
+        select: {
+          id: true,
+          source: true,
+          nature: true,
+          verifyStatus: true,
+          originalFilename: true,
+        },
+      },
+    },
+    orderBy: [{ quotedAt: "desc" }, { createdAt: "desc" }],
+    take: 500,
+  });
+}
+
+/**
+ * 录入（POST）：入参校验 → 锚定资料 → 事务落库 + 记审计。
+ *
+ * 两处顺序是刻意的：
+ * - **行校验先于资料归属校验**：入参形态错误与资源是否存在是两回事，
+ *   先把调用方能改的错一次性说清（消息带行号）。
+ * - **审计与落库同事务**：避免「写了行却没留痕」——报价行是报告 ①② 块的唯一真实来源，
+ *   留痕缺失会让回溯断链。
+ */
+export async function ingestQuoteRows(params: {
+  organizationId: string;
+  projectId: string;
+  userId: string;
+  evidenceId?: unknown;
+  kind?: unknown;
+  rows: unknown;
+}) {
+  const { organizationId, projectId, userId } = params;
+
+  if (typeof params.evidenceId !== "string" || !params.evidenceId.trim()) {
+    throw new UnprocessableEntityError(
+      "缺少 evidenceId：报价行必须锚定一条已上传的真实资料（先调 POST /api/projects/{id}/attachments）"
+    );
+  }
+  if (!isSupplierQuoteKind(params.kind)) {
+    throw new UnprocessableEntityError("kind 非法，允许值：SPEC / PRICE");
+  }
+  const kind = params.kind;
+  const normalized = normalizeQuoteRows(params.rows);
+
+  // 跨项目 / 跨组织借用他人资料一律按不存在处理（404 而非 403），不泄露存在性。
+  const evidence = await prisma.evidence.findFirst({
+    where: {
+      id: params.evidenceId.trim(),
+      projectId,
+      project: { organizationId },
+    },
+    select: { id: true },
+  });
+  if (!evidence) {
+    throw new NotFoundError("Evidence not found in this project");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const created = [];
+    for (const row of normalized) {
+      created.push(
+        await tx.supplierQuote.create({
+          data: {
+            organizationId,
+            projectId,
+            evidenceId: evidence.id,
+            kind: kind as SupplierQuoteKind,
+            supplier: row.supplier ?? null,
+            item: row.item,
+            spec: row.spec ?? null,
+            uom: row.uom ?? null,
+            moq: row.moq ?? null,
+            unitPrice: row.unitPrice ?? null,
+            currency: row.currency ?? "CNY",
+            quotedAt: row.quotedAt ?? null,
+            note: row.note ?? null,
+            createdById: userId,
+          },
+        })
+      );
+    }
+    await createAuditEventInTx(tx, {
+      actorId: userId,
+      action: "SUPPLIER_QUOTE_INGESTED",
+      objectType: "SupplierQuote",
+      objectId: evidence.id,
+      summary: `从资料 ${evidence.id} 结构化录入 ${created.length} 条${kind === "SPEC" ? "规格" : "报价"}行`,
+    });
+    return created;
+  });
+}
+
+/** 删除前定位：跨组织一律返回 null（路由据此 404，不泄露存在性）。 */
+export async function findSupplierQuoteOwnership(id: string, organizationId: string) {
+  const quote = await prisma.supplierQuote.findUnique({
+    where: { id },
+    select: { id: true, organizationId: true, projectId: true, createdById: true },
+  });
+  if (!quote || quote.organizationId !== organizationId) return null;
+  return quote;
+}
+
+/** 删除（DELETE）：创建者本人 / 项目 OWNER 的鉴权由路由完成，这里只落删除。 */
+export async function deleteSupplierQuote(id: string): Promise<void> {
+  await prisma.supplierQuote.delete({ where: { id } });
 }

@@ -496,6 +496,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   SAVE_POLICY: "保存策略",
   SAVE_PROFILE: "保存配置",
   START: "开始",
+  SUPPLIER_QUOTE_INGESTED: "结构化录入供应商报价",
   TRANSITION_ROUTE: "路线状态流转",
   WORKFORCE_BOOTSTRAPPED: "员工体系初始化",
 };
