@@ -366,6 +366,26 @@ async function main() {
       versions: { create: { version: 1, title: `${MARK} 成果`, status: "READY", html: "<!doctype html><html><body>probe</body></html>", bytes: 46, contentHash: "probe" } },
     },
   });
+  // 2026-10-11 Executive Report 真实报告夹具：product-rnd.report 的 artifact，
+  // type=PRODUCT_RND_EXECUTIVE_REPORT，经 WorkItem 挂到 projectA，用于 /api/reports/{id} 门禁回归。
+  const execReportA = await prisma.artifact.create({
+    data: {
+      organizationId: orgA.id,
+      workItemId: workItemA.id,
+      type: "PRODUCT_RND_EXECUTIVE_REPORT",
+      title: `${MARK} 新品评估报告`,
+      contentVersion: 1,
+      // Artifact.content 是 String 列：生产写入路径用 JSON.stringify（见 orchestrator 提交成果处），
+      // report-view.ts 再 JSON.parse 回来。另：reviewStatus 留默认 PENDING（无 DRAFT 这个枚举值）。
+      content: JSON.stringify({
+        summary: "矩阵回归用报告摘要",
+        conclusions: [{ claim: "矩阵回归用结论", evidenceLevel: "L2", verificationRefs: ["matrix"] }],
+        risks: ["矩阵回归用风险"],
+        unknowns: [],
+        decisionsRequired: ["矩阵回归用待决策"],
+      }),
+    },
+  });
   const propA = await prisma.actionProposal.create({
     data: {
       organizationId: orgA.id,
@@ -543,6 +563,7 @@ async function main() {
     [/^\/api\/attachments\//, evidenceA.id],
     [/^\/api\/conversations\//, convA.id],
     [/^\/api\/artifacts\//, artifactA.id],
+    [/^\/api\/reports\//, execReportA.id],
     [/^\/api\/decision-packets\//, packetA.id],
     [/^\/api\/evidences\//, evidenceA.id],
     [/^\/api\/feedback\//, feedbackA.id],

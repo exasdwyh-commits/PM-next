@@ -902,6 +902,10 @@ export async function getProductRndProgramStatus(
   const parent = workItem.agentTasks.find(
     (task) => task.agent.code === "hermes_pm"
   );
+  // 当前有效的 QA attempt：与 advance 用同一个判定（最新一条、未被 fencing 作废）。
+  // 交给前端判会出错 —— 历史上终结过的 attempt 也留在 childTasks 里，
+  // 前端 `find(qa_verifier)` 拿到的可能是最早那条（实测：旧 BLOCKED 排在前面）。
+  const currentQaAttempt = parent ? selectCurrentQaAttempt(parent.childTasks) : null;
   return {
     workItem: {
       id: workItem.id,
@@ -909,6 +913,7 @@ export async function getProductRndProgramStatus(
       inputRevision: workItem.inputRevision,
     },
     parentTaskId: parent?.id ?? null,
+    currentQaTaskId: currentQaAttempt?.id ?? null,
     // KX-05：自动推进失败时告诉界面失败了几次、下次何时自动重试、是否已停止自动重试。
     autoAdvance: describeAutoAdvance(parent?.blockedReason),
     tasks:

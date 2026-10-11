@@ -8,11 +8,13 @@ const compat = new FlatCompat({ baseDirectory: import.meta.dirname });
 export default defineConfig([
   ...compat.extends("next/core-web-vitals"),
   globalIgnores([
-    ".next/**",
-    ".next-verify/**",
-    ".next-acc/**",
-    ".next-v2/**",
-    ".next-v3/**",
+    // Next 的构建产物目录。这里必须用通配而不是逐个枚举 ——
+    // 本项目同时存在 .next / .next-verify / .next-acc / .next-v2 / .next-v3 /
+    // .next-fixed / .next-local-test / .next-report-warm 等多个 dist 目录
+    // （多套验收与预热脚本各用各的），逐个列会持续漏项：
+    // 漏掉的那个会把打包产物当源码 lint，报一堆「Component definition is missing
+    // display name」之类的假红，把 `npm run lint` 变成不可信信号。
+    ".next*/**",
     "node_modules/**",
     ".tmp-pg/**",
     ".uploads/**",

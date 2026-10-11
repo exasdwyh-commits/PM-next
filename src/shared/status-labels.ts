@@ -488,6 +488,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   POTENTIAL_PREDICTION_FROZEN: "冻结潜力预测",
   PRODUCT_OUTCOME_VERIFIED: "核验产品真实结果",
   PRODUCT_POTENTIAL_ASSESSED: "完成产品潜力评估",
+  PRODUCT_RND_QA_SIGNED_OFF: "独立 QA 人工复核签字",
   PRODUCT_VERSION_PUBLISHED: "发布产品版本",
   PROPOSAL_REANALYSIS_FAILED: "提案重新分析失败",
   READY_FOR_GOVERNANCE_REVIEW: "可进入治理评审",
@@ -495,6 +496,13 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   REWORK_OR_STOP: "返工或停止",
   SAVE_POLICY: "保存策略",
   SAVE_PROFILE: "保存配置",
+  /*
+   * 下面这组是**界面发给 API 的动作名**（客户端 `{ action: "…" }` 字面量），
+   * 不是审计事件；但全仓审计动作守卫按 `action: "大写常量"` 形态取样，
+   * 会被它们命中。与其在守卫上开例外，不如照 START / RECONCILE / CONFIRM
+   * 的既有做法一并登记中文标签 —— 这样万一它们出现在任何列表里也不会露英文。
+   */
+  SIGN_QA: "独立 QA 复核签字",
   START: "开始",
   TRANSITION_ROUTE: "路线状态流转",
   WORKFORCE_BOOTSTRAPPED: "员工体系初始化",
