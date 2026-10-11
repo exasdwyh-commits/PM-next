@@ -4,6 +4,7 @@
  * 用法：
  *   NODE_OPTIONS= node scripts/verify-executive-report-ui.mjs <projectId> [email] [password]
  *   REPORT_BASE_URL=http://127.0.0.1:3110   # 可选，默认 http://127.0.0.1:3100
+ *   口令也可通过 DEV_LOGIN_PASSWORD / SEED_PASSWORD 环境变量提供（仓库不留默认口令）。
  *
  * 验证点：
  * 1. 项目页「AI 研发」标签里出现结构化报告（**报告不再默认可见**，见下方坑 5）；
@@ -34,12 +35,19 @@ import { chromium } from "playwright";
 
 const [
   projectId,
-  email = "zhang_pm@hermes.test",
-  password = "hermes1234",
+  email = process.env.WALK_EMAIL ?? "zhang_pm@hermes.test",
+  password = process.env.DEV_LOGIN_PASSWORD ?? process.env.SEED_PASSWORD,
 ] = process.argv.slice(2);
 
 if (!projectId) {
-  console.error("用法: node scripts/verify-executive-report-ui.mjs <projectId>");
+  console.error("用法: node scripts/verify-executive-report-ui.mjs <projectId> [email] [password]");
+  process.exit(1);
+}
+
+if (!password) {
+  console.error(
+    "缺少登录口令：请传参，或设置 DEV_LOGIN_PASSWORD / SEED_PASSWORD 环境变量；仓库不留默认口令。"
+  );
   process.exit(1);
 }
 
