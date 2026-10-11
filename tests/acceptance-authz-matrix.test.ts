@@ -89,11 +89,14 @@ const MARK = CROSS_TENANT_MARKER;
  *   同批顺带补登两条**本就存在**的历史缺口：/api/feedback（3 方法）与 /api/feedback/{id}/disposition
  *   —— 它们在 main 上就有源码，矩阵却一直没登记，属遗留幽灵缺口，非 V2 引入。
  */
-// 基线随路由增减同步。本次 +2 路由 / +3 方法：/api/projects/{id}/supplier-quotes（GET·POST）
-// 与 /api/supplier-quotes/{id}（DELETE）—— 即 P0-1 真实报价入库通道。
-// 另 +2 路由 / +2 方法是此前基线就已落后于源码的部分，本次一并校准到实测值。
-const BASELINE_ROUTES = 121;
-const BASELINE_METHODS = 181;
+// 基线随路由增减同步。
+// +2 路由 / +3 方法：P0-1 报价通道 /api/projects/{id}/supplier-quotes（GET·POST）
+//   与 /api/supplier-quotes/{id}（DELETE）。
+// +3 路由 / +5 方法：批次 D 四模块 /api/knowledge/module-entries（GET·POST）、
+//   /api/knowledge/module-entries/{id}（DELETE）、/api/knowledge/backfill（GET·POST）。
+// 另有部分是此前基线就已落后于源码的，本次一并校准到实测值。
+const BASELINE_ROUTES = 124;
+const BASELINE_METHODS = 186;
 
 let passed = 0;
 const failures: string[] = [];
@@ -376,6 +379,20 @@ async function main() {
       createdBy: ownerA.id,
     },
   });
+  // 批次 D 四模块条目夹具：createdBy 设为 ownerA，以便覆盖「创建者可删」这条真实路径
+  //（也因此 DELETE 条目排在矩阵本段最后，否则 owner 删掉夹具会拖垮后续 {id} 断言）。
+  // 内容刻意是探测占位 —— 本仓不预置任何真实条规（防编造）。
+  const knowledgeEntryA = await prisma.knowledgeModuleEntry.create({
+    data: {
+      organizationId: orgA.id,
+      module: "COMPLIANCE_REDLINE",
+      key: `${MARK}-probe`,
+      title: `${MARK} 探测条目`,
+      statement: `${MARK} 探测用，非真实条规`,
+      sourceRef: `matrix-probe:${MARK}`,
+      createdById: ownerA.id,
+    },
+  });
   const feedbackA = await prisma.feedback.create({
     data: { projectId: projectA.id, targetType: "PROJECT", targetId: projectA.id, authorId: viewerA.id, content: `${MARK} 反馈`, topics: [] },
   });
@@ -596,6 +613,8 @@ async function main() {
     [/^\/api\/playbooks\//, playbookA.id],
     // P0-1：真实报价通道。放在最后 —— 前面的 projects/ 等前缀都不匹配它，顺序上无歧义。
     [/^\/api\/supplier-quotes\//, supplierQuoteA.id],
+    // 批次 D：四模块条目。前缀与 knowledge/sources/ 不重叠，顺序无歧义。
+    [/^\/api\/knowledge\/module-entries\//, knowledgeEntryA.id],
     // 成本情景：补上后矩阵才能跑过该段（此前缺项导致异常终止）。
     // 用**真实夹具** —— 2026-10-11 已把该段语义定死（列表组织级共享 → 详情同组织 200；
     // 改/删限创建者本人 → 同组织非创建者 403），占位符必须是真实存在的情景，
@@ -731,6 +750,9 @@ async function main() {
     // / AuditEvent.actorId / AgentRun.userId / AgentTask.agentId 均为 restrict，必须显式先删
     // P0-1 报价行外键到 Evidence/Project/User 都是 Cascade，但显式先删更稳（避免依赖级联顺序）
     await prisma.supplierQuote.deleteMany({ where: { organizationId: { in: orgIds } } });
+    // 批次 D：backfill 先删（entryId 为 null 的独立回填不会随条目级联），再删条目
+    await prisma.knowledgeBackfill.deleteMany({ where: { organizationId: { in: orgIds } } });
+    await prisma.knowledgeModuleEntry.deleteMany({ where: { organizationId: { in: orgIds } } });
     await prisma.costScenario.deleteMany({ where: { organizationId: { in: orgIds } } });
     await prisma.analysisRun.deleteMany({ where: { productVersion: { product: { organizationId: { in: orgIds } } } } });
     await prisma.launchPlan.deleteMany({ where: { organizationId: { in: orgIds } } });

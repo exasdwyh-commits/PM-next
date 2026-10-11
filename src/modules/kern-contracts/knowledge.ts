@@ -22,6 +22,12 @@ export const KNOWLEDGE_SCOPES = [
   "memory",
   "web",
   "github",
+  // 批次 D 四模块（2026-10-11）：结构化条规 + 事后回填。每个模块一个域，
+  // 便于按域路由与按模块分别标注来源；provider 见 modules/knowledge/module-provider.ts。
+  "compliance_redline",
+  "category_framework",
+  "channel_access",
+  "operation_sop",
 ] as const;
 
 export type KnowledgeScope = (typeof KNOWLEDGE_SCOPES)[number];

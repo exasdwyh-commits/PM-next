@@ -1148,6 +1148,76 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     validationFirst: true,
   },
 
+  // ---------- 批次 D：知识库四模块（结构化条规 + 事后回填） ----------
+  //
+  // 语义与成本情景同口径：条目是**组织级共享资产**，同组织成员可读可录；
+  // 删除是破坏性操作，限创建者本人（同组织非创建者 403 / 跨组织 404）。
+  //
+  // 注意：本仓**不预置**任何模块条目内容（防编造），所以这四个域在没有录入时
+  // 命中为空是设计行为，不是缺陷。
+  {
+    path: "/api/knowledge/module-entries",
+    method: "GET",
+    authz: "四模块条目列表：按 organizationId 过滤，同组织成员可读；跨组织读到空集合",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    crossTenant: true,
+  },
+  {
+    path: "/api/knowledge/module-entries",
+    method: "POST",
+    authz:
+      "录入四模块条目：组织级共享资产，同组织成员可录；铁律是 sourceRef 必填（无来源不落库），缺字段 422 先于任何角色判断",
+    expect: { anon: [401], foreign: [201], outsider: [201], viewer: [201] },
+    ownerGate: [201],
+    body: {
+      entries: [
+        {
+          module: "COMPLIANCE_REDLINE",
+          key: "matrix.probe.entry",
+          title: "矩阵探测条目",
+          statement: "矩阵探测用，非真实条规",
+          sourceRef: "matrix-probe:authz-matrix",
+        },
+      ],
+    },
+    phase: 3,
+  },
+  {
+    path: "/api/knowledge/backfill",
+    method: "GET",
+    authz: "回填列表：按 organizationId 过滤，同组织成员可读；跨组织读到空集合",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    crossTenant: true,
+  },
+  {
+    path: "/api/knowledge/backfill",
+    method: "POST",
+    authz:
+      "事后回填：同组织成员可录；sourceRef 与观测时间必填，且至少要有一个数值或原样描述，否则 422",
+    expect: { anon: [401], foreign: [201], outsider: [201], viewer: [201] },
+    ownerGate: [201],
+    body: {
+      metricKey: "matrix_probe_metric",
+      numericValue: 1,
+      unit: "次",
+      observedAt: "2026-10-11T00:00:00.000Z",
+      sourceRef: "matrix-probe:authz-matrix",
+    },
+    phase: 3,
+  },
+  {
+    // 排在本段最后（phase 3 且数组末位）：owner 是夹具创建者，删除会真的删掉条目。
+    path: "/api/knowledge/module-entries/{id}",
+    method: "DELETE",
+    authz:
+      "删除条目（软删）：跨组织 404；同组织非创建者 403（破坏性操作限创建者本人）",
+    expect: { anon: [401], foreign: [404], outsider: [403], viewer: [403] },
+    ownerGate: [200],
+    phase: 3,
+  },
+
   // ---------- 顾问交互运行 ----------
   {
     path: "/api/agent-runs",

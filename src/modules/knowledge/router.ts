@@ -17,6 +17,7 @@ import fs from "node:fs";
 import pathModule from "node:path";
 import type { KnowledgeResultItem, KnowledgeRouteResult, KnowledgeScope } from "@/modules/kern-contracts";
 import type { SessionContext } from "../identity/session";
+import { KNOWLEDGE_MODULE_PROVIDERS } from "./module-provider";
 import prisma from "@/shared/db";
 import { classifySourceUrl } from "@/modules/evidence/source-trust";
 import { searchKnowledge, type KnowledgeSearchResult } from "./search";
@@ -340,6 +341,12 @@ registerKnowledgeProvider({
     return out.slice(0, ctx.limit);
   },
 });
+
+// 批次 D 四模块：定义在 ./module-provider.ts（那边的实现要取权威分与本文件的类型，
+// 故由这里导入注册，避免 L3 内部循环依赖）。
+for (const provider of KNOWLEDGE_MODULE_PROVIDERS) {
+  registerKnowledgeProvider(provider);
+}
 
 // ---------------------------------------------------------------------------
 // 路由
