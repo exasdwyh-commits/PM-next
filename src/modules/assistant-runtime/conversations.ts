@@ -60,11 +60,33 @@ export async function createKernConversation(
       ...(runtimeConfig ? { runtimeConfig: runtimeConfig as any } : {}),
     };
   if (typeof clientId !== "string") return prisma.conversation.create({ data });
-  return prisma.$transaction(async tx => {
-    const conversation = await tx.conversation.upsert({ where: { id: clientId }, create: { ...data, id: clientId }, update: {} });
-    if (conversation.organizationId !== session.organizationId || conversation.ownerId !== session.userId) throw new NotFoundError("Conversation not found");
-    return conversation;
-  });
+  /**
+   * 幂等建会话：同一个 clientConversationId 只允许建出一条。
+   *
+   * 不能用 upsert 的「先读后写」。Prisma 6 在这里走的是 SELECT + INSERT 两步（不是数据库
+   * 原生 upsert），READ COMMITTED 下并发调用会双双读空、双双 INSERT，其中一方撞唯一键抛
+   * P2002。CI supervisor 流水线实测过：`Invalid tx.conversation.upsert() invocation …
+   * Unique constraint failed on the fields: (id)`，触发点正是 ME1 的 5 路并发建会话
+   * （tests/regression-kern-message-execution.ts:47）。本地 30 路并发压测同样稳定复现。
+   *
+   * 改为「直接 INSERT + 撞键即回读」，用数据库的唯一约束本身当互斥量：并发下只有一条
+   * INSERT 得手，其余阻塞到它提交后拿到 P2002，再回读那条已存在的行。
+   * 与 acceptKernMessage 用 SELECT … FOR UPDATE 表达的是同一件事 —— 建会话时目标行还不存在、
+   * 锁不住，唯一约束就是那把锁。
+   */
+  try {
+    const created = await prisma.conversation.create({ data: { ...data, id: clientId } });
+    return created;
+  } catch (error) {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
+  }
+  // 走到这里说明该会话已由并发的另一次调用建出（或早已存在）。回读并做同等的归属校验，
+  // 语义与原先 upsert 的 update: {} 一致 —— 命中已有会话时不得改写它的 title / runtimeConfig。
+  const existing = await prisma.conversation.findUnique({ where: { id: clientId } });
+  if (!existing || existing.organizationId !== session.organizationId || existing.ownerId !== session.userId) {
+    throw new NotFoundError("Conversation not found");
+  }
+  return existing;
 }
 
 /**
