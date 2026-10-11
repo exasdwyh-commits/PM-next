@@ -2,6 +2,12 @@ import prisma from "@/shared/db";
 import type { SessionContext } from "@/modules/identity/session";
 import { getProductRndProgramStatus, startProductRndProgram } from "@/modules/product-rnd";
 import { labelAgentTaskStatus, labelWorkItemStatus } from "@/shared/status-labels";
+import { buildReportUrl } from "@/shared/report-links";
+import type { ExecutiveReportConclusion } from "@/shared/executive-report-types";
+import {
+  EXECUTIVE_REPORT_CITATION_KIND,
+  type ExecutiveReportCitation,
+} from "@/shared/executive-report-citation";
 import type {
   KernCapabilityContext,
   KernCapabilityHandler,
@@ -455,8 +461,12 @@ export const handleProductRndCapability: KernCapabilityHandler = async (
       const unknowns = preview.unknowns ?? [];
       const risks = preview.risks ?? [];
       const decisions = preview.decisionsRequired ?? [];
-      const actions = preview.recommendedActions ?? [];
+      const verifiedCount = conclusions.filter(
+        (item: ExecutiveReportConclusion) => (item.verificationRefs ?? []).length > 0
+      ).length;
 
+      // 报告以 HTML 页链接交付：对话里只回 headline 数字 + 方块缩略图卡片，
+      // 完整版式（杂志风）在 /reports/[id] 呈现，不再把全文贴进对话。
       const lines = [
         `产品：${product.name}`,
         `项目：${project.title}`,
@@ -464,29 +474,26 @@ export const handleProductRndCapability: KernCapabilityHandler = async (
         "",
         `当前结论：${preview.summary || "报告没有提供总摘要。"}`,
         "",
-        "关键依据 / 结论：",
-        ...(conclusions.length
-          ? conclusions.slice(0, 5).map((item, index) =>
-              `${index + 1}. ${item.claim}${item.evidenceLevel ? `（证据等级 ${item.evidenceLevel}）` : ""}`
-            )
-          : ["- 报告没有登记可展示的结论条目"]),
+        `依据 ${conclusions.length} 条（已核实 ${verifiedCount} 条）· 风险 ${risks.length} 项 · UNKNOWN ${unknowns.length} 项 · 待决策 ${decisions.length} 项`,
         "",
-        "最大风险：",
-        ...(risks.length ? risks.slice(0, 5).map((item) => `- ${item}`) : ["- 未登记显式风险"]),
-        "",
-        "UNKNOWN：",
-        ...(unknowns.length
-          ? unknowns.slice(0, 5).map((item) => `- ${item}`)
-          : ["- 报告未登记 UNKNOWN"]),
-        "",
-        "需要你决定：",
-        ...(decisions.length
-          ? decisions.slice(0, 5).map((item) => `- ${item}`)
-          : ["- 当前报告未登记必须由负责人决定的事项"]),
-        "",
-        "下一步：",
-        ...(actions.length ? actions.slice(0, 5).map((item) => `- ${item}`) : ["- 报告未登记建议动作"]),
+        `完整报告：[在新页面查看](${buildReportUrl(report.id)})`,
       ];
+
+      const reportCitation: ExecutiveReportCitation = {
+        kind: EXECUTIVE_REPORT_CITATION_KIND,
+        ref: report.id,
+        title: report.title,
+        contentVersion: report.contentVersion,
+        reviewStatus: report.reviewStatus,
+        summary: preview.summary ?? null,
+        stats: {
+          conclusions: conclusions.length,
+          verified: verifiedCount,
+          risks: risks.length,
+          unknowns: unknowns.length,
+          decisions: decisions.length,
+        },
+      };
 
       return {
         toolKey: "product-rnd.report",
@@ -499,6 +506,7 @@ export const handleProductRndCapability: KernCapabilityHandler = async (
             ref: report.id,
             title: report.title,
           },
+          reportCitation,
         ],
       };
     }

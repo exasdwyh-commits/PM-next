@@ -1,10 +1,21 @@
 /**
  * 一次性 UI 验证：真实浏览器走 /login 表单登录，追踪 API 响应与最终落地页。
  * 用法：NODE_OPTIONS= node scripts/verify-login-ui.mjs [email] [password]
+ *      口令也可通过 DEV_LOGIN_PASSWORD / SEED_PASSWORD 环境变量提供（仓库不留默认口令）。
  */
 import { chromium } from "playwright";
 
-const [email = "zhang_pm@hermes.test", password = "hermes1234"] = process.argv.slice(2);
+const [
+  email = process.env.WALK_EMAIL ?? "zhang_pm@hermes.test",
+  password = process.env.DEV_LOGIN_PASSWORD ?? process.env.SEED_PASSWORD,
+] = process.argv.slice(2);
+
+if (!password) {
+  console.error(
+    "缺少登录口令：请传参 `node scripts/verify-login-ui.mjs <email> <password>`，或设置 DEV_LOGIN_PASSWORD / SEED_PASSWORD 环境变量。"
+  );
+  process.exit(1);
+}
 
 const browser = await chromium.launch();
 const page = await browser.newPage();

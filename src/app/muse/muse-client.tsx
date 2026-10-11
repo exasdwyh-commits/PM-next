@@ -38,6 +38,7 @@ const VaultSheet = dynamic(() => import("./components/sheets").then(module => mo
 import { isMissionConclusionCitation } from "@/modules/supervisor/report-format";
 import { artifactCitations, describeMarkers, isArtifactCitation } from "@/modules/artifacts/protocol";
 import { richTextToMarkdown } from "@/modules/artifacts/rich-blocks";
+import { isExecutiveReportCitation } from "@/shared/executive-report-citation";
 
 /** V2 /muse follows the OS colour scheme (muse.css uses prefers-color-scheme); rich.css and the reader key off data-theme. */
 function useSystemTheme(): "light" | "dark" {
@@ -93,11 +94,13 @@ function fromApiMessage(message: ApiMessage): Message {
   });
 
   const hasBrief = citations.some((raw) => !!raw && typeof raw === "object" && (raw as Record<string, unknown>).kind === "kern-brief");
+  const reportCitations = citations.filter(isExecutiveReportCitation);
   const refs: EvidenceRef[] = citations.flatMap((raw, index) => {
     if (readKernGraphCitation(raw)) return [];
     if (raw && typeof raw === "object" && (raw as Record<string, unknown>).kind === "kern-brief") return [];
     if (raw && typeof raw === "object" && (raw as Record<string, unknown>).kind === "kern-mission") return [];
     if (isArtifactCitation(raw)) return [];
+    if (isExecutiveReportCitation(raw)) return [];
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
     const item = raw as Record<string, unknown>;
     const ref = typeof item.ref === "string" ? item.ref : null;
@@ -125,6 +128,7 @@ function fromApiMessage(message: ApiMessage): Message {
     state: "success",
     blocks: [
       conclusionBlock(message.content, citations),
+      ...reportCitations.map((citation) => ({ kind: "report" as const, citation })),
       ...graphs.map((graph) => ({ kind: "graph" as const, graph })),
       ...(hasBrief ? [{ kind: "brief" as const, ref: message.id }] : []),
       ...[...new Set(missionIds)].map((ref) => ({ kind: "mission" as const, ref })),
@@ -687,6 +691,9 @@ export default function KernClient({ model }: { model: StudioModel }) {
     if (text && !sendingRef.current && !decisionBusy) void send(text);
   }, [send, decisionBusy]);
 
+  // 编辑用户消息后重发：对话是追加式的，这里按编辑后的内容再发一条新消息。
+  const editResend = useCallback((text: string) => { void send(text); }, [send]);
+
   const resolve = useCallback(
     async (decision: Decision, choice: Decision["options"][number], givenReason?: string) => {
       if (decisionBusy) return;
@@ -1006,6 +1013,12 @@ export default function KernClient({ model }: { model: StudioModel }) {
                     employees={employees}
                     onOpenSource={openSource}
                     onRetry={message.state === "error" ? retryFailed : undefined}
+                    onResend={
+                      message.author === "user" && message.state === "success" && !message.id.startsWith("local-")
+                        ? editResend
+                        : undefined
+                    }
+                    busy={hostBusy}
                   />
                 ))}
                 {conversationDecisions.map((decision) => (

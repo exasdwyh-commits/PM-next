@@ -6,8 +6,10 @@ import {
   advanceProductRndProgram,
   getProductRndProgramStatus,
   queueProductRndQa,
+  signOffProductRndQa,
   startProductRndProgram,
   synthesizeProductRndExecutiveReport,
+  type ProductRndQaVerdict,
 } from "@/modules/product-rnd";
 
 export async function GET(
@@ -67,6 +69,20 @@ export async function POST(
           parentTaskId: String(body?.parentTaskId ?? ""),
         }),
         { status: 201 }
+      );
+    }
+
+    // 独立 QA 的人工复核签字入口。
+    // 设计上 QA 不由 Worker 执行（见 modules/product-rnd/qa-signoff.ts 顶部说明），
+    // 所以必须由负责人 / 决策人在这里显式落结论，流程才能走到报告合成。
+    if (action === "SIGN_QA") {
+      return NextResponse.json(
+        await signOffProductRndQa(session, {
+          parentTaskId: String(body?.parentTaskId ?? ""),
+          verdict: body?.verdict as ProductRndQaVerdict,
+          resultSummary: String(body?.resultSummary ?? ""),
+          reason: typeof body?.reason === "string" ? body.reason : null,
+        })
       );
     }
 

@@ -1883,6 +1883,53 @@ button,a { -webkit-tap-highlight-color:transparent; }
   margin-top:2px;
 }
 
+/* —— 独立 QA 人工复核签字 —— */
+/* QA 不由 Worker 自动执行，流程会停在等他签字，所以这块要是这一屏最扎眼的动作区。 */
+.hermes-rnd-qa {
+  display:grid;
+  gap:11px;
+  padding:14px 15px;
+  border:1px solid var(--warn-line);
+  border-radius:var(--radius-sm);
+  background:var(--warn-bg);
+}
+.hermes-rnd-qa-head {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.hermes-rnd-qa-head > div { display:grid; gap:3px; }
+.hermes-rnd-qa-head strong { color:var(--ink); font-size:15px; }
+.hermes-rnd-qa-form {
+  display:grid;
+  grid-template-columns:minmax(190px,250px) minmax(0,1fr);
+  gap:11px;
+}
+.hermes-rnd-qa-form > label {
+  display:grid;
+  gap:6px;
+  color:var(--ink-2);
+  font-size:13.5px;
+  font-weight:600;
+}
+.hermes-rnd-qa-form > label.is-wide { grid-column:1 / -1; }
+.hermes-rnd-qa-form .hermes-select,
+.hermes-rnd-qa-form .hermes-input,
+.hermes-rnd-qa-form .hermes-textarea { background:var(--surface); }
+.hermes-rnd-qa-form .hermes-textarea { min-height:78px; }
+.hermes-rnd-qa-actions {
+  grid-column:1 / -1;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+@media (max-width:720px) {
+  .hermes-rnd-qa-form { grid-template-columns:minmax(0,1fr); }
+}
+
 /* —— Executive Report：先决策，再证据 —— */
 .hermes-executive-report {
   display:grid;

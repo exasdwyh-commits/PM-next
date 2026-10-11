@@ -1,6 +1,7 @@
 /** Muse 对话界面的读模型类型（KX-71 从 app/muse/types.ts 下沉到 muse 模块；页面文件 re-export）。 */
 import type { KernGraphV1 } from "@/modules/visual-intelligence/contracts";
 import type { ArtifactCitation } from "@/modules/artifacts/protocol";
+import type { ExecutiveReportCitation } from "@/shared/executive-report-citation";
 
 export type AiState = "idle" | "working" | "needs-review" | "success" | "error" | "cancelled";
 export type Tone = "accent" | "ok" | "warn" | "block" | "neutral";
@@ -70,6 +71,8 @@ export type MessageBlock =
   | { kind: "text"; text: string; artifacts?: ArtifactCitation[] }
   /** A completed mission conclusion: rendered as a ResponseEnvelope, `text` is the Markdown fallback. */
   | { kind: "conclusion"; ref: string; text: string }
+  /** 产品研发 Executive Report：对话里只给一个方块缩略图 + headline，点开进 /reports/[id]。 */
+  | { kind: "report"; citation: ExecutiveReportCitation }
   | { kind: "graph"; graph: KernGraphV1 }
   | { kind: "plan"; title: string; steps: PlanStep[] }
   | { kind: "mission"; ref: string }
