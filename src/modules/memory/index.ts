@@ -1,4 +1,8 @@
 import { KernMemoryKind, Prisma } from "@prisma/client";
+
+/** Inspector 等 app 层可直接引用的记忆类型白名单（避免 app 层直接 import @prisma/client，架构层 AL3）。*/
+export const MEMORY_KINDS: string[] = Object.values(KernMemoryKind) as string[];
+
 import prisma from "@/shared/db";
 import type { SessionContext } from "@/modules/identity/session";
 import { assertMemoryLimitTx } from "@/modules/usage";
@@ -394,13 +398,13 @@ export async function getMemoryProvenance(
  */
 export async function listMemoryProvenance(
   session: Pick<SessionContext, "organizationId" | "userId">,
-  opts: { kind?: KernMemoryKind; includeForgotten?: boolean; take?: number } = {}
+  opts: { kind?: KernMemoryKind | string; includeForgotten?: boolean; take?: number } = {}
 ): Promise<MemoryProvenance[]> {
   const rows = await prisma.kernMemory.findMany({
     where: {
       organizationId: session.organizationId,
       userId: session.userId,
-      ...(opts.kind ? { kind: opts.kind } : {}),
+      ...(opts.kind ? { kind: opts.kind as KernMemoryKind } : {}),
       ...(opts.includeForgotten === false ? { forgottenAt: null } : {}),
     },
     orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
