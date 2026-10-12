@@ -501,11 +501,10 @@ export const handleProductRndCapability: KernCapabilityHandler = async (
         citations: [
           { kind: "product", ref: product.id, title: product.name },
           { kind: "project", ref: project.id, title: project.title },
-          {
-            kind: "artifact",
-            ref: report.id,
-            title: report.title,
-          },
+          // 结构化引用（kind=executive-report，带 contentVersion/stats）已经是
+          // legacy artifact 引用的超集，两者并存会让「按标题找报告」的渲染端
+          // （见 isExecutiveReportCitation 的兼容分支）先命中旧那条，出现
+          // 「卡片显示 undefined 版本」或同一报告两张卡。这里只保留结构化那一份。
           reportCitation,
         ],
       };
