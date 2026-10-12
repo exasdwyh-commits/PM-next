@@ -117,3 +117,67 @@ test("C7 provenance：返回字段与 KernMemory schema 一一对应，不编造
   assert.equal(p2.editedInPlace, false);
   assert.equal(p2.forgotten, true, "已遗忘的记忆也要能查到 provenance");
 });
+
+// ---------------------------------------------------------------------------
+// C7 第二阶段：forget 回归——删掉的记忆不得被去重逻辑当作现存命中而复活。
+//
+// 背景：forget 是软删（forgottenAt 置时）。rememberForUser 的 source=null
+// 去重分支若把已遗忘行当成命中，会走「原地更新」而非新建，等于用户明确
+// 忘掉的内容被后续一句相似的「记住」悄悄改写复活。生产路径有两道防线：
+//   1. 候选查询本身带 `forgottenAt: null`（见 memory/index.ts）；
+//   2. findDuplicateMemory 内的 forgotten 守卫（本阶段新增）。
+// 单测以纯函数模拟分支：这里**故意**把已遗忘行喂进候选集，单独验证第 2
+// 道防线——防止将来有人放宽查询条件时不变量 silently 失效。
+
+type RowF = Row & { forgottenAt?: Date | null };
+
+/** 同 simulateRemember，但候选行可带 forgottenAt（模拟删后重记）。 */
+function simulateRememberF(rows: RowF[], kind: string, content: string): RowF[] {
+  const dupe = findDuplicateMemory(rows, kind, content);
+  if (dupe) {
+    return rows.map((r) => (r.id === dupe.id ? { ...r, content } : r));
+  }
+  return [...rows, { id: `m${rows.length + 1}`, kind, content, createdAt: d(rows.length + 1), forgottenAt: null }];
+}
+
+test("C7 forget 回归：已遗忘记忆不算去重命中，删后重记必须新建而非原地更新已遗忘行", () => {
+  const forgotten: RowF = {
+    id: "m1",
+    kind: "PREFERENCE",
+    content: "我们只做跨境电商",
+    createdAt: d(1),
+    forgottenAt: d(2),
+  };
+  // 内容完全一致（相似度 1）也不得命中已遗忘行
+  assert.equal(findDuplicateMemory([forgotten], "PREFERENCE", "我们只做跨境电商"), null);
+  // 轻微复述（相似度 0.875 过阈值）同样不得命中
+  assert.equal(findDuplicateMemory([forgotten], "PREFERENCE", "我们只做跨境电商啊"), null);
+
+  // 模拟完整分支：已遗忘行在库里，用户再说一遍 → 新建一条 active 行，
+  // 已遗忘行保持原样（内容不被改写、forgottenAt 不被清掉）
+  const after = simulateRememberF([forgotten], "PREFERENCE", "我们只做跨境电商");
+  assert.equal(after.length, 2, "删后重记应新建，而不是复活已遗忘行");
+  assert.equal(after[0].content, "我们只做跨境电商");
+  assert.ok(after[0].forgottenAt, "已遗忘行必须保持已遗忘");
+  assert.equal(after[1].forgottenAt, null, "新行应是 active");
+});
+
+test("C7 forget 回归：候选里混有已遗忘与现存时，命中现存行而非已遗忘行", () => {
+  const forgottenExact: RowF = {
+    id: "m1",
+    kind: "PREFERENCE",
+    content: "我们只做跨境电商",
+    createdAt: d(1),
+    forgottenAt: d(3),
+  };
+  const activeNear: RowF = {
+    id: "m2",
+    kind: "PREFERENCE",
+    content: "我们只做跨境电商啊",
+    createdAt: d(2),
+    forgottenAt: null,
+  };
+  // 与查询内容完全一致的是已遗忘行（须跳过），过阈值的现存行才是命中
+  const hit = findDuplicateMemory([forgottenExact, activeNear], "PREFERENCE", "我们只做跨境电商");
+  assert.equal(hit?.id, "m2");
+});

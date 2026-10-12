@@ -373,6 +373,15 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     ownerGate: [200],
   },
   {
+    // 静态段优先于同级 [id] 动态段（Next.js 路由规则），不会与 /api/memory/{id} 冲突。
+    path: "/api/memory/inspector",
+    method: "GET",
+    authz: "记忆 Inspector（C7 二阶段，只读）：只返回当前用户自己的记忆及 provenance（含已遗忘条目）；kind/includeForgotten 是查询参数，不改变门禁口径",
+    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
+    ownerGate: [200],
+    crossTenant: true,
+  },
+  {
     path: "/api/reviews/weekly",
     method: "GET",
     authz: "KX-74 每周复盘：只算当前用户自己的任务 / 记忆 / 做法，不写",

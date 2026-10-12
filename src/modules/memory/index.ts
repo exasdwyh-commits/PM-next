@@ -126,8 +126,17 @@ export function memorySimilarity(a: string, b: string): number {
 /**
  * 在候选里找与 content 重复的一条：必须同 kind、数字一致、相似度过阈值；
  * 多条命中取相似度最高者，并列取最新。找不到返回 null（照常新建）。
+ *
+ * C7 第二阶段 · forget 守卫：已遗忘（forgottenAt 非空）的候选**永远不算
+ * 命中**。生产路径上 rememberForUser 的候选查询已带 `forgottenAt: null`
+ * 过滤，这里在纯函数里再守一道，让「删除后不被去重逻辑当作现存命中」
+ * 这条不变量落在去重逻辑本身，而不是只靠某一个调用方的查询条件——
+ * 否则将来任何不过滤的调用方都会把用户明确忘掉的内容原地改写复活。
+ * 候选类型里 forgottenAt 是可选字段：不带该字段的候选（旧调用方）行为不变。
  */
-export function findDuplicateMemory<T extends { kind: KernMemoryKind | string; content: string; createdAt: Date }>(
+export function findDuplicateMemory<
+  T extends { kind: KernMemoryKind | string; content: string; createdAt: Date; forgottenAt?: Date | null },
+>(
   candidates: readonly T[],
   kind: KernMemoryKind | string,
   content: string
@@ -135,6 +144,7 @@ export function findDuplicateMemory<T extends { kind: KernMemoryKind | string; c
   let best: T | null = null;
   let bestScore = 0;
   for (const c of candidates) {
+    if (c.forgottenAt) continue;
     if (String(c.kind) !== String(kind)) continue;
     if (!sameNumbers(content, c.content)) continue;
     const score = memorySimilarity(content, c.content);
@@ -373,6 +383,30 @@ export async function getMemoryProvenance(
     where: { id, organizationId: session.organizationId, userId: session.userId },
   });
   return row ? toMemoryProvenance(row) : null;
+}
+
+/**
+ * 列出当前用户的记忆 provenance（Inspector API 用）。与 listMemories 的
+ * 区别：默认**包含已遗忘条目**（带 forgotten 标记）——inspector 的职责
+ * 正是回答「Kern 记得什么、哪些已经被忘掉」，只列 active 的话已遗忘项
+ * 就成了不可见的黑箱。按组织 + 用户隔离，可按 kind 过滤；排序与
+ * listMemories 一致（置顶优先、最新优先）。只读，不写任何行。
+ */
+export async function listMemoryProvenance(
+  session: Pick<SessionContext, "organizationId" | "userId">,
+  opts: { kind?: KernMemoryKind; includeForgotten?: boolean; take?: number } = {}
+): Promise<MemoryProvenance[]> {
+  const rows = await prisma.kernMemory.findMany({
+    where: {
+      organizationId: session.organizationId,
+      userId: session.userId,
+      ...(opts.kind ? { kind: opts.kind } : {}),
+      ...(opts.includeForgotten === false ? { forgottenAt: null } : {}),
+    },
+    orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
+    take: opts.take ?? 200,
+  });
+  return rows.map(toMemoryProvenance);
 }
 
 export async function forgetMemory(session: Pick<SessionContext, "organizationId" | "userId">, id: string) {
