@@ -12,9 +12,10 @@ export async function GET(req: NextRequest) {
     const category = searchParams.get("category") || "health_food";
     const role = searchParams.get("role") || "product";
 
-    // 获取用户记忆
+    // 获取用户记忆（C7 二阶段：必须排除已遗忘条目——forget 的效力要传播到
+    // 主动推送，用户明确忘掉的内容不得再驱动推送；与 daily-briefing 口径一致）
     const memories = await prisma.kernMemory.findMany({
-      where: { organizationId: session.organizationId, userId: session.userId },
+      where: { organizationId: session.organizationId, userId: session.userId, forgottenAt: null },
       orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
       take: 20,
     });
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
     const { projectId, category = "health_food", role = "product", trigger = "manual" } = body;
 
     const memories = await prisma.kernMemory.findMany({
-      where: { organizationId: session.organizationId, userId: session.userId },
+      where: { organizationId: session.organizationId, userId: session.userId, forgottenAt: null },
       orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
       take: 20,
     });
