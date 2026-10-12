@@ -29,7 +29,7 @@
 | T1 | Tenant Pack P1/P2：行业设定抽离为租户包 + 行业中立守卫（`docs/KERN_TENANT_PACK_PLAN.md`） | ✅ 2026-09-27 · 分支 `feat/tenant-pack`，待 PR |
 | T2 | Tenant Pack P3：第二个 pack 实证中立性 + 运行时化（详见同文§4） | ⏳ |
 | P0-C | NEW_PRODUCT Playbook 合流 | ⏳ |
-| P0-D | ModelRun 原子 cost guard + 最小 tracing（**真实模型 dogfooding 之前**） | ⏳ |
+| P0-D | ModelRun 原子 cost guard + 最小 tracing（**真实模型 dogfooding 之前**） | ✅ 已实现（见 §4，两层分工） |
 | P0-E | Feedback → Memory → Harness Promotion | ⏳ |
 | P0-F | IA 收敛：Kern / 产品 / 项目 / 设置 | ⏳ |
 | Beta | Worker 常驻验收 + 打 `v0.1.0-rc2` | ⏳ |
@@ -67,10 +67,42 @@
 
 ## 4. P0-D · ModelRun 原子 cost guard + 最小 tracing
 
-现状：月度模型调用上限只在 Mission 启动时检查一次（299/300 时仍可启动，内部多节点 / QA / revision 可冲破上限）。这既是计费问题也是长期运行的稳定性问题，必须在真实模型 dogfooding 前解决。
-- 每次 ModelRun 前原子 `check-and-charge`（或 `reserve → consume → release`），超额 fail closed、节点诚实 BLOCKED；
-- 最小 UsageLedger：`mission_started / model_call / research_call / desktop_action`；
-- 最小 tracing：每个 Mission 可看到节点 × 模型调用 × 耗时 × 结果；
+目标（已达成）：每次 ModelRun 前原子 `check-and-charge`，超额 fail closed、节点诚实 BLOCKED，不再出现「启动时还有余额、内部多节点 / QA / revision 冲破上限」。
+
+现在是**两道闸的分工**，各管一种资源，不要合并成一套，也不要让同一事件被两道闸各记一次：
+
+**4.1 模型调用闸 —— 守「还能不能再调一次模型」**
+
+`src/modules/usage/index.ts` 的 `chargeModelCallInTx()` → `assertModelCallQuotaTx()`，
+挂在 `src/modules/model-gateway/runtime.ts` 的 `executePersistedModelGateway()` 里
+（即每次模型调用获准、落 ModelRun 之前）：
+
+- 组织级 `pg_advisory_xact_lock` 串行化，统计与写入在同一事务内完成，并发不超卖；
+- 按**自然月**统计 ModelRun 行数，失败尝试同样计数；
+- 上限来自部署配置 `KERN_LIMIT_MODEL_CALLS_PER_MONTH`，**未配置时完全跳过** ——
+  沿用 KX-37「产品内无套餐、不限流」的默认行为；
+- 五个模型调用入口（对话 / 意图路由 / Product R&D / Mission 执行器 / legacy 分支）
+  都汇聚到 `executePersistedModelGateway`，因此**全部**受这道闸约束。
+
+**4.2 计费事件闸 —— 守「研究抓取等计费事件」**
+
+`src/modules/model-gateway/cost-guard.ts` 的 `checkAndCharge()`，当前挂在 `/api/research/fetch`：
+
+- 按**自然月**统计 UsageLedger 条数，按 `eventType` 分别计数（研究抓取不占模型调用名额）；
+- 上限取 `Organization.modelCallQuota`（默认 300）；
+- 组织级 advisory lock 串行化；失败回滚会把该行改写为 `model_call_failed`，额度自动退还。
+
+**4.3 对照**
+
+| | 模型调用闸（usage） | 计费事件闸（cost-guard） |
+|---|---|---|
+| 计数源 | 本月 ModelRun 行数 | 本月 UsageLedger 条数 |
+| 覆盖 | 每一次模型调用 | 研究抓取等计费事件 |
+| 上限 | `KERN_LIMIT_MODEL_CALLS_PER_MONTH`（未配置 = 不限流） | `Organization.modelCallQuota`（默认 300） |
+| 锁 key | `kern-usage-model-calls:<orgId>` | `kern-cost-guard:<orgId>` |
+
+- 最小 UsageLedger：`model_call / model_call_failed / research_call / desktop_action`；
+- 最小 tracing：每个 Mission 可看到节点 × 模型调用 × 耗时 × 结果（`ModelRun`）；
 - 完整账单 / 支付以后再做。
 
 ## 5. P0-E · Feedback → Memory → Harness
