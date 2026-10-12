@@ -10,11 +10,13 @@ import { getKnowledgeOverview } from "@/modules/knowledge/service";
 import { listPlaybooks } from "@/modules/playbooks/service";
 import { BUILTIN_TOOLS, makeAskUserTool, toolsFor } from "@/modules/supervisor/tools";
 import { getWebSearch } from "@/modules/supervisor/web-search";
+import { getWebCrawl } from "@/modules/supervisor/web-crawl";
 import { buildCapabilityDirectory } from "./directory";
 import { loadCapabilitySkills } from "./skill-registry";
 
 export async function loadCapabilityDirectory(session: SessionContext): Promise<CapabilityDirectory> {
   const webSearchConfigured = getWebSearch() !== null;
+  const crawlConfigured = getWebCrawl() !== null;
   const skillPacks = loadCapabilitySkills();
   const [connectors, playbooks, knowledge] = await Promise.all([
     listConnectors(session),
@@ -27,6 +29,7 @@ export async function loadCapabilityDirectory(session: SessionContext): Promise<
       organizationId: session.organizationId,
       webSearch: async () => [],
       webFetch: async () => ({ url: "", title: null, text: "", truncated: false }),
+      webCrawl: async () => [],
     }),
     ...BUILTIN_TOOLS,
     makeAskUserTool(),
@@ -35,6 +38,7 @@ export async function loadCapabilityDirectory(session: SessionContext): Promise<
   return buildCapabilityDirectory({
     tools,
     webSearchConfigured,
+    crawlConfigured,
     desktopOnline: presence.status === "ONLINE",
     connectors: connectors.map((c) => ({ id: c.id, name: c.name, host: c.host, lastError: c.lastError, tools: c.tools })),
     playbooks,

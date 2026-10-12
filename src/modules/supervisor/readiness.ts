@@ -4,6 +4,7 @@ import { getUsage } from "@/modules/usage";
 import { getWorkerHealth } from "@/modules/worker/heartbeat";
 import { isMissionNodeModelReady } from "./generic-executor";
 import { getWebSearch } from "./web-search";
+import { getWebCrawl } from "./web-crawl";
 import { detectCompetitorResearch, competitorSubject } from "./competitor-brief";
 import type { MissionPlan } from "./plan";
 
@@ -31,7 +32,9 @@ export async function getMissionReadiness(session: SessionContext, plan: Mission
   if (absent.length) blockers.push({ code: "TEAM", message: "计划所需团队成员未初始化或已停用，请在团队设置中检查" });
   if (beats.status !== "running") blockers.push({ code: "WORKER", message: "后台执行器未运行或心跳已过期，请联系管理员启动" });
   if (models.some(m => !m.ready)) blockers.push({ code: "MODEL", message: "部分步骤没有符合策略的已配置模型，请检查模型设置" });
-  const suppliedPages = /https?:\/\//i.test(plan.goal) && process.env.KERN_WEB_FETCH !== "off";
+  // 目标里自带链接时，只要能读到网页就不算缺资料：本机直连（KERN_WEB_FETCH）或爬取服务（KX-53）任一生效即可。
+  const canOpenPages = process.env.KERN_WEB_FETCH !== "off" || getWebCrawl() !== null;
+  const suppliedPages = /https?:\/\//i.test(plan.goal) && canOpenPages;
   if (detectCompetitorResearch(plan.goal) && !getWebSearch() && !suppliedPages) blockers.push({ code: "SEARCH", message: "竞品调研需要网页检索，请配置检索服务或提供资料链接" });
   if ((usage.limits.missionsPerMonth !== null && usage.used.missions >= usage.limits.missionsPerMonth)
     || (usage.limits.modelCallsPerMonth !== null && usage.used.modelCalls >= usage.limits.modelCallsPerMonth)) {

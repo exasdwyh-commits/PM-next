@@ -16,10 +16,12 @@ function inputs(over: Partial<CapabilityDirectoryInputs> = {}): CapabilityDirect
     tools: [
       { name: "knowledge_search", label: "检索知识库", description: "在公司知识库里找依据", inputHint: '{"query":"..."}', risk: "read" },
       { name: "web_search", label: "网页检索", description: "在公开网页检索最新信息", inputHint: '{"query":"..."}', risk: "read" },
+      { name: "web_crawl", label: "爬取网页", description: "用带浏览器的爬虫抓取网页正文", inputHint: '{"urls":["..."]}', risk: "read" },
       { name: "ask_user", label: "向你提问", description: "缺关键信息时问一次", inputHint: "{}", risk: "ask" },
       { name: "knowledge_search", label: "重复项", description: "应被去重", inputHint: "{}", risk: "read" },
     ],
     webSearchConfigured: false,
+    crawlConfigured: false,
     desktopOnline: false,
     connectors: [
       {
@@ -52,7 +54,7 @@ test("五类来源进同一份清单，数量与 id 前缀一致", () => {
   const d = buildCapabilityDirectory(inputs());
   assert.equal(d.generatedAt, "2026-09-29T00:00:00.000Z");
   assert.ok(d.counts.native >= 7, "原生能力至少 7 条（Capability Registry）");
-  assert.equal(d.counts.tool, 4, "knowledge_search / web_search / ask_user 去重后 3 条 + 办公导出");
+  assert.equal(d.counts.tool, 5, "knowledge_search / web_search / web_crawl / ask_user 去重后 4 条 + 办公导出");
   assert.equal(d.counts.plugin, 4);
   assert.equal(d.counts.skill, 1);
   assert.equal(d.counts.knowledge, 3, "两个知识源 + 公司事实");
@@ -71,15 +73,22 @@ test("权限档与可用性：写工具要问人、关闭的为 off、出错 / �
   assert.equal(by("plugin:c2/ping").available, false);
   assert.match(by("plugin:c2/ping").unavailableReason ?? "", /ECONNREFUSED/);
   assert.equal(by("tool:web_search").available, false);
+  assert.equal(by("tool:web_crawl").available, false);
+  assert.match(by("tool:web_crawl").unavailableReason ?? "", /爬取服务/);
   assert.equal(by("tool:ask_user").access, "ask");
   assert.equal(by("native:desktop").available, false);
   assert.equal(by("native:product-write").access, "ask");
   assert.equal(by("knowledge:k2").available, false);
   assert.equal(by("knowledge:company-facts").available, true);
 
-  const online = buildCapabilityDirectory(inputs({ desktopOnline: true, webSearchConfigured: true }));
+  const online = buildCapabilityDirectory(inputs({ desktopOnline: true, webSearchConfigured: true, crawlConfigured: true }));
   assert.equal(online.items.find((i) => i.id === "native:desktop")!.available, true);
   assert.equal(online.items.find((i) => i.id === "tool:web_search")!.available, true);
+  assert.equal(online.items.find((i) => i.id === "tool:web_crawl")!.available, true);
+  // 检索未配但爬取配了：两者可用性解耦，不能互相连坐。
+  const crawlOnly = buildCapabilityDirectory(inputs({ crawlConfigured: true }));
+  assert.equal(crawlOnly.items.find((i) => i.id === "tool:web_crawl")!.available, true);
+  assert.equal(crawlOnly.items.find((i) => i.id === "tool:web_search")!.available, false);
 });
 
 test("检索：中文与英文关键词都能命中，不可用条目降权", () => {

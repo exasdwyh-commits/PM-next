@@ -21,6 +21,7 @@ import { randomUUID } from "node:crypto";
 import { runToolLoop, toolInstructions, toolsFor, type AskOutcome, type ToolCallRecord, type ToolContext } from "./tools";
 import { loadMissionSourceEvents, collectMissionSources, uniqueMissionSources } from "./research-sources";
 import { getWebSearch } from "./web-search";
+import { getWebCrawl } from "./web-crawl";
 import { getMetasoReader } from "./metaso";
 import { htmlToText, safeFetch } from "@/shared/net/safe-fetch";
 import { searchKnowledge } from "@/modules/knowledge/search";
@@ -178,10 +179,11 @@ export async function fetchPageText(url: string, signal?: AbortSignal) {
 }
 
 /** 当前环境下节点可用的外部能力（提示词与执行共用，保证一致）。 */
-function webCapabilities(): Pick<ToolContext, "webSearch" | "webFetch"> {
+function webCapabilities(): Pick<ToolContext, "webSearch" | "webFetch" | "webCrawl"> {
   return {
     webSearch: getWebSearch() ?? undefined,
     webFetch: process.env.KERN_WEB_FETCH === "off" ? undefined : fetchPageText,
+    webCrawl: process.env.KERN_CRAWL === "off" ? undefined : getWebCrawl() ?? undefined,
   };
 }
 

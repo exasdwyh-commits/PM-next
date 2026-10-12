@@ -52,6 +52,8 @@ export interface CapabilityDirectoryInputs {
   tools: DirectoryToolInput[];
   /** 网页检索是否配置了提供方（没配置则 web_search / web_fetch 登记为不可用）。 */
   webSearchConfigured: boolean;
+  /** KX-53 网页爬取服务（crawl4ai）是否配置；没配置则 web_crawl 登记为不可用。 */
+  crawlConfigured: boolean;
   /** 本机 Desktop Runtime 是否在线。 */
   desktopOnline: boolean;
   connectors: DirectoryConnectorInput[];
@@ -97,15 +99,18 @@ function nativeEntries(desktopOnline: boolean): CapabilityEntry[] {
 }
 
 const WEB_TOOL_NAMES = new Set(["web_search", "web_fetch"]);
+/** KX-53：可用性取决于爬取服务配置，与检索提供方解耦。 */
+const CRAWL_TOOL_NAMES = new Set(["web_crawl"]);
 
-function toolEntries(tools: DirectoryToolInput[], webSearchConfigured: boolean): CapabilityEntry[] {
+function toolEntries(tools: DirectoryToolInput[], webSearchConfigured: boolean, crawlConfigured: boolean): CapabilityEntry[] {
   const seen = new Set<string>();
   const out: CapabilityEntry[] = [];
   for (const t of tools) {
     if (seen.has(t.name)) continue;
     seen.add(t.name);
     const isWeb = WEB_TOOL_NAMES.has(t.name);
-    const unavailable = isWeb && !webSearchConfigured;
+    const isCrawl = CRAWL_TOOL_NAMES.has(t.name);
+    const unavailable = (isWeb && !webSearchConfigured) || (isCrawl && !crawlConfigured);
     out.push({
       id: `tool:${t.name}`,
       kind: "tool",
@@ -114,11 +119,11 @@ function toolEntries(tools: DirectoryToolInput[], webSearchConfigured: boolean):
       input: t.inputHint,
       output: "文本结果；有来源时附引用",
       access: t.risk,
-      source: isWeb ? "内置（网页）" : "内置",
+      source: isCrawl ? "内置（网页爬取）" : isWeb ? "内置（网页）" : "内置",
       audit: "任务时间线里的 node.tool / node.cite 事件",
       available: !unavailable,
-      unavailableReason: unavailable ? "未配置网页检索提供方" : null,
-      tags: [t.name, isWeb ? "web" : "builtin"],
+      unavailableReason: unavailable ? (isCrawl ? "未配置网页爬取服务（crawl4ai）" : "未配置网页检索提供方") : null,
+      tags: [t.name, isCrawl ? "crawl" : isWeb ? "web" : "builtin"],
     });
   }
   // 办公导出不是工具循环里的工具，而是产出侧能力；一样登记，用户才知道 Kern 能交付什么文件。
@@ -252,7 +257,7 @@ const KINDS: CapabilityKind[] = ["native", "tool", "plugin", "skill", "knowledge
 export function buildCapabilityDirectory(inputs: CapabilityDirectoryInputs): CapabilityDirectory {
   const items = [
     ...nativeEntries(inputs.desktopOnline),
-    ...toolEntries(inputs.tools, inputs.webSearchConfigured),
+    ...toolEntries(inputs.tools, inputs.webSearchConfigured, inputs.crawlConfigured),
     ...pluginEntries(inputs.connectors),
     ...skillEntries(inputs.playbooks),
     ...capabilityPackEntries(inputs.skills ?? []),

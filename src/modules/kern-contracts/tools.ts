@@ -25,6 +25,11 @@ export interface ToolContext {
   webSearch?: (query: string, limit: number, signal?: AbortSignal) => Promise<{ title: string; url: string; snippet: string }[]>;
   /** KX-52：抓取网页正文（生产为 safeFetch + htmlToText；测试可替换）。 */
   webFetch?: (url: string, signal?: AbortSignal) => Promise<{ url: string; title: string | null; text: string; truncated: boolean }>;
+  /**
+   * KX-53：批量爬取网页（交给带浏览器的 crawl4ai 服务渲染）。
+   * 未配置爬取服务时为空，web_crawl 不出现在工具列表里。测试可替换。
+   */
+  webCrawl?: (urls: string[], signal?: AbortSignal) => Promise<{ url: string; title: string | null; text: string; truncated: boolean; links: string[] }[]>;
 }
 
 export interface ToolCitation {
