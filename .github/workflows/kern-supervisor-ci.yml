@@ -172,6 +172,7 @@ jobs:
       - run: npm run test:metaso
       - run: npm run test:provider-attempt-quota
       - run: npm run test:model-call-quota
+      - run: npm run test:research-cost-guard
       - run: npm run test:kern-mission-controls
       - run: npm run test:kern-node-ask
       - run: npm run test:execution-abort
