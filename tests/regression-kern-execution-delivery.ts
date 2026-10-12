@@ -8,6 +8,9 @@ import { beatWorker, markWorkerStopped } from "../src/modules/worker/heartbeat";
 import { executorLoopOnce, reconcileLoopOnce } from "../src/modules/supervisor/worker-runtime";
 import { setMissionModelInvokerForTest } from "../src/modules/supervisor/generic-executor";
 import { buildNewProductMissionPlan, type MissionPlan } from "../src/modules/supervisor/plan";
+
+// D1 场景按 4 步预算验证「超限即 BLOCKED」；用 env 钉住，避免默认值（12）改变场景规模。
+process.env.KERN_TOOL_MAX_STEPS = "4";
 import { advanceKernMission, getKernMissionStatus, launchKernMission, listActiveMissionIds,
   readMissionSnapshot, toJson } from "../src/modules/supervisor/service";
 
@@ -54,7 +57,7 @@ async function main() {
     assert.equal(exhausted.status.outcome?.status, "NEEDS_USER");
     const market = exhausted.status.nodes.find(n => n.key === "market")!;
     assert.equal(market.status, "BLOCKED");
-    assert.equal(market.reason, "OUTPUT_INCOMPLETE:TOOL_LIMIT");
+    assert.equal(market.reason, "BUDGET_STEPS");
     const exhaustedReceipt = await prisma.message.findFirstOrThrow({ where: { conversationId: exhausted.chat.id } });
     assert.match(exhaustedReceipt.content, /尚未形成可交付结果/);
     assert.doesNotMatch(exhaustedReceipt.content, /<tool_call>/);
