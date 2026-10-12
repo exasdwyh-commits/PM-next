@@ -14,25 +14,23 @@
  * tests/authz-matrix.ts。UI 页面是下一小步，本路由不依赖它。
  */
 import { NextRequest, NextResponse } from "next/server";
-import { KernMemoryKind } from "@prisma/client";
 import { getServerSession } from "@/modules/identity/session";
-import { listMemoryProvenance } from "@/modules/memory";
+import { MEMORY_KINDS, listMemoryProvenance } from "@/modules/memory";
 import { handleApiError } from "@/shared/api-handler";
 import { UnprocessableEntityError } from "@/shared/errors";
 
-const KINDS = Object.values(KernMemoryKind) as string[];
 
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(req);
     const params = req.nextUrl.searchParams;
     const kindParam = params.get("kind");
-    let kind: KernMemoryKind | undefined;
+    let kind: string | undefined;
     if (kindParam !== null) {
-      if (!KINDS.includes(kindParam)) {
-        throw new UnprocessableEntityError(`kind must be one of ${KINDS.join(", ")}`);
+      if (!MEMORY_KINDS.includes(kindParam)) {
+        throw new UnprocessableEntityError(`kind must be one of ${MEMORY_KINDS.join(", ")}`);
       }
-      kind = kindParam as KernMemoryKind;
+      kind = kindParam;
     }
     const forgottenParam = params.get("includeForgotten");
     const includeForgotten = forgottenParam !== "0" && forgottenParam !== "false";

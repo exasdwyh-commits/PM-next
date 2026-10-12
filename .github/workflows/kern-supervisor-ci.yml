@@ -43,6 +43,8 @@ on:
       - "tests/regression-kern-worker-heartbeat.ts"
       - "tests/regression-kern-execution-control.ts"
       - "tests/regression-model-cancellation.ts"
+      - "tests/regression-kern-conversation-tool-loop.ts"
+      - "tests/kern-conversation-tool-loop.test.ts"
       - "tests/kern-execution-abort.test.ts"
       - "src/shared/abort.ts"
       - "src/shared/net/**"
@@ -99,6 +101,8 @@ on:
       - "tests/regression-kern-worker-heartbeat.ts"
       - "tests/regression-kern-execution-control.ts"
       - "tests/regression-model-cancellation.ts"
+      - "tests/regression-kern-conversation-tool-loop.ts"
+      - "tests/kern-conversation-tool-loop.test.ts"
       - "tests/kern-execution-abort.test.ts"
       - "src/shared/abort.ts"
       - "src/shared/net/**"
@@ -179,6 +183,7 @@ jobs:
       - run: npm run test:kern-message-execution
       - run: npm run test:kern-execution-control
       - run: npm run test:model-cancellation
+      - run: npm run test:kern-conversation-loop
       - run: npm run test:model-execution-facts
       - run: npm run test:worker-fairness
       - run: npm run test:worker-failure-cleanup

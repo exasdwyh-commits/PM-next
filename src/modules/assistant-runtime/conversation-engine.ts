@@ -26,12 +26,13 @@ import {
 import { claimRun } from "@/modules/advisor/runs";
 import { tryResolveGatewayPolicyForAgentCode } from "@/modules/model-control/service";
 import {
-  executePersistedModelGateway,
   executeLegacyAdvisorModel,
   hasEnabledPolicyCandidate,
   type ModelPolicy,
   type ModelProfile,
 } from "@/modules/model-gateway";
+import { incompleteToReason } from "@/modules/supervisor/tools";
+import { runConversationToolLoop } from "./conversation-tool-loop";
 import { buildDepartmentAssistantSystemPrompt } from "./persona";
 import { loadTenantSoul } from "@/modules/tenant/soul";
 import { KERN_REPLY_FORMAT_VERSION, normalizeReply, type NormalizedReply } from "./reply-format";
@@ -385,42 +386,45 @@ export async function executeKernConversationTurn(
       llmAttempted = true;
       executionBackend = "MODEL_GATEWAY";
       try {
-        const gatewayExecution = await executePersistedModelGateway({
-          organizationId: session.organizationId,
+        // C2：对话的模型调用改走多步只读工具循环（复用 C1 runToolLoop 与预算口径）。
+        // 模型不再是「1 次润色即终点」：它可以先查知识/先算数/先抓网页再作答；
+        // 每次模型调用仍经 executePersistedModelGateway 记账（见 conversation-tool-loop）。
+        const loop = await runConversationToolLoop({
+          session,
           agentRunId: run.id,
           policy: gatewayPolicy,
           profiles: gatewayProfiles,
-          request: {
-            signal: options?.execution?.signal, beforeAttempt: options?.execution?.assertActive,
-            taskClass: modelRoute.taskClass,
-            messages: llmMessages,
-            metadata: {
-              source: "kern.conversation",
-              conversationId,
-              intent,
-            },
-          },
-          requestMeta: {
-            source: "kern.conversation",
-            intent,
-            historyTurns,
-          },
+          taskClass: modelRoute.taskClass,
+          messages: llmMessages,
+          signal: options?.execution?.signal,
+          assertActive: options?.execution?.assertActive,
+          metadata: { conversationId, intent },
         });
-
-        modelRunId = gatewayExecution.modelRunId;
-        const gatewayResult = gatewayExecution.result;
-        ({ reply: replyFormat, artifacts: replyArtifacts, richIssues } = formatModelReply(gatewayResult.text));
-        result = { ...result, text: replyFormat.text };
-        modelOutputUsed = true;
-        llmModelId = gatewayResult.resolvedModelId;
-        actualProvider = gatewayResult.provider;
-        llmUsage = gatewayResult.usage
+        modelRunId = loop.modelRunId;
+        llmModelId = loop.modelId;
+        actualProvider = loop.provider;
+        llmUsage = loop.usage
           ? {
-              promptTokens: gatewayResult.usage.inputTokens,
-              completionTokens: gatewayResult.usage.outputTokens,
-              totalTokens: gatewayResult.usage.totalTokens,
+              promptTokens: loop.usage.inputTokens,
+              completionTokens: loop.usage.outputTokens,
+              totalTokens: loop.usage.totalTokens,
             }
           : null;
+        if (loop.incomplete && loop.incomplete !== "EMPTY_OUTPUT") {
+          // 预算耗尽（步数/token/时长）：诚实告知——回复正文就是循环给出的
+          // 未完成说明（复用 C1 的 incomplete 语义），不静默截断、不硬闯、不冒充已完成。
+          ({ reply: replyFormat, artifacts: replyArtifacts, richIssues } = formatModelReply(loop.text));
+          result = { ...result, text: replyFormat.text, citations: [...result.citations, ...loop.citations] };
+          modelOutputUsed = true;
+          errorReason =
+            `多步工具循环未完成：${incompleteToReason(loop.incomplete)}（已执行 ${loop.toolCalls.length} 次只读工具调用）`;
+        } else if (loop.incomplete === "EMPTY_OUTPUT") {
+          errorReason = "模型多步工具循环未产出内容，已回落工具原文";
+        } else {
+          ({ reply: replyFormat, artifacts: replyArtifacts, richIssues } = formatModelReply(loop.text));
+          result = { ...result, text: replyFormat.text, citations: [...result.citations, ...loop.citations] };
+          modelOutputUsed = true;
+        }
       } catch (modelError: unknown) {
         if (modelError instanceof ExecutionStoppedError) throw modelError;
         options?.execution?.signal.throwIfAborted();
