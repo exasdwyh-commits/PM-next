@@ -153,6 +153,11 @@ export interface BuildKernContextLayersParams {
   /** 有项目上下文时，满足条件才把知识写进 Evidence。 */
   projectId?: string | null;
   now?: Date;
+  /**
+   * C4：调用方已知的用户角色（如 admin / member），用于能力包 roles 过滤。
+   * 不传 = 不按角色过滤（只按组织过滤）。
+   */
+  role?: string | null;
 }
 
 export const EMPTY_CONTEXT_LAYERS: KernContextLayers = {
@@ -188,6 +193,9 @@ export async function buildKernContextLayers(
       text: params.text,
       intent: params.intent,
       explicitSkillIds: params.explicitSkillIds ?? null,
+      // C4：组织/角色可见性过滤。会话一定有 organizationId；role 可选。
+      organizationId: params.session.organizationId,
+      role: params.role ?? null,
     });
   } catch (error) {
     return {

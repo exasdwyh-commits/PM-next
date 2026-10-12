@@ -87,6 +87,17 @@ export interface CapabilitySkillDefinition {
   requiredTools: string[];
   /** 明确禁止的工具 key（能力声明的红线）。 */
   forbiddenTools: string[];
+  /**
+   * C4 能力约束执行化：该能力包限定可见的租户/组织 id（organizationId）。
+   * 缺省或空数组 = 不限制（与未声明约束的 26 个既有包行为一致）。
+   * frontmatter 写法：`tenants: [org-1, org-2]`。
+   */
+  tenants?: string[];
+  /**
+   * C4：该能力包限定可见的角色（如 admin / member）。缺省或空数组 = 不限制。
+   * frontmatter 写法：`roles: [admin]`。
+   */
+  roles?: string[];
   /** 证据要求（写进 Evidence Policy 层的约束文案），如「结论须带 ≥2 个独立来源」。 */
   evidencePolicy: string | null;
   /** 期望的交付形态：brief / spec / review / digest … */

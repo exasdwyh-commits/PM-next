@@ -83,6 +83,10 @@ const LIST_KEYS = new Set([
   "requiredtools",
   "forbiddentools",
   "outputtypes",
+  "tenants",
+  "tenant",
+  "roles",
+  "role",
 ]);
 
 const SCALAR_KEYS = new Set([
@@ -236,6 +240,8 @@ export function parseSkillMarkdown(content: string, sourcePath: string): Capabil
     knowledgeScopes: asList(frontmatter.knowledgescopes ?? frontmatter.scopes),
     requiredTools: asList(frontmatter.requiredtools),
     forbiddenTools: asList(frontmatter.forbiddentools),
+    tenants: asList(frontmatter.tenants ?? frontmatter.tenant),
+    roles: asList(frontmatter.roles ?? frontmatter.role),
     evidencePolicy: asString(frontmatter.evidencepolicy)?.trim() || null,
     outputTypes: asList(frontmatter.outputtypes),
     modelPreference: asString(frontmatter.modelpreference)?.trim() || null,
