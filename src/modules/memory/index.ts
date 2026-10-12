@@ -81,6 +81,72 @@ export function relevance(query: string, content: string): number {
   return hit / q.size;
 }
 
+// ---------------------------------------------------------------- dedupe（C7 第一阶段）
+
+/**
+ * source=null 记忆的语义去重阈值（token Jaccard，见 memorySimilarity）。
+ * 取 0.85 的依据：token 集是 CJK bigram + 英文词，bigram 对单字改动敏感
+ * （改一个字约动 2 个 bigram），0.85 约等于「至多 1/7 的 token 不同」——
+ * 标点/语气差异与轻微复述能过，增删一个约束、一字之差的反义过不了。
+ * 再叠加数字守卫（见 sameNumbers）：数字多重集不一致一律不判重。宁漏勿
+ * 误杀：漏判只是多一条，误杀会把用户的新决定原地覆盖掉。
+ */
+export const MEMORY_DUPE_THRESHOLD = 0.85;
+
+/** 内容归一化：小写、合并空白、去结尾标点。与 extractExplicitMemory 的清洗口径一致。 */
+export function normalizeMemoryContent(text: string): string {
+  return text.trim().toLowerCase().replace(/\s+/g, " ").replace(/[。.!！?？；;，,、]+$/, "");
+}
+
+function numericMultiset(text: string): string[] {
+  return (text.match(/\d+(?:\.\d+)?/g) ?? []).sort();
+}
+
+/** 数字必须逐个对齐：金额、数量、日期不同就是另一条事实，不是重复。 */
+function sameNumbers(a: string, b: string): boolean {
+  const x = numericMultiset(a);
+  const y = numericMultiset(b);
+  return x.length === y.length && x.every((v, i) => v === y[i]);
+}
+
+/** 两条记忆内容的相似度（0–1）：归一化后完全一致为 1，否则取 tokens() 的 Jaccard。 */
+export function memorySimilarity(a: string, b: string): number {
+  const na = normalizeMemoryContent(a);
+  const nb = normalizeMemoryContent(b);
+  if (!na || !nb) return 0;
+  if (na === nb) return 1;
+  const ta = tokens(na);
+  const tb = tokens(nb);
+  if (!ta.size || !tb.size) return 0;
+  let hit = 0;
+  for (const t of ta) if (tb.has(t)) hit++;
+  return hit / (ta.size + tb.size - hit);
+}
+
+/**
+ * 在候选里找与 content 重复的一条：必须同 kind、数字一致、相似度过阈值；
+ * 多条命中取相似度最高者，并列取最新。找不到返回 null（照常新建）。
+ */
+export function findDuplicateMemory<T extends { kind: KernMemoryKind | string; content: string; createdAt: Date }>(
+  candidates: readonly T[],
+  kind: KernMemoryKind | string,
+  content: string
+): T | null {
+  let best: T | null = null;
+  let bestScore = 0;
+  for (const c of candidates) {
+    if (String(c.kind) !== String(kind)) continue;
+    if (!sameNumbers(content, c.content)) continue;
+    const score = memorySimilarity(content, c.content);
+    if (score < MEMORY_DUPE_THRESHOLD) continue;
+    if (!best || score > bestScore || (score === bestScore && c.createdAt > best.createdAt)) {
+      best = c;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
 export interface MemoryLike {
   id: string;
   kind: KernMemoryKind | string;
@@ -186,6 +252,28 @@ export async function rememberForUser(
           update: { content, kind: input.kind, forgottenAt: null, topics },
         });
       }
+      // C7 第一阶段 · 语义去重：source=null 没有唯一键兜底（多来自用户
+      // 「记住…」），同一句话说两遍原本会产生两行。新建前先在同 kind 的
+      // active 记忆里找高度相似的一条，命中就原地更新——与 source-keyed
+      // 更新同语义，同样不占新增额度；未命中才走额度检查 + 新建。
+      const candidates = await tx.kernMemory.findMany({
+        where: {
+          organizationId: session.organizationId,
+          userId: session.userId,
+          source: null,
+          kind: input.kind,
+          forgottenAt: null,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+      });
+      const dupe = findDuplicateMemory(candidates, input.kind, content);
+      if (dupe) {
+        return tx.kernMemory.update({
+          where: { id: dupe.id },
+          data: { content, topics },
+        });
+      }
       await assertMemoryLimitTx(tx, session.organizationId);
       return tx.kernMemory.create({ data });
     }, MEMORY_WRITE_TX)
@@ -198,6 +286,93 @@ export async function listMemories(session: Pick<SessionContext, "organizationId
     orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
     take,
   });
+}
+
+// ---------------------------------------------------------------- provenance（C7 第一阶段 · Inspector 数据层）
+
+/**
+ * 一条记忆的来源与状态。字段与 prisma schema 的 KernMemory model 一一
+ * 对应，不多不少；另加两个由真实字段派生的标记（sourceKeyed、
+ * editedInPlace、forgotten），不引入 schema 之外的信息。
+ *
+ * 结构缺口（如实说明，本阶段不改 schema）：schema 没有「覆盖链」——
+ * 没有 supersedes / supersededBy 字段，也没有版本历史表。source-keyed
+ * 更新与上面的语义去重都是**同行原地改写**（同一 id、updatedAt 变化），
+ * 被覆盖的旧内容不留痕，因此 provenance 无法回答「被哪条覆盖 / 覆盖了
+ * 哪条内容」，只能以 editedInPlace 说明这行被改过。要补覆盖链需加字段
+ * 或历史表，属下一阶段的 schema 议题。
+ */
+export interface MemoryProvenance {
+  id: string;
+  organizationId: string;
+  userId: string;
+  kind: KernMemoryKind;
+  content: string;
+  /** 写入来源标识；用户直接「记住…」的为 null。 */
+  source: string | null;
+  /** 是否 source-keyed（source 非空，靠 [userId, source] 唯一键原地更新）。 */
+  sourceKeyed: boolean;
+  pinned: boolean;
+  topics: string[];
+  useCount: number;
+  lastUsedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  /** updatedAt 晚于 createdAt = 这行被原地更新过（覆盖发生在行内，无版本留痕）。 */
+  editedInPlace: boolean;
+  forgottenAt: Date | null;
+  forgotten: boolean;
+}
+
+/** 纯函数：把一行 KernMemory 整成 provenance（便于单测与 UI/API 共用）。 */
+export function toMemoryProvenance(row: {
+  id: string;
+  organizationId: string;
+  userId: string;
+  kind: KernMemoryKind;
+  content: string;
+  source: string | null;
+  pinned: boolean;
+  topics: string[];
+  useCount: number;
+  lastUsedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  forgottenAt: Date | null;
+}): MemoryProvenance {
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    userId: row.userId,
+    kind: row.kind,
+    content: row.content,
+    source: row.source,
+    sourceKeyed: row.source !== null,
+    pinned: row.pinned,
+    topics: row.topics,
+    useCount: row.useCount,
+    lastUsedAt: row.lastUsedAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    editedInPlace: row.updatedAt.getTime() > row.createdAt.getTime(),
+    forgottenAt: row.forgottenAt,
+    forgotten: row.forgottenAt !== null,
+  };
+}
+
+/**
+ * 按 id 查一条记忆的 provenance（给 Inspector UI / API 调用）。
+ * 按组织 + 用户隔离；已遗忘的也返回（带 forgotten 标记），因为「这条
+ * 为什么不在了」正是 inspector 要回答的问题。查不到或不属于该用户返回 null。
+ */
+export async function getMemoryProvenance(
+  session: Pick<SessionContext, "organizationId" | "userId">,
+  id: string
+): Promise<MemoryProvenance | null> {
+  const row = await prisma.kernMemory.findFirst({
+    where: { id, organizationId: session.organizationId, userId: session.userId },
+  });
+  return row ? toMemoryProvenance(row) : null;
 }
 
 export async function forgetMemory(session: Pick<SessionContext, "organizationId" | "userId">, id: string) {
