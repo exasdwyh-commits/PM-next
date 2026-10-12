@@ -670,9 +670,26 @@ async function main() {
       10_000
     );
     await waitFor(() => Promise.resolve(gate("f5-slow").wasClosed), "夹具观察到连接被终止", 10_000);
-    const cancelledRuns = await prisma.modelRun.findMany({ where: { organizationId: a5.orgId }, select: { status: true, finishedAt: true } });
+    // 账本的关闭发生在 abort 之后的收尾路径（model-gateway/runtime.ts 的 catch 用
+    // updateMany 把仍在 RUNNING 的行落 FAILED + finishedAt），它排在 fetch 因 abort 失败之后。
+    // 所以「夹具观察到连接被终止」与「账本已关闭」之间没有先后保证 —— 连接先断、账本后关，
+    // 断开后立刻读一次会偶发读到 RUNNING（F5 曾在 CI 上间歇性红，重跑时失败点还会漂移）。
+    // 这里必须轮询到账本条件成立。
+    // 另：谓词必须带「至少一行」——空集会让 every() 恒真，
+    // 那样在「账本行尚未落库」时断言会假通过，把竞态藏起来。
+    const readCancelledRuns = () =>
+      prisma.modelRun.findMany({ where: { organizationId: a5.orgId }, select: { status: true, finishedAt: true } });
+    await waitFor(
+      async () => {
+        const runs = await readCancelledRuns();
+        return runs.length > 0 && runs.every((r) => r.status !== "RUNNING" && r.finishedAt !== null);
+      },
+      "取消后账本关闭（不得留下 RUNNING 的 ModelRun）",
+      10_000
+    );
+    const cancelledRuns = await readCancelledRuns();
     assert.ok(
-      cancelledRuns.every((r) => r.status !== "RUNNING" && r.finishedAt !== null),
+      cancelledRuns.length > 0 && cancelledRuns.every((r) => r.status !== "RUNNING" && r.finishedAt !== null),
       "取消后账本必须关闭，不能留下 RUNNING 的 ModelRun"
     );
     gate("f5-slow").release();
