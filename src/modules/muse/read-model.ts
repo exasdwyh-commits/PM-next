@@ -1,3 +1,4 @@
+import { executiveReportCitations, isExecutiveReportCitation } from "@/shared/executive-report-citation";
 import { AgentLifecycleStatus, AgentRunStatus, AgentTaskStatus } from "@prisma/client";
 import type { SessionContext } from "@/modules/identity/session";
 import {
@@ -102,7 +103,7 @@ function messageView(row: {
   const hasBrief = citations.some(isBrief);
   const refs = citations
     .map((citation, index) =>
-      readKernGraphCitation(citation) || isMission(citation) || isBrief(citation) || isArtifactCitation(citation)
+      readKernGraphCitation(citation) || isMission(citation) || isBrief(citation) || isArtifactCitation(citation) || isExecutiveReportCitation(citation)
         ? null
         : evidenceFromCitation(citation, index, row.createdAt)
     )
@@ -116,6 +117,7 @@ function messageView(row: {
     state: "success",
     blocks: [
       conclusionBlock(row.content, citations),
+      ...executiveReportCitations(citations).map(citation => ({ kind: "report" as const, citation })),
       ...graphs.map((graph) => ({ kind: "graph" as const, graph })),
       ...(hasBrief ? [{ kind: "brief" as const, ref: row.id }] : []),
       ...missionIds.map((ref) => ({ kind: "mission" as const, ref })),

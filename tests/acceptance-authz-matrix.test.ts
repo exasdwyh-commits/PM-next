@@ -94,9 +94,10 @@ const MARK = CROSS_TENANT_MARKER;
 //   与 /api/supplier-quotes/{id}（DELETE）。
 // +3 路由 / +5 方法：批次 D 四模块 /api/knowledge/module-entries（GET·POST）、
 //   /api/knowledge/module-entries/{id}（DELETE）、/api/knowledge/backfill（GET·POST）。
+// +1 路由 / +1 方法：Muse v3 报告 /api/reports/{id}（GET，需登录）。
 // 另有部分是此前基线就已落后于源码的，本次一并校准到实测值。
-const BASELINE_ROUTES = 124;
-const BASELINE_METHODS = 186;
+const BASELINE_ROUTES = 125;
+const BASELINE_METHODS = 187;
 
 let passed = 0;
 const failures: string[] = [];
@@ -321,6 +322,13 @@ async function main() {
   });
   const workItemA = await prisma.workItem.create({
     data: { projectId: projectA.id, title: `${MARK} 工作项`, target: "矩阵目标", deliverableReq: "矩阵交付要求" },
+  });
+  const reportA = await prisma.artifact.create({
+    data: {
+      organizationId: orgA.id, workItemId: workItemA.id, productVersionId: versionA.id,
+      type: "PRODUCT_RND_EXECUTIVE_REPORT", title: `${MARK} 产品研发综合报告`, schemaVersion: "1.0",
+      content: JSON.stringify({ schemaVersion: "1.0", summary: `${MARK} 报告夹具`, unknowns: ["输入缺口：待补资料"] }),
+    },
   });
   await prisma.workSubmission.create({
     data: { workItemId: workItemA.id, attempt: 1, inputRevision: 1, submittedById: ownerA.id, status: "PENDING" },
@@ -592,6 +600,7 @@ async function main() {
     [/^\/api\/attachments\//, evidenceA.id],
     [/^\/api\/conversations\//, convA.id],
     [/^\/api\/artifacts\//, artifactA.id],
+    [/^\/api\/reports\//, reportA.id],
     [/^\/api\/decision-packets\//, packetA.id],
     [/^\/api\/evidences\//, evidenceA.id],
     [/^\/api\/feedback\//, feedbackA.id],

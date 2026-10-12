@@ -1,3 +1,4 @@
+import type { ExecutiveReportCitation } from "@/shared/executive-report-citation";
 /** Muse 对话界面的读模型类型（KX-71 从 app/muse/types.ts 下沉到 muse 模块；页面文件 re-export）。 */
 import type { KernGraphV1 } from "@/modules/visual-intelligence/contracts";
 import type { ArtifactCitation } from "@/modules/artifacts/protocol";
@@ -74,6 +75,7 @@ export type MessageBlock =
   | { kind: "plan"; title: string; steps: PlanStep[] }
   | { kind: "mission"; ref: string }
   | { kind: "brief"; ref: string }
+  | { kind: "report"; citation: ExecutiveReportCitation }
   | { kind: "evidence"; title: string; refs: EvidenceRef[] }
   | { kind: "runtime"; title: string; command: string; output: string; state: AiState }
   | { kind: "proposal"; title: string; summary: string; diff: { field: string; from: string; to: string }[] }

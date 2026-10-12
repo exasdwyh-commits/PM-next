@@ -4,6 +4,7 @@ import type { Decision, Employee, EvidenceRef, Message, MessageBlock, PlanStep }
 import { fmtDate, fmtTime } from "@/shared/datetime";
 import { KernGraphCard } from "./graph";
 import { MissionCard } from "./mission";
+import { ReportCard } from "../rich/report-card";
 import { BriefCard } from "./brief";
 import { MissionConclusion } from "./mission-conclusion";
 import { RichText } from "../rich/rich-text";
@@ -158,6 +159,8 @@ function Block({ b, employees, onOpenSource, missionAttached = false, messageId 
       return <KernGraphCard graph={b.graph} />;
     case "mission":
       return <MissionCard missionId={b.ref} />;
+    case "report":
+      return <ReportCard citation={b.citation} />;
     case "brief":
       return <BriefCard messageId={b.ref} missionAttached={missionAttached} />;
     case "plan":

@@ -1,5 +1,3 @@
-import { ExecutiveReportView } from "@/components/executive-report";
-import { ExecutiveReportV2 } from "@/components/executive-report-v2";
 import { ExecutiveReportRoleBased } from "@/components/executive-report-role-based";
 import type { ExecutiveReportPayload } from "@/shared/executive-report-types";
 
@@ -40,34 +38,8 @@ const mockReport: ExecutiveReportPayload = {
 };
 
 export default function DemoReportPage() {
-  return (
-    <div style={{ padding: 24, maxWidth: 1400, margin: "0 auto", display: "grid", gap: 32 }}>
-      <header style={{ display: "grid", gap: 8 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 800 }}>PM-next 三角色优化演示</h1>
-        <p style={{ color: "var(--ink-muted)", lineHeight: 1.6, fontSize: 14 }}>
-          按你最新要求：<strong>领导层直观 / 产品研发专业严谨可信度第一工具丰富 / 销售营销卖点突出工具型</strong><br />
-          下方展示 V1现有 vs V2三视图 vs V3三角色专业版<br />
-          <strong style={{ color: "#B45309" }}>⚠️ 演示样张：本页所有数字（成本/留存率/市场规模等）均为示意，非真实数据，不得引用；真实报告以产品研发链路产出为准。</strong>
-        </p>
-      </header>
-
-      <section style={{ display: "grid", gap: 12 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700 }}>V3 - 三角色专业版 (最新) 👔领导直观 / 🔬研发严谨 / 💼销售卖点</h2>
-        <p style={{ fontSize: 12, color: "var(--ink-muted)", background: "var(--surface-soft)", padding: "8px 12px", borderRadius: 8 }}>
-          领导层：KPI卡片+一句话结论+卡片式依据 | 产品研发：完整表格+证据溯源+工具流程丰富 | 销售营销：卖点提炼+竞品对比+一键生成PPT/话术
-        </p>
-        <ExecutiveReportRoleBased report={mockReport} defaultRole="leadership" />
-      </section>
-
-      <section style={{ display: "grid", gap: 12, borderTop: "1px solid var(--surface-soft)", paddingTop: 24 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700 }}>V2 - 三视图版 (B/C/A)</h2>
-        <ExecutiveReportV2 report={mockReport} projectTitle="低糖多酚麦片" viewMode="all" />
-      </section>
-
-      <section style={{ display: "grid", gap: 12, borderTop: "1px solid var(--surface-soft)", paddingTop: 24 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, color: "var(--ink-faint)" }}>V1 - 现有版本</h2>
-        <ExecutiveReportView report={mockReport} />
-      </section>
-    </div>
-  );
+  return <main style={{ maxWidth: 1040, margin: "0 auto", padding: 24 }}>
+    <p style={{ color: "#8a5a12", marginBottom: 20 }}>演示样张：本页数字均为示意，非真实研发数据。真实报告以项目研发链路产出为准。</p>
+    <ExecutiveReportRoleBased report={mockReport} defaultRole="leadership" />
+  </main>;
 }
