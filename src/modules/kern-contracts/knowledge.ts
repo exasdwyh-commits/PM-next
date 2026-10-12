@@ -22,6 +22,9 @@ export const KNOWLEDGE_SCOPES = [
   "memory",
   "web",
   "github",
+  // C5-B3：社交/竞品信号域（signal 模块的采集源；provider 在
+  // assistant-runtime/knowledge-providers.ts 注册，依赖方向 L2 → L3）。
+  "signal",
   // 批次 D 四模块（2026-10-11）：结构化条规 + 事后回填。每个模块一个域，
   // 便于按域路由与按模块分别标注来源；provider 见 modules/knowledge/module-provider.ts。
   "compliance_redline",
@@ -53,6 +56,11 @@ export interface KnowledgeResultItem {
   authority: number;
   /** provider 自己给的相关度分（不同 provider 不可比，综合时归一化）。 */
   score: number;
+  /**
+   * C5-A4：跨 provider 重排后的综合分（router.ts 的 rerankKnowledgeItems 计算，
+   * 见该文件的打分因子注释）。原 score 不动，便于回溯 provider 原始排序。
+   */
+  rerankScore?: number;
   /** 是否有明确的确认状态（公司事实 CONFIRMED / 外部来源的可信校验）。 */
   verified: boolean;
   /** 冲突分组键（同一条业务主张的不同说法共享它）；无冲突为 null。 */

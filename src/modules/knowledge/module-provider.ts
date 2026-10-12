@@ -185,6 +185,8 @@ export const KNOWLEDGE_MODULE_PROVIDERS: KnowledgeProvider[] = ALL_MODULES.map((
   scope: MODULE_SCOPES[module],
   label: MODULE_LABELS[module],
   search: async (ctx) => {
+    // C5-A1：取消链 —— 条目取回是内存匹配前的唯一 I/O，检查一次即可。
+    ctx.signal.throwIfAborted();
     const entries = await prisma.knowledgeModuleEntry.findMany({
       where: { organizationId: ctx.session.organizationId, module, deletedAt: null },
       include: { backfills: { orderBy: { observedAt: "desc" } } },

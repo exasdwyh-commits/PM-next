@@ -158,6 +158,12 @@ export interface BuildKernContextLayersParams {
    * 不传 = 不按角色过滤（只按组织过滤）。
    */
   role?: string | null;
+  /**
+   * C5-B：研究档位（fast/deep/deeper）。显式传入时，知识检索改走
+   * runResearch（分档预算 + 分档计量）；不传时保持原 routeKnowledge 行为。
+   * 对话入口（conversation-engine）目前不传 —— 行为零变化。
+   */
+  researchTier?: string | null;
 }
 
 export const EMPTY_CONTEXT_LAYERS: KernContextLayers = {
@@ -219,12 +225,25 @@ export async function buildKernContextLayers(
 
   try {
     ensureAssistantKnowledgeProviders();
-    const route = await routeKnowledge(params.session, {
-      query: params.text,
-      scopes: resolution.knowledgeScopes,
-      limit: 6,
-      now: params.now,
-    });
+    // C5-B：显式指定研究档位时走 runResearch（三档预算 + 分档计量）；
+    // 不指定时保持原 routeKnowledge 行为（对话入口目前走这条，零变化）。
+    let route;
+    if (params.researchTier) {
+      const { runResearch } = await import("@/modules/research/research-tiers");
+      const rr = await runResearch(params.session, {
+        query: params.text,
+        tier: params.researchTier,
+        limit: 6,
+      });
+      route = rr.route;
+    } else {
+      route = await routeKnowledge(params.session, {
+        query: params.text,
+        scopes: resolution.knowledgeScopes,
+        limit: 6,
+        now: params.now,
+      });
+    }
     const syn = synthesizeKnowledge(route, { now: params.now, limit: 6 });
 
     // 证据条件触发：能力包声明了证据要求，或知识里出现了冲突。

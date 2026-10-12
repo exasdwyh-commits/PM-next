@@ -14,3 +14,4 @@ export type {
   SignalCollector,
   CollectionSummary,
 } from "./signal-collection";
+export { collectHackerNews, createHackerNewsCollector, HN_ALGOLIA_SOURCE_KEY, HN_ALGOLIA_SOURCE_DEF } from "./hn-collector";
