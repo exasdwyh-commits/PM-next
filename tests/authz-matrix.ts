@@ -300,6 +300,18 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     ownerGate: [200],
   },
   {
+    path: "/api/missions/{id}/roundtrip",
+    method: "POST",
+    authz: "办公文件往返（KX-32/C6）：上传 docx/xlsx 追加本任务分析节；任务可见性门禁同 export（loadMissionReport 在解析 multipart 之前），仅发起人",
+    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
+    /**
+     * 本矩阵只发 JSON，而该端点是 multipart 上传口（理由同 projects attachments 条目）：
+     * owner 断言 415 —— 415 出现在 loadMissionReport 门禁**之后**，
+     * 同时证明「门禁已开」与「请求体形态被正确拒绝」。
+     */
+    ownerGate: [415],
+  },
+  {
     path: "/api/missions/{id}/response",
     method: "GET",
     authz: "任务的 ResponseEnvelope 与格式校验结果：仅发起人",
