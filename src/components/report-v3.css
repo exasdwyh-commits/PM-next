@@ -26,7 +26,7 @@
   margin-left:8px;letter-spacing:2px}
 .rv3 .topbar .sp{flex:1}
 .rv3 .btn{font-family:var(--sans);font-size:13px;cursor:pointer;border-radius:999px;
-  padding:8px 16px;text-decoration:none;display:inline-block;transition:.15s}
+  padding:8px 16px;text-decoration:none;display:inline-block;transition:var(--m-tr-ui)}
 .rv3 .btn-ghost{color:var(--muted);border:1px solid transparent}
 .rv3 .btn-ghost:hover{color:var(--accent);border-color:var(--line)}
 .rv3 .btn-solid{background:var(--paper);color:var(--ink);border:1px solid var(--line)}
@@ -89,7 +89,7 @@
 .rv3 .decide-card{background:var(--accent-soft);border-color:var(--accent-line)}
 .rv3 .filterbar{display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 16px}
 .rv3 .chip{font-size:13px;padding:7px 16px;border-radius:999px;cursor:pointer;
-  border:1px solid var(--line);background:var(--paper);color:var(--muted);transition:.15s}
+  border:1px solid var(--line);background:var(--paper);color:var(--muted);transition:var(--m-tr-ui)}
 .rv3 .chip:hover{border-color:var(--accent);color:var(--accent)}
 .rv3 .chip.on{background:var(--ink);color:#F6F1E6;border-color:var(--ink)}
 .rv3 .chip .n{opacity:.65;font-size:12px;margin-left:4px}
@@ -124,7 +124,7 @@
 .rv3 details.exec{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);margin-bottom:14px;overflow:hidden}
 .rv3 details.exec summary{cursor:pointer;list-style:none;padding:18px 22px;font-weight:700;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .rv3 details.exec summary::-webkit-details-marker{display:none}
-.rv3 details.exec summary .arrow{margin-left:auto;color:var(--faint);transition:.2s}
+.rv3 details.exec summary .arrow{margin-left:auto;color:var(--faint);transition:var(--m-tr-ui)}
 .rv3 details.exec[open] summary .arrow{transform:rotate(90deg)}
 .rv3 details.exec .rows{border-top:1px solid var(--line-soft);padding:6px 22px 16px}
 .rv3 .erow{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line-soft);font-size:13.5px}
