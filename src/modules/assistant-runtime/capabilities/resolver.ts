@@ -89,11 +89,47 @@ export interface ResolveCapabilitiesInput {
   limit?: number;
   /** 测试注入；不传则从磁盘加载。 */
   skills?: CapabilitySkillDefinition[];
+  /**
+   * C4 能力约束执行化：按组织/租户过滤候选能力包。
+   * 能力包声明了 `tenants` 非空时，只有 organizationId 在名单里才可见；
+   * 未声明（空/缺省）的包对所有组织可见。不传 organizationId 时不过滤。
+   */
+  organizationId?: string | null;
+  /**
+   * C4：按角色过滤候选能力包。能力包声明了 `roles` 非空时，只有 role 在
+   * 名单里才可见；未声明的包对所有角色可见。不传 role 时不过滤。
+   */
+  role?: string | null;
+}
+
+/**
+ * C4：租户/角色可见性过滤。**只做过滤，不参与打分** ——
+ * MIN_KEYWORD_SCORE / INTENT_BOOST / PRIORITY_WEIGHT 一个数都不动（W6 红线）。
+ * 能力包没声明 tenants/roles（空或缺省）= 对所有人可见，过滤前后行为一致。
+ */
+export function filterSkillsByTenantAndRole(
+  skills: readonly CapabilitySkillDefinition[],
+  scope: { organizationId?: string | null; role?: string | null } = {}
+): CapabilitySkillDefinition[] {
+  const orgId = scope.organizationId?.trim() || null;
+  const role = scope.role?.trim() || null;
+  return skills.filter((skill) => {
+    const tenants = skill.tenants ?? [];
+    if (tenants.length > 0 && (!orgId || !tenants.includes(orgId))) return false;
+    const roles = skill.roles ?? [];
+    if (roles.length > 0 && (!role || !roles.includes(role))) return false;
+    return true;
+  });
 }
 
 export function resolveCapabilities(input: ResolveCapabilitiesInput): CapabilityResolution {
   const limit = Math.max(1, input.limit ?? 3);
-  const all = input.skills ?? loadCapabilitySkills().skills;
+  const loaded = input.skills ?? loadCapabilitySkills().skills;
+  // C4：先按组织/角色过滤候选，再走原有四档选择与打分（打分参数不动）。
+  const all = filterSkillsByTenantAndRole(loaded, {
+    organizationId: input.organizationId,
+    role: input.role,
+  });
   const nativeCapabilityKey = capabilityKeyForIntent(input.intent);
 
   const empty = (source: CapabilityResolutionSource, reason: string): CapabilityResolution => ({
@@ -114,7 +150,12 @@ export function resolveCapabilities(input: ResolveCapabilitiesInput): Capability
   });
 
   if (all.length === 0) {
-    return empty("NONE", "还没有可用的能力包（capabilities/**/SKILL.md 为空或全部加载失败）");
+    return empty(
+      "NONE",
+      loaded.length > 0
+        ? "能力包全部被组织/角色可见性过滤掉了（tenants/roles 声明与当前会话不匹配）"
+        : "还没有可用的能力包（capabilities/**/SKILL.md 为空或全部加载失败）"
+    );
   }
 
   // ---- 打分：关键词 + intent 声明 + priority ----

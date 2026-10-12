@@ -399,6 +399,9 @@ export async function executeKernConversationTurn(
           signal: options?.execution?.signal,
           assertActive: options?.execution?.assertActive,
           metadata: { conversationId, intent },
+          // C4：本轮选中的能力包的工具约束（requiredTools/forbiddenTools 并集）
+          // 进执行侧；contextLayers 为空（解析失败降级）时不约束。
+          toolConstraints: contextLayers?.resolution,
         });
         modelRunId = loop.modelRunId;
         llmModelId = loop.modelId;

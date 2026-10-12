@@ -11,12 +11,14 @@ import {
 } from "@/modules/model-gateway";
 import {
   DEFAULT_TOOL_OUTPUT_LIMIT,
+  filterToolsByConstraints,
   resolveToolStepLimit,
   resolveToolTimeoutMs,
   runToolLoop,
   toolInstructions,
   toolSchemasFor,
   toolsFor,
+  type CapabilityToolConstraints,
   type ToolCallRecord,
   type ToolLoopIncomplete,
 } from "@/modules/supervisor/tools";
@@ -116,9 +118,19 @@ export function desktopStatusTool(readPresence: () => DesktopPresence): KernTool
 /**
  * 对话侧工具表：toolsFor 组装后按 risk:"read" 过滤，再加本机状态只读工具。
  * 写/审批/提问类工具在此被挡在候选之外，模型连名字都看不到。
+ *
+ * C4：再按本轮能力解析的工具约束（requiredTools/forbiddenTools 并集）过滤 ——
+ * 约束只进提示词的时代结束了，执行侧的候选表同样受约束。
  */
-export function conversationReadTools(ctx: ToolContext, readPresence: () => DesktopPresence): KernTool[] {
-  return [...toolsFor(ctx), desktopStatusTool(readPresence)].filter((tool) => tool.risk === "read");
+export function conversationReadTools(
+  ctx: ToolContext,
+  readPresence: () => DesktopPresence,
+  constraints: CapabilityToolConstraints = {}
+): KernTool[] {
+  return filterToolsByConstraints(
+    [...toolsFor(ctx), desktopStatusTool(readPresence)],
+    constraints
+  ).filter((tool) => tool.risk === "read");
 }
 
 export interface ConversationToolLoopInput {
@@ -142,6 +154,11 @@ export interface ConversationToolLoopInput {
   >;
   /** 测试缝：替换本机状态读取（默认读 desktop-runtime presence 注册表）。 */
   desktopPresenceReader?: () => DesktopPresence;
+  /**
+   * C4：本轮能力解析交过来的工具约束（requiredTools / forbiddenTools 并集，
+   * 见 `CapabilityResolution`）。不传 = 不约束，行为与以前一致。
+   */
+  toolConstraints?: CapabilityToolConstraints;
 }
 
 export interface ConversationToolLoopResult {
@@ -183,7 +200,9 @@ export async function runConversationToolLoop(
   const readPresence =
     input.desktopPresenceReader ??
     (() => readDesktopPresence({ organizationId: session.organizationId, userId: session.userId }));
-  const tools = conversationReadTools(toolCtx, readPresence);
+  // C4：能力包的工具约束进执行侧 —— 声明了 required/forbidden 的包，
+  // 模型实际能用的候选表就被约束住，不只是提示词里写一行字。
+  const tools = conversationReadTools(toolCtx, readPresence, input.toolConstraints ?? {});
   const budget = conversationToolBudget();
 
   // 工具说明追加进既有 system 消息（人设/输出契约在前，工具用法在后）；没有 system 时补一条。

@@ -13,11 +13,14 @@ import { getWebSearch } from "@/modules/supervisor/web-search";
 import { getWebCrawl } from "@/modules/supervisor/web-crawl";
 import { buildCapabilityDirectory } from "./directory";
 import { loadCapabilitySkills } from "./skill-registry";
+import { loadCapabilitySkillsStrict } from "./skill-validation";
 
 export async function loadCapabilityDirectory(session: SessionContext): Promise<CapabilityDirectory> {
   const webSearchConfigured = getWebSearch() !== null;
   const crawlConfigured = getWebCrawl() !== null;
-  const skillPacks = loadCapabilitySkills();
+  // C4：能力目录是能力包进应用的加载入口，这里用严格加载 ——
+  // 声明了工具表里没有的工具名的包当场抛错，不漏到运行时。
+  const skillPacks = loadCapabilitySkillsStrict();
   const [connectors, playbooks, knowledge] = await Promise.all([
     listConnectors(session),
     listPlaybooks(session),

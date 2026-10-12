@@ -289,16 +289,80 @@ const webCrawlTool: KernTool = {
   },
 };
 
-/** 按上下文里实际可用的能力组装工具表。 */
-export function toolsFor(ctx: ToolContext): KernTool[] {
-  return [
-    knowledgeSearch,
-    calculate,
-    ...(ctx.webSearch ? [webSearchTool] : []),
-    ...(ctx.webFetch ? [webFetchTool] : []),
-    ...(ctx.webCrawl ? [webCrawlTool] : []),
-    ...(ctx.askUser ? [makeAskUserTool()] : []),
-  ];
+/**
+ * C4 能力约束执行化：能力包声明的工具约束（resolver 把选中包的 requiredTools /
+ * forbiddenTools 并集交过来，见 `CapabilityToolConstraints`）。
+ *
+ * - `forbiddenTools` 非空 → 这些工具直接从候选里拿掉；
+ * - `requiredTools` 非空 → 只保留声明过的工具（允许名单语义）；
+ * - 两者都空 → 不过滤，行为与以前完全一致；
+ * - 同名同时出现在两边 → 禁止优先（forbidden 胜出）。
+ *
+ * 结构上与 `CapabilityResolution` 的 requiredTools / forbiddenTools 字段兼容，
+ * 调用方可以直接把 resolution 传进来。
+ */
+export interface CapabilityToolConstraints {
+  requiredTools?: readonly string[];
+  forbiddenTools?: readonly string[];
+}
+
+function normalizeToolName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+/** 纯函数：按能力包约束过滤工具候选（不碰 ctx 组装逻辑）。 */
+export function filterToolsByConstraints(
+  tools: readonly KernTool[],
+  constraints: CapabilityToolConstraints = {}
+): KernTool[] {
+  const forbidden = new Set(
+    (constraints.forbiddenTools ?? []).map(normalizeToolName).filter(Boolean)
+  );
+  const required = new Set(
+    (constraints.requiredTools ?? []).map(normalizeToolName).filter(Boolean)
+  );
+  return tools.filter((tool) => {
+    const name = normalizeToolName(tool.name);
+    if (forbidden.has(name)) return false;
+    if (required.size > 0 && !required.has(name)) return false;
+    return true;
+  });
+}
+
+/** 按上下文里实际可用的能力组装工具表，再按能力包约束过滤。 */
+export function toolsFor(ctx: ToolContext, constraints: CapabilityToolConstraints = {}): KernTool[] {
+  return filterToolsByConstraints(
+    [
+      knowledgeSearch,
+      calculate,
+      ...(ctx.webSearch ? [webSearchTool] : []),
+      ...(ctx.webFetch ? [webFetchTool] : []),
+      ...(ctx.webCrawl ? [webCrawlTool] : []),
+      ...(ctx.askUser ? [makeAskUserTool()] : []),
+    ],
+    constraints
+  );
+}
+
+/**
+ * C4：执行侧真实可用的**全量**工具名表（内置 + 网页 + ask_user）。
+ *
+ * 从 `toolsFor` 自身推导出来，不手写——手写表会漂移（scripts/capability-audit.ts
+ * 的 BUILTIN_TOOL_NAMES 就是前车之鉴，那边由测试另行兜底）。能力包加载期的
+ * 工具名校验以这张表为准。
+ */
+export function allToolNames(): string[] {
+  const names = new Set(
+    toolsFor({
+      organizationId: "",
+      searchKnowledge: async () => [],
+      webSearch: async () => [],
+      webFetch: async () => ({ url: "", title: null, text: "", truncated: false }),
+      webCrawl: async () => [],
+      askUser: async () => ({ mode: "ignore" as const }),
+    }).map((tool) => tool.name)
+  );
+  return [...names];
 }
 
 /** 每个节点最多问一次，避免模型把用户当搜索引擎。 */
