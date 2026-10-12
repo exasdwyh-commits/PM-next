@@ -689,6 +689,9 @@ export default function KernClient({ model }: { model: StudioModel }) {
     if (text && !sendingRef.current && !decisionBusy) void send(text);
   }, [send, decisionBusy]);
 
+  // 编辑用户消息后重发：对话是追加式的，这里按编辑后的内容再发一条新消息。
+  const editResend = useCallback((text: string) => { void send(text); }, [send]);
+
   const resolve = useCallback(
     async (decision: Decision, choice: Decision["options"][number], givenReason?: string) => {
       if (decisionBusy) return;
@@ -1008,6 +1011,12 @@ export default function KernClient({ model }: { model: StudioModel }) {
                     employees={employees}
                     onOpenSource={openSource}
                     onRetry={message.state === "error" ? retryFailed : undefined}
+                    onResend={
+                      message.author === "user" && message.state === "success" && !message.id.startsWith("local-")
+                        ? editResend
+                        : undefined
+                    }
+                    busy={hostBusy}
                   />
                 ))}
                 {conversationDecisions.map((decision) => (

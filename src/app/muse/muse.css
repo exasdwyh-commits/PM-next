@@ -268,6 +268,33 @@
 .m-block-in { display: block; animation: m-block-in var(--m-d-base) var(--m-ease-out) both; }
 @keyframes m-block-in { from { opacity: 0; transform: translateY(6px); } }
 .m-turn-retry { margin-top: 8px; }
+
+/* 每条消息的操作（复制 / 编辑）：默认安静，指针悬停或键盘聚焦时才出现。 */
+.m-msg-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 2px; }
+.m-msg-actions .m-btn { min-height: 30px; padding: 0 10px; font-size: var(--m-t-xs); }
+.m-msg-action {
+  min-height: 30px; padding: 0 10px; border: 1px solid transparent; border-radius: 999px;
+  background: transparent; color: var(--m-ink-4); font: inherit; font-size: var(--m-t-xs); font-weight: 560; cursor: pointer;
+  transition: color .16s ease, border-color .16s ease, background .16s ease;
+}
+.m-msg-action:hover { color: var(--m-ink); border-color: var(--m-hairline); background: var(--m-surface); }
+.m-msg-action[aria-pressed="true"] { color: var(--m-accent-ink); border-color: var(--m-accent-line); background: var(--m-accent-wash); }
+
+@media (hover: hover) and (pointer: fine) {
+  .m-msg-actions { opacity: 0; transition: opacity .18s ease; }
+  .m-turn:hover .m-msg-actions, .m-msg-actions:focus-within { opacity: 1; }
+}
+
+/* 用户消息的内联编辑 */
+.m-edit { display: grid; gap: 8px; width: min(100%, 720px); justify-self: end; }
+.m-edit-input {
+  width: 100%; min-height: 64px; padding: 10px 14px; border-radius: 16px;
+  border: 1px solid var(--m-accent-line); background: var(--m-surface); color: var(--m-ink);
+  font: inherit; font-size: var(--m-t-body); line-height: 1.6; resize: vertical;
+}
+.m-edit-input:focus-visible { outline: 2px solid var(--m-accent-line); outline-offset: 1px; }
+.m-edit-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.m-edit-hint { color: var(--m-ink-4); font-size: var(--m-t-xs); }
 @keyframes m-sweep { to { transform: translateX(100%); } }
 .m-orb { width: 20px; height: 20px; flex: 0 0 auto; border-radius: 50%; background: var(--m-grad); animation: m-breathe 2.4s ease-in-out infinite; }
 @keyframes m-breathe { 0%,100% { transform: scale(.82); opacity: .75; } 50% { transform: scale(1); opacity: 1; } }

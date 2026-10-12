@@ -4,14 +4,18 @@ import type { Decision, Employee, EvidenceRef, Message, MessageBlock, PlanStep }
 import { fmtDate, fmtTime } from "@/shared/datetime";
 import { KernGraphCard } from "./graph";
 import { MissionCard } from "./mission";
-import { ReportCard } from "../rich/report-card";
 import { BriefCard } from "./brief";
 import { MissionConclusion } from "./mission-conclusion";
 import { RichText } from "../rich/rich-text";
+import { ReportCard } from "../rich/report-card";
+import { CopyBtn } from "./controls";
 import { useKernHost } from "../rich/reader-context";
 import { Btn, Card, CardHead, CONF, I, Node, StateTag, Tag, TONE } from "./kit";
 import { HoldToConfirm } from "@/components/motion/hold-to-confirm";
 import { useEnterOnce } from "@/components/motion/react";
+import { describeMarkers } from "@/modules/artifacts/protocol";
+import { richTextToMarkdown } from "@/modules/artifacts/rich-blocks";
+import { executiveReportPath } from "@/shared/executive-report-citation";
 import { useEffect, useRef, useState } from "react";
 
 export function Plan({ steps, employees }: { steps: PlanStep[]; employees: Employee[] }) {
@@ -153,14 +157,15 @@ function Block({ b, employees, onOpenSource, missionAttached = false, messageId 
     case "text":
       // Plain replies render as Prose (RichText falls through); kern-ui blocks and artifacts get rich renderers.
       return <RichText text={b.text} artifacts={b.artifacts ?? []} messageId={messageId} />;
+    case "report":
+      // 产品研发 Executive Report：对话里只给方块缩略图 + headline，点开才进排版完整的报告页。
+      return <ReportCard citation={b.citation} />;
     case "conclusion":
       return <ConclusionBlock missionId={b.ref} text={b.text} />;
     case "graph":
       return <KernGraphCard graph={b.graph} />;
     case "mission":
       return <MissionCard missionId={b.ref} />;
-    case "report":
-      return <ReportCard citation={b.citation} />;
     case "brief":
       return <BriefCard messageId={b.ref} missionAttached={missionAttached} />;
     case "plan":
@@ -244,14 +249,121 @@ export function friendlyTime(iso: string): string {
   return `${Number(month)}月${Number(date)}日 ${hm}`;
 }
 
-export function Turn({ m, employees, onOpenSource, onRetry, enter = false }: { m: Message; employees: Employee[]; onOpenSource: (r: EvidenceRef) => void; onRetry?: () => void; enter?: boolean }) {
+/** 复制用的纯文本：把消息里的结构化块还原成 Markdown / 链接，不带任何渲染细节。 */
+function messageMarkdown(m: Message): string {
+  const parts: string[] = [];
+  for (const b of m.blocks) {
+    if (b.kind === "text") {
+      const text = b.artifacts?.length
+        ? richTextToMarkdown(b.text, (id, v) => describeMarkers(`[[kern-artifact:${id}@${v}]]`, b.artifacts ?? []))
+        : b.text;
+      if (text.trim()) parts.push(text.trim());
+    } else if (b.kind === "conclusion") {
+      if (b.text.trim()) parts.push(b.text.trim());
+    } else if (b.kind === "report") {
+      const origin = typeof window === "undefined" ? "" : window.location.origin;
+      parts.push(`${b.citation.title}\n${origin}${executiveReportPath(b.citation.ref)}`);
+    }
+  }
+  return parts.join("\n\n").trim();
+}
+
+/** 每条消息的通用操作：复制；用户消息额外可编辑后重发。 */
+function MessageActions({ text, onEdit, editing }: { text: string; onEdit?: () => void; editing?: boolean }) {
+  if (!text && !onEdit) return null;
+  return (
+    <div className="m-msg-actions">
+      {text ? (
+        <CopyBtn text={text} v="ghost" title="复制这条消息">
+          复制
+        </CopyBtn>
+      ) : null}
+      {onEdit ? (
+        <button type="button" className="m-msg-action" aria-pressed={editing || undefined} onClick={onEdit}>
+          {editing ? "取消编辑" : "编辑"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/** 用户消息的内联编辑：保存后按编辑后的内容重新发一轮（对话本身是追加式的）。 */
+function UserEditor({ text, busy, onCancel, onResend }: { text: string; busy: boolean; onCancel: () => void; onResend: (next: string) => void }) {
+  const [value, setValue] = useState(text);
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const ta = taRef.current;
+    if (!ta) return;
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+  }, []);
+  const submit = () => {
+    const next = value.trim();
+    if (!next || next === text.trim()) {
+      onCancel();
+      return;
+    }
+    onResend(next);
+  };
+  return (
+    <div className="m-edit">
+      <textarea
+        ref={taRef}
+        className="m-edit-input"
+        value={value}
+        rows={Math.min(10, Math.max(2, Math.ceil(value.length / 40)))}
+        aria-label="编辑这条消息"
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            onCancel();
+          } else if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+            e.preventDefault();
+            submit();
+          }
+        }}
+      />
+      <div className="m-edit-actions">
+        <Btn v="primary" size="sm" disabled={busy || !value.trim()} onClick={submit}>
+          重新发送
+        </Btn>
+        <Btn v="ghost" size="sm" onClick={onCancel}>
+          取消
+        </Btn>
+        <span className="m-edit-hint">对话按时间追加：保存后会以编辑后的内容发出新的一条（⌘/Ctrl + Enter）</span>
+      </div>
+    </div>
+  );
+}
+
+export function Turn({ m, employees, onOpenSource, onRetry, onResend, busy = false, enter = false }: { m: Message; employees: Employee[]; onOpenSource: (r: EvidenceRef) => void; onRetry?: () => void; onResend?: (text: string) => void; busy?: boolean; enter?: boolean }) {
   const ref = useRef<HTMLElement>(null);
+  const [editing, setEditing] = useState(false);
   // 新消息整条轻微上移淡入一次；历史消息、轮询刷新不重播。
   useEnterOnce(ref, enter);
+  const copyText = messageMarkdown(m);
+
   if (m.author === "user") {
+    const plain = m.blocks.flatMap((b) => (b.kind === "text" ? [b.text] : [])).join("\n");
     return (
       <article ref={ref} className="m-turn" data-who="me">
-        {m.blocks.map((b, i) => <p key={i} className="m-said">{b.kind === "text" ? b.text : ""}</p>)}
+        {editing ? (
+          <UserEditor
+            text={plain}
+            busy={busy}
+            onCancel={() => setEditing(false)}
+            onResend={(next) => {
+              setEditing(false);
+              onResend?.(next);
+            }}
+          />
+        ) : (
+          <>
+            {m.blocks.map((b, i) => <p key={i} className="m-said">{b.kind === "text" ? b.text : ""}</p>)}
+            <MessageActions text={copyText} onEdit={onResend ? () => setEditing(true) : undefined} editing={false} />
+          </>
+        )}
       </article>
     );
   }
@@ -275,6 +387,7 @@ export function Turn({ m, employees, onOpenSource, onRetry, enter = false }: { m
       {m.state === "error" && onRetry ? (
         <div className="m-turn-retry"><Btn size="sm" v="ghost" onClick={onRetry}>重试</Btn></div>
       ) : null}
+      <MessageActions text={copyText} />
     </article>
   );
 }

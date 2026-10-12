@@ -44,6 +44,8 @@ interface ProductRndTaskRow {
 interface ProductRndStatusResponse {
   workItem: { id: string; status: string; inputRevision: number };
   parentTaskId: string | null;
+  /** 当前有效的 QA attempt（服务端按「最新且未被 fencing 作废」判定）。 */
+  currentQaTaskId: string | null;
   autoAdvance?: {
     attempts: number;
     maxAttempts: number;
@@ -65,6 +67,19 @@ interface ProductRndStatusResponse {
 }
 
 type StageState = "done" | "current" | "blocked" | "pending";
+
+/**
+ * 独立 QA 可下的复核结论。与 `modules/product-rnd/qa-signoff.ts` 的
+ * `ProductRndQaVerdict` 一一对应 —— 这里重复一份字面量而不是 import，
+ * 是因为该模块会连带加载 prisma / 服务端依赖，客户端组件不得引入。
+ */
+type QaVerdict = "SUCCEEDED" | "FAILED" | "BLOCKED";
+
+const QA_VERDICT_OPTIONS: Array<{ value: QaVerdict; label: string }> = [
+  { value: "SUCCEEDED", label: "通过 —— 证据与结论可支撑，允许合成管理报告" },
+  { value: "FAILED", label: "不通过 —— 需要退回专业研究返工" },
+  { value: "BLOCKED", label: "证据不足，暂缓 —— 不合成报告" },
+];
 
 function taskState(status?: string | null): StageState {
   if (DONE_STATUSES.has(status || "")) return "done";
@@ -107,6 +122,10 @@ export function ProductRndPanelOriginal({
   const [busy, setBusy] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [started, setStarted] = React.useState(false);
+  // 独立 QA 人工复核签字表单
+  const [qaVerdict, setQaVerdict] = React.useState<QaVerdict>("SUCCEEDED");
+  const [qaSummary, setQaSummary] = React.useState("");
+  const [qaReason, setQaReason] = React.useState("");
 
   const headers = React.useMemo(
     () => identityHeaders(mockAuth, activeUserId),
@@ -137,7 +156,7 @@ export function ProductRndPanelOriginal({
   }, [load]);
 
   const call = React.useCallback(
-    async (body: Record<string, unknown>, successText: string) => {
+    async (body: Record<string, unknown>, successText: string): Promise<boolean> => {
       setBusy(true);
       try {
         const res = await fetch(`/api/projects/${projectId}/product-rnd`, {
@@ -157,11 +176,13 @@ export function ProductRndPanelOriginal({
         await load();
         await onChanged?.();
         onNotice?.(successText, "ok");
+        return true;
       } catch (error) {
         onNotice?.(
           error instanceof Error ? error.message : "请求失败",
           "error"
         );
+        return false;
       } finally {
         setBusy(false);
       }
@@ -179,7 +200,11 @@ export function ProductRndPanelOriginal({
   const notStarted = started === false && !parentTaskId && tasks.length === 0;
 
   const specialistTasks = tasks.filter((task) => task.agentCode !== "qa_verifier");
-  const qaTask = tasks.find((task) => task.agentCode === "qa_verifier") ?? null;
+  // 必须认服务端给的「当前有效 attempt」：历史终结过的 QA 也在这个列表里，
+  // 直接 find 会拿到最早那条（实测旧 BLOCKED 排在新的前面），
+  // 于是签字入口该出现时不出现、状态说明也说的是上一轮。
+  const qaTask =
+    tasks.find((task) => task.id === status?.currentQaTaskId) ?? null;
   const completedSpecialists = specialistTasks.filter((task) =>
     DONE_STATUSES.has(task.status)
   ).length;
@@ -268,9 +293,12 @@ export function ProductRndPanelOriginal({
             <Button
               disabled={busy || !canOperate || !brief.trim()}
               onClick={() =>
-                void call({ action: "START", brief: brief.trim() }, "AI 产品研发已启动").then(
-                  () => setStarted(true)
-                )
+                void call(
+                  { action: "START", brief: brief.trim() },
+                  "AI 产品研发已启动"
+                ).then((ok) => {
+                  if (ok) setStarted(true);
+                })
               }
             >
               启动完整研发
@@ -299,6 +327,105 @@ export function ProductRndPanelOriginal({
               </div>
             ))}
           </div>
+
+          {qaTask && qaTask.status === "QUEUED" && parentTaskId ? (
+            <section className="hermes-rnd-qa" aria-label="独立 QA 人工复核签字">
+              <div className="hermes-rnd-qa-head">
+                <div>
+                  <span className="eyebrow">独立 QA</span>
+                  <strong>本轮研发在等你下复核结论</strong>
+                </div>
+                <Badge tone="warn">待人工签字</Badge>
+              </div>
+              <p className="hermes-row-meta" style={{ margin: 0 }}>
+                独立 QA <strong>不会由后台 Worker 自动执行</strong> —— 这是设计如此：
+                签字方要与执行研究的数字员工是两条身份，所以流程会一直停在这里等你。
+                只有项目负责人 / 决策人可以签；<strong>选「通过」才会合成管理报告</strong>。
+              </p>
+              <div className="hermes-rnd-qa-form">
+                <label>
+                  <span>复核结论</span>
+                  <select
+                    className="hermes-select"
+                    value={qaVerdict}
+                    disabled={busy || !canOperate}
+                    onChange={(event) =>
+                      setQaVerdict(event.target.value as QaVerdict)
+                    }
+                  >
+                    {QA_VERDICT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>复核说明（必填）</span>
+                  <textarea
+                    className="hermes-textarea"
+                    rows={3}
+                    value={qaSummary}
+                    disabled={busy || !canOperate}
+                    onChange={(event) => setQaSummary(event.target.value)}
+                    placeholder="写清楚你核对了哪些证据、哪些 UNKNOWN 仍敞开、判断依据是什么。空说明会被拒绝。"
+                  />
+                </label>
+                {qaVerdict !== "SUCCEEDED" ? (
+                  <label className="is-wide">
+                    <span>原因（可留空）</span>
+                    <input
+                      className="hermes-input"
+                      value={qaReason}
+                      disabled={busy || !canOperate}
+                      onChange={(event) => setQaReason(event.target.value)}
+                      placeholder="例如：配方路线缺少实测留存率，无法判断可支撑宣称。"
+                    />
+                  </label>
+                ) : null}
+                <div className="hermes-rnd-qa-actions">
+                  <Button
+                    disabled={busy || !canOperate || !qaSummary.trim()}
+                    onClick={() => {
+                      void call(
+                        {
+                          action: "SIGN_QA",
+                          parentTaskId,
+                          verdict: qaVerdict,
+                          resultSummary: qaSummary.trim(),
+                          reason: qaReason.trim() || null,
+                        },
+                        "独立 QA 复核结论已提交"
+                      ).then((ok) => {
+                        if (!ok) return;
+                        setQaSummary("");
+                        setQaReason("");
+                        setQaVerdict("SUCCEEDED");
+                      });
+                    }}
+                  >
+                    提交复核结论
+                  </Button>
+                  {!canOperate ? (
+                    <span className="hermes-row-meta">
+                      只有项目负责人 / 决策人可以签字。
+                    </span>
+                  ) : (
+                    <span className="hermes-row-meta">
+                      签字会写入审计记录，并留在这里供追溯。
+                    </span>
+                  )}
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          {qaTask && (qaTask.status === "FAILED" || qaTask.status === "BLOCKED") ? (
+            <div className="hermes-banner is-warn">
+              本轮独立 QA 的结论是「{labelAgentTaskStatus(qaTask.status)}」，报告不会合成。
+              处理完上面的原因后，点右上角「刷新研发状态」会重新排队一次 QA（生成新的 attempt）。
+            </div>
+          ) : null}
 
           {status?.autoAdvance ? (
             <div

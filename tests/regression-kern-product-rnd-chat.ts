@@ -6,6 +6,11 @@ import { assertTestDatabaseSafety } from "./test-safety";
 import { bootstrapDefaultWorkforce } from "../src/modules/workforce/service";
 import { createDevelopmentProduct } from "../src/modules/products/service";
 import { createKernConversation, sendDepartmentAssistantMessage } from "../src/modules/assistant-runtime";
+import {
+  isExecutiveReportCitation,
+  readExecutiveReportStats,
+} from "../src/shared/executive-report-citation";
+import { getExecutiveReportView } from "../src/modules/product-rnd/report-view";
 
 async function main() {
   if (!process.env.TEST_DATABASE_URL) {
@@ -239,11 +244,61 @@ async function main() {
     );
     assert.match(reportReply.message.content, /AKK 渠道专项项目/);
     assert.match(reportReply.message.content, /当前方案可以继续验证，但法规边界与供应报价仍需补证/);
-    assert.match(reportReply.message.content, /目标人群与渠道方向具备继续验证价值/);
-    assert.match(reportReply.message.content, /供应商正式报价尚未锁定/);
-    assert.match(reportReply.message.content, /黑姜原料在目标市场的法规边界仍需确认/);
-    assert.match(reportReply.message.content, /是否按当前剂量方案进入下一轮样品验证/);
-    assert.match(reportReply.message.content, /补齐法规证据/);
+    // 交付形态：对话里只回 headline 数字 + 报告页链接 + 结构化引用，全文不贴进对话
+    // （见 src/shared/executive-report-citation.ts 顶部说明）。
+    assert.match(
+      reportReply.message.content,
+      /依据 1 条（已核实 1 条）· 风险 1 项 · UNKNOWN 1 项 · 待决策 1 项/
+    );
+    assert.match(
+      reportReply.message.content,
+      new RegExp(`/reports/${reportArtifact.id}`),
+      "对话必须给出指向这一份报告的站内链接"
+    );
+
+    // 结构化引用必须随消息落库：/muse 靠它渲出缩略图卡片，缺了卡片就出不来。
+    const reportReplyCitations: unknown[] = Array.isArray(reportReply.message.citations)
+      ? (reportReply.message.citations as unknown[])
+      : [];
+    const reportCitation = reportReplyCitations.find(isExecutiveReportCitation);
+    assert.ok(reportCitation, "对话必须带上 Executive Report 结构化引用");
+    assert.equal(reportCitation.ref, reportArtifact.id);
+    assert.equal(reportCitation.contentVersion, 1);
+    assert.equal(reportCitation.reviewStatus, "ACCEPTED");
+    assert.deepEqual(
+      readExecutiveReportStats(reportCitation),
+      { conclusions: 1, verified: 1, risks: 1, unknowns: 1, decisions: 1 },
+      "卡片数字必须来自真实载荷，不得凭空生成"
+    );
+
+    // 全文仍可从 Kern 直接读到 —— 走 /reports/[id] 与 /api/reports/[id] 共用的装配函数，
+    // 即「报告页上看得见的内容」与「测试断言的内容」是同一份数据。
+    const reportView = await getExecutiveReportView(session, reportArtifact.id);
+    assert.ok(reportView, "报告视图装配必须成功");
+    assert.equal(reportView.report.artifactId, reportArtifact.id);
+    assert.equal(reportView.reviewStatus, "ACCEPTED");
+    assert.ok(
+      (reportView.report.conclusions ?? []).some(
+        (item) => item.claim === "目标人群与渠道方向具备继续验证价值"
+      ),
+      "结论必须能在报告视图里读到"
+    );
+    assert.ok(
+      (reportView.report.risks ?? []).includes("供应商正式报价尚未锁定"),
+      "风险必须能在报告视图里读到"
+    );
+    assert.ok(
+      (reportView.report.unknowns ?? []).includes("黑姜原料在目标市场的法规边界仍需确认"),
+      "UNKNOWN 必须能在报告视图里读到"
+    );
+    assert.ok(
+      (reportView.report.decisionsRequired ?? []).includes("是否按当前剂量方案进入下一轮样品验证"),
+      "待决策必须能在报告视图里读到"
+    );
+    assert.ok(
+      (reportView.report.recommendedActions ?? []).includes("补齐法规证据"),
+      "建议动作必须能在报告视图里读到"
+    );
 
     const afterReportQueryItems = await prisma.workItem.count({
       where: { projectId: secondProject.id },
@@ -264,6 +319,9 @@ async function main() {
   } finally {
     await prisma.auditEvent.deleteMany({ where: { actorId: user.id } }).catch(() => {});
     await prisma.idempotencyRecord.deleteMany({ where: { actorId: user.id } }).catch(() => {});
+    // R1 会真实创建 ResearchRun，而它到 User 的外键没有级联删除：
+    // 不先清掉，删组织时会以 `ResearchRun_createdById_fkey` 违约告终，留下一堆孤儿夹具。
+    await prisma.researchRun.deleteMany({ where: { createdById: user.id } }).catch(() => {});
     await prisma.organization.delete({ where: { id: org.id } }).catch(() => {});
     await prisma.$disconnect();
   }

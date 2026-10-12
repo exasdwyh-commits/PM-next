@@ -1,6 +1,9 @@
 /**
- * 一次性脚本：重置三个 seed 账号密码为固定值，方便本机开发登录。
- * 用法：node scripts/reset-seed-passwords.mjs [newPassword]
+ * 一次性脚本：重置三个 seed 账号密码，方便本机开发登录。
+ * 用法：node scripts/reset-seed-passwords.mjs <newPassword>
+ *
+ * 安全：口令一律由调用方显式提供（argv 或 SEED_PASSWORD 环境变量），
+ * 仓库内不保留任何默认口令字面量。
  *
  * 注意：hash 含 `$`，绝不能经 shell 拼接传给 psql（会被当环境变量展开），
  * 必须通过 stdin 送入。
@@ -9,7 +12,13 @@ import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import { readFileSync } from "node:fs";
 
-const NEW_PASSWORD = process.argv[2] ?? "Hermes#2026";
+const NEW_PASSWORD = process.argv[2] ?? process.env.SEED_PASSWORD;
+if (!NEW_PASSWORD) {
+  console.error(
+    "缺少新口令：请执行 `node scripts/reset-seed-passwords.mjs <newPassword>`，或设置 SEED_PASSWORD 环境变量。"
+  );
+  process.exit(1);
+}
 
 const SCRYPT_N = 16384;
 const SCRYPT_R = 8;
