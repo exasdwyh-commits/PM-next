@@ -126,6 +126,7 @@
     "test:architecture": "node --import tsx --test tests/architecture-layers.test.ts tests/prompt-prefix.test.ts",
     "test:mission-story": "node --import tsx --test tests/mission-story.test.ts",
     "test:version-consistency": "tsx scripts/run-test.ts tests/review-version-consistency.ts",
+    "test:research-cost-guard": "tsx scripts/run-test.ts tests/regression-research-cost-guard.ts",
     "test:research-lineage": "node --import tsx --test tests/kern-research-lineage.test.ts",
     "test:metaso": "node --import tsx --test tests/kern-metaso.test.ts",
     "test:provider-attempt-quota": "tsx scripts/run-test.ts tests/regression-provider-attempt-quota.ts",

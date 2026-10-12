@@ -1,6 +1,10 @@
 /**
  * P0-D ModelRun 原子 cost guard + 最小 tracing
  * 每次 ModelRun 前原子 check-and-charge, 超额 fail closed
+ *
+ * 2026-10-12 加固：准入以 `UPDATE "Organization" ... WHERE used < quota` 的
+ * **受影响行数**为准 —— 并发下只有先拿到行锁的请求能命中，命中 0 行即拒绝；
+ * 拒绝时不写 UsageLedger、不占用配额。
  */
 
 import prisma from "@/shared/db";
@@ -20,6 +24,12 @@ export interface CostGuardInput {
    */
   policyKey?: string;
   policyVersion?: string;
+  /**
+   * UsageLedger 的事件类型。研究抓取（taskClass "research_fetch"）必须传
+   * "research_call"，否则账本里会记成 model_call —— 与账单页展示的
+   * 事件类型（research_call / desktop_action）对不上，事后也无法按类目对账。
+   */
+  eventType?: "model_call" | "research_call" | "desktop_action";
 }
 
 export interface CostGuardResult {
@@ -47,7 +57,7 @@ export async function checkAndCharge(input: CostGuardInput): Promise<CostGuardRe
     const used = (org as any)?.modelCallUsed ?? 0;
     const remaining = limit - used;
 
-    // 2. 原子检查 - 299/300 时仍需拦截
+    // 2. 快路径：读数上已经到上限就直接拒（真正的准入看第 3 步 UPDATE 的命中行数）
     if (remaining <= 0) {
       return {
         allowed: false,
@@ -60,15 +70,33 @@ export async function checkAndCharge(input: CostGuardInput): Promise<CostGuardRe
 
     // 3. 预留并消费 (reserve → consume)
     const reservationId = `res_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    
-    // 原子更新已使用
-    await tx.$executeRaw`
+
+    // 原子更新已使用 —— **受影响行数**才是准入判定。
+    // 并发下多个请求都会通过上面的快路径读到同一个旧值，但只有先拿到行锁的那个能命中
+    // WHERE；其后每个 UPDATE 命中 0 行。以前不看返回值，于是「已到上限」的请求照样
+    // 拿到 allowed: true（上限被冲破、账本也被多记）。命中 0 行 = 拒绝。
+    const charged = await tx.$executeRaw`
       UPDATE "Organization" 
       SET "modelCallUsed" = COALESCE("modelCallUsed", 0) + 1,
           "updatedAt" = NOW()
       WHERE id = ${input.organizationId}
       AND COALESCE("modelCallUsed", 0) < COALESCE("modelCallQuota", ${MONTHLY_LIMIT_DEFAULT})
     `;
+    if (charged === 0) {
+      const latest = await tx.organization.findUnique({
+        where: { id: input.organizationId },
+        select: { modelCallQuota: true, modelCallUsed: true },
+      });
+      const latestLimit = latest?.modelCallQuota ?? MONTHLY_LIMIT_DEFAULT;
+      const latestUsed = latest?.modelCallUsed ?? limit;
+      return {
+        allowed: false,
+        remaining: Math.max(0, latestLimit - latestUsed),
+        limit: latestLimit,
+        used: latestUsed,
+        reason: `月度模型调用已达上限 ${latestLimit} 次（并发下由数据库行锁最终裁定），本次被拒，需等待下月或申请扩容`,
+      };
+    }
 
     // 4. 记录 UsageLedger
     await tx.usageLedger.create({
@@ -77,7 +105,7 @@ export async function checkAndCharge(input: CostGuardInput): Promise<CostGuardRe
         missionId: input.missionId || null,
         agentId: input.agentId || null,
         taskClass: input.taskClass || null,
-        eventType: "model_call",
+        eventType: input.eventType ?? "model_call",
         modelProfileKey: input.modelProfileKey || null,
         estimatedTokens: input.estimatedTokens || null,
         cost: input.estimatedTokens ? input.estimatedTokens * TOKEN_COST_FACTOR : 1,
@@ -105,11 +133,17 @@ export async function checkAndCharge(input: CostGuardInput): Promise<CostGuardRe
       });
     }
 
+    // 扣减后的真实读数：并发下别用事务开始时的 used 做算术（会偏小）。
+    const after = await tx.organization.findUnique({
+      where: { id: input.organizationId },
+      select: { modelCallUsed: true },
+    });
+    const chargedUsed = after?.modelCallUsed ?? used + 1;
     return {
       allowed: true,
-      remaining: remaining - 1,
+      remaining: Math.max(0, limit - chargedUsed),
       limit,
-      used: used + 1,
+      used: chargedUsed,
       reservationId,
     };
   }, { maxWait: 10000, timeout: 15000 });
