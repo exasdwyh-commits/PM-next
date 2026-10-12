@@ -24,6 +24,12 @@ export interface CostGuardInput {
    */
   policyKey?: string;
   policyVersion?: string;
+  /**
+   * UsageLedger 的事件类型。研究抓取（taskClass "research_fetch"）必须传
+   * "research_call"，否则账本里会记成 model_call —— 与账单页展示的
+   * 事件类型（research_call / desktop_action）对不上，事后也无法按类目对账。
+   */
+  eventType?: "model_call" | "research_call" | "desktop_action";
 }
 
 export interface CostGuardResult {
@@ -99,7 +105,7 @@ export async function checkAndCharge(input: CostGuardInput): Promise<CostGuardRe
         missionId: input.missionId || null,
         agentId: input.agentId || null,
         taskClass: input.taskClass || null,
-        eventType: "model_call",
+        eventType: input.eventType ?? "model_call",
         modelProfileKey: input.modelProfileKey || null,
         estimatedTokens: input.estimatedTokens || null,
         cost: input.estimatedTokens ? input.estimatedTokens * TOKEN_COST_FACTOR : 1,
