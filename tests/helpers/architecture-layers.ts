@@ -73,6 +73,10 @@ export const UNIT_LAYERS: Record<string, LayerId> = {
   "modules/evaluation-harness": 3,
   // business-events 的 outbox 是通用的，但 dispatcher 把事件映射到 autopilot（领域编排），整体按领域层算
   "modules/business-events": 3,
+  // history-compression：对话/任务的历史上下文压缩（近期原文 + 远期滚动摘要）。
+  // 归 L3 而非 L2 是由依赖方向决定的：它只 import 模型网关/共享层（L5），
+  // 被 assistant-runtime / supervisor（L2）消费；L3 → L5 合规，L2 → L3 合规。
+  "modules/history-compression": 3,
   // L4 执行底座
   "modules/worker": 4,
   "modules/schedule": 4,

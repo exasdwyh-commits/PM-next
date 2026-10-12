@@ -18,6 +18,12 @@ import { extractMarkedClaims } from "./claims";
 import { buildNewProductConclusionContract, SPECIALIST_EVIDENCE_RULE } from "./report-contract";
 import { KERN_REPLY_FORMAT_PROMPT, normalizeReply } from "@/modules/assistant-runtime/reply-format";
 import { appendMissionEvents, type MissionEventInput } from "./events";
+import {
+  assembleCompressedHistory,
+  missionKeepRecentUpstream,
+  rollingSummaryCache,
+  summaryMaxChars,
+} from "@/modules/history-compression";
 import { chunkForReplay, demoDelayMs, demoOutput, DEMO_MODEL, DEMO_PROVIDER } from "./demo";
 import { abortableDelay } from "@/shared/abort";
 import { randomUUID } from "node:crypto";
@@ -326,8 +332,34 @@ export async function buildMissionNodeMessages(input: {
     .filter(Boolean)
     .join("\n\n");
 
-  const upstream = input.node.upstream.length
-    ? input.node.upstream
+  // C3：上游历史装配改为「近期原文 + 远期滚动摘要」。
+  // 摘要位未配置或调用失败时回退为全部原文（旧行为），不抛错。
+  const keepUpstream = missionKeepRecentUpstream();
+  const recentUpstreamNodes = input.node.upstream.slice(-keepUpstream);
+  const olderUpstreamNodes = input.node.upstream.slice(
+    0,
+    Math.max(0, input.node.upstream.length - keepUpstream)
+  );
+  let upstreamSummaryBlock: string | null = null;
+  if (olderUpstreamNodes.length) {
+    const olderTurns = olderUpstreamNodes.map((u) => ({
+      role: "assistant" as const,
+      content:
+        `【上游节点 ${u.key}（${u.agentCode}，${u.status}）】\n` +
+        (u.summary ?? (u.status === "SUCCEEDED" ? "(无摘要)" : "该部分未能完成 → 视为 UNKNOWN")),
+    }));
+    upstreamSummaryBlock = await assembleCompressedHistory({
+      turns: olderTurns,
+      keepRecentTurns: 0,
+      maxChars: summaryMaxChars(),
+      cacheKey: `mission:${input.node.missionTaskId}`,
+      cache: rollingSummaryCache,
+    })
+      .then((a) => a.summaryBlock)
+      .catch(() => null);
+  }
+  const upstream = [upstreamSummaryBlock, recentUpstreamNodes.length
+    ? recentUpstreamNodes
         .map(
           (u) =>
             `### ${u.key}（${u.agentCode}，${u.status}）\n${
@@ -335,7 +367,9 @@ export async function buildMissionNodeMessages(input: {
             }`
         )
         .join("\n\n")
-    : "（无上游产出）";
+    : ""]
+    .filter((s): s is string => !!s)
+    .join("\n\n") || "（无上游产出）";
 
   const user = [
     `## 用户总目标\n${input.node.missionGoal}`,
