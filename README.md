@@ -342,7 +342,7 @@ npm run test:sweep
 
 需要数据库的测试要求本机有 PostgreSQL，且 `TEST_DATABASE_URL` 指向独立测试库。
 
-> GitHub Actions 当前有 **11 条工作流**：10 条核心业务 / 质量工作流，加 1 条 Mobile Conditional Layout CI。最终交付 PR 会在**同一个 head**上跑齐 11 条。更广的历史 `test:*` 套件仍可用 `npm run test:sweep` 做本地全量扫描；没有进入 CI 的历史测试不自动等于生产能力已验收。
+> `.github/workflows/` 下有 **13 个工作流文件**，其中 **11 条**会在最终验收 head 上跑齐（下方矩阵）。另外 2 条是**窄路径触发**，只在改动了对应文件时才跑，因此不在必绿矩阵内：Mobile Conditional Layout CI（仅 `src/app/products/[id]/launch-tab.tsx`）与 Core UX CI（仅 `src/app/muse/**`）。更广的历史 `test:*` 套件仍可用 `npm run test:sweep` 做本地全量扫描；没有进入 CI 的历史测试不自动等于生产能力已验收。
 
 正式交付要求 GitHub 的同一最终验收 head 上以下矩阵同时为绿色：
 
@@ -356,7 +356,7 @@ npm run test:sweep
 - Golden Organization CI
 - Product R&D Delivery CI
 - Desktop CI
-- Mobile Conditional Layout CI
+- Kern Supervisor CI
 
 ## 当前边界
 
