@@ -119,9 +119,41 @@ export interface ModelPolicy {
   failurePolicy?: ModelFailurePolicy;
 }
 
+/**
+ * 原生 function calling 的工具 schema（OpenAI 兼容 `tools` 参数的 function 形式）。
+ * parameters 是输入对象的 JSON Schema；provider-neutral，不绑定任何厂商方言。
+ */
+export interface ModelToolSchema {
+  name: string;
+  description: string;
+  /** 输入对象的 JSON Schema。缺省结构时至少是 { type: "object" }。 */
+  parameters: Record<string, unknown>;
+}
+
+/** 对话历史里「assistant 发起的原生工具调用」的传输形态（arguments 按 OpenAI 契约是 JSON 字符串）。 */
+export interface ModelToolCallSpec {
+  id: string;
+  name: string;
+  /** JSON 编码的参数对象。 */
+  arguments: string;
+}
+
+/** provider 返回的一次原生工具调用（arguments 已解析为对象）。 */
+export interface ModelNativeToolCall {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+  /** model 返回的 arguments 不是合法 JSON 时出现；调用方应作为观察回喂而不是静默执行。 */
+  argumentError?: string;
+}
+
 export interface ModelGatewayMessage {
   role: "system" | "user" | "assistant" | "tool";
   content: string;
+  /** assistant 消息携带的原生工具调用（原生 function calling 历史回传）。 */
+  toolCalls?: ModelToolCallSpec[];
+  /** tool 消息：这条结果回答的是哪一次调用。 */
+  toolCallId?: string;
 }
 
 export interface ModelGatewayRequest {
@@ -133,6 +165,12 @@ export interface ModelGatewayRequest {
   cloudAllowed?: boolean;
   minimumContextWindow?: number;
   metadata?: Record<string, string | number | boolean | null>;
+  /**
+   * 原生 function calling 工具表（schema 形式）。
+   * 未提供时请求与过去完全一致（纯文本协议）；提供时 provider 走原生 tools 参数，
+   * 且路由要求候选模型具备 TOOLS 能力，否则由调用方决定回落（如文本协议）。
+   */
+  tools?: ModelToolSchema[];
 }
 
 export interface ModelUsage {
@@ -146,6 +184,11 @@ export interface ModelProviderResult {
   modelId?: string;
   usage?: ModelUsage | null;
   rawMetadata?: Record<string, unknown>;
+  /**
+   * 模型以原生 function calling 发起的工具调用。
+   * 纯文本回复时缺省；纯工具调用（content 为空）时 text 为 ""。
+   */
+  toolCalls?: ModelNativeToolCall[];
 }
 
 export interface ModelProviderPlugin {

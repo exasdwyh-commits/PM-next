@@ -3,6 +3,7 @@ import type {
   ModelProviderPlugin,
   ModelProviderResult,
   ModelGatewayRequest,
+  ModelNativeToolCall,
   ModelProfile,
 } from "./types";
 
@@ -178,6 +179,57 @@ function parseUsage(raw: unknown): ModelProviderResult["usage"] {
   return { inputTokens, outputTokens, totalTokens };
 }
 
+/** 把网关消息映射成 OpenAI 兼容 provider 的 messages 元素（无工具字段时与旧行为逐字节一致）。 */
+function toProviderMessages(request: ModelGatewayRequest): Record<string, unknown>[] {
+  return request.messages.map((m) => {
+    const msg: Record<string, unknown> = { role: m.role, content: m.content };
+    if (m.role === "tool" && m.toolCallId) msg.tool_call_id = m.toolCallId;
+    if (m.toolCalls?.length) {
+      msg.tool_calls = m.toolCalls.map((tc) => ({
+        id: tc.id,
+        type: "function",
+        function: { name: tc.name, arguments: tc.arguments },
+      }));
+    }
+    return msg;
+  });
+}
+
+/** 解析 provider 返回的 message.tool_calls（缺失/畸形都按“没有原生调用”处理，不抛）。 */
+function parseNativeToolCalls(raw: unknown): ModelNativeToolCall[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  const calls: ModelNativeToolCall[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const row = item as Record<string, unknown>;
+    const id = typeof row.id === "string" && row.id ? row.id : `call_${calls.length + 1}`;
+    const fn = row.function;
+    const name =
+      fn && typeof fn === "object" && !Array.isArray(fn) && typeof (fn as Record<string, unknown>).name === "string"
+        ? ((fn as Record<string, unknown>).name as string)
+        : "";
+    if (!name) continue;
+    const rawArgs =
+      fn && typeof fn === "object" && !Array.isArray(fn) ? (fn as Record<string, unknown>).arguments : undefined;
+    let args: Record<string, unknown> = {};
+    let argumentError: string | undefined;
+    if (typeof rawArgs === "string" && rawArgs.trim()) {
+      try {
+        const parsed: unknown = JSON.parse(rawArgs);
+        args = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+        if (parsed !== null && (typeof parsed !== "object" || Array.isArray(parsed))) argumentError = "arguments 不是 JSON 对象";
+      } catch {
+        argumentError = "arguments 不是合法 JSON";
+      }
+    } else if (rawArgs && typeof rawArgs === "object" && !Array.isArray(rawArgs)) {
+      // 少数兼容端点直接返回对象
+      args = rawArgs as Record<string, unknown>;
+    }
+    calls.push({ id, name, arguments: args, ...(argumentError ? { argumentError } : {}) });
+  }
+  return calls.length ? calls : undefined;
+}
+
 async function executeOpenAICompatible(
   runtime: OpenAICompatibleProviderRuntime,
   profile: ModelProfile,
@@ -192,6 +244,7 @@ async function executeOpenAICompatible(
   request.signal?.addEventListener("abort", abort, { once: true });
   const timer = setTimeout(() => controller.abort(), runtime.timeoutMs);
 
+  const hasTools = !!request.tools?.length;
   try {
     const response = await fetch(`${runtime.baseUrl}/chat/completions`, {
       method: "POST",
@@ -201,9 +254,18 @@ async function executeOpenAICompatible(
       },
       body: JSON.stringify({
         model: profile.modelId,
-        messages: request.messages,
+        messages: toProviderMessages(request),
         max_tokens: runtime.maxTokens,
         temperature: runtime.temperature,
+        ...(hasTools
+          ? {
+              tools: request.tools!.map((t) => ({
+                type: "function",
+                function: { name: t.name, description: t.description, parameters: t.parameters },
+              })),
+              tool_choice: "auto",
+            }
+          : {}),
       }),
       signal: controller.signal,
     });
@@ -228,14 +290,18 @@ async function executeOpenAICompatible(
       first && typeof first === "object" && !Array.isArray(first)
         ? (first as Record<string, unknown>).message
         : null;
-    const text =
+    const messageRow =
       message && typeof message === "object" && !Array.isArray(message)
-        ? (message as Record<string, unknown>).content
+        ? (message as Record<string, unknown>)
         : null;
+    const rawContent = messageRow?.content;
+    const text = typeof rawContent === "string" ? rawContent : "";
+    const toolCalls = parseNativeToolCalls(messageRow?.tool_calls);
 
-    if (typeof text !== "string" || !text.trim()) {
+    if (!text.trim() && !toolCalls) {
       throw new ModelProviderError(
         // 推理模型把 max_tokens 耗在思考上时 content 为空：属可重试/可 fallback，而非配置错误（KX-65）
+        // 原生工具调用（content 为空但带 tool_calls）是合法回复，不算空。
         "Provider response missing non-empty choices[0].message.content",
         "TRANSIENT"
       );
@@ -254,6 +320,7 @@ async function executeOpenAICompatible(
       rawMetadata: {
         runtimeSource: runtime.source,
       },
+      ...(toolCalls ? { toolCalls } : {}),
     };
   } catch (error: unknown) {
     request.signal?.throwIfAborted();

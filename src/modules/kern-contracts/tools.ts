@@ -59,4 +59,9 @@ export interface KernTool {
   /** read：只读，自动执行；ask：需要用户确认（写操作 / 花钱 / 对外发送）。 */
   risk: "read" | "ask";
   run: (input: Record<string, unknown>, ctx: ToolContext) => Promise<ToolResult>;
+  /**
+   * 输入参数的 JSON Schema（对象）。原生 function calling 直接用它构造 provider tools；
+   * 未声明时按 { type: "object" } 处理（接受任意参数，由工具自身校验并回喂错误）。
+   */
+  parameters?: Record<string, unknown>;
 }
