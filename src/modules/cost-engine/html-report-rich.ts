@@ -13,7 +13,7 @@ import { fmtDate } from "@/shared/datetime";
 import { generateAnimatedKpiHtml, generateProfitGaugeHtml, KPI_ANIMATIONS_CSS, KPI_JS } from "./visualizations/animated-kpi";
 import { generateWaterfallChartHtml, generateDonutChartHtml, generateBarRaceHtml, CHART_ANIMATIONS_CSS } from "./visualizations/charts";
 
-import { categoryMeta } from "@/modules/tenant";
+import { categoryMeta, categoryContent } from "@/modules/tenant";
 export interface RichHtmlReportInput {
   category: string;
   productName: string;
@@ -26,7 +26,7 @@ export interface RichHtmlReportInput {
 
 export function costResultToRichEnvelope(input: RichHtmlReportInput): ResponseEnvelope {
   const { category, productName, result, bomItems, supplierQuotes, complianceItems, role } = input;
-  const catInfo = categoryMeta(category, "regular_food", { tint: "report" });
+  const catInfo = categoryMeta(category, undefined, { tint: "report" });
   
   const blocks: Block[] = [];
 
@@ -159,7 +159,7 @@ export function costResultToRichEnvelope(input: RichHtmlReportInput): ResponseEn
 
 export function generateRichHtmlReport(input: RichHtmlReportInput): string {
   const { category, productName, result, bomItems, supplierQuotes, complianceItems, role } = input;
-  const catInfo = categoryMeta(category, "regular_food", { tint: "report" });
+  const catInfo = categoryMeta(category, undefined, { tint: "report" });
   
   const totalCost = result.breakdown.totalCost;
   const retail = totalCost * 2.5;
@@ -376,10 +376,7 @@ export function generateRichHtmlReport(input: RichHtmlReportInput): string {
       <div>
         <h2 style="font-size: 20px; font-weight: 800; margin: 0;">${catInfo.icon} ${productName}</h2>
         <p style="font-size: 12px; color: #4b5563; margin-top: 6px; max-width: 600px; line-height: 1.5;">
-          ${category === "health_food" ? "保健食品蓝帽子备案5万已摊，软糖剂型溢价高，功能卖点是关键，富可视化15组件+8动效" :
-            category === "cross_border_food" ? "跨境食品进口成本高但溢价强，关税12%+清关是关键，保税仓降低物流，富可视化动效" :
-            category === "cosmetics" ? "化妆品包材成本重，玻璃瓶5元是关键，备案3万+功效安全检测是卖点，富可视化" :
-            "普通食品成本可控，SC合规已完成，性价比是核心竞争力，富可视化动效"}
+          ${categoryContent(category).report?.headerNote ?? `${catInfo.name}成本结构分析`}
         </p>
       </div>
       <div style="background: white; border: 1px solid #e7e9ef; border-radius: 10px; padding: 8px 12px; font-size: 11px; font-weight: 600;">
@@ -435,7 +432,7 @@ export function generateRichHtmlReport(input: RichHtmlReportInput): string {
     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; position: relative; z-index: 1;">
       <div><small style="font-size: 10px; color: #9ca3af; letter-spacing: 0.5px;">推荐 · 动画</small><ul style="margin: 8px 0 0; padding-left: 16px; display: grid; gap: 6px; font-size: 12px; line-height: 1.5;"><li>总成本 ¥${totalCost.toFixed(2)}，富可视化15组件</li><li>${catInfo.name}核心卖点，Claude Artifact，Kern完美结合</li><li>BOM ${bomItems.length}种动画，供应商${supplierQuotes.length}家雷达</li></ul></div>
       <div><small style="font-size: 10px; color: #9ca3af;">反对理由 · 动画</small><ul style="margin: 8px 0 0; padding-left: 16px; display: grid; gap: 6px; font-size: 12px; line-height: 1.5; color: #d1d5db;"><li>原料占比${(result.breakdown.totalMaterial/totalCost*100).toFixed(0)}%，需关注</li><li>合规周期长，时间轴动画提示</li><li>渠道费用占比高，瀑布图展示</li></ul></div>
-      <div><small style="font-size: 10px; color: #9ca3af;">风险 · 脉冲</small><ul style="margin: 8px 0 0; padding-left: 16px; display: grid; gap: 6px; font-size: 12px; line-height: 1.5; color: #fca5a5;"><li>原料价格波动风险</li><li>${category === "cross_border_food" ? "关税政策" : category === "health_food" ? "蓝帽子审批" : category === "cosmetics" ? "备案政策" : "SC续期"}风险</li><li>竞品价格战风险</li></ul></div>
+      <div><small style="font-size: 10px; color: #9ca3af;">风险 · 脉冲</small><ul style="margin: 8px 0 0; padding-left: 16px; display: grid; gap: 6px; font-size: 12px; line-height: 1.5; color: #fca5a5;"><li>原料价格波动风险</li><li>${categoryContent(category).report?.riskNote ?? "市场价格"}风险</li><li>竞品价格战风险</li></ul></div>
     </div>
   </div>
 

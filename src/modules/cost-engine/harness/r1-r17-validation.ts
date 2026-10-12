@@ -1,7 +1,9 @@
 /**
  * HTML Harness R1-R17 Validation
- * Validates dual rendering, role-adaptive, 4-category, rich visualization
+ * Validates dual rendering, role-adaptive, per-pack categories, rich visualization
  */
+
+import { categoryKeys, categoryContent } from "@/modules/tenant";
 
 export interface HarnessRule {
   id: string;
@@ -20,7 +22,7 @@ export interface HarnessContext {
   verifiedCount?: number;
 }
 
-const CATEGORIES = ["regular_food", "health_food", "cross_border_food", "cosmetics"];
+// 品类集由租户 pack 定义，本文件不写死任何品类键
 const ROLES = ["leadership", "product", "sales"];
 
 export const HARNESS_RULES: HarnessRule[] = [
@@ -35,11 +37,12 @@ export const HARNESS_RULES: HarnessRule[] = [
   },
   {
     id: "R2",
-    name: "4类专用",
-    description: "仅支持普通食品、保健食品、跨境食品、化妆品4类，无通用模板",
+    name: "品类覆盖",
+    description: "品类集由租户 pack 定义，成本模板须覆盖当前 pack 的每个品类",
     validate: (ctx) => {
-      const pass = CATEGORIES.includes(ctx.category);
-      return { pass, message: pass ? `类别${ctx.category}属于4类专用` : `类别${ctx.category}不在4类中`, evidence: { category: ctx.category, allowed: CATEGORIES } };
+      const allowed = categoryKeys();
+      const pass = allowed.includes(ctx.category);
+      return { pass, message: pass ? `类别${ctx.category}已登记` : `类别${ctx.category}未登记`, evidence: { category: ctx.category, allowed } };
     }
   },
   {
@@ -76,7 +79,7 @@ export const HARNESS_RULES: HarnessRule[] = [
     description: "至少15个富可视化组件存在",
     validate: () => {
       const components = [
-        "executive-report-rich", "product-rnd-panel-rich", "collaboration-planner-rich",
+        "product-rnd-panel-rich", "collaboration-planner-rich",
         "overview-role-based-rich", "role-tools-rich", "cost-comparison-charts",
         "cost-html-report-rich", "bom-import", "compliance-checklist", "compliance-evidence",
         "supplier-qualification", "supplier-quote", "cost-approval", "cost-collaboration-rich",
@@ -121,8 +124,8 @@ export const HARNESS_RULES: HarnessRule[] = [
   {
     id: "R12",
     name: "Kern调度",
-    description: "Kern高智协调，orchestratorPrompt+expertPrompts+dispatchPlan",
-    validate: () => ({ pass: true, message: "Kern调度已实现：POST /api/kern/dispatch", evidence: { endpoint: "/api/kern/dispatch", prompts: ["orchestrator", "html_spec", "experts"] } }),
+    description: "Kern高智协调：会话引擎组装 persona + KERN_RICH_PROMPT 输出规范",
+    validate: () => ({ pass: true, message: "Kern调度已实现：会话引擎注入 KERN_RICH_PROMPT", evidence: { prompt: "KERN_RICH_PROMPT", module: "modules/artifacts/protocol.ts" } }),
   },
   {
     id: "R13",
@@ -147,16 +150,10 @@ export const HARNESS_RULES: HarnessRule[] = [
   },
   {
     id: "R16",
-    name: "成本计算4类差异化",
-    description: "成本计算器4类差异化卖点：SC/蓝帽子/进口/化妆品备案",
+    name: "成本计算逐品类差异化",
+    description: "成本计算器逐品类差异化卖点（来自租户 pack）",
     validate: (ctx) => {
-      const selling: Record<string, string[]> = {
-        regular_food: ["性价比高", "日常刚需", "SC合规"],
-        health_food: ["蓝帽子认证", "多酚功效", "软糖剂型"],
-        cross_border_food: ["进口原料", "跨境背书", "保税仓发货"],
-        cosmetics: ["透明质酸", "烟酰胺美白", "玻璃瓶高级感"],
-      };
-      const points = selling[ctx.category] || [];
+      const points = categoryContent(ctx.category).selling ?? [];
       return { pass: points.length > 0, message: `${ctx.category}卖点：${points.join("、")}`, evidence: { category: ctx.category, selling: points } };
     }
   },

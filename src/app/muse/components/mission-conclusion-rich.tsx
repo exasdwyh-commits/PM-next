@@ -8,14 +8,11 @@ import { ResponseRoleBased } from "../response/response-role-based";
 import { Prose } from "./prose";
 import { useConclusionDecisions } from "./conclusion-decisions";
 import { useRole } from "@/components/role-context";
-import { categoryMeta } from "@/modules/tenant";
+import { categoryMeta, classifyCategoryByText } from "@/modules/tenant";
 
+// 品类推断由 pack 的 classifyKeywords 驱动（无命中落 pack 兜底品类），内核不写死行业关键词。
 function getCategoryFromText(text: string): string {
-  const t = (text || "").toLowerCase();
-  if (t.includes("化妆") || t.includes("护肤") || t.includes("面膜")) return "cosmetics";
-  if (t.includes("跨境") || t.includes("进口") || t.includes("保税")) return "cross_border_food";
-  if (t.includes("保健") || t.includes("多酚") || t.includes("胶囊") || t.includes("软糖")) return "health_food";
-  return "regular_food";
+  return classifyCategoryByText(text);
 }
 
 type Loaded = { envelope: ResponseEnvelope; renderable: boolean };

@@ -6,10 +6,13 @@
  * 不连库也能跑——「权限在 provider 内部」由 provider 契约保证，路由不提供越权入口。
  */
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { after, test } from "node:test";
 import type { KnowledgeResultItem, KnowledgeRouteResult } from "@/modules/kern-contracts";
 import {
   MISSING_PROVIDER_NOTES,
+  ON_DEMAND_ONLY_SCOPES,
   hasKnowledgeProvider,
   listKnowledgeProviders,
   registerKnowledgeProvider,
@@ -18,6 +21,8 @@ import {
 } from "@/modules/knowledge/router";
 import { normalizeUri, synthesizeKnowledge } from "@/modules/knowledge/synthesis";
 import { bindKnowledgeToEvidence, knowledgeHash } from "@/modules/knowledge/evidence-bridge";
+import { sourceTitle } from "@/modules/knowledge/source-title";
+import { collectCandidates } from "@/modules/knowledge/search";
 import {
   DEFAULT_AUTHORITY_POLICY,
   authorityScore,
@@ -34,6 +39,11 @@ const session = {
   userEmail: "u1@example.com",
   userName: "U1",
 };
+
+/** 源码断言专用：读仓库文件（部分契约只能静态验证，如 SQL where 的形状）。 */
+function read(rel: string): string {
+  return fs.readFileSync(path.resolve(process.cwd(), rel), "utf8").replace(/\r/g, "");
+}
 
 function item(over: Partial<KnowledgeResultItem> & { ref: string }): KnowledgeResultItem {
   return {
@@ -262,10 +272,10 @@ test("freshness：越旧权重越低，新鲜度标签按时效窗口划分", ()
   assert.ok(recent > ancient, `新鮮度应随时间衰减：${recent} vs ${ancient}`);
   assert.equal(freshnessFactor(null, now, DEFAULT_AUTHORITY_POLICY), 0.6, "无时间戳给中性值");
 
-  assert.equal(freshnessLabel("2026-09-30T00:00:00.000Z", now), "RECENT"); // ≤30 天
-  assert.equal(freshnessLabel("2026-05-01T00:00:00.000Z", now), "CURRENT"); // ≤180 天
-  assert.equal(freshnessLabel("2026-03-01T00:00:00.000Z", now), "STALE"); // >180 天
-  assert.equal(freshnessLabel(null, now), "UNKNOWN");
+  assert.equal(freshnessLabel("2026-09-30T00:00:00.000Z", now), "近期"); // ≤30 天
+  assert.equal(freshnessLabel("2026-05-01T00:00:00.000Z", now), "半年内"); // ≤180 天
+  assert.equal(freshnessLabel("2026-03-01T00:00:00.000Z", now), "一年以上"); // >180 天
+  assert.equal(freshnessLabel(null, now), "时间未知");
 });
 
 test("权威：信任档映射复用 evidence 的分类，不另立一套；verified 有加成", () => {
@@ -343,6 +353,124 @@ test("绑定：没有可绑定的条目时不碰数据库，直接说明原因",
   const res = await bindKnowledgeToEvidence(session, { projectId: "p1", route: r, syn });
   if (res.bound) assert.fail("没有条目时必须返回 bound:false");
   assert.match(res.reason, /没有可绑定/);
+});
+
+// ---------------------------------------------------------------------------
+// 来源标题：切片器的 headingPath 里已含文档标题，拼接时不能重复
+// ---------------------------------------------------------------------------
+
+test("候选收集：宽泛词命中过千时，精确词的少量命中不会被挤出候选池", async () => {
+  // 复现 2026-10-12 的真实故障：查询 = 精确词「恒天」+ 宽泛词「配方」。
+  // 旧实现把整条 OR 一次性 `take(40)`（且无 orderBy）→ SQL 返回的任意 40 条几乎全是
+  // 宽泛词命中，精确词那几条被挤出候选池，后面打分再准也救不回来 ——
+  // 现象就是「库里明明有这篇笔记，检索却报告没命中」。
+  const generic = Array.from({ length: 1300 }, (_, i) => ({ id: `g${i}` }));
+  const precise = [{ id: "p1" }, { id: "p2" }, { id: "p3" }];
+  const fetched: string[] = [];
+
+  const pool = await collectCandidates(["配方", "恒天"], async (kw) => {
+    fetched.push(kw);
+    return kw === "恒天" ? precise : generic;
+  });
+
+  // 每个关键词单独查一次，不再合成一条会被 SQL 截断的 OR
+  assert.deepEqual(fetched, ["配方", "恒天"]);
+  const ids = new Set(pool.map((c) => c.id));
+  for (const p of precise) {
+    assert.ok(ids.has(p.id), `精确词命中 ${p.id} 必须在候选池里（这正是旧实现丢掉的）`);
+  }
+  // 候选池是并集，不做 SQL 层截断：1300 + 3
+  assert.equal(pool.length, 1303);
+});
+
+test("候选收集：同一 id 跨关键词命中只保留一次，顺序稳定", async () => {
+  const pool = await collectCandidates(["甲", "乙"], async (kw) =>
+    kw === "甲" ? [{ id: "x" }, { id: "shared" }] : [{ id: "shared" }, { id: "y" }]
+  );
+  assert.deepEqual(pool.map((c) => c.id), ["x", "shared", "y"]);
+});
+
+test("sourceTitle：headingPath 已含文档标题时不重复", () => {
+  assert.equal(
+    sourceTitle("汉和生物原料知识库", "汉和生物原料知识库 > 4.2.4 应用场景"),
+    "汉和生物原料知识库 > 4.2.4 应用场景"
+  );
+});
+
+test("sourceTitle：首个一级标题=文档标题时折叠重复段（MOC 场景）", () => {
+  assert.equal(
+    sourceTitle(
+      "Obsidian Vault 知识体系总览 (MOC)",
+      "Obsidian Vault 知识体系总览 (MOC) > Obsidian Vault 知识体系总览 (MOC) > 1.可用方法论速查(一图直达分域文件)"
+    ),
+    "Obsidian Vault 知识体系总览 (MOC) > 1.可用方法论速查(一图直达分域文件)"
+  );
+  assert.equal(sourceTitle("A", "A > B > B > C"), "A > B > C", "中段相邻重复也要折叠");
+});
+
+test("sourceTitle：路径不含文档标题则补在前；空路径只留文档标题", () => {
+  assert.equal(sourceTitle("文档A", "章节一 > 小节二"), "文档A > 章节一 > 小节二");
+  assert.equal(sourceTitle("文档A", ""), "文档A");
+  assert.equal(sourceTitle("文档A", null), "文档A");
+  assert.equal(sourceTitle(null, "章节一"), "章节一");
+  assert.equal(sourceTitle("", ""), "");
+});
+
+// ---------------------------------------------------------------------------
+// 知识源隔离（2026-10-12）：「指定文件夹」必须真的限定检索范围
+// ---------------------------------------------------------------------------
+
+test("路由：files 是仅按需域，默认不参与（仓库文档不再挤占 PM 检索）", async () => {
+  assert.ok(ON_DEMAND_ONLY_SCOPES.has("files"), "files 必须登记为仅按需域");
+
+  const r = await routeKnowledge(session, { query: "查一下" });
+  assert.equal(
+    r.requested.includes("files"),
+    false,
+    `默认域不应包含 files，实际：${r.requested.join("、")}`
+  );
+
+  // 但显式声明时仍然可用 —— 降权不等于删除。
+  const explicit = await routeKnowledge(session, { query: "查一下", scopes: ["files"] });
+  assert.deepEqual(explicit.requested, ["files"]);
+});
+
+test("检索：停用的知识源不参与召回（enabled 是总闸，此前只有自动同步读它）", () => {
+  const search = read("src/modules/knowledge/search.ts");
+  assert.match(
+    search,
+    /document:\s*\{\s*deletedAt:\s*null,\s*source:\s*sourceFilter\s*\}/,
+    "chunk 查询必须按 source 过滤，否则停用源照样出在回执里"
+  );
+  assert.match(search, /enabled:\s*true/, "sourceFilter 必须要求 source.enabled = true");
+  // 显式指定源时，enabled 与 id 一起生效，不能因为指定了就绕过总闸。
+  assert.match(
+    search,
+    /params\.sourceIds\?\.length[\s\S]{0,120}enabled:\s*true/,
+    "指定 sourceIds 时仍须叠加 enabled 过滤"
+  );
+});
+
+test("知识源启停：有 service 实现与 PATCH 路由，且鉴权到组织管理员", () => {
+  const service = read("src/modules/knowledge/service.ts");
+  assert.match(service, /export async function setKnowledgeSourceEnabled/);
+  // 跨组织必须按 not-found 处理，不能只凭 id 就改。
+  assert.match(
+    service,
+    /setKnowledgeSourceEnabled[\s\S]{0,600}source\.organizationId !== session\.organizationId[\s\S]{0,120}NotFoundError/,
+    "启停必须校验组织归属"
+  );
+
+  const route = read("src/app/api/knowledge/sources/[id]/route.ts");
+  assert.match(route, /export async function PATCH/);
+  assert.match(route, /assertOrgAdmin/, "启停属知识库配置面，必须组织管理员");
+
+  const matrix = read("tests/authz-matrix.ts");
+  assert.match(
+    matrix,
+    /path:\s*"\/api\/knowledge\/sources\/\{id\}"[\s\S]{0,200}method:\s*"PATCH"/,
+    "新路由必须在权限矩阵登记，否则 authz-route-coverage 守卫会红"
+  );
 });
 
 after(() => {

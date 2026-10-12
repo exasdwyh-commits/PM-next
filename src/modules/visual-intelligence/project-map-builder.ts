@@ -38,14 +38,6 @@ const AREAS: Area[] = [
     detail: "Explicit demo routes; source presence does not establish production use.",
   },
   {
-    id: "prompt-assets",
-    label: "Prompt Assets",
-    type: "PROMPT_ASSET",
-    layer: 4,
-    prefixes: ["src/modules/kern-prompts/"],
-    detail: "Prompt templates and expert descriptions; use is proven only by observed imports.",
-  },
-  {
     id: "chat-ui",
     label: "Kern Chat",
     type: "CHAT_UI",

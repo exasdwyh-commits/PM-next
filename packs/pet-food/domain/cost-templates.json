@@ -1,0 +1,103 @@
+{
+  "_note": "成本模板：每个品类的模块默认值（成本引擎专属数据）。显示名/图标/卖点由 categories + category-content 提供，此处不重复。默认数值为参考起点，可按实际生产经营调整。",
+  "defaultTemplateKey": "dry_food",
+  "templates": {
+    "dry_food": {
+      "description": "犬用主粮，肉粉/谷物/添加剂，走量为主",
+      "certificationToCompliance": false,
+      "modules": [
+        { "moduleId": "material", "enabled": true, "values": { "materialCost": 6, "lossRate": 2, "ingredientCount": 8 } },
+        { "moduleId": "formulation", "enabled": true, "values": { "formulationCost": 0.3, "servings": 1 } },
+        { "moduleId": "manufacturing", "enabled": true, "values": { "manufacturingCost": 1.5, "batchSize": 5000 } },
+        { "moduleId": "packaging", "enabled": true, "values": { "packagingCost": 1.2, "innerPackagingCost": 0.4 } },
+        { "moduleId": "certification", "enabled": true, "values": { "certificationCost": 0.2, "testCount": 2 } },
+        { "moduleId": "logistics", "enabled": true, "values": { "freightBase": 6, "storageCost": 0.2, "expressType": "STANDARD" } },
+        { "moduleId": "channel", "enabled": true, "values": { "platformFeeRate": 2, "commissionRate": 18, "marketingRate": 8, "returnRate": 3, "retailPrice": 89 } },
+        { "moduleId": "overhead", "enabled": true, "values": { "monthlyFixed": 5000, "monthlySales": 3000 } }
+      ],
+      "defaults": { "channel": "XINXUAN", "expressType": "STANDARD", "invoiceType": "达人开票" }
+    },
+    "cat_food": {
+      "description": "猫用主粮，高蛋白配方，适口性要求高",
+      "certificationToCompliance": false,
+      "modules": [
+        { "moduleId": "material", "enabled": true, "values": { "materialCost": 8, "lossRate": 2, "ingredientCount": 7 } },
+        { "moduleId": "formulation", "enabled": true, "values": { "formulationCost": 0.4, "servings": 1 } },
+        { "moduleId": "manufacturing", "enabled": true, "values": { "manufacturingCost": 1.8, "batchSize": 4000 } },
+        { "moduleId": "packaging", "enabled": true, "values": { "packagingCost": 1.4, "innerPackagingCost": 0.4 } },
+        { "moduleId": "certification", "enabled": true, "values": { "certificationCost": 0.25, "testCount": 3 } },
+        { "moduleId": "logistics", "enabled": true, "values": { "freightBase": 6, "storageCost": 0.2, "expressType": "STANDARD" } },
+        { "moduleId": "channel", "enabled": true, "values": { "platformFeeRate": 2, "commissionRate": 20, "marketingRate": 9, "returnRate": 4, "retailPrice": 119 } },
+        { "moduleId": "overhead", "enabled": true, "values": { "monthlyFixed": 5000, "monthlySales": 2500 } }
+      ],
+      "defaults": { "channel": "XINXUAN", "expressType": "STANDARD", "invoiceType": "达人开票" }
+    },
+    "treat": {
+      "description": "宠物零食，冻干/肉干工艺，训练奖励场景",
+      "certificationToCompliance": false,
+      "modules": [
+        { "moduleId": "material", "enabled": true, "values": { "materialCost": 9, "lossRate": 3, "ingredientCount": 3 } },
+        { "moduleId": "formulation", "enabled": true, "values": { "formulationCost": 0.3, "servings": 1 } },
+        { "moduleId": "manufacturing", "enabled": true, "values": { "manufacturingCost": 2.2, "batchSize": 2000 } },
+        { "moduleId": "packaging", "enabled": true, "values": { "packagingCost": 1.5, "innerPackagingCost": 0.5 } },
+        { "moduleId": "certification", "enabled": true, "values": { "certificationCost": 0.3, "testCount": 2 } },
+        { "moduleId": "logistics", "enabled": true, "values": { "freightBase": 4, "storageCost": 0.15, "expressType": "STANDARD" } },
+        { "moduleId": "channel", "enabled": true, "values": { "platformFeeRate": 2, "commissionRate": 25, "marketingRate": 12, "returnRate": 5, "retailPrice": 49.9 } },
+        { "moduleId": "overhead", "enabled": true, "values": { "monthlyFixed": 3000, "monthlySales": 2000 } }
+      ],
+      "defaults": { "channel": "XINXUAN", "expressType": "STANDARD", "invoiceType": "达人开票" }
+    },
+    "supplement": {
+      "description": "宠物营养品，关节/肠胃等功能配方，检测与备案要求高",
+      "certificationToCompliance": true,
+      "modules": [
+        { "moduleId": "material", "enabled": true, "values": { "materialCost": 12, "lossRate": 3, "ingredientCount": 4 } },
+        { "moduleId": "formulation", "enabled": true, "values": { "formulationCost": 0.8, "dosage": 300, "servings": 30 } },
+        { "moduleId": "encapsulation", "enabled": true, "values": { "encapsulationCost": 1.2, "capsuleType": "tablet", "capsuleCount": 60 } },
+        { "moduleId": "manufacturing", "enabled": true, "values": { "manufacturingCost": 1.6, "batchSize": 1000 } },
+        { "moduleId": "certification", "enabled": true, "values": { "certificationCost": 1.0, "testCount": 4 } },
+        { "moduleId": "compliance", "enabled": true, "values": { "complianceCost": 1.8, "complianceType": "feed_additive", "filingFee": 20000, "filingAmortization": 4000 } },
+        { "moduleId": "packaging", "enabled": true, "values": { "packagingCost": 1.6, "innerPackagingCost": 0.5 } },
+        { "moduleId": "logistics", "enabled": true, "values": { "freightBase": 4, "storageCost": 0.2, "expressType": "STANDARD" } },
+        { "moduleId": "channel", "enabled": true, "values": { "platformFeeRate": 3, "commissionRate": 28, "marketingRate": 12, "returnRate": 6, "retailPrice": 159 } },
+        { "moduleId": "overhead", "enabled": true, "values": { "monthlyFixed": 4000, "monthlySales": 800 } }
+      ],
+      "defaults": { "channel": "XINXUAN", "expressType": "STANDARD", "invoiceType": "达人开票" }
+    }
+  },
+  "productClassifyKeywords": [
+    { "key": "cat_food", "keywords": ["猫粮", "猫"] },
+    { "key": "supplement", "keywords": ["营养", "补充", "益生菌", "关节", "维生素", "钙片"] },
+    { "key": "treat", "keywords": ["零食", "冻干", "肉干", "训练"] },
+    { "key": "dry_food", "keywords": ["犬粮", "狗粮", "主粮"] }
+  ],
+  "moduleFieldOverrides": {
+    "encapsulation": {
+      "capsuleType": {
+        "options": [
+          { "value": "tablet", "label": "压片" },
+          { "value": "powder", "label": "粉剂" },
+          { "value": "granule", "label": "颗粒" },
+          { "value": "paste", "label": "膏剂" },
+          { "value": "liquid", "label": "口服液" }
+        ]
+      }
+    },
+    "compliance": {
+      "complianceType": {
+        "defaultValue": "feed_license",
+        "options": [
+          { "value": "feed_license", "label": "饲料生产许可" },
+          { "value": "feed_additive", "label": "饲料添加剂备案" },
+          { "value": "pet_label", "label": "宠物饲料标签备案" },
+          { "value": "import_feed", "label": "进口宠物食品备案" }
+        ]
+      }
+    }
+  },
+  "complianceNotes": {
+    "feed_license": { "note": "饲料生产许可须由持证企业生产，请确认代工厂资质" },
+    "feed_additive": { "minFilingFee": 20000, "note": "饲料添加剂备案通常2万+，请确认填写的是一次性总费用还是单件均摊" },
+    "import_feed": { "note": "进口宠物食品须在海关总署准入名单内，并办理进境动植物检疫许可" }
+  }
+}

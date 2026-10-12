@@ -12,6 +12,7 @@ import {
   eventLoopOnce,
   executorLoopOnce,
   executorLoopTick,
+  knowledgeLoopOnce,
   reconcileLoopOnce,
   researchLoopOnce,
   scheduleLoopOnce,
@@ -32,13 +33,21 @@ import { configureWorkBudget, drainInFlight, resolveWorkLimits } from "./schedul
  *   eventLoop      10s   BusinessEvent outbox drain（复用既有 lease/attempt）
  *   researchLoop   30s   ResearchRun resume → 执行 → 发布
  *   reconcileLoop  60s   Product R&D advance（排队 QA / 合成报告 / 收尾）
+ *   knowledgeLoop  15s   外部知识目录（Obsidian 等）有变化 → 增量同步进库
  *
  * 单实例保证用**文件锁 + 心跳**（不做分布式抢占，单机场景足够）：
  * 锁里记 pid + heartbeatAt；启动时若发现锁还热且 pid 还活着就拒绝启动，
  * 否则视为陈旧锁接管。锁目录默认 `.pm-worker/`（已 gitignore）。
  */
 
-export type WorkerLoopName = "conversation" | "executor" | "research" | "event" | "reconcile" | "schedule";
+export type WorkerLoopName =
+  | "conversation"
+  | "executor"
+  | "research"
+  | "event"
+  | "reconcile"
+  | "schedule"
+  | "knowledge";
 
 export const DEFAULT_LOOP_ORDER: WorkerLoopName[] = [
   "schedule",
@@ -46,6 +55,7 @@ export const DEFAULT_LOOP_ORDER: WorkerLoopName[] = [
   "executor",
   "research",
   "reconcile",
+  "knowledge",
   "event",
 ];
 
@@ -56,6 +66,7 @@ const DEFAULT_INTERVAL_MS: Record<WorkerLoopName, number> = {
   event: 10_000,
   reconcile: 60_000,
   schedule: 30_000,
+  knowledge: 15_000,
 };
 
 
@@ -229,6 +240,8 @@ async function runOneLoop(
       return reconcileLoopOnce(scope);
     case "schedule":
       return scheduleLoopOnce(scope);
+    case "knowledge":
+      return knowledgeLoopOnce(scope);
   }
 }
 

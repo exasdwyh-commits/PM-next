@@ -11,6 +11,8 @@ export interface KnowledgeCitation {
   headingPath: string | null;
   snippet: string;
   score: number;
+  /** 文档最后更新时间。切片（Chunk）自身没有时间字段，取所属文档的。 */
+  docUpdatedAt: string | null;
 }
 
 export interface MatchedCompanyFact {
@@ -79,9 +81,57 @@ function generateSnippet(content: string, keywords: string[], maxLen: number = 1
   return snippet;
 }
 
+/**
+ * 单关键词候选上限：宽泛词（「配方」「测试」）最多交这么多条。
+ * 60 足够覆盖中等精确词的命中量，又不会让一个词把候选池吃满。
+ */
+const PER_KEYWORD_CANDIDATES = 60;
+
+/** 关键词数量上限，防止超长查询把候选池与 SQL 次数放大。 */
+const MAX_KEYWORDS = 24;
+
+/**
+ * 逐关键词取候选后合并去重 —— 而不是把整条 OR 一次性 `take: N`。
+ *
+ * 为什么必须这么做（2026-10-12 实测定位）：
+ * 旧实现是
+ *   `findMany({ where: { OR: [全部关键词的 contains] }, take: 40 })`
+ * 一旦查询里混入「配方 / 测试 / 效果」这类宽泛词，全库匹配会冲到 1300+ 条，
+ * 而 **SQL 层 `take(40)` 不带 `orderBy`，取回的是任意 40 条**：
+ * 精确词（如「恒天」）那十来条命中大概率被挤出候选池，
+ * 后面打分排得再准也救不回来 —— 表现为「库里明明有，检索却说没命中」。
+ *
+ * 逐词取候选后，宽泛词被自身配额摊薄，精确词则把它**全部**命中交进来，
+ * 候选池因此不再由「谁先被 SQL 返回」决定。纯函数，便于脱库单测。
+ */
+export async function collectCandidates<T extends { id: string }>(
+  keywords: string[],
+  fetchByKeyword: (keyword: string) => Promise<T[]>
+): Promise<T[]> {
+  const merged = new Map<string, T>();
+  for (const keyword of keywords) {
+    const rows = await fetchByKeyword(keyword);
+    for (const row of rows) {
+      if (!merged.has(row.id)) merged.set(row.id, row);
+    }
+  }
+  return Array.from(merged.values());
+}
+
+export interface KnowledgeSearchParams {
+  query: string;
+  limit?: number;
+  /**
+   * 只检索这些知识源；缺省 = 全部**已启用**的源。
+   * 「指定文件夹」的唯一入口 —— 同步侧靠 `KnowledgeSource.rootPath` 决定灌什么，
+   * 检索侧靠这个参数决定取什么；两者缺一，指定就只是句空话。
+   */
+  sourceIds?: string[];
+}
+
 export async function searchKnowledge(
   session: SessionContext,
-  params: { query: string; limit?: number }
+  params: KnowledgeSearchParams
 ): Promise<KnowledgeSearchResult> {
   const query = params.query?.trim() || "";
   const limit = params.limit || 8;
@@ -89,7 +139,7 @@ export async function searchKnowledge(
     return { query, citations: [], facts: [] };
   }
 
-  const keywords = extractKeywords(query);
+  const keywords = extractKeywords(query).slice(0, MAX_KEYWORDS);
   if (keywords.length === 0) {
     return { query, citations: [], facts: [] };
   }
@@ -109,24 +159,35 @@ export async function searchKnowledge(
     orderBy: { status: "asc" }, // CONFIRMED first
   });
 
-  // 2. Search Knowledge Chunks (restricted strictly to organizationId and non-deleted documents)
-  const chunks = await prisma.knowledgeChunk.findMany({
-    where: {
-      organizationId: session.organizationId,
-      document: { deletedAt: null },
-      OR: keywords.flatMap((kw) => [
-        { content: { contains: kw, mode: "insensitive" as const } },
-        { headingPath: { contains: kw, mode: "insensitive" as const } },
-        { document: { title: { contains: kw, mode: "insensitive" as const } } },
-      ]),
-    },
-    include: {
-      document: {
-        select: { id: true, title: true, relativePath: true },
+  // 2. Search Knowledge Chunks (restricted strictly to organizationId, enabled sources and non-deleted documents)
+  //    逐关键词取候选：见 collectCandidates 的注释（旧的一次性 take(40) 会让精确词命中被挤出）。
+  const sourceFilter = params.sourceIds?.length
+    ? { enabled: true, id: { in: params.sourceIds } }
+    : { enabled: true };
+  const chunks = await collectCandidates(keywords, (kw) =>
+    prisma.knowledgeChunk.findMany({
+      where: {
+        organizationId: session.organizationId,
+        // `enabled` 是「这个源现在用不用」的总闸。此前它只有 auto-sync 一个消费点，
+        // 检索完全无视 ⇒ 停用的源照样全量出在回执里，「指定文件夹」因此从来没生效过。
+        document: { deletedAt: null, source: sourceFilter },
+        OR: [
+          { content: { contains: kw, mode: "insensitive" as const } },
+          { headingPath: { contains: kw, mode: "insensitive" as const } },
+          { document: { title: { contains: kw, mode: "insensitive" as const } } },
+        ],
       },
-    },
-    take: 40,
-  });
+      select: {
+        id: true,
+        content: true,
+        headingPath: true,
+        document: {
+          select: { id: true, title: true, relativePath: true, updatedAt: true },
+        },
+      },
+      take: PER_KEYWORD_CANDIDATES,
+    })
+  );
 
   // Rank and score chunks
   const scoredChunks: KnowledgeCitation[] = [];
@@ -152,6 +213,7 @@ export async function searchKnowledge(
       headingPath: chunk.headingPath,
       snippet: generateSnippet(chunk.content, keywords),
       score,
+      docUpdatedAt: chunk.document.updatedAt?.toISOString() ?? null,
     });
   }
 

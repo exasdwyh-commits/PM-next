@@ -15,6 +15,8 @@
  * 本模块是纯函数：不连库、不联网、不带时间——测试可枚举全部口径。
  */
 
+import { getTenantPack } from "@/modules/tenant";
+
 export const SPECS_CONTRACT_VERSION = "product-version-specs/v1";
 
 /** 缺省即未知：字段值允许的字面量；发票级展示常量不要自行发散（UI/报告共用）。 */
@@ -82,7 +84,7 @@ export const SPEC_FIELD_DEFS: readonly SpecFieldDef[] = [
   }),
   FIELD({
     key: "formSpec", label: "剂型/形态规格", group: "workbench", type: "text",
-    definition: "例如『软糖 3g×30』『粉剂 5g×14』；没有就打 UNKNOWN。",
+    definition: "例如『形态 3g×30』；没有就打 UNKNOWN。",
     sources: ["MANUAL", "AI_EXTRACTED", "SUPPLIER_QUOTE", "MIGRATED"], required: false, maxChars: 200,
   }),
   FIELD({
@@ -104,12 +106,12 @@ export const SPEC_FIELD_DEFS: readonly SpecFieldDef[] = [
   // ── 投料 ────────────────────────────────────────────────────────────
   FIELD({
     key: "rawMaterials", label: "主料清单", group: "投料", type: "list",
-    definition: "逐项列原料名称与规格等级（如『赤藓糖醇·食品级』）；不得写功效宣称。",
+    definition: "逐项列原料名称与规格等级（如『原料名·等级』）；不得写功效宣称。",
     sources: ["MANUAL", "AI_EXTRACTED", "SUPPLIER_QUOTE"], required: false, maxChars: 200,
   }),
   FIELD({
     key: "excipients", label: "辅料与添加剂", group: "投料", type: "text",
-    definition: "辅料、食品添加剂及依据（标准/供应商）；无则 UNKNOWN。",
+    definition: "辅料、添加剂及依据（标准/供应商）；无则 UNKNOWN。",
     sources: ["MANUAL", "AI_EXTRACTED", "SUPPLIER_QUOTE", "REGULATORY_SOURCE"], required: false, maxChars: 600,
   }),
   FIELD({
@@ -179,7 +181,7 @@ export const SPEC_FIELD_DEFS: readonly SpecFieldDef[] = [
     key: "complianceCategory", label: "合规类别", group: "合规类别", type: "enum",
     definition: "决定证照与宣称边界的品类归属；不确定即 UNKNOWN，不得猜测。",
     sources: ["REGULATORY_SOURCE", "MANUAL"], required: false,
-    enumValues: ["普通食品", "保健食品", "特殊膳食食品", "化妆品", "其他"],
+    enumValues: getTenantPack().categories.complianceCategories ?? ["其他"],
   }),
   FIELD({
     key: "claimsBoundary", label: "宣称边界", group: "合规类别", type: "text",

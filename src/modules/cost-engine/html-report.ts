@@ -1,7 +1,7 @@
 /**
  * 成本HTML可视化报告 - Claude Web风格
  * 通过harness控制，输出ResponseEnvelope + 独立HTML
- * 4类专用：普通食品、保健食品、跨境食品、化妆品
+ * 逐品类文案由租户 pack 提供，内核不含具体品类名
  */
 
 import type { ModularCostResult } from "./modules/types";
@@ -11,7 +11,7 @@ import type { ComplianceItem } from "./compliance-checklist";
 import type { ResponseEnvelope, Block } from "@/modules/response-format/types";
 import { fmtDate } from "@/shared/datetime";
 
-import { categoryMeta } from "@/modules/tenant";
+import { categoryMeta, categoryContent } from "@/modules/tenant";
 export interface HtmlReportInput {
   category: string;
   productName: string;
@@ -22,33 +22,12 @@ export interface HtmlReportInput {
   role: "leadership" | "product" | "sales";
 }
 
-const ROLE_CONCLUSION: Record<string, Record<string, string>> = {
-  regular_food: {
-    leadership: "普通食品成本可控，SC合规已完成，性价比是核心竞争力",
-    product: "原料4项0.98元，加工包装1.1元，物流4.1元，渠道35%，总成本需控制在5元内",
-    sales: "性价比突出，日常刚需，39.9元零售价有竞争力",
-  },
-  health_food: {
-    leadership: "保健食品蓝帽子备案5万已摊，软糖剂型溢价高，功能卖点是关键",
-    product: "多酚核心原料4元82%留存，软糖1.5元60粒，合规2.5元备案摊销，总成本12元，定价199元利润空间大",
-    sales: "蓝帽子+多酚功能+软糖口感，199元高溢价，话术突出备案和功效",
-  },
-  cross_border_food: {
-    leadership: "跨境食品进口成本高但溢价强，关税12%+清关是关键，保税仓降低物流",
-    product: "进口乳粉3元+坚果3.75元，国际物流3.5元+关税1.2+报关清关2元，合规1.5元，总成本20元，定价129元",
-    sales: "进口原料+跨境背书是卖点，129元中高端，话术突出进口和跨境",
-  },
-  cosmetics: {
-    leadership: "化妆品包材成本重，玻璃瓶5元是关键，备案3万+功效安全检测是卖点",
-    product: "透明质酸4元+烟酰胺3元核心，包材8+2+1+5玻璃瓶，检测1.5+安全1+功效1，合规3元，总成本35元，定价299元",
-    sales: "透明质酸保湿+烟酰胺美白+玻璃瓶质感，299元高端，话术突出功效和包材",
-  },
-};
+// 逐品类报告文案已下沉到 pack 的 categoryContent.<key>.report，读取见 categoryContent().report
 
 export function costResultToEnvelope(input: HtmlReportInput): ResponseEnvelope {
   const { category, productName, result, bomItems, supplierQuotes, complianceItems, role } = input;
-  const catInfo = categoryMeta(category, "regular_food", { tint: "report" });
-  const conclusion = ROLE_CONCLUSION[category]?.[role] || ROLE_CONCLUSION.regular_food.leadership;
+  const catInfo = categoryMeta(category, undefined, { tint: "report" });
+  const conclusion = categoryContent(category).report?.conclusion?.[role] ?? `${catInfo.name}成本结构已计算，详见下方明细`;
   
   const blocks: Block[] = [];
 
@@ -209,8 +188,8 @@ export function costResultToEnvelope(input: HtmlReportInput): ResponseEnvelope {
 
 export function generateCostHtmlReport(input: HtmlReportInput): string {
   const { category, productName, result, bomItems, supplierQuotes, complianceItems, role } = input;
-  const catInfo = categoryMeta(category, "regular_food", { tint: "report" });
-  const conclusion = ROLE_CONCLUSION[category]?.[role] || ROLE_CONCLUSION.regular_food.leadership;
+  const catInfo = categoryMeta(category, undefined, { tint: "report" });
+  const conclusion = categoryContent(category).report?.conclusion?.[role] ?? `${catInfo.name}成本结构已计算，详见下方明细`;
   
   const totalCost = result.breakdown.totalCost;
   const retail = totalCost * 2.5;
@@ -358,7 +337,7 @@ export function generateCostHtmlReport(input: HtmlReportInput): string {
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
         <div style="padding:10px;background:white;border:1px solid #e7e9ef;border-radius:8px;">
           <strong style="font-size:11px;">核心卖点</strong>
-          <p style="margin:4px 0 0;font-size:11px;line-height:1.5;color:#4b5563;">${category === "health_food" ? "蓝帽子备案+多酚功能+软糖口感，功效与口感兼具" : category === "cross_border_food" ? "进口原料+跨境背书+保税仓直发，品质保障" : category === "cosmetics" ? "透明质酸保湿+烟酰胺美白+玻璃瓶质感，高端体验" : "性价比突出+日常刚需+SC合规，安全放心"}</p>
+          <p style="margin:4px 0 0;font-size:11px;line-height:1.5;color:#4b5563;">${categoryContent(category).report?.corePitch ?? `${catInfo.name}的成本与卖点分析`}</p>
         </div>
         <div style="padding:10px;background:white;border:1px solid #e7e9ef;border-radius:8px;">
           <strong style="font-size:11px;">话术</strong>

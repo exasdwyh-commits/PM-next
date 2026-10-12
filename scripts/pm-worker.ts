@@ -14,7 +14,7 @@ import { loadEnvFiles } from "../src/shared/env";
 
 loadEnvFiles();
 
-const DEFAULT_LOOP_NAMES = ["conversation", "executor", "research", "event", "reconcile", "schedule"] as const;
+const DEFAULT_LOOP_NAMES = ["conversation", "executor", "research", "event", "reconcile", "schedule", "knowledge"] as const;
 type LoopName = (typeof DEFAULT_LOOP_NAMES)[number];
 
 interface CliOptions {

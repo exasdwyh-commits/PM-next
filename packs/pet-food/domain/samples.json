@@ -1,0 +1,51 @@
+{
+  "_note": "成本引擎的示例输入数据（BOM 原料清单 / 供应商报价样例），按品类。供快速填充与演示，不参与计算逻辑。换租户只改本文件，src/ 一行不动。",
+  "demoProductName": "冻干鸡胸零食",
+  "bomTemplates": {
+    "dry_food": [
+      { "id": "1", "name": "鸡肉粉", "quantity": 42, "unit": "g", "unitPrice": 0.14, "cost": 5.88, "category": "主原料" },
+      { "id": "2", "name": "糙米", "quantity": 24, "unit": "g", "unitPrice": 0.006, "cost": 0.14, "category": "谷物" },
+      { "id": "3", "name": "牛骨粉", "quantity": 6, "unit": "g", "unitPrice": 0.05, "cost": 0.3, "category": "矿物质" },
+      { "id": "4", "name": "鱼油", "quantity": 3, "unit": "g", "unitPrice": 0.2, "cost": 0.6, "category": "油脂" },
+      { "id": "5", "name": "维生素预混料", "quantity": 0.5, "unit": "g", "unitPrice": 0.6, "cost": 0.3, "category": "添加剂" }
+    ],
+    "cat_food": [
+      { "id": "1", "name": "鸭肉粉", "quantity": 40, "unit": "g", "unitPrice": 0.18, "cost": 7.2, "category": "主原料" },
+      { "id": "2", "name": "糙米", "quantity": 22, "unit": "g", "unitPrice": 0.006, "cost": 0.13, "category": "谷物" },
+      { "id": "3", "name": "牛磺酸", "quantity": 0.3, "unit": "g", "unitPrice": 1.5, "cost": 0.45, "category": "添加剂" },
+      { "id": "4", "name": "鱼油", "quantity": 3, "unit": "g", "unitPrice": 0.2, "cost": 0.6, "category": "油脂" },
+      { "id": "5", "name": "鸡脂", "quantity": 4, "unit": "g", "unitPrice": 0.06, "cost": 0.24, "category": "油脂" }
+    ],
+    "treat": [
+      { "id": "1", "name": "冻干鸡胸", "quantity": 18, "unit": "g", "unitPrice": 0.28, "cost": 5.04, "category": "主原料" },
+      { "id": "2", "name": "鸭肝", "quantity": 4, "unit": "g", "unitPrice": 0.12, "cost": 0.48, "category": "辅料" }
+    ],
+    "supplement": [
+      { "id": "1", "name": "益生菌粉", "quantity": 0.4, "unit": "g", "unitPrice": 12, "cost": 4.8, "category": "功能原料" },
+      { "id": "2", "name": "氨基葡萄糖", "quantity": 2.4, "unit": "g", "unitPrice": 1.2, "cost": 2.88, "category": "功能原料" },
+      { "id": "3", "name": "鱼油", "quantity": 3.6, "unit": "g", "unitPrice": 0.2, "cost": 0.72, "category": "油脂" },
+      { "id": "4", "name": "微晶纤维素", "quantity": 1, "unit": "g", "unitPrice": 0.08, "cost": 0.08, "category": "辅料" },
+      { "id": "5", "name": "压片辅料", "quantity": 0.6, "unit": "g", "unitPrice": 0.15, "cost": 0.09, "category": "剂型" }
+    ]
+  },
+  "supplierTemplates": {
+    "dry_food": [
+      { "id": "1", "supplierName": "肉粉厂A", "productName": "鸡肉粉", "unitPrice": 0.14, "moq": 500, "leadTime": "20天", "validity": "45天", "category": "主原料", "createdAt": "2026-10-08" },
+      { "id": "2", "supplierName": "肉粉厂B", "productName": "鸡肉粉", "unitPrice": 0.132, "moq": 1000, "leadTime": "25天", "validity": "45天", "category": "主原料", "createdAt": "2026-10-08", "isSelected": true },
+      { "id": "3", "supplierName": "谷物供应商A", "productName": "糙米", "unitPrice": 0.006, "moq": 2000, "leadTime": "10天", "validity": "60天", "category": "谷物", "createdAt": "2026-10-08" }
+    ],
+    "cat_food": [
+      { "id": "1", "supplierName": "肉粉厂C", "productName": "鸭肉粉", "unitPrice": 0.18, "moq": 500, "leadTime": "20天", "validity": "45天", "category": "主原料", "createdAt": "2026-10-08" },
+      { "id": "2", "supplierName": "原料厂A", "productName": "牛磺酸", "unitPrice": 1.5, "moq": 100, "leadTime": "15天", "validity": "90天", "category": "添加剂", "createdAt": "2026-10-08", "isSelected": true },
+      { "id": "3", "supplierName": "油脂厂A", "productName": "鱼油", "unitPrice": 0.2, "moq": 500, "leadTime": "15天", "validity": "60天", "category": "油脂", "createdAt": "2026-10-08" }
+    ],
+    "treat": [
+      { "id": "1", "supplierName": "冻干厂A", "productName": "冻干鸡胸", "unitPrice": 0.28, "moq": 300, "leadTime": "25天", "validity": "45天", "category": "主原料", "createdAt": "2026-10-08", "isSelected": true },
+      { "id": "2", "supplierName": "冻干厂B", "productName": "冻干鸡胸", "unitPrice": 0.27, "moq": 500, "leadTime": "30天", "validity": "45天", "category": "主原料", "createdAt": "2026-10-08" }
+    ],
+    "supplement": [
+      { "id": "1", "supplierName": "菌粉厂A", "productName": "益生菌粉", "unitPrice": 12, "moq": 20, "leadTime": "20天", "validity": "90天", "category": "功能原料", "createdAt": "2026-10-08", "isSelected": true },
+      { "id": "2", "supplierName": "原料厂B", "productName": "氨基葡萄糖", "unitPrice": 1.2, "moq": 200, "leadTime": "15天", "validity": "90天", "category": "功能原料", "createdAt": "2026-10-08" }
+    ]
+  }
+}

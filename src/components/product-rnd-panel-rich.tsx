@@ -3,20 +3,19 @@
 import * as React from "react";
 import { useRole } from "./role-context";
 import { fmtDate } from "@/shared/datetime";
-import { categoryMeta } from "@/modules/tenant";
+import { categoryMeta, categoryContent, classifyCategoryByText } from "@/modules/tenant";
 import "./product-rnd-panel-rich.css";
 
 export function ProductRndPanelRich({ project, workItems = [], evidences = [] }: any) {
   const { role } = useRole();
-  const category = React.useMemo(() => {
-    const text = (project?.title || "" + project?.target || "").toLowerCase();
-    if (text.includes("多酚") || text.includes("保健") || text.includes("胶囊")) return "health_food";
-    if (text.includes("跨境") || text.includes("进口")) return "cross_border_food";
-    if (text.includes("化妆") || text.includes("护肤")) return "cosmetics";
-    return "regular_food";
-  }, [project]);
+  // 品类推断由 pack 驱动（无命中落 pack 兜底品类），内核不写死行业关键词。
+  const category = React.useMemo(
+    () => classifyCategoryByText(`${project?.title || ""} ${project?.target || ""}`),
+    [project],
+  );
 
-  const catInfo = categoryMeta(category, "regular_food");
+  const catInfo = categoryMeta(category, undefined);
+  const content = categoryContent(category);
   const doneCount = workItems.filter((w: any) => w.status === "ACCEPTED").length;
   const totalCount = workItems.length;
   const progress = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
@@ -41,7 +40,7 @@ export function ProductRndPanelRich({ project, workItems = [], evidences = [] }:
         <h4>💼 AI研发卖点 · {catInfo.icon} {catInfo.name}</h4>
         <div className="selling-card">
           <strong>研发卖点</strong>
-          <p>{category === "health_food" ? "AI研发多酚软糖，80度烘焙82%留存验证，功能+口感，蓝帽子备案" : category === "cross_border_food" ? "AI研发跨境坚果，进口原料溯源，保税仓直发" : category === "cosmetics" ? "AI研发玻尿酸精华，透明质酸+烟酰胺，功效安全验证" : "AI研发燕麦饼干，性价比优化，SC合规"}，已完成{doneCount}/{totalCount}，{progress}%进度。</p>
+          <p>AI研发 {content.selling?.slice(0, 3).join("、") ?? "配方与卖点"}，已完成{doneCount}/{totalCount}，{progress}%进度。</p>
         </div>
         <div className="tool-box">
           <button>📋 复制研发卖点</button>

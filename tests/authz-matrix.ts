@@ -1148,6 +1148,15 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     body: { name: "矩阵知识源探测", rootPath: "/tmp/matrix-probe" },
   },
   {
+    path: "/api/knowledge/sources/{id}",
+    method: "PATCH",
+    authz: "启停知识源：需组织管理员；enabled 决定该源是否参与检索，跨组织对不存在资源返回 404",
+    expect: { anon: [401], foreign: "NO_2XX", outsider: "NO_2XX", viewer: "NO_2XX" },
+    ownerGate: "NOT_DENIED",
+    body: { enabled: false },
+    validationFirst: true,
+  },
+  {
     path: "/api/knowledge/sources/{id}/sync",
     method: "POST",
     authz: "同步知识源：需组织管理员；跨组织对不存在资源返回 404，非管理员先触发校验",
@@ -1431,9 +1440,8 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
   // - 少数路由在鉴权**之前**先校验必填参数（`if (!x) throw/return`），
   //   这类记 validationFirst，任何身份都先吃 422/400，门禁实际未被测到。
   //
-  // 归属说明：`/api/feedback`、`/api/kern/dispatch` 不属 V2 新增源码
-  // （前者在 main 上已存在，只是矩阵一直漏登记），但既已纳入同一次覆盖修复，
-  // 一并登记以免留下第二批幽灵缺口。
+  // 归属说明：`/api/feedback` 不属 V2 新增源码（在 main 上已存在，只是矩阵一直漏登记），
+  // 但既已纳入同一次覆盖修复，一并登记以免留下第二批幽灵缺口。
 
   // ---------- 成本情景（CostScenario，组织级共享资产） ----------
   //
@@ -1714,22 +1722,6 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
     expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
     ownerGate: [200],
     body: { category: "health_food", role: "product" },
-  },
-  {
-    path: "/api/kern/dispatch",
-    method: "GET",
-    authz: "内核调度提示词（静态提示词文本 + query 上下文）：需登录，但不读任何租户数据",
-    expect: { anon: [401], foreign: [200], outsider: [200], viewer: [200] },
-    ownerGate: [200],
-  },
-  {
-    path: "/api/kern/dispatch",
-    method: "POST",
-    authz: "调度提示词生成：先校验 body.goal，缺失 400 先于任何判断（validationFirst）",
-    expect: { anon: [401], foreign: [400], outsider: [400], viewer: [400] },
-    ownerGate: [400],
-    body: {},
-    validationFirst: true,
   },
   {
     path: "/api/memory/role",

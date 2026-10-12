@@ -2,10 +2,22 @@ import type { ExecutiveReportCitation } from "@/shared/executive-report-citation
 /** Muse 对话界面的读模型类型（KX-71 从 app/muse/types.ts 下沉到 muse 模块；页面文件 re-export）。 */
 import type { KernGraphV1 } from "@/modules/visual-intelligence/contracts";
 import type { ArtifactCitation } from "@/modules/artifacts/protocol";
+import type { SourceAuthority } from "@/shared/vocabulary";
 
 export type AiState = "idle" | "working" | "needs-review" | "success" | "error" | "cancelled";
 export type Tone = "accent" | "ok" | "warn" | "block" | "neutral";
-export type Confidence = "high" | "medium" | "low" | "unknown";
+
+/**
+ * 来源可靠度（显示层）。
+ *
+ * 这是 `@/shared/vocabulary` 里 `SourceAuthority` 的**别名** —— 词表只有一份，
+ * muse 层沿用 `Confidence` 这个历史名字，值为
+ *  confirmed 已确认 · internal 内部来源 · curated 精选来源 · public 公开来源 · unrated 未评级。
+ *
+ * 约定：**「未评级」是中性态，不是错误**。没算过就说没算过，不猜档位——
+ * 猜出来的绿标比老实说「未评级」更糟。
+ */
+export type Confidence = SourceAuthority;
 
 export interface EvidenceRef {
   id: string;

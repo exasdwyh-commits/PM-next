@@ -1,5 +1,6 @@
 /** Muse 原语层：状态语义、按钮、标签、卡片、图标。语义只在这里定义一次。 */
 import type { AiState, Confidence, Tone } from "../types";
+import { SOURCE_AUTHORITY_LABEL } from "@/shared/vocabulary";
 
 type T = "accent" | "ok" | "warn" | "bad" | "neutral";
 
@@ -14,11 +15,14 @@ export const STATE: Record<AiState, { label: string; tone: T; glyph: string }> =
   cancelled: { label: "已取消", tone: "neutral", glyph: "–" },
 };
 
+// 文案取自 `@/shared/vocabulary`（唯一来源，全站一致）；本表只决定语气 tone。
+// 「未评级」必须是 neutral —— 它是中性态，不是报错。
 export const CONF: Record<Confidence, { label: string; tone: T }> = {
-  high: { label: "来源可靠", tone: "ok" },
-  medium: { label: "一般可靠", tone: "accent" },
-  low: { label: "证据偏弱", tone: "warn" },
-  unknown: { label: "UNKNOWN", tone: "bad" },
+  confirmed: { label: SOURCE_AUTHORITY_LABEL.confirmed, tone: "ok" },
+  internal: { label: SOURCE_AUTHORITY_LABEL.internal, tone: "ok" },
+  curated: { label: SOURCE_AUTHORITY_LABEL.curated, tone: "accent" },
+  public: { label: SOURCE_AUTHORITY_LABEL.public, tone: "warn" },
+  unrated: { label: SOURCE_AUTHORITY_LABEL.unrated, tone: "neutral" },
 };
 
 export function Tag({ tone = "neutral", live, children }: { tone?: T; live?: boolean; children: React.ReactNode }) {

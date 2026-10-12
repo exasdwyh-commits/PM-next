@@ -30,6 +30,7 @@ import type {
   SynthesizedKnowledge,
 } from "@/modules/kern-contracts";
 import { freshnessLabel } from "./authority";
+import { evidenceStrengthFromAuthority } from "@/shared/vocabulary";
 
 export interface BindKnowledgeParams {
   projectId: string;
@@ -135,7 +136,10 @@ export async function bindKnowledgeToEvidence(
                 ? `采用：权威更高（${conflict.reason}）`
                 : "权威打平，两种说法并列保留，待人工裁决"
               : `未采用：${conflict.reason}`,
-            evidenceLevel: s.authority >= 0.7 ? "HIGH" : s.authority >= 0.4 ? "MEDIUM" : "LOW",
+            // 按权威分归一到**词汇宪法**的证据强度（阈值 0.7 / 0.4 沿用历史分档）。
+            // 曾在这里自造 HIGH/MEDIUM/LOW，与 evidence/verifier 的 STRONG/WEAK 词表不同源，
+            // 显示层映射不到就原样透传英文。
+            evidenceLevel: evidenceStrengthFromAuthority(s.authority),
             freshness: freshnessLabel(s.capturedAt),
           },
         });

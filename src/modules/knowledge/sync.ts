@@ -122,7 +122,7 @@ function computeHash(content: string): string {
   return crypto.createHash("sha256").update(content, "utf8").digest("hex");
 }
 
-function scanMarkdownFiles(dir: string, baseDir: string = dir): string[] {
+export function scanMarkdownFiles(dir: string, baseDir: string = dir): string[] {
   const results: string[] = [];
   if (!fs.existsSync(dir)) return results;
 

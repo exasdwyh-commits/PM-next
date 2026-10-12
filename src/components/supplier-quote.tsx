@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRole } from "./role-context";
 import { compareSupplierQuotes, groupQuotesByProduct, getSupplierTemplate, type SupplierQuote } from "@/modules/cost-engine/supplier-quote";
+import { categoryKeys, categoryMeta } from "@/modules/tenant";
 import "./supplier-quote.css";
 
 export function SupplierQuoteManager({
@@ -68,10 +69,10 @@ export function SupplierQuoteManager({
           <small>已选 {quotes.filter(q => q.isSelected).length} 家 · 总成本 ¥{totalSelectedCost.toFixed(2)} · 比价节省 ¥{Object.values(grouped).reduce((sum, comp) => sum + (comp.savings || 0), 0).toFixed(2)}</small>
         </div>
         <select value={category} onChange={e => setQuotes(getSupplierTemplate(e.target.value))}>
-          <option value="regular_food">🍪 普通食品供应商</option>
-          <option value="health_food">💊 保健食品供应商</option>
-          <option value="cross_border_food">🌍 跨境食品供应商</option>
-          <option value="cosmetics">💄 化妆品供应商</option>
+          {categoryKeys().map(k => {
+            const m = categoryMeta(k);
+            return <option key={k} value={k}>{m.icon} {m.name}供应商</option>;
+          })}
         </select>
       </div>
 

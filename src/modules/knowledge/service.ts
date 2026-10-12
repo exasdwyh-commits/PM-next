@@ -53,6 +53,25 @@ export async function listKnowledgeSources(session: SessionContext) {
   });
 }
 
+/**
+ * 启用 / 停用一个知识源。
+ *
+ * `enabled` 是「这个源现在用不用」的总闸：停用后自动同步不再扫它，
+ * 检索也不再召回它的文档（见 search.ts 的 sourceFilter）。
+ * 这是「只检索指定文件夹」目前唯一的落地手段 —— 停掉全库源、只留目标子目录源。
+ */
+export async function setKnowledgeSourceEnabled(
+  session: SessionContext,
+  sourceId: string,
+  enabled: boolean
+) {
+  const source = await prisma.knowledgeSource.findUnique({ where: { id: sourceId } });
+  if (!source || source.organizationId !== session.organizationId) {
+    throw new NotFoundError("Knowledge source not found");
+  }
+  return prisma.knowledgeSource.update({ where: { id: sourceId }, data: { enabled } });
+}
+
 export async function getKnowledgeOverview(session: SessionContext) {
   const [sources, docCount, chunkCount, facts] = await Promise.all([
     listKnowledgeSources(session),

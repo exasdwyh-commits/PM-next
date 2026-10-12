@@ -1,0 +1,108 @@
+{
+  "_note": "成本模板：每个品类的模块默认值（成本引擎专属数据）。显示名/图标/卖点由 categories + category-content 提供，此处不重复——换租户只改 pack，src/ 一行不动。",
+  "defaultTemplateKey": "health_food",
+  "templates": {
+    "regular_food": {
+      "description": "饼干、糕点、糖果、饮料等，SC认证",
+      "certificationToCompliance": false,
+      "modules": [
+        { "moduleId": "material", "enabled": true, "values": { "materialCost": 5, "lossRate": 3, "ingredientCount": 5 } },
+        { "moduleId": "formulation", "enabled": true, "values": { "formulationCost": 0.2, "servings": 1 } },
+        { "moduleId": "manufacturing", "enabled": true, "values": { "manufacturingCost": 1.2, "batchSize": 2000 } },
+        { "moduleId": "packaging", "enabled": true, "values": { "packagingCost": 0.8, "innerPackagingCost": 0.3 } },
+        { "moduleId": "certification", "enabled": true, "values": { "certificationCost": 0.15, "testCount": 2 } },
+        { "moduleId": "logistics", "enabled": true, "values": { "freightBase": 4, "storageCost": 0.1, "expressType": "STANDARD" } },
+        { "moduleId": "channel", "enabled": true, "values": { "platformFeeRate": 2, "commissionRate": 20, "marketingRate": 8, "returnRate": 5, "retailPrice": 39.9 } },
+        { "moduleId": "overhead", "enabled": false, "values": { "monthlyFixed": 0, "monthlySales": 2000 } }
+      ],
+      "defaults": { "channel": "XINXUAN", "expressType": "STANDARD", "invoiceType": "达人开票" }
+    },
+    "health_food": {
+      "description": "软糖、胶囊、粉剂等，蓝帽子备案/注册，功能性检测",
+      "certificationToCompliance": true,
+      "modules": [
+        { "moduleId": "material", "enabled": true, "values": { "materialCost": 8.05, "lossRate": 3, "ingredientCount": 3 } },
+        { "moduleId": "formulation", "enabled": true, "values": { "formulationCost": 0.8, "dosage": 500, "servings": 30 } },
+        { "moduleId": "encapsulation", "enabled": true, "values": { "encapsulationCost": 1.5, "capsuleType": "gummy", "capsuleCount": 60 } },
+        { "moduleId": "manufacturing", "enabled": true, "values": { "manufacturingCost": 1.8, "batchSize": 1000 } },
+        { "moduleId": "certification", "enabled": true, "values": { "certificationCost": 1.2, "testCount": 4 } },
+        { "moduleId": "compliance", "enabled": true, "values": { "complianceCost": 2.5, "complianceType": "health_filing", "filingFee": 50000, "filingAmortization": 10000 } },
+        { "moduleId": "packaging", "enabled": true, "values": { "packagingCost": 1.8, "innerPackagingCost": 0.6, "giftBox": 0 } },
+        { "moduleId": "logistics", "enabled": true, "values": { "freightBase": 4, "storageCost": 0.2, "expressType": "STANDARD" } },
+        { "moduleId": "channel", "enabled": true, "values": { "platformFeeRate": 2, "commissionRate": 25, "marketingRate": 10, "returnRate": 5, "retailPrice": 199 } },
+        { "moduleId": "overhead", "enabled": true, "values": { "monthlyFixed": 8000, "monthlySales": 1000 } }
+      ],
+      "defaults": { "channel": "XINXUAN", "expressType": "STANDARD", "invoiceType": "达人开票" }
+    },
+    "cross_border_food": {
+      "description": "进口食品，国际物流+关税+清关+中文标签",
+      "certificationToCompliance": false,
+      "modules": [
+        { "moduleId": "material", "enabled": true, "values": { "materialCost": 12, "lossRate": 2, "ingredientCount": 4, "importCost": 8, "importRate": 0 } },
+        { "moduleId": "international_logistics", "enabled": true, "values": { "internationalFreight": 3.5, "customsFee": 1.2, "tariffRate": 12, "tariffCost": 0, "clearanceFee": 0.8 } },
+        { "moduleId": "manufacturing", "enabled": true, "values": { "manufacturingCost": 1.0, "batchSize": 1000 } },
+        { "moduleId": "compliance", "enabled": true, "values": { "complianceCost": 1.5, "complianceType": "cross_border", "filingFee": 8000, "filingAmortization": 5000, "labelCost": 0.5, "labelFee": 0.5 } },
+        { "moduleId": "certification", "enabled": true, "values": { "certificationCost": 0.6, "testCount": 3 } },
+        { "moduleId": "packaging", "enabled": true, "values": { "packagingCost": 1.5, "innerPackagingCost": 0.5 } },
+        { "moduleId": "logistics", "enabled": true, "values": { "freightBase": 5, "storageCost": 0.3, "expressType": "STANDARD", "bondedWarehouse": 0.5 } },
+        { "moduleId": "channel", "enabled": true, "values": { "platformFeeRate": 3, "commissionRate": 22, "marketingRate": 12, "returnRate": 8, "retailPrice": 129 } },
+        { "moduleId": "overhead", "enabled": true, "values": { "monthlyFixed": 6000, "monthlySales": 800 } }
+      ],
+      "defaults": { "channel": "XINXUAN", "expressType": "STANDARD", "invoiceType": "达人开票" }
+    },
+    "cosmetics": {
+      "description": "护肤、彩妆等，包材贵、检测多、备案/注册",
+      "certificationToCompliance": true,
+      "modules": [
+        { "moduleId": "material", "enabled": true, "values": { "materialCost": 15, "lossRate": 2, "ingredientCount": 8 } },
+        { "moduleId": "formulation", "enabled": true, "values": { "formulationCost": 1.2, "dosage": 50, "servings": 1 } },
+        { "moduleId": "manufacturing", "enabled": true, "values": { "manufacturingCost": 2.5, "batchSize": 1000, "fillingCost": 1.0 } },
+        { "moduleId": "packaging", "enabled": true, "values": { "packagingCost": 8, "innerPackagingCost": 2, "giftBox": 1, "bottleCost": 5, "bottleType": "glass" } },
+        { "moduleId": "certification", "enabled": true, "values": { "certificationCost": 1.5, "testCount": 5, "safetyTest": 1, "efficacyTest": 1 } },
+        { "moduleId": "compliance", "enabled": true, "values": { "complianceCost": 3.0, "complianceType": "cosmetics_filing", "filingFee": 30000, "filingAmortization": 5000, "efficacyClaim": 1 } },
+        { "moduleId": "logistics", "enabled": true, "values": { "freightBase": 5, "storageCost": 0.3, "expressType": "STANDARD", "fragileFee": 0.5 } },
+        { "moduleId": "channel", "enabled": true, "values": { "platformFeeRate": 3, "commissionRate": 30, "marketingRate": 15, "returnRate": 10, "retailPrice": 299 } },
+        { "moduleId": "overhead", "enabled": true, "values": { "monthlyFixed": 10000, "monthlySales": 500 } }
+      ],
+      "defaults": { "channel": "XINXUAN", "expressType": "STANDARD", "invoiceType": "达人开票" }
+    }
+  },
+  "productClassifyKeywords": [
+    { "key": "health_food", "keywords": ["多酚", "软糖", "胶囊", "保健", "膳食", "补充"] },
+    { "key": "cross_border_food", "keywords": ["跨境", "进口", "海外"] },
+    { "key": "cosmetics", "keywords": ["化妆", "护肤", "面膜", "精华", "口红", "彩妆", "美妆"] },
+    { "key": "regular_food", "keywords": ["食品", "饼", "糕", "饮料", "零食"] }
+  ],
+  "moduleFieldOverrides": {
+    "encapsulation": {
+      "capsuleType": {
+        "options": [
+          { "value": "gummy", "label": "软糖" },
+          { "value": "plant", "label": "植物胶囊" },
+          { "value": "gelatin", "label": "明胶胶囊" },
+          { "value": "tablet", "label": "压片" },
+          { "value": "powder", "label": "粉剂" },
+          { "value": "liquid", "label": "口服液" }
+        ]
+      }
+    },
+    "compliance": {
+      "complianceType": {
+        "defaultValue": "food_sc",
+        "options": [
+          { "value": "food_sc", "label": "普通食品 SC" },
+          { "value": "health_filing", "label": "保健食品备案" },
+          { "value": "health_registration", "label": "保健食品注册(蓝帽)" },
+          { "value": "cross_border", "label": "跨境食品备案" },
+          { "value": "cosmetics_filing", "label": "化妆品备案" },
+          { "value": "cosmetics_registration", "label": "化妆品注册(特殊)" }
+        ]
+      }
+    }
+  },
+  "complianceNotes": {
+    "health_registration": { "minFilingFee": 200000, "note": "保健食品注册通常20万+，请确认填写的是一次性总费用还是单件均摊" },
+    "cosmetics_registration": { "minFilingFee": 50000, "note": "特殊化妆品注册通常5万+，请确认填写的是一次性总费用还是单件均摊" },
+    "cross_border": { "note": "跨境需确认正面清单、中文标签、保税仓" }
+  }
+}

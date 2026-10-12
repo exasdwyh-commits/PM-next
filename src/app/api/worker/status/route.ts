@@ -9,8 +9,12 @@ const RESTART_GAP_MS = 90_000;
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(req);
+    // ⚠️ 必须带上 organizationId=null：Worker 是全局进程，心跳行的 organizationId 恒为 null
+    // （见 heartbeat.ts 的 beatWorker）。若只按 session.organizationId 过滤，会一行都查不到，
+    // status 恒被判成 "restarting"、uptime 恒为 0% —— 与 /api/worker/health（走 getWorkerHealth，
+    // 那里有这个 OR）自相矛盾。2026-10-12 实测：心跳表 19 行全部为 null。
     const heartbeats = await prisma.pmWorkerHeartbeat.findMany({
-      where: { organizationId: session.organizationId },
+      where: { OR: [{ organizationId: null }, { organizationId: session.organizationId }] },
       orderBy: { heartbeatAt: "desc" },
       take: 10,
     });

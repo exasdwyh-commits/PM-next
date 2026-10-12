@@ -55,11 +55,6 @@ export const UNIT_LAYERS: Record<string, LayerId> = {
   // 职责上也吻合：它读写的是 Kern 自身的学习闭环（用户对回复的赞/踩/纠正），
   // 不是某个领域的业务实体。
   "modules/feedback": 2,
-  // Kern 提示词文本库（主调度提示词、HTML 富可视化规范、5 个专家提示词）：
-  // 纯字符串常量，零外部 import（连 shared 都不引）。放在 L2 是因为它服务 Kern
-  // 核心的调度与渲染约定，与 artifacts / visual-intelligence 同属协议层资产。
-  // 将来若它开始引 L3+ 的领域类型，需要重新评估，而不是留在 L2 硬撑。
-  "modules/kern-prompts": 2,
   // L3 领域（含产品生命周期任务包）
   "modules/research": 3,
   "modules/knowledge": 3,

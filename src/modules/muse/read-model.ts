@@ -14,6 +14,7 @@ import { computePendingAsks, readMissionSnapshot } from "@/modules/supervisor/se
 import { isKernModelReady } from "@/modules/supervisor/generic-executor";
 import { readKernGraphCitation } from "@/modules/visual-intelligence/contracts";
 import type { KernGraphV1 } from "@/modules/visual-intelligence/contracts";
+import { confidenceOf } from "@/modules/muse/confidence";
 import type {
   ActivityItem,
   AiState,
@@ -75,14 +76,15 @@ function evidenceFromCitation(
   const title = typeof item.title === "string" ? item.title : null;
   if (!ref && !title) return null;
   const rawKind = typeof item.kind === "string" ? item.kind : "internal";
+  const itemCapturedAt = typeof item.capturedAt === "string" && item.capturedAt ? item.capturedAt : null;
   return {
     id: ref || `citation-${capturedAt.getTime()}-${index}`,
     title: title || ref || "未命名来源",
     kind: rawKind.includes("desktop") ? "runtime" : "internal",
     source: rawKind,
-    confidence: "unknown",
-    verified: false,
-    capturedAt: capturedAt.toISOString(),
+    confidence: confidenceOf(item),
+    verified: item.verified === true,
+    capturedAt: itemCapturedAt ?? capturedAt.toISOString(),
   };
 }
 
@@ -542,7 +544,7 @@ export async function buildKernViewModel(
     runtime: {
       connected: desktop.presence.status === "ONLINE",
       host: desktop.presence.deviceId || desktop.presence.label,
-      lastHeartbeat: desktop.presence.lastSeenAt || "UNKNOWN",
+      lastHeartbeat: desktop.presence.lastSeenAt || "无记录",
       capabilities: [],
       activeAction:
         desktop.tasks.find((task) => task.phase === "RUNNING")?.goal ?? null,

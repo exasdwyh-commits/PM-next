@@ -84,7 +84,7 @@ export async function generateMarketingLanding(input: MarketingLandingInput): Pr
       { item: cat.compliance, status: "ok", desc: "已合规 · 可宣称", lvl: "A" },
       { item: "多酚功效可宣称", status: "ok", desc: "多酚留存82%已验证 · lab_test A级", lvl: "A" },
       { item: "功能声称需注意", status: "warn", desc: "不能宣称治疗，可宣称有助于", lvl: "B" },
-      { item: "标签合规", status: "ok", desc: "配料表+营养成分表+保质期+贮存条件已核实", lvl: "A" },
+      { item: "标签合规", status: "ok", desc: "配料表+成分表+保质期+贮存条件已核实", lvl: "A" },
     ],
     qa: [
       { q: "卖点是什么？", a: `${cat.selling[0]}，${cat.selling[1]}，${cat.selling[2]}，成本¥${cat.cost}竞品¥${cat.price}利润${profit}%` },

@@ -122,3 +122,24 @@ export function categoryContent(
 ): CategoryContent {
   return contentOf(key, fallback);
 }
+
+/**
+ * 按 pack 关键词把自由文本匹配到某个品类键；**无命中返回 null**。
+ *
+ * 关键词来自 pack（`categoryContent.<key>.classifyKeywords`），`src/` 不含任何行业词。
+ * 匹配顺序取 `categoryKeys()` **逆序**：pack 中越靠后定义的品类越具体
+ * （定义顺序即具体度递增），优先命中以避免被上位品类抢走。
+ */
+export function matchCategoryByText(text?: string | null): CategoryKey | null {
+  const t = (text ?? "").toLowerCase();
+  for (const k of [...categoryKeys()].reverse()) {
+    const kw = categoryContent(k).classifyKeywords ?? [];
+    if (kw.some((w) => w && t.includes(String(w).toLowerCase()))) return k;
+  }
+  return null;
+}
+
+/** `matchCategoryByText` 的兜底版：无命中时返回 `defaultCategoryKey()`（永远拿到一个键）。 */
+export function classifyCategoryByText(text?: string | null): CategoryKey {
+  return matchCategoryByText(text) ?? defaultCategoryKey();
+}

@@ -1,0 +1,39 @@
+# 代码所有者
+#
+# 语法：<路径模式> <@所有者...>
+# 匹配规则为「最后一条命中生效」，因此越具体的规则要放在越后面。
+#
+# 目的：安全与治理敏感路径的变更，强制由指定负责人复核（Require review from Code Owners）。
+# 非敏感路径不在此列出，走常规 PR 流程即可。
+
+# 仓库基础设施与依赖
+/.github/                       @exasdwyh-commits
+/package.json                   @exasdwyh-commits
+/package-lock.json              @exasdwyh-commits
+/next.config.ts                 @exasdwyh-commits
+/tsconfig.json                  @exasdwyh-commits
+
+# 数据模型与迁移
+/prisma/                        @exasdwyh-commits
+
+# 安全敏感：认证、会话、身份
+/src/modules/identity/          @exasdwyh-commits
+/src/app/api/auth/              @exasdwyh-commits
+
+# 安全敏感：出站请求收口（SSRF 防护）
+/src/shared/net/                @exasdwyh-commits
+
+# 治理与证据链
+/src/modules/governance/        @exasdwyh-commits
+/src/modules/evidence/          @exasdwyh-commits
+
+# 权限矩阵与权限守卫（静态登记，改这里等于改权限语义）
+/tests/authz-matrix.ts          @exasdwyh-commits
+/tests/authz-route-coverage.test.ts  @exasdwyh-commits
+
+# 租户包（换租户不改内核的边界所在）
+/packs/                         @exasdwyh-commits
+/src/modules/tenant/            @exasdwyh-commits
+
+# 安全策略本身
+/SECURITY.md                    @exasdwyh-commits

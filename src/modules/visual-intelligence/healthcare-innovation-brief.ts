@@ -1,4 +1,5 @@
 import type { RichBlock } from "../artifacts/rich-blocks";
+import type { SourceProvenance } from "@/shared/vocabulary";
 import type { KernGraphV1 } from "./contracts";
 import type { TokenUsageRecordInput, TokenUsageSummary } from "../usage/token-usage";
 import {
@@ -34,7 +35,8 @@ import {
 
 export type InnovationBasis = "FACT" | "INFERENCE" | "ASSUMPTION" | "UNKNOWN";
 export type EvidenceLevel = "A" | "B" | "C" | "D";
-export type SourceTrust = "user" | "internal" | "external" | "model";
+/** 来源出处 —— 词表唯一来源是 `@/shared/vocabulary` 的 `SourceProvenance`（此处沿用旧名）。 */
+export type SourceTrust = SourceProvenance;
 export type InnovationImpact = "HIGH" | "MEDIUM" | "LOW";
 export type InnovationRecommendation =
   | "PROCEED_TO_VALIDATE"
@@ -993,7 +995,7 @@ const CHANNEL_LIBRARY: Array<Omit<ChannelOption, "basis">> = [
     fitWhen: "客单价中等、可沉淀人群、能持续产出合规内容",
     pros: ["触达精准", "可积累信任资产", "适合最小验证"],
     cons: ["规模有限", "依赖内容持续产出"],
-    complianceNotes: ["内容须先过广告审查", "保健食品须标明本品不能代替药物", "不得疾病预防/治疗宣称"],
+    complianceNotes: ["内容须先过广告审查", "功能性产品须标明本品不能代替药物", "不得疾病预防/治疗宣称"],
     verification: "小规模种草并私域成交，记录转化与复购",
   },
   {
@@ -1009,7 +1011,7 @@ const CHANNEL_LIBRARY: Array<Omit<ChannelOption, "basis">> = [
     fitWhen: "法规路径清晰、有线下铺货与动销能力",
     pros: ["信任度高", "覆盖家庭采购人群"],
     cons: ["进场费高", "账期长"],
-    complianceNotes: ["经营资质路径须确认（预包装食品备案或食品经营许可）", "标签与说明书须审核"],
+    complianceNotes: ["经营资质路径须确认（备案或经营许可）", "标签与说明书须审核"],
     verification: "先谈一两家门店做陈列测试，不压货不进量",
   },
   {

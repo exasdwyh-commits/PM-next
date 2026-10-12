@@ -44,7 +44,7 @@ export async function understandScreen(
     elements: [
       { id: "btn_1", type: "button", text: "保存", bounds: { x: 100, y: 200, width: 80, height: 30 }, clickable: true },
       { id: "input_1", type: "input", text: "产品名称", bounds: { x: 100, y: 100, width: 200, height: 30 }, clickable: true },
-      { id: "text_1", type: "text", text: "多酚软糖项目", bounds: { x: 100, y: 50, width: 150, height: 20 }, clickable: false },
+      { id: "text_1", type: "text", text: "示例项目", bounds: { x: 100, y: 50, width: 150, height: 20 }, clickable: false },
     ],
     screenshotHash: `hash_${screenshotBase64.length}_${Date.now()}`,
     timestamp: new Date(),

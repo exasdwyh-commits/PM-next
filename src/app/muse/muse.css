@@ -320,7 +320,7 @@
 .m-list { margin: 0; padding-left: 18px; display: grid; gap: 5px; color: var(--m-ink-2); font-size: var(--m-t-sm); }
 
 /* 来源行：可点开追溯 */
-.m-src { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid transparent; border-radius: var(--m-r-md); background: var(--m-surface-sunk); color: var(--m-ink); font: inherit; font-size: var(--m-t-sm); text-align: left; cursor: pointer; transition: border-color .18s ease, transform .18s ease; }
+.m-src { width: 100%; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid transparent; border-radius: var(--m-r-md); background: var(--m-surface-sunk); color: var(--m-ink); font: inherit; font-size: var(--m-t-sm); text-align: left; cursor: pointer; transition: border-color .18s ease, transform .18s ease; }
 .m-src:hover { border-color: var(--m-accent-line); transform: translateX(2px); }
 .m-src > span:not(.m-tag) { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .m-src > small { color: var(--m-ink-4); font-size: var(--m-t-xs); white-space: nowrap; }

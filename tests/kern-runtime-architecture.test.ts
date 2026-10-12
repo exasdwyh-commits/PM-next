@@ -223,3 +223,47 @@ test("PAIR and COUNCIL are not silently promoted to AUTO", () => {
   assert.ok(readiness.includes("CHAT_SPECIALIST_EXECUTION"));
   assert.ok(readiness.includes('tech_architect_agent: { taskClass: "CODING"'));
 });
+
+test("来源可靠度：五档全中文、未评级中性，且不再有红标 UNKNOWN", async () => {
+  const { confidenceOf } = await import("@/modules/muse/confidence");
+  const { SOURCE_AUTHORITIES, SOURCE_AUTHORITY_LABEL } = await import("@/shared/vocabulary");
+
+  // 档位映射：知识层 authorityTier → 显示档
+  assert.equal(confidenceOf({ authorityTier: "first_party", verified: true }), "confirmed");
+  assert.equal(confidenceOf({ authorityTier: "first_party", verified: false }), "internal");
+  assert.equal(confidenceOf({ authorityTier: "curated" }), "curated");
+  assert.equal(confidenceOf({ authorityTier: "public" }), "public");
+  assert.equal(confidenceOf({ authorityTier: "unknown" }), "unrated");
+  // 上游没给档位时必须落到未评级 —— 猜一个档等于造假绿标
+  assert.equal(confidenceOf({}), "unrated");
+  assert.equal(confidenceOf({ authorityTier: 123, verified: "yes" }), "unrated");
+
+  // 五档文案全中文（唯一来源：@/shared/vocabulary）
+  for (const key of SOURCE_AUTHORITIES) {
+    const label = SOURCE_AUTHORITY_LABEL[key];
+    assert.ok(/^[\u4e00-\u9fa5]+$/.test(label), `来源标签必须是纯中文：${key} → ${label}`);
+  }
+  assert.equal(SOURCE_AUTHORITY_LABEL.unrated, "未评级");
+
+  const kit = read("src/app/muse/components/kit.tsx").replace(/\r/g, "");
+  // 文案必须取自 vocabulary，不得在 kit 里另抄一份（否则两处必然漂移）
+  assert.ok(
+    kit.includes("SOURCE_AUTHORITY_LABEL"),
+    "kit 的五档文案必须取自 @/shared/vocabulary"
+  );
+  assert.ok(
+    /unrated:\s*\{\s*label:\s*SOURCE_AUTHORITY_LABEL\.unrated,\s*tone:\s*"neutral"\s*\}/.test(kit),
+    "「未评级」必须是中性语气，不得是 bad/warn"
+  );
+  assert.equal(kit.includes('label: "UNKNOWN"'), false, "来源卡片不得再出现英文 UNKNOWN 红标");
+  assert.equal(kit.includes('label: "已确认"'), false, "五档文案不得在 kit 里重复定义");
+
+  // 映射层不得再写死占位档
+  for (const file of ["src/app/muse/muse-client.tsx", "src/modules/muse/read-model.ts"]) {
+    assert.equal(
+      read(file).includes('confidence: "unknown"'),
+      false,
+      `${file} 不得再把来源可靠度写死成 unknown`
+    );
+  }
+});

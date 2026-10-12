@@ -22,6 +22,7 @@ import prisma from "@/shared/db";
 import { classifySourceUrl } from "@/modules/evidence/source-trust";
 import { searchKnowledge, type KnowledgeSearchResult } from "./search";
 import { authorityScore, trustTierToAuthorityTier, loadAuthorityPolicy } from "./authority";
+import { sourceTitle } from "./source-title";
 
 export interface KnowledgeProviderContext {
   session: SessionContext;
@@ -150,7 +151,7 @@ registerKnowledgeProvider({
       makeItem({
         scope: "project",
         ref: `chunk:${c.ref}`,
-        title: `${c.docTitle}${c.headingPath ? ` > ${c.headingPath}` : ""}`,
+        title: sourceTitle(c.docTitle, c.headingPath),
         snippet: c.snippet,
         uri: c.relativePath,
         authorityTier: "first_party",
@@ -306,7 +307,7 @@ function walkDir(
  */
 registerKnowledgeProvider({
   scope: "files",
-  label: "工作区文件（仓库内 markdown，未同步部分）",
+  label: "工作区文件（仓库内 markdown，未同步部分；按需，需显式声明该域）",
   search: async (ctx) => {
     const kws = keywords(ctx.query);
     if (!kws.length) return [];
@@ -352,7 +353,17 @@ for (const provider of KNOWLEDGE_MODULE_PROVIDERS) {
 // 路由
 // ---------------------------------------------------------------------------
 
-const RUN_TIMEOUT_MS = 6000;
+export const RUN_TIMEOUT_MS = 6000;
+
+/**
+ * 仅按需域：不参与「未指定 scope 时展开全部注册域」的默认行为。
+ *
+ * `files` 扫的是**仓库自己的** markdown（docs/ capabilities/ knowledge/ packs/），
+ * 不是用户同步进来的知识。默认跑它 ⇒ 问产品原料时会被讲 Kern 的旧文档挤占候选，
+ * 而这些文档对 PM 检索毫无价值。能力包显式声明 `files` 时仍然可用，
+ * 所以这里只降权、不删除 provider。
+ */
+export const ON_DEMAND_ONLY_SCOPES = new Set<string>(["files"]);
 
 export interface RouteKnowledgeParams {
   query: string;
@@ -371,7 +382,7 @@ export async function routeKnowledge(
   const limit = Math.max(1, params.limit ?? 5);
   const requested = (params.scopes?.length
     ? params.scopes
-    : [...registry.keys()]) as (KnowledgeScope | string)[];
+    : [...registry.keys()].filter((s) => !ON_DEMAND_ONLY_SCOPES.has(s))) as (KnowledgeScope | string)[];
 
   const searchMemo = new Map<string, Promise<KnowledgeSearchResult>>();
   const searchKnowledgeOnce = (): Promise<KnowledgeSearchResult> => {

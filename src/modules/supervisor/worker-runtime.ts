@@ -9,6 +9,7 @@
  */
 import { runPendingKernMessages, runPendingKernMessagesTick } from "@/modules/assistant-runtime/message-worker";
 import { dispatchPendingBusinessEvents } from "@/modules/business-events";
+import { syncDriftedKnowledgeSources } from "@/modules/knowledge/auto-sync";
 import { advanceProductRndProgram, decideAutoRetry, nextAdvanceFailure } from "@/modules/product-rnd";
 import { EXECUTOR_STRATEGIES } from "@/modules/product-rnd/executor-strategies";
 import { resumeResearchRun } from "@/modules/research/research-run";
@@ -47,6 +48,7 @@ export function registerKernWorkerHandlers(): void {
         dispatchPendingBusinessEvents(organizationId, { workerId, limit, processAutopilot: true }),
     },
     schedules: { runDue: runDueSchedules },
+    knowledge: { syncDrifted: syncDriftedKnowledgeSources },
   });
 }
 

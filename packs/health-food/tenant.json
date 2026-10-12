@@ -28,6 +28,10 @@
       "formSpec": "例如：60g 独立小袋 × 6",
       "forbiddenItems": "例如：不加蔗糖、不用人工色素",
       "targetCost": "例如：18（元/盒，仅数字）"
+    },
+    "examples": {
+      "scenarioName": "多酚软糖V2-跨境版",
+      "approvalComment": "成本合理，符合保健食品备案要求，建议批准"
     }
   }
 }

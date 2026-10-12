@@ -27,6 +27,19 @@
     },
     "complianceShortName": "SC/进口备案",
     "salesPitch": "性价比日常刚需",
+    "classifyKeywords": [],
+    "report": {
+      "conclusion": {
+        "leadership": "普通食品成本可控，SC合规已完成，性价比是核心竞争力",
+        "product": "原料4项0.98元，加工包装1.1元，物流4.1元，渠道35%，总成本需控制在5元内",
+        "sales": "性价比突出，日常刚需，39.9元零售价有竞争力"
+      },
+      "corePitch": "性价比突出+日常刚需+SC合规，安全放心",
+      "headerNote": "普通食品成本可控，SC合规已完成，性价比是核心竞争力，富可视化动效",
+      "riskNote": "SC续期",
+      "summary": "成本较低，重点在原料和包装",
+      "costFeature": "含原料与包装成本"
+    },
     "tools": [
       { "id": "cost", "label": "成本计算器", "icon": "💰", "desc": "SC合规成本 39.9元竞品" },
       { "id": "compliance", "label": "SC合规", "icon": "📦", "desc": "SC资质+标签合规" },
@@ -56,6 +69,19 @@
     },
     "complianceShortName": "蓝帽子",
     "salesPitch": "蓝帽子认证多酚功效",
+    "classifyKeywords": ["保健", "多酚", "胶囊", "软糖"],
+    "report": {
+      "conclusion": {
+        "leadership": "保健食品蓝帽子备案5万已摊，软糖剂型溢价高，功能卖点是关键",
+        "product": "多酚核心原料4元82%留存，软糖1.5元60粒，合规2.5元备案摊销，总成本12元，定价199元利润空间大",
+        "sales": "蓝帽子+多酚功能+软糖口感，199元高溢价，话术突出备案和功效"
+      },
+      "corePitch": "蓝帽子备案+多酚功能+软糖口感，功效与口感兼具",
+      "headerNote": "保健食品蓝帽子备案5万已摊，软糖剂型溢价高，功能卖点是关键，富可视化15组件+8动效",
+      "riskNote": "蓝帽子审批",
+      "summary": "含备案摊销，利润空间取决于销量",
+      "costFeature": "含备案摊销"
+    },
     "tools": [
       { "id": "cost", "label": "成本计算器", "icon": "💰", "desc": "蓝帽子成本 199元竞品" },
       { "id": "compliance", "label": "蓝帽子合规", "icon": "💊", "desc": "蓝帽子+功能声称" },
@@ -85,6 +111,19 @@
     },
     "complianceShortName": "SC/进口备案",
     "salesPitch": "进口原料跨境背书",
+    "classifyKeywords": ["跨境", "进口", "保税"],
+    "report": {
+      "conclusion": {
+        "leadership": "跨境食品进口成本高但溢价强，关税12%+清关是关键，保税仓降低物流",
+        "product": "进口乳粉3元+坚果3.75元，国际物流3.5元+关税1.2+报关清关2元，合规1.5元，总成本20元，定价129元",
+        "sales": "进口原料+跨境背书是卖点，129元中高端，话术突出进口和跨境"
+      },
+      "corePitch": "进口原料+跨境背书+保税仓直发，品质保障",
+      "headerNote": "跨境食品进口成本高但溢价强，关税12%+清关是关键，保税仓降低物流，富可视化动效",
+      "riskNote": "关税政策",
+      "summary": "关税和清关是关键",
+      "costFeature": "含关税和国际物流"
+    },
     "tools": [
       { "id": "cost", "label": "跨境成本", "icon": "💰", "desc": "保税仓成本 129元竞品" },
       { "id": "compliance", "label": "跨境合规", "icon": "🌍", "desc": "进口资质+跨境标签" },
@@ -114,6 +153,19 @@
     },
     "complianceShortName": "备案",
     "salesPitch": "透明质酸烟酰胺成分",
+    "classifyKeywords": ["化妆", "护肤", "精华", "面膜"],
+    "report": {
+      "conclusion": {
+        "leadership": "化妆品包材成本重，玻璃瓶5元是关键，备案3万+功效安全检测是卖点",
+        "product": "透明质酸4元+烟酰胺3元核心，包材8+2+1+5玻璃瓶，检测1.5+安全1+功效1，合规3元，总成本35元，定价299元",
+        "sales": "透明质酸保湿+烟酰胺美白+玻璃瓶质感，299元高端，话术突出功效和包材"
+      },
+      "corePitch": "透明质酸保湿+烟酰胺美白+玻璃瓶质感，高端体验",
+      "headerNote": "化妆品包材成本重，玻璃瓶5元是关键，备案3万+功效安全检测是卖点，富可视化",
+      "riskNote": "备案政策",
+      "summary": "包材和检测占比较高",
+      "costFeature": "含包材和检测"
+    },
     "tools": [
       { "id": "cost", "label": "化妆品成本", "icon": "💰", "desc": "透明质酸成本 299元竞品" },
       { "id": "compliance", "label": "化妆品备案", "icon": "💄", "desc": "备案+功效宣称" },

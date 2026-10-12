@@ -5,6 +5,7 @@
 
 import { generateDailyBriefing, DailyBriefingOutput } from "./daily-briefing";
 import { listNotifyChannels, normalizeMessage } from "@/modules/notify";
+import { matchCategoryByText, categoryName } from "@/modules/tenant";
 
 export interface ActivePushInput {
   organizationId: string;
@@ -109,24 +110,19 @@ function personalizeBriefing(
 ): DailyBriefingOutput {
   // 没有项目或建议时保持空，避免把 undefined 拼成个性化业务建议。
   if (briefing.projectCount === 0 || briefing.suggestions.length === 0) return briefing;
-  // 根据记忆偏好调整建议
+  // 根据记忆偏好调整建议。
+  // 关键词来自租户 pack（`matchCategoryByText` → categoryContent.<key>.classifyKeywords），
+  // 内核不写死任何行业名；未命中任何品类的记忆项不入候选（保持「显式偏好才个性化」的语义）。
   const prefCategories = memoryItems
-    .filter((m: any) => m.content?.includes("保健食品") || m.content?.includes("化妆品") || m.content?.includes("普通食品") || m.content?.includes("跨境"))
-    .map((m: any) => {
-      if (m.content.includes("保健食品")) return "health_food";
-      if (m.content.includes("化妆品")) return "cosmetics";
-      if (m.content.includes("普通食品")) return "regular_food";
-      if (m.content.includes("跨境")) return "cross_border_food";
-      return null;
-    })
-    .filter(Boolean);
+    .map((m: any) => matchCategoryByText(m.content))
+    .filter((k): k is string => Boolean(k));
 
   if (prefCategories.length > 0) {
     // 保持原 category，但增加个性化标记
     return {
       ...briefing,
       suggestions: [
-        `基于您的偏好(${prefCategories[0]})，${briefing.suggestions[0]}`,
+        `基于您的偏好(${categoryName(prefCategories[0])})，${briefing.suggestions[0]}`,
         ...briefing.suggestions.slice(1),
       ],
     };

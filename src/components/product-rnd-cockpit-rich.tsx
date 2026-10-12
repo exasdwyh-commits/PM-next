@@ -37,7 +37,7 @@ export function ProductRndCockpitRich({ project, category = "health_food", onOpt
       <div className="cockpit-header" style={{ background: catInfo.gradient }}>
         <div>
           <span className="eyebrow" style={{ background: catInfo.color, color: "white" }}>{catInfo.icon} {catInfo.name} · 产品研发驾驶舱 · {role}视角 · 一页看懂 · Kern统筹</span>
-          <h2>{project?.title || "多酚软糖项目"} · {content.formula} · {content.compliance.short}</h2>
+          <h2>{project?.title || "示例项目"} · {content.formula} · {content.compliance.short}</h2>
           <small>{content.costBreakdown} · {catInfo.name}专用 · 配方+成本+合规+供应商+证据+风险+决策 全部一页 · Kern自动填充</small>
         </div>
         <div className="category-badge" style={{ background: catInfo.color, color: "white" }}>{catInfo.icon} {catInfo.name}</div>
@@ -65,8 +65,8 @@ export function ProductRndCockpitRich({ project, category = "health_food", onOpt
           <div className="cockpit-sections">
             <div className="section" style={{ borderLeft: `3px solid ${catInfo.color}` }}>
               <h4>🧪 配方 · {catInfo.name} · {content.formula}</h4>
-              <p>当前配方: {content.formula}，多酚留存82%已验证，80℃烘焙工艺，软糖剂型，{content.compliance.short}已合规</p>
-              <div className="chips"><span style={{ background: `${catInfo.color}15`, color: catInfo.color }}>多酚留存82%</span><span style={{ background: `${catInfo.color}15`, color: catInfo.color }}>80℃烘焙</span><span style={{ background: `${catInfo.color}15`, color: catInfo.color }}>软糖剂型</span></div>
+              <p>当前配方: {content.formula}，{content.compliance.short}已合规</p>
+              <div className="chips">{content.selling?.slice(0, 3).map((s: string, i: number) => <span key={i} style={{ background: `${catInfo.color}15`, color: catInfo.color }}>{s}</span>)}</div>
             </div>
             <div className="section" style={{ borderLeft: `3px solid ${catInfo.color}` }}>
               <h4>💰 成本 · {content.costBreakdown}</h4>
@@ -103,7 +103,7 @@ export function ProductRndCockpitRich({ project, category = "health_food", onOpt
           <div className="timeline">
             <h4>📅 时间线 · 甘特图 · 关键路径 · {catInfo.name}</h4>
             <div className="timeline-grid">
-              <div className="timeline-item done" style={{ borderLeft: `3px solid ${catInfo.color}` }}><div className="dot" style={{ background: catInfo.color }}></div><div><strong>配方确定</strong><small>已完成 · 2024-10-01 · 多酚+低聚果糖+软糖基质</small></div><span className="status done">已完成</span></div>
+              <div className="timeline-item done" style={{ borderLeft: `3px solid ${catInfo.color}` }}><div className="dot" style={{ background: catInfo.color }}></div><div><strong>配方确定</strong><small>已完成 · 2024-10-01 · {content.formula}</small></div><span className="status done">已完成</span></div>
               <div className="timeline-item running" style={{ borderLeft: `3px solid var(--warn)` }}><div className="dot" style={{ background: "var(--warn)" }}></div><div><strong>成本优化</strong><small>进行中 · 目标8元 · Kern调度中 · 预计今日完成</small></div><span className="status running">进行中</span></div>
               <div className="timeline-item queued"><div className="dot"></div><div><strong>合规检查</strong><small>待开始 · {content.compliance.short} · 依赖成本优化</small></div><span className="status queued">待开始</span></div>
               <div className="timeline-item queued"><div className="dot"></div><div><strong>供应商打样</strong><small>待开始 · 3家供应商 · 依赖合规</small></div><span className="status queued">待开始</span></div>

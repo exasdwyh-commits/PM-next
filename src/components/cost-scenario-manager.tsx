@@ -8,7 +8,7 @@ import { CostApproval } from "./cost-approval";
 import { CostCollaboration } from "./cost-collaboration";
 import { Notice, type NoticeMessage } from "./notice";
 import { fmtDate } from "@/shared/datetime";
-import { categoryMeta } from "@/modules/tenant";
+import { categoryMeta, categoryKeys, categoryName, tenantExamples } from "@/modules/tenant";
 import "./cost-approval.css";
 import "./cost-collaboration.css";
 import "./cost-comparison-charts.css";
@@ -114,7 +114,7 @@ export function CostScenarioManager({
         <div className="scenario-kpi">
           <span>总计 {stats.total}</span>
           <span>收藏 {stats.favorites}</span>
-          <span>普通 {stats.byCategory["regular_food"] || 0} · 保健 {stats.byCategory["health_food"] || 0} · 跨境 {stats.byCategory["cross_border_food"] || 0} · 化妆 {stats.byCategory["cosmetics"] || 0}</span>
+          <span>{categoryKeys().map(k => `${categoryName(k)} ${stats.byCategory[k] || 0}`).join(" · ")}</span>
         </div>
         <div className="scenario-cards">
           {scenarios.slice(0, 3).map(s => (
@@ -131,7 +131,7 @@ export function CostScenarioManager({
       <div className="scenario-header">
         <div>
           <h4>💾 成本方案管理 · 模块化</h4>
-          <small>共 {stats.total}个方案 · 均价 ¥{stats.avgCost.toFixed(2)} · 收藏 {stats.favorites} · 分类：普通{stats.byCategory["regular_food"]||0} 保健{stats.byCategory["health_food"]||0} 跨境{stats.byCategory["cross_border_food"]||0} 化妆{stats.byCategory["cosmetics"]||0}</small>
+          <small>共 {stats.total}个方案 · 均价 ¥{stats.avgCost.toFixed(2)} · 收藏 {stats.favorites} · 分类：{categoryKeys().map(k => `${categoryName(k)}${stats.byCategory[k] || 0}`).join(" ")}</small>
         </div>
         <div className="scenario-actions">
           <button disabled={selectedIds.length < 2} onClick={() => setShowCompare(!showCompare)}>{showCompare ? "关闭对比" : `对比 (${selectedIds.length})`}</button>
@@ -139,7 +139,7 @@ export function CostScenarioManager({
       </div>
 
       <div className="save-bar">
-        <input placeholder="方案名称，例如：多酚软糖V2-跨境版" value={saveName} onChange={e => setSaveName(e.target.value)} />
+        <input placeholder={tenantExamples().scenarioName ? `方案名称，例如：${tenantExamples().scenarioName}` : "方案名称"} value={saveName} onChange={e => setSaveName(e.target.value)} />
         <button className="primary" onClick={handleSave} disabled={!saveName}>💾 保存当前方案</button>
       </div>
 

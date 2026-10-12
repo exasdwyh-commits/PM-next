@@ -7,6 +7,14 @@
     "cross_border_food": "跨境食品",
     "cosmetics": "化妆品"
   },
+  "classificationsEn": {
+    "regular_food": "Regular Food",
+    "health_food": "Health Food",
+    "cross_border_food": "Cross-border Food",
+    "cosmetics": "Cosmetics"
+  },
+  "bilingualKeys": ["cross_border_food"],
+  "complianceCategories": ["普通食品", "保健食品", "特殊膳食食品", "化妆品", "其他"],
   "targetMargin": {
     "保健品": 35,
     "保健食品": 35,

@@ -1,5 +1,6 @@
 import type { SessionContext } from "@/modules/identity/session";
 import { searchKnowledge } from "@/modules/knowledge/service";
+import { sourceTitle } from "@/modules/knowledge/source-title";
 import type {
   KernCapabilityContext,
   KernCapabilityHandler,
@@ -40,7 +41,12 @@ export const handleKnowledgeCapability: KernCapabilityHandler = async (
         citations: citations.map((c) => ({
           kind: "knowledge",
           ref: c.ref,
-          title: `${c.docTitle}${c.headingPath ? ` > ${c.headingPath}` : ""}`,
+          title: sourceTitle(c.docTitle, c.headingPath),
+          // 切片全部来自本组织已索引的知识库 → 权威档恒定 first_party；
+          // 没有任何独立复核记录 → verified 恒 false。如实标注，不冒充已核验。
+          authorityTier: "first_party",
+          verified: false,
+          capturedAt: c.docUpdatedAt,
         })),
       };
     }
@@ -60,7 +66,10 @@ export const handleKnowledgeCapability: KernCapabilityHandler = async (
           citations: searchResult.citations.map((c) => ({
             kind: "knowledge",
             ref: c.ref,
-            title: c.docTitle,
+            title: sourceTitle(c.docTitle, c.headingPath),
+            authorityTier: "first_party",
+            verified: false,
+            capturedAt: c.docUpdatedAt,
           })),
         };
       }

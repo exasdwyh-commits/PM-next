@@ -15,7 +15,7 @@ const ev = (
 ): EvidenceRef => ({
   kind: "internal",
   source: "Kern 内部记录",
-  confidence: "medium",
+  confidence: "internal",
   verified: false,
   capturedAt: "今天 09:12",
   ...o,
@@ -186,7 +186,7 @@ export const studioModel: StudioModel = {
       title: "本机执行回执",
       kind: "runtime",
       verified: true,
-      confidence: "high",
+      confidence: "confirmed",
       source: "Desktop Runtime",
     }),
   ],

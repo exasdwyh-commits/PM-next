@@ -69,6 +69,7 @@ export default function KnowledgeClient({ overview: initialOverview, workItems, 
   // Sync state
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   // Fact form state
   const [showAddFact, setShowAddFact] = useState(false);
@@ -77,6 +78,35 @@ export default function KnowledgeClient({ overview: initialOverview, workItems, 
   const [factValue, setFactValue] = useState("");
   const [factCategory, setFactCategory] = useState("policy");
   const [savingFact, setSavingFact] = useState(false);
+
+  /**
+   * 启用 / 停用知识源。停用后该源的文档不再进入检索回执 ——
+   * 「只检索指定文件夹」就是靠这个：停掉全库源，只留目标子目录源。
+   */
+  async function handleToggleSource(sourceId: string, enabled: boolean) {
+    setTogglingId(sourceId);
+    setSyncMessage(null);
+    try {
+      const res = await fetch(`/api/knowledge/sources/${sourceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSyncMessage(
+          enabled ? "已启用：该知识源重新参与检索" : "已停用：该知识源不再进入检索结果（文档保留，重新启用即可恢复）"
+        );
+        setTimeout(() => router.refresh(), 800);
+      } else {
+        setSyncMessage(`操作失败：${data.error?.message || "未知错误"}`);
+      }
+    } catch (err: any) {
+      setSyncMessage(`操作异常：${err?.message || err}`);
+    } finally {
+      setTogglingId(null);
+    }
+  }
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -419,6 +449,13 @@ export default function KnowledgeClient({ overview: initialOverview, workItems, 
             )}
 
             <div className="space-y-3">
+              {overview.sources.length > 0 &&
+                overview.sources.every((s: any) => s.enabled === false) && (
+                  <div className="p-3 rounded border border-amber-700/60 bg-amber-950/20 text-sm text-amber-200">
+                    所有知识源都已停用 —— 对话检索将返回 0 条来源。
+                    停用只是停止参与检索，文档不会丢失；启用任意一个即可恢复。
+                  </div>
+                )}
               {overview.sources.length === 0 ? (
                 <Empty>暂未接入任何本地或 Obsidian 知识源。点击上方按钮配置目录。</Empty>
               ) : (
@@ -428,6 +465,9 @@ export default function KnowledgeClient({ overview: initialOverview, workItems, 
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-stone-100 text-sm">{src.name}</span>
                         <Badge tone="brand">{labelKnowledgeSourceKind(src.kind)}</Badge>
+                        <Badge tone={src.enabled === false ? "neutral" : "ok"}>
+                          {src.enabled === false ? "已停用·不参与检索" : "检索中"}
+                        </Badge>
                         <span className="text-xs text-stone-400 font-mono">
                           {src._count?.documents || 0} 篇文档
                         </span>
@@ -437,7 +477,19 @@ export default function KnowledgeClient({ overview: initialOverview, workItems, 
                         上次同步：{src.lastSyncAt ? fmtDateTime(src.lastSyncAt) : "从未同步"}
                       </div>
                     </div>
-                    <div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={togglingId === src.id}
+                        onClick={() => handleToggleSource(src.id, src.enabled === false)}
+                      >
+                        {togglingId === src.id
+                          ? "处理中..."
+                          : src.enabled === false
+                            ? "启用检索"
+                            : "停用检索"}
+                      </Button>
                       <Button
                         size="sm"
                         variant="secondary"

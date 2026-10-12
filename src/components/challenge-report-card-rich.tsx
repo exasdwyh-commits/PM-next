@@ -5,15 +5,18 @@ import { cx } from "@/components/ui";
 import Icon from "@/components/icons";
 import { fmtDateTime } from "@/shared/datetime";
 import { useRole } from "./role-context";
-import { categoryMeta } from "@/modules/tenant";
+import { categoryMeta, classifyCategoryByText } from "@/modules/tenant";
 import "./challenge-report-card-rich.css";
 
+/**
+ * 从报告文本推断品类。
+ *
+ * ⚠️ 原先这里写死了一张「关键词 → 品类键」映射表，那是**语义级租户假设**：
+ * 换租户后会把旧行业的判断带到新行业上。现已收口到共享的
+ * `classifyCategoryByText()`（关键词来自 pack，见 @/modules/tenant）。
+ */
 function getCategoryFromReport(report: any): string {
-  const text = `${report.productName || ""} ${report.proposedClaim || ""}`.toLowerCase();
-  if (text.includes("化妆") || text.includes("护肤") || text.includes("精华") || text.includes("面膜")) return "cosmetics";
-  if (text.includes("跨境") || text.includes("进口") || text.includes("保税")) return "cross_border_food";
-  if (text.includes("保健") || text.includes("多酚") || text.includes("胶囊") || text.includes("软糖")) return "health_food";
-  return "regular_food";
+  return classifyCategoryByText(`${report.productName || ""} ${report.proposedClaim || ""}`);
 }
 
 const RISK_CONFIG: any = {

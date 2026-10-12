@@ -121,13 +121,17 @@ export function authorityScore(
   return clamp01(base + (verified ? policy.verifiedBoost : 0));
 }
 
-/** 新鲜度的人话标签（EvidenceClaim.freshness 与 prompt 展示共用，别各写一份）。 */
+/**
+ * 新鲜度的人话标签（EvidenceClaim.freshness 与 prompt 展示共用，别各写一份）。
+ * 全中文；拿不到时间戳时如实说「时间未知」，不给一个看着像出错的英文兜底。
+ * ⚠️ 该值会落 EvidenceClaim.freshness（String 列），历史行仍是英文旧值。
+ */
 export function freshnessLabel(capturedAt: string | null, now: Date = new Date()): string {
-  if (!capturedAt) return "UNKNOWN";
+  if (!capturedAt) return "时间未知";
   const t = Date.parse(capturedAt);
-  if (Number.isNaN(t)) return "UNKNOWN";
+  if (Number.isNaN(t)) return "时间未知";
   const days = (now.getTime() - t) / 86_400_000;
-  if (days <= 30) return "RECENT";
-  if (days <= 180) return "CURRENT";
-  return "STALE";
+  if (days <= 30) return "近期";
+  if (days <= 180) return "半年内";
+  return "一年以上";
 }

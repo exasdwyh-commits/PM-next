@@ -1,7 +1,12 @@
 /**
- * 国际化 - P3-3 跨境食品英文双语
- * 4类专用，支持中英文切换
+ * 国际化 —— 品类名与卖点由租户 pack 提供。
+ *
+ * 内核只保留无行业词的通用词条（模块 / BOM / 供应商 / 合规 / 成本 / 操作）。
+ * 品类名的中英文都从 pack 读（`classifications` / `classificationsEn`），
+ * `src/` 不留任何品类文案副本（见 tests/tenant-neutral-guard.test.ts）。
+ * 卖点见 `categoryContent().selling`，不在本表重复。
  */
+import { categoryName, getTenantPack } from "@/modules/tenant";
 
 export type Locale = "zh" | "en";
 
@@ -10,13 +15,8 @@ export interface I18nText {
   en: string;
 }
 
+/** 内核通用词条（无行业词）。品类名与卖点走 pack，不在其中。 */
 export const I18N: Record<string, I18nText> = {
-  // 类别
-  regular_food: { zh: "普通食品", en: "Regular Food" },
-  health_food: { zh: "保健食品", en: "Health Food" },
-  cross_border_food: { zh: "跨境食品", en: "Cross-border Food" },
-  cosmetics: { zh: "化妆品", en: "Cosmetics" },
-
   // 模块
   material: { zh: "原料", en: "Material" },
   formulation: { zh: "配方", en: "Formulation" },
@@ -56,22 +56,23 @@ export const I18N: Record<string, I18nText> = {
   delete: { zh: "删除", en: "Delete" },
   edit: { zh: "编辑", en: "Edit" },
   add: { zh: "添加", en: "Add" },
-
-  // 4类卖点
-  selling_point_regular: { zh: "性价比突出，日常刚需，SC合规", en: "Cost-effective, daily necessity, SC certified" },
-  selling_point_health: { zh: "蓝帽子备案，多酚功能，软糖口感", en: "Blue hat filing, polyphenol function, gummy taste" },
-  selling_point_cross_border: { zh: "进口原料，跨境背书，保税仓直发", en: "Imported material, cross-border endorsement, bonded warehouse" },
-  selling_point_cosmetics: { zh: "透明质酸保湿，烟酰胺美白，玻璃瓶质感", en: "Hyaluronic moisturizing, niacinamide whitening, glass bottle texture" },
 };
+
+/** 品类的英文名（pack 提供；缺失返回 undefined，由调用方决定兜底）。 */
+function categoryEn(key: string): string | undefined {
+  return getTenantPack().categories.classificationsEn?.[key];
+}
 
 export function t(key: string, locale: Locale = "zh"): string {
   const entry = I18N[key];
-  if (!entry) return key;
-  return entry[locale] || entry.zh;
+  if (entry) return entry[locale] || entry.zh;
+  // 品类键：中文名从 pack 的 classifications 读，英文名从 classificationsEn 读
+  if (locale === "en") return categoryEn(key) ?? key;
+  return categoryName(key);
 }
 
-export function getCategoryI18n(category: string, locale: Locale = "zh"): I18nText {
-  return I18N[category] || { zh: category, en: category };
+export function getCategoryI18n(category: string, _locale: Locale = "zh"): I18nText {
+  return { zh: categoryName(category), en: categoryEn(category) ?? category };
 }
 
 export const LOCALE_STORAGE_KEY = "cost_locale";
@@ -91,10 +92,7 @@ export function setLocale(locale: Locale) {
   }
 }
 
-export function isCrossBorderCategory(category: string): boolean {
-  return category === "cross_border_food";
-}
-
+/** 该品类是否需要中英双语展示，由 pack 的 `bilingualKeys` 决定。 */
 export function shouldShowBilingual(category: string): boolean {
-  return isCrossBorderCategory(category);
+  return (getTenantPack().categories.bilingualKeys ?? []).includes(category);
 }

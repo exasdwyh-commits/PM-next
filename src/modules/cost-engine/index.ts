@@ -1,6 +1,6 @@
 /**
  * 运营成本核算与供货定价模块 — 计算引擎统一入口
- * 4类专用：普通食品、保健食品、跨境食品、化妆品
+ * 品类由租户 pack 定义，内核不含具体品类名
  */
 
 import type { CostInput, CostResult } from './types'
@@ -68,11 +68,11 @@ export { COST_TEMPLATES, getTemplate, listTemplates, getTemplateForProduct } fro
 export type { CostModuleDef, ProductCostTemplate, ModularCostResult } from './modules/types';
 
 // ── BOM导入 ──
-export { calculateBomCost, parseBomCsv, getBomTemplate, BOM_TEMPLATES } from './bom-import';
+export { calculateBomCost, parseBomCsv, getBomTemplate } from './bom-import';
 export type { BomItem, BomImportResult } from './bom-import';
 
 // ── 供应商报价 ──
-export { compareSupplierQuotes, groupQuotesByProduct, getSupplierTemplate, SUPPLIER_TEMPLATES, calculateBomFromQuotes } from './supplier-quote';
+export { compareSupplierQuotes, groupQuotesByProduct, getSupplierTemplate, calculateBomFromQuotes } from './supplier-quote';
 export type { SupplierQuote, SupplierComparison } from './supplier-quote';
 
 // ── 合规清单 ──
@@ -92,5 +92,5 @@ export { costResultToRichEnvelope, generateRichHtmlReport } from './html-report-
 export type { RichHtmlReportInput } from './html-report-rich';
 
 // ── 国际化 P3-3 ──
-export { t, getCategoryI18n, getLocale, setLocale, shouldShowBilingual, isCrossBorderCategory } from './i18n';
+export { t, getCategoryI18n, getLocale, setLocale, shouldShowBilingual } from './i18n';
 export type { Locale, I18nText } from './i18n';

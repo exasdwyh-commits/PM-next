@@ -73,6 +73,19 @@ export interface WorkerHandlers {
       results: { id: string; outcome: "LOST_CLAIM" | { status: string; detail?: string | null } }[];
     }>;
   };
+  /**
+   * knowledgeLoop：把外部知识目录（Obsidian Vault 等）的变化同步进库。
+   * 缺省则该 loop 空转 —— worker 本身不认识 knowledge 模块，只负责周期性地问一句"有活吗"。
+   */
+  knowledge?: {
+    syncDrifted: (options: { organizationId?: string; limit?: number }) => Promise<{
+      scanned: number;
+      acted: number;
+      skipped: number;
+      errors: number;
+      notes?: string[];
+    }>;
+  };
 }
 
 let current: WorkerHandlers | null = null;

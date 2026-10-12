@@ -138,12 +138,12 @@ export function SourceSheet({ ref_, onClose }: { ref_: EvidenceRef; onClose: () 
         <i>可信度</i><span><Tag tone={c.tone}>{c.label}</Tag></span>
         <i>类型</i><span>{kind}</span>
         <i>出处</i><span>{ref_.source}</span>
-        <i>采集时间</i><span>{ref_.capturedAt}</span>
-        <i>复核</i><span>{ref_.verified ? "已由独立 QA 复核" : "尚未复核"}</span>
+        <i>采集时间</i><span>{fmtDateTime(ref_.capturedAt, "时间未知")}</span>
+        <i>核验</i><span>{ref_.verified ? "已由独立 QA 复核" : "尚未复核"}</span>
       </div>
       {ref_.excerpt ? <blockquote className="m-quote">{ref_.excerpt}</blockquote> : <p className="m-quiet">没有可引用的原文片段，Kern 不会替它编一段。</p>}
-      {ref_.confidence === "unknown" ? (
-        <p className="m-hint">这条依然是 UNKNOWN。Kern 不会把它当成结论使用，只会提示你补齐。</p>
+      {ref_.confidence === "unrated" ? (
+        <p className="m-hint">这条来源尚未评级。Kern 不替它编一个可信度，只如实标注。</p>
       ) : null}
     </Sheet>
   );

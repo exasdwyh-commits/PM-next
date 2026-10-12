@@ -12,6 +12,7 @@ import prisma from "@/shared/db";
 import { SessionContext } from "../identity/session";
 import { buildCompanyBriefSnapshot, type BriefSnapshotResult } from "../knowledge/brief-snapshot";
 import { searchKnowledge, type KnowledgeSearchResult } from "../knowledge/search";
+import { sourceTitle } from "../knowledge/source-title";
 import { computeInputFingerprint } from "../work/structured-artifacts";
 import { parseCostScenario, listCostScenarios } from "../cost-engine/scenarios";
 
@@ -200,7 +201,7 @@ export async function buildAuthorizedAnalysisContext(
       citationWhitelist.push({
         ref: cit.ref,
         kind: "knowledge",
-        label: `${cit.docTitle} > ${cit.headingPath ?? "根"}`,
+        label: sourceTitle(cit.docTitle, cit.headingPath || "根"),
         sourcePath: cit.relativePath,
       });
     }

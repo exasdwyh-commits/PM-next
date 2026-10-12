@@ -13,7 +13,14 @@
  *     （回退值同时是"这里漏登记了一条"的信号。）
  *  2. 本模块**必须保持零依赖**：它会被客户端组件直接 import，一旦引入 prisma / server-only
  *     模块，客户端打包就会失败。因此这里只放纯字面量映射，不放类型导入。
+ *     （唯一的例外是 `@/shared/vocabulary`：它同样是零依赖的纯字面量模块，安全。）
  */
+import {
+  CLAIM_BASIS_LABEL,
+  EVIDENCE_STRENGTH_LABEL,
+  claimBasisLabel,
+  evidenceStrengthLabel,
+} from "./vocabulary";
 
 /** 运行模式：是否真的接了语言模型，直接决定使用者能否相信顾问的回答 */
 export const RUN_MODE_LABELS: Record<string, string> = {
@@ -94,13 +101,13 @@ export const ANALYSIS_RUN_KIND_LABELS: Record<string, string> = {
  * 证据等级（executive-report 结论证据展示，非独立 Prisma 枚举，取值：
  * UNKNOWN / ASSUMED / SUPPORTED / VERIFIED）。UNKNOWN 在本产品中是一等状态
  * （证据尚未分级），保留「未知」而不是隐藏或含糊其辞。
+ *
+ * ⚠️ 词表的**唯一来源**是 `@/shared/vocabulary` 的 `EVIDENCE_STRENGTH_LABEL`；
+ * 这里保留同名常量只为兼容既有 import。历史教训：旧版这张表只登记了 4 个值，
+ * 而 evidence/verifier 写的是 WEAK / STRONG、evidence-bridge 写的是 HIGH / MEDIUM / LOW
+ * → 映射不到就原样透传英文（页面上出现过「证据 HIGH」）。现在由适配器统一收敛。
  */
-export const EVIDENCE_LEVEL_LABELS: Record<string, string> = {
-  UNKNOWN: "未知",
-  ASSUMED: "假设",
-  SUPPORTED: "有支撑",
-  VERIFIED: "已核实",
-};
+export const EVIDENCE_LEVEL_LABELS: Record<string, string> = EVIDENCE_STRENGTH_LABEL;
 
 /** Squad 生命周期状态（SquadLifecycleStatus） */
 export const SQUAD_LIFECYCLE_STATUS_LABELS: Record<string, string> = {
@@ -185,11 +192,15 @@ export const EVIDENCE_NATURE_LABELS: Record<string, string> = {
   DEMO: "演示数据",
 };
 
-/** 证据主张的三态（事实 / 推断 / 假设）——三者绝不能混为一谈 */
+/**
+ * 证据主张的三态（事实 / 推断 / 假设）——三者绝不能混为一谈。
+ * ⚠️ 文案的唯一来源是 `@/shared/vocabulary` 的 `CLAIM_BASIS_LABEL`；这里保留
+ * 大写键名只为兼容既有取值（`FACT` / `INFERENCE` / `ASSUMPTION`）。
+ */
 export const EVIDENCE_CLAIM_KIND_LABELS: Record<string, string> = {
-  FACT: "事实",
-  INFERENCE: "推断",
-  ASSUMPTION: "假设",
+  FACT: CLAIM_BASIS_LABEL.fact,
+  INFERENCE: CLAIM_BASIS_LABEL.inference,
+  ASSUMPTION: CLAIM_BASIS_LABEL.assumption,
 };
 
 /**
@@ -540,7 +551,12 @@ export const labelProductLifecycleStage = (k?: string | null) => labelOf(PRODUCT
 export const labelAgentRunStatus = (k?: string | null) => labelOf(AGENT_RUN_STATUS_LABELS, k);
 export const labelAgentTaskStatus = (k?: string | null) => labelOf(AGENT_TASK_STATUS_LABELS, k);
 export const labelAnalysisRunKind = (k?: string | null) => labelOf(ANALYSIS_RUN_KIND_LABELS, k);
-export const labelEvidenceLevel = (k?: string | null) => labelOf(EVIDENCE_LEVEL_LABELS, k);
+/**
+ * 证据强度标签。**不走 `labelOf`**：`labelOf` 的兜底是原样返回 key，
+ * 会把 `WEAK` / `STRONG` / `HIGH` 这类历史值直接漏成英文；这里改用 vocabulary 的
+ * 大小写不敏感适配器，任何认得出的写法都收敛成中文，认不出的落到「未知」。
+ */
+export const labelEvidenceLevel = (k?: string | null) => (k ? evidenceStrengthLabel(k) : "—");
 export const labelSquadLifecycleStatus = (k?: string | null) => labelOf(SQUAD_LIFECYCLE_STATUS_LABELS, k);
 export const labelChannelRuleRecordStatus = (k?: string | null) => labelOf(CHANNEL_RULE_RECORD_STATUS_LABELS, k);
 export const labelKnowledgeSourceKind = (k?: string | null) => labelOf(KNOWLEDGE_SOURCE_KIND_LABELS, k);
@@ -548,7 +564,8 @@ export const labelKnowledgeSyncStatus = (k?: string | null) => labelOf(KNOWLEDGE
 export const labelCompanyFactStatus = (k?: string | null) => labelOf(COMPANY_FACT_STATUS_LABELS, k);
 export const labelEvidenceVerifyStatus = (k?: string | null) => labelOf(EVIDENCE_VERIFY_STATUS_LABELS, k);
 export const labelEvidenceNature = (k?: string | null) => labelOf(EVIDENCE_NATURE_LABELS, k);
-export const labelEvidenceClaimKind = (k?: string | null) => labelOf(EVIDENCE_CLAIM_KIND_LABELS, k);
+/** 主张依据标签：同时接受大写 `FACT` 与小写 `fact`（两条词表已合并）。 */
+export const labelEvidenceClaimKind = (k?: string | null) => (k ? claimBasisLabel(k) : "—");
 export const labelValidationStatus = (k?: string | null) => labelOf(VALIDATION_STATUS_LABELS, k);
 export const labelDecisionPacketStatus = (k?: string | null) => labelOf(DECISION_PACKET_STATUS_LABELS, k);
 export const labelDecisionOutcome = (k?: string | null) => labelOf(DECISION_OUTCOME_LABELS, k);

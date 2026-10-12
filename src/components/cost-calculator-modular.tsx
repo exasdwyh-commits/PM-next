@@ -10,7 +10,6 @@ import { CostScenarioManager } from "./cost-scenario-manager";
 import { CostExport } from "./cost-export";
 import { CostHtmlReport } from "./cost-html-report";
 import { CostHtmlReportRich } from "./cost-html-report-rich";
-import { KernPromptLibrary } from "./kern-prompt-library";
 import { ComplianceEvidenceManager } from "./compliance-evidence";
 import { SupplierQualificationManager } from "./supplier-qualification";
 import { CostOfficeExport } from "./cost-office-export";
@@ -22,7 +21,6 @@ import "./cost-office-export.css";
 import { BomVirtualList } from "./bom-virtual-list";
 import "./bom-virtual-list.css";
 import { t as i18nT, getLocale, setLocale, shouldShowBilingual } from "@/modules/cost-engine/i18n";
-import "./kern-prompt-library.css";
 import "./cost-html-report.css";
 import "./cost-scenario-manager.css";
 import "./bom-import.css";
@@ -56,7 +54,7 @@ export function CostCalculatorModular({
   const [template, setTemplate] = React.useState<ProductCostTemplate>(() => getTemplate(templateId) || getTemplateForProduct(productName, productCategory));
   const [values, setValues] = React.useState<Record<string, Record<string, number>>>({});
   const [result, setResult] = React.useState<ModularCostResult | null>(null);
-  const [activeSubTab, setActiveSubTab] = React.useState<"cost" | "bom" | "supplier" | "compliance" | "scenario" | "html" | "prompts">("cost");
+  const [activeSubTab, setActiveSubTab] = React.useState<"cost" | "bom" | "supplier" | "compliance" | "scenario" | "html">("cost");
   const [bomCost, setBomCost] = React.useState<number>(0);
   const [bomItemsState, setBomItemsState] = React.useState<any[]>([]);
   const [supplierQuotesState, setSupplierQuotesState] = React.useState<any[]>([]);
@@ -135,7 +133,6 @@ export function CostCalculatorModular({
         <button className={activeSubTab === "compliance" ? "active" : ""} onClick={() => setActiveSubTab("compliance")}>📋 合规</button>
         <button className={activeSubTab === "scenario" ? "active" : ""} onClick={() => setActiveSubTab("scenario")}>💾 方案</button>
         <button className={activeSubTab === "html" ? "active" : ""} onClick={() => setActiveSubTab("html")}>🎨 可视化</button>
-        <button className={activeSubTab === "prompts" ? "active" : ""} onClick={() => setActiveSubTab("prompts")}>🎯 提示词库</button>
       </div>
 
       {activeSubTab === "bom" && (
@@ -147,7 +144,7 @@ export function CostCalculatorModular({
             <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}>
               <input type="checkbox" checked={locale === "en"} onChange={e => { const newLocale = e.target.checked ? "en" : "zh"; setLocaleState(newLocale); setLocale(newLocale); }} /> 英文双语(P3-3, 跨境)
             </label>
-            {shouldShowBilingual(templateId) && <small style={{ fontSize: 10, color: "var(--ink-muted)" }}>🌍 跨境食品双语：{i18nT(templateId, locale)} / {i18nT(templateId, "en")}</small>}
+            {shouldShowBilingual(templateId) && <small style={{ fontSize: 10, color: "var(--ink-muted)" }}>🌍 双语：{i18nT(templateId, locale)} / {i18nT(templateId, "en")}</small>}
           </div>
           {useVirtualList ? (
             <BomVirtualList items={bomItemsState.length > 0 ? bomItemsState : []} onUpdate={(id, field, value) => setBomItemsState(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item))} onRemove={(id) => setBomItemsState(prev => prev.filter(item => item.id !== id))} />
@@ -194,9 +191,6 @@ export function CostCalculatorModular({
             ))}
           </div>
         </>
-      )}
-      {activeSubTab === "prompts" && (
-        <KernPromptLibrary />
       )}
       {activeSubTab === "html" && (
         <CostHtmlReportRich
@@ -247,10 +241,7 @@ export function CostCalculatorModular({
           <div className="cost-summary">
             <h4>💡 一句话结论 · {template.name}</h4>
             <p>
-              {template.id === "regular_food" && `普通食品总成本 ¥${result.totalCost.toFixed(2)}，零售价 ¥${result.retailPrice.toFixed(2)}，净利率 ${result.netMarginRate.toFixed(1)}%，成本较低，重点在原料和包装。`}
-              {template.id === "health_food" && `保健食品总成本 ¥${result.totalCost.toFixed(2)}，含备案摊销，零售价 ¥${result.retailPrice.toFixed(2)}，净利率 ${result.netMarginRate.toFixed(1)}%，${result.netMarginRate > 25 ? "利润良好，备案费已摊" : "需优化"}。`}
-              {template.id === "cross_border_food" && `跨境食品总成本 ¥${result.totalCost.toFixed(2)}，含国际物流+关税，零售价 ¥${result.retailPrice.toFixed(2)}，净利率 ${result.netMarginRate.toFixed(1)}%，关税和清关是关键。`}
-              {template.id === "cosmetics" && `化妆品总成本 ¥${result.totalCost.toFixed(2)}，包材和检测占比较高，零售价 ¥${result.retailPrice.toFixed(2)}，净利率 ${result.netMarginRate.toFixed(1)}%，${result.netMarginRate > 30 ? "利润空间大" : "需优化包材"}。`}
+              {`${template.name}总成本 ¥${result.totalCost.toFixed(2)}，零售价 ¥${result.retailPrice.toFixed(2)}，净利率 ${result.netMarginRate.toFixed(1)}%，${categoryContent(template.id).report?.summary ?? "成本结构已计算"}。`}
             </p>
             <small>📋 合规：{compliance}</small>
           </div>
@@ -328,18 +319,18 @@ export function CostCalculatorModular({
           <div className="sales-hero">
             <span className="badge">💰 {template.name} · 销售视角 · 利润空间</span>
             <h2>成本 ¥{result.totalCost.toFixed(2)} → 零售 ¥{result.retailPrice.toFixed(2)}，利润 ¥{result.netProfit.toFixed(2)}</h2>
-            <p>净利率 {result.netMarginRate.toFixed(1)}% · {template.id === "cosmetics" ? "化妆品包材和功效是卖点" : template.id === "health_food" ? "保健食品蓝帽子和功能是卖点" : template.id === "cross_border_food" ? "进口/跨境是卖点" : "普通食品性价比是卖点"} · 竞品均价299元</p>
+            <p>净利率 {result.netMarginRate.toFixed(1)}% · {categoryContent(template.id).salesPitch}是卖点 · 竞品均价299元</p>
           </div>
 
           <div className="sales-points">
-            <div className="point"><span className="icon">💎</span><div><strong>成本优势</strong><small>{template.name}总成本仅 ¥{result.totalCost.toFixed(2)}，{template.id === "cross_border_food" ? "含关税和国际物流" : template.id === "cosmetics" ? "含包材和检测" : "含备案摊销"}，远低于竞品</small></div></div>
-            <div className="point"><span className="icon">📈</span><div><strong>利润空间</strong><small>净利率 {result.netMarginRate.toFixed(1)}%，建议供货价 ¥{result.supplyPriceSuggested.toFixed(2)}，{template.id === "cosmetics" ? "化妆品利润空间大" : "利润良好"}</small></div></div>
+            <div className="point"><span className="icon">💎</span><div><strong>成本优势</strong><small>{template.name}总成本仅 ¥{result.totalCost.toFixed(2)}，{categoryContent(template.id).report?.costFeature ?? "含各项成本"}，远低于竞品</small></div></div>
+            <div className="point"><span className="icon">📈</span><div><strong>利润空间</strong><small>净利率 {result.netMarginRate.toFixed(1)}%，建议供货价 ¥{result.supplyPriceSuggested.toFixed(2)}，{result.netMarginRate > 30 ? "利润空间大" : "利润良好"}</small></div></div>
             <div className="point"><span className="icon">🎯</span><div><strong>定价策略</strong><small>保底 ¥{result.supplyPriceFloor.toFixed(2)}，建议 ¥{result.supplyPriceSuggested.toFixed(2)}，竞品299元，{compliance}已合规</small></div></div>
           </div>
 
           <div className="cost-modules-sales">
             {result.modules.filter(m => ["material", "packaging", "channel", "compliance"].includes(m.moduleId)).slice(0, 4).map(m => (
-              <div key={m.moduleId} className="mod-card-sales"><span>{m.icon}</span><div><strong>{m.label}: ¥{m.cost.toFixed(2)}</strong><small>客户价值：{template.id === "cosmetics" ? "包材和功效突出" : template.id === "health_food" ? "蓝帽子+功能" : "成本可控，利润空间大"}</small></div></div>
+              <div key={m.moduleId} className="mod-card-sales"><span>{m.icon}</span><div><strong>{m.label}: ¥{m.cost.toFixed(2)}</strong><small>客户价值：{categoryContent(template.id).selling?.[0] ?? "成本可控，利润空间大"}</small></div></div>
             ))}
           </div>
 

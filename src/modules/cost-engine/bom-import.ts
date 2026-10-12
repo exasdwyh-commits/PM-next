@@ -1,8 +1,10 @@
 /**
  * BOM Import - 原料清单导入
  * 支持Excel/CSV导入，自动计算原料成本
- * 4类专用：普通食品、保健食品、跨境食品、化妆品
+ * 示例数据由租户 pack 提供（domain/samples.json）
  */
+
+import { tenantSamples, defaultCategoryKey } from "@/modules/tenant";
 
 export interface BomItem {
   id: string;
@@ -89,37 +91,12 @@ export function parseBomCsv(csvText: string): BomItem[] {
   return items;
 }
 
-// 4类专用BOM模板
-export const BOM_TEMPLATES: Record<string, BomItem[]> = {
-  regular_food: [
-    { id: "1", name: "小麦粉", quantity: 50, unit: "g", unitPrice: 0.008, cost: 0.4, category: "主原料" },
-    { id: "2", name: "白砂糖", quantity: 15, unit: "g", unitPrice: 0.012, cost: 0.18, category: "辅料" },
-    { id: "3", name: "植物油", quantity: 10, unit: "g", unitPrice: 0.02, cost: 0.2, category: "油脂" },
-    { id: "4", name: "鸡蛋", quantity: 10, unit: "g", unitPrice: 0.02, cost: 0.2, category: "辅料" },
-  ],
-  health_food: [
-    { id: "1", name: "多酚提取物", quantity: 0.5, unit: "g", unitPrice: 8, cost: 4, category: "核心原料", notes: "80度烘焙82%留存" },
-    { id: "2", name: "低聚果糖", quantity: 3, unit: "g", unitPrice: 0.05, cost: 0.15, category: "辅料" },
-    { id: "3", name: "果胶", quantity: 0.8, unit: "g", unitPrice: 0.2, cost: 0.16, category: "凝胶" },
-    { id: "4", name: "天然香料", quantity: 0.1, unit: "g", unitPrice: 2, cost: 0.2, category: "调味" },
-    { id: "5", name: "植物胶囊壳", quantity: 60, unit: "粒", unitPrice: 0.02, cost: 1.2, category: "剂型", isImported: false },
-  ],
-  cross_border_food: [
-    { id: "1", name: "进口乳粉", quantity: 20, unit: "g", unitPrice: 0.15, cost: 3, category: "主原料", isImported: true, importDutyRate: 12 },
-    { id: "2", name: "进口坚果", quantity: 15, unit: "g", unitPrice: 0.25, cost: 3.75, category: "主原料", isImported: true, importDutyRate: 12 },
-    { id: "3", name: "国产燕麦", quantity: 10, unit: "g", unitPrice: 0.02, cost: 0.2, category: "辅料" },
-    { id: "4", name: "进口包装", quantity: 1, unit: "个", unitPrice: 1.5, cost: 1.5, category: "包装", isImported: true },
-  ],
-  cosmetics: [
-    { id: "1", name: "透明质酸钠", quantity: 0.5, unit: "g", unitPrice: 8, cost: 4, category: "核心成分", notes: "保湿" },
-    { id: "2", name: "烟酰胺", quantity: 1, unit: "g", unitPrice: 3, cost: 3, category: "功效成分", notes: "美白" },
-    { id: "3", name: "甘油", quantity: 5, unit: "g", unitPrice: 0.02, cost: 0.1, category: "保湿剂" },
-    { id: "4", name: "纯化水", quantity: 40, unit: "g", unitPrice: 0.001, cost: 0.04, category: "溶剂" },
-    { id: "5", name: "乳化剂", quantity: 2, unit: "g", unitPrice: 0.5, cost: 1, category: "乳化" },
-    { id: "6", name: "防腐剂", quantity: 0.5, unit: "g", unitPrice: 1, cost: 0.5, category: "防腐" },
-  ],
-};
-
+/**
+ * 取某品类的示例 BOM 清单。
+ * 数据来自 pack 的 `domain/samples.json`；未命中该品类时落 pack 的兜底品类。
+ * **不在 src/ 内写死示例数据**（见 tests/tenant-neutral-guard.test.ts）。
+ */
 export function getBomTemplate(category: string): BomItem[] {
-  return BOM_TEMPLATES[category] || BOM_TEMPLATES.regular_food;
+  const all = tenantSamples().bomTemplates ?? {};
+  return all[category] ?? all[defaultCategoryKey()] ?? [];
 }

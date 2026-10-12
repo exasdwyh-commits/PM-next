@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRole } from "./role-context";
 import { calculateBomCost, parseBomCsv, getBomTemplate, type BomItem } from "@/modules/cost-engine/bom-import";
+import { categoryKeys, categoryMeta } from "@/modules/tenant";
 import "./bom-import.css";
 
 function parseExcelText(text: string): BomItem[] {
@@ -158,10 +159,10 @@ export function BomImport({
         </div>
         <div className="bom-actions">
           <select value={category} onChange={e => loadTemplate(e.target.value)}>
-            <option value="regular_food">🍪 普通食品模板</option>
-            <option value="health_food">💊 保健食品模板</option>
-            <option value="cross_border_food">🌍 跨境食品模板</option>
-            <option value="cosmetics">💄 化妆品模板</option>
+            {categoryKeys().map(k => {
+              const m = categoryMeta(k);
+              return <option key={k} value={k}>{m.icon} {m.name}模板</option>;
+            })}
           </select>
           <button onClick={() => setShowCsv(!showCsv)}>📤 导入CSV</button>
           <button onClick={addItem}>➕ 添加原料</button>

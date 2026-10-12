@@ -7,6 +7,14 @@
     "treat": "宠物零食",
     "supplement": "宠物营养品"
   },
+  "classificationsEn": {
+    "dry_food": "Dry Dog Food",
+    "cat_food": "Cat Food",
+    "treat": "Pet Treat",
+    "supplement": "Pet Supplement"
+  },
+  "bilingualKeys": [],
+  "complianceCategories": ["宠物配合饲料", "宠物添加剂预混合饲料", "其他"],
   "targetMargin": {
     "犬粮": 22,
     "猫粮": 24,

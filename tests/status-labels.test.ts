@@ -157,14 +157,23 @@ test("所有已登记映射：值为非空中文、不含原始英文键名", ()
 
 // ---------------------------------------------------------------- 源码守卫
 
-test("守卫 1：标签模块必须零依赖（客户端可直接 import）", () => {
+test("守卫 1：标签模块必须零服务端依赖（客户端可直接 import）", () => {
   const f = path.join(SRC, "shared/status-labels.ts");
   const text = stripComments(fs.readFileSync(f, "utf8"));
   const imports = [...text.matchAll(/^\s*import\s.+$/gm)].map((m) => m[0].trim());
+  // 只允许 import 本地相对路径的纯字面量模块（当前仅同目录的 ./vocabulary）。
+  // 任何裸模块名（prisma / server-only / @prisma/client / @/modules/**）都会让客户端打包失败，
+  // 所以这里按「导入说明符」判定，而不是简单地要求零 import —— 词表唯一来源必须是共享的，
+  // 复制一份字面量到本文件正是要杜绝的漂移来源。
+  // 注意：import 可能跨多行，按「出现过的 from 说明符」提取，别只看第一行。
+  const specs = [
+    ...[...text.matchAll(/import[\s\S]*?from\s*["']([^"']+)["']/g)].map((m) => m[1]),
+    ...[...text.matchAll(/^\s*import\s*["']([^"']+)["']/gm)].map((m) => m[1]),
+  ];
   assert.deepEqual(
-    imports,
-    [],
-    `status-labels.ts 被客户端组件直接引入，一旦 import 服务端模块（prisma/server-only）客户端打包即失败。\n` +
+    specs,
+    ["./vocabulary"],
+    `status-labels.ts 只允许从同目录的 ./vocabulary 取词表（客户端可直接引入，不得依赖服务端模块）。\n` +
       `当前导入：\n${imports.join("\n")}`,
   );
 });

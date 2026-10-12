@@ -7,7 +7,6 @@ import "@/components/beautified-overrides.css";
 import "@/components/daily-briefing-rich.css";
 import "@/components/product-rnd-cockpit-rich.css";
 import "@/components/marketing-landing-rich.css";
-import "@/components/executive-report-rich.css";
 import "@/components/product-rnd-panel-rich.css";
 import { DailyBriefingRich } from "@/components/daily-briefing-rich";
 import { ProductRndCockpitRich } from "@/components/product-rnd-cockpit-rich";

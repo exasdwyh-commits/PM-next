@@ -4,7 +4,6 @@
 .daily-briefing-rich,
 .product-rnd-cockpit-rich,
 .marketing-landing-rich,
-.executive-report-rich,
 .product-rnd-rich,
 .collab-planner-rich,
 .ov-role-rich,
@@ -29,7 +28,6 @@
 .daily-briefing-rich:hover,
 .product-rnd-cockpit-rich:hover,
 .marketing-landing-rich:hover,
-.executive-report-rich:hover,
 .product-rnd-rich:hover,
 .collab-planner-rich:hover {
   transform: translateY(-2px);
@@ -39,16 +37,14 @@
 /* 4类彩色阴影 hover */
 .daily-briefing-rich[data-category="regular_food"]:hover,
 .product-rnd-cockpit-rich[data-category="regular_food"]:hover,
-.marketing-landing-rich[data-category="regular_food"]:hover,
-.executive-report-rich[data-category="regular_food"]:hover {
+.marketing-landing-rich[data-category="regular_food"]:hover {
   box-shadow: 0 4px 16px rgba(0,0,0,0.08), 0 8px 24px rgba(245,158,11,0.15);
   border-color: #f59e0b;
 }
 
 .daily-briefing-rich[data-category="health_food"]:hover,
 .product-rnd-cockpit-rich[data-category="health_food"]:hover,
-.marketing-landing-rich[data-category="health_food"]:hover,
-.executive-report-rich[data-category="health_food"]:hover {
+.marketing-landing-rich[data-category="health_food"]:hover {
   box-shadow: 0 4px 16px rgba(0,0,0,0.08), 0 8px 24px rgba(124,58,237,0.15);
   border-color: #7c3aed;
 }

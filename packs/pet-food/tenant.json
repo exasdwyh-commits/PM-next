@@ -28,6 +28,10 @@
       "formSpec": "配方规格",
       "forbiddenItems": "禁限用成分",
       "targetCost": "目标成本"
+    },
+    "examples": {
+      "scenarioName": "冻干鸡胸犬粮V2-升级版",
+      "approvalComment": "成本合理，符合宠物食品标签规范，建议批准"
     }
   }
 }

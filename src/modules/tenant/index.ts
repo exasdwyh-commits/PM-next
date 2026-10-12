@@ -32,6 +32,40 @@ export function listTenantPacks(): string[] {
 }
 
 /**
+ * 当前 pack 的 UI 示例数据（表单占位符里「例如：…」后面的具体值）。
+ *
+ * 组件用法：`const ex = tenantExamples(); placeholder={ex.scenarioName ? `方案名称，例如：${ex.scenarioName}` : "方案名称"}`
+ * —— **不要**在组件里写死兜底示例，那会把行业词带回 src/（见 tenant-neutral-guard）。
+ */
+export function tenantExamples(): NonNullable<TenantPack["tenant"]["ui"]["examples"]> {
+  return getTenantPack().tenant.ui.examples ?? {};
+}
+
+/**
+ * 当前 pack 的成本模板（成本引擎专属数据）。
+ * 读取方：`cost-engine/templates`。**不在 src/ 内写死任何品类模板**。
+ */
+export function tenantCostTemplates(): TenantPack["costTemplates"] {
+  return getTenantPack().costTemplates;
+}
+
+/**
+ * 当前 pack 的合规清单（按品类）。
+ * 读取方：`cost-engine/compliance-checklist`。**不在 src/ 内写死任何品类清单**。
+ */
+export function tenantCompliance(): TenantPack["compliance"] {
+  return getTenantPack().compliance;
+}
+
+/**
+ * 当前 pack 的成本引擎示例数据（BOM 清单 / 供应商报价样例，按品类）。
+ * 读取方：`cost-engine/bom-import` / `cost-engine/supplier-quote`。**不在 src/ 内写死示例**。
+ */
+export function tenantSamples(): TenantPack["samples"] {
+  return getTenantPack().samples;
+}
+
+/**
  * 品类外观元数据从本入口再导出，使组件只需 `import { categoryMeta } from "@/modules/tenant"`。
  *
  * 注意：category-meta.ts 反向 import 本文件的 getTenantPack，形成循环依赖。
@@ -45,6 +79,8 @@ export {
   categoryKeys,
   categoryContent,
   defaultCategoryKey,
+  classifyCategoryByText,
+  matchCategoryByText,
 } from "./category-meta";
 export type { CategoryKey, CategoryMeta, TintPreset } from "./category-meta";
-export type { CategoryContent, CategoryContentMap } from "./types";
+export type { CategoryContent, CategoryContentMap, TenantCostTemplate, TenantCostTemplates, TenantComplianceItem, TenantComplianceChecklists } from "./types";

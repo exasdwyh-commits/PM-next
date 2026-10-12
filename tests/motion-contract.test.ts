@@ -107,8 +107,6 @@ const DATABAR_ALLOWLIST: Record<string, string> = {
     "瀑布图柱体高度：高度 = 该环节增减量，是图表本体。",
   "src/components/dependency-graph-rich.css .node-bar .fill":
     "依赖图节点完成度条：宽度 = 该节点的进度数据。",
-  "src/components/executive-report-v2.css .er2-bar-fill":
-    "高管报告指标条：宽度 = 指标达成率，属报表数据可视化。",
   "src/components/product-rnd-panel-rich.css .progress-bar .fill":
     "研发流程进度条：宽度 = 当前阶段完成百分比。",
 };

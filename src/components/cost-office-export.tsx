@@ -7,7 +7,7 @@ import type { BomItem } from "@/modules/cost-engine/bom-import";
 import type { SupplierQuote } from "@/modules/cost-engine/supplier-quote";
 import type { ComplianceItem } from "@/modules/cost-engine/compliance-checklist";
 import { generateRichHtmlReport, type RichHtmlReportInput } from "@/modules/cost-engine/html-report-rich";
-import { categoryMeta } from "@/modules/tenant";
+import { categoryMeta, categoryContent } from "@/modules/tenant";
 import "./cost-office-export.css";
 
 export function CostOfficeExport({
@@ -137,7 +137,7 @@ export function CostOfficeExport({
                   <span>零售 ¥{(result.breakdown.totalCost * 2.5).toFixed(0)}</span>
                   <span>利润 {(30).toFixed(0)}%</span>
                 </div>
-                <p>一句话结论：{category === "health_food" ? "保健食品蓝帽子备案5万已摊，软糖剂型溢价高" : category === "cross_border_food" ? "跨境食品进口成本高但溢价强，关税12%是关键" : category === "cosmetics" ? "化妆品包材成本重，玻璃瓶5元是关键" : "普通食品成本可控，性价比是核心"}，总成本¥{result.breakdown.totalCost.toFixed(2)}，建议零售¥{(result.breakdown.totalCost * 2.5).toFixed(0)}。</p>
+                <p>一句话结论：{categoryContent(category).report?.summary ?? "成本结构已计算"}，总成本¥{result.breakdown.totalCost.toFixed(2)}，建议零售¥{(result.breakdown.totalCost * 2.5).toFixed(0)}。</p>
               </div>
             )}
             {exportRole === "product" && (
@@ -149,8 +149,8 @@ export function CostOfficeExport({
             {exportRole === "sales" && (
               <div className="preview-sales">
                 <div className="selling-points">
-                  <strong>卖点：{category === "health_food" ? "蓝帽子+多酚功能+软糖口感" : category === "cross_border_food" ? "进口+跨境背书+保税仓" : category === "cosmetics" ? "透明质酸保湿+烟酰胺美白+玻璃瓶质感" : "性价比+日常刚需+SC"}</strong>
-                  <p>话术：&quot;{category === "health_food" ? "蓝帽子备案5万已摊，功能卖点是关键" : "进口成本高但溢价强"}，总成本¥{result.breakdown.totalCost.toFixed(2)}，零售¥{(result.breakdown.totalCost * 2.5).toFixed(0)}，利润空间大。&quot;</p>
+                  <strong>卖点：{categoryContent(category).selling?.slice(0, 3).join("+") || categoryContent(category).salesPitch}</strong>
+                  <p>话术：&quot;{categoryContent(category).salesPitch}，总成本¥{result.breakdown.totalCost.toFixed(2)}，零售¥{(result.breakdown.totalCost * 2.5).toFixed(0)}，利润空间大。&quot;</p>
                 </div>
                 <div className="tool-preview">工具箱：下载证书/报告/图片，复制话术，渠道占比环形图</div>
               </div>

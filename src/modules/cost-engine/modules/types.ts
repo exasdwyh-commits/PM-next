@@ -4,10 +4,9 @@
  * 每个产品成本结构不同，需要模块化
  * 
  * 例如：
- * - 食品：原料 + 配方损耗 + 加工 + 包装 + 物流 + 渠道
- * - 保健品：原料 + 配方 + 胶囊/压片 + 检测 + 包装 + 物流
- * - 电子：元器件 + 组装 + 测试 + 包装 + 物流
- * - 服装：面料 + 辅料 + 裁剪缝制 + 质检 + 包装
+ * - 原料 + 配方损耗 + 加工 + 包装 + 物流 + 渠道
+ * - 原料 + 配方 + 成型/分装 + 检测 + 包装 + 物流
+ * （具体模块组合由租户 pack 的模板决定，不同行业模块集不同）
  */
 
 export type CostModuleCategory = 
@@ -90,7 +89,12 @@ export interface CostModuleDef {
 export interface CostModuleInstance {
   moduleId: string;
   enabled: boolean;
-  values: Record<string, number | string>;
+  /**
+   * 模块取值。用 `CostModuleValues`（含 undefined）而非 `Record<string, number|string>`：
+   * 模板数据来自 pack JSON，不同品类的字段集不同，缺失字段在类型上就是 `undefined`。
+   * 读取一律走 `num()` / `str()`，它们已处理 undefined。
+   */
+  values: CostModuleValues;
   // 覆盖默认
   customLabel?: string;
 }
@@ -99,8 +103,13 @@ export interface ProductCostTemplate {
   id: string;
   name: string;
   description: string;
-  category: string; // 食品, 保健品, 电子, 服装 等
+  category: string; // 品类显示名，由租户 pack 提供
   icon: string;
+  /**
+   * 认证/检测成本计入「合规」而非「制造」，由租户 pack 按品类表达。
+   * 见 `TenantCostTemplate.certificationToCompliance`。
+   */
+  certificationToCompliance?: boolean;
   modules: CostModuleInstance[];
   // 默认渠道、快递等
   defaults?: {

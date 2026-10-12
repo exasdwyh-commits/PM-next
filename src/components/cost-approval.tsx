@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import type { CostScenario } from "@/modules/cost-engine/scenario";
+import { tenantExamples } from "@/modules/tenant";
 import "./cost-approval.css";
 
 export interface Approval {
@@ -78,7 +79,7 @@ export function CostApproval({
 
       {showComment && (
         <div className="comment-box">
-          <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="审批说明，例如：成本合理，符合保健食品备案要求，建议批准" rows={3} />
+          <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder={tenantExamples().approvalComment ? `审批说明，例如：${tenantExamples().approvalComment}` : "审批说明"} rows={3} />
           <div style={{ display: "flex", gap: 8 }}>
             <button className="primary" onClick={() => { onSubmit?.(comment); setShowComment(false); setComment(""); }}>提交</button>
             <button onClick={() => setShowComment(false)}>取消</button>

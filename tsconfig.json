@@ -40,6 +40,8 @@
   ],
   "exclude": [
     "node_modules",
-    "tools/ux-preview"
+    "tools/ux-preview",
+    ".next",
+    ".next-*"
   ]
 }

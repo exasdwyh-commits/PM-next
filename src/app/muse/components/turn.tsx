@@ -82,11 +82,13 @@ function fmtElapsed(seconds: number) {
 
 export function Sources({ refs, onOpen }: { refs: EvidenceRef[]; onOpen: (r: EvidenceRef) => void }) {
   return (
-    <div style={{ display: "grid", gap: 8 }}>
+    // 单列网格必须用 minmax(0,1fr)：默认 auto 轨道会被行内 min-width:auto 的项撑宽，
+    // 长标题（如 Obsidian 的深度标题路径）会顶破卡片而不是省略号截断。
+    <div style={{ display: "grid", gap: 8, gridTemplateColumns: "minmax(0, 1fr)" }}>
       {refs.map((r) => {
         const c = CONF[r.confidence];
         return (
-          <button key={r.id} type="button" className="m-src" onClick={() => onOpen(r)}>
+          <button key={r.id} type="button" className="m-src" title={r.title} onClick={() => onOpen(r)}>
             <Tag tone={c.tone}>{c.label}</Tag>
             <span>{r.title}</span>
             <small>{r.verified ? "已复核" : "未复核"}</small>

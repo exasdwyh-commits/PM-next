@@ -1,8 +1,13 @@
 /**
- * Cost Module Registry - 4类专用：普通食品、保健食品、跨境食品、化妆品
+ * Cost Module Registry —— 通用成本模块注册表。
+ *
+ * 模块的**结构**（字段 key / 单位 / 类型 / 计算逻辑）属内核能力，跨租户通用；
+ * 与租户相关的字段文案与 select 选项（合规类型、剂型等）由 pack 的
+ * `moduleFieldOverrides` 提供，见文末 `withFieldOverrides`。
  */
 
 import { num, str, type CostModuleDef } from "./types";
+import { tenantCostTemplates } from "@/modules/tenant";
 
 // 原料模块
 export const materialModule: CostModuleDef = {
@@ -15,7 +20,7 @@ export const materialModule: CostModuleDef = {
     { key: "materialCost", label: "原料成本", unit: "元/件", type: "number", required: true, step: "0.01", hint: "所有原料采购价合计" },
     { key: "ingredientCount", label: "原料种类数", unit: "种", type: "number", defaultValue: 3, hint: "用于损耗计算" },
     { key: "lossRate", label: "损耗率", unit: "%", type: "percent", defaultValue: 3, hint: "加工损耗，默认3%" },
-    { key: "importCost", label: "进口原料成本", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "跨境食品：进口原料额外成本" },
+    { key: "importCost", label: "进口原料成本", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "进口原料额外成本" },
   ],
   calculate: (values) => {
     const materialCost = num(values, "materialCost");
@@ -39,7 +44,7 @@ export const formulationModule: CostModuleDef = {
   description: "配方设计、剂量、剂型",
   fields: [
     { key: "formulationCost", label: "配方成本", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "配方研发均摊或特殊工艺" },
-    { key: "dosage", label: "含量/规格", unit: "mg/g/ml", type: "number", hint: "如多酚500mg，面霜50g" },
+    { key: "dosage", label: "含量/规格", unit: "mg/g/ml", type: "number", hint: "如含量 500mg，规格 50g" },
     { key: "servings", label: "含量数", unit: "粒/次/件", type: "number", defaultValue: 30, hint: "一盒数量" },
   ],
   calculate: (values) => {
@@ -57,7 +62,7 @@ export const manufacturingModule: CostModuleDef = {
   description: "加工、灌装、压片、组装",
   fields: [
     { key: "manufacturingCost", label: "加工费", unit: "元/件", type: "number", required: true, step: "0.01", hint: "代工厂加工费" },
-    { key: "fillingCost", label: "灌装费", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "化妆品灌装" },
+    { key: "fillingCost", label: "灌装费", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "膏体/液体灌装" },
     { key: "batchSize", label: "批量", unit: "件/批", type: "number", defaultValue: 1000, hint: "批量越大单件越低" },
   ],
   calculate: (values) => {
@@ -67,16 +72,17 @@ export const manufacturingModule: CostModuleDef = {
   },
 };
 
-// 胶囊/剂型模块 - 保健食品
+// 剂型模块：成型/分装成本计入制造
 export const encapsulationModule: CostModuleDef = {
   id: "encapsulation",
   label: "剂型成本",
   icon: "💊",
   category: "manufacturing",
-  description: "软糖、胶囊、粉剂等剂型",
+  description: "按剂型计算的成型/分装成本",
   fields: [
-    { key: "encapsulationCost", label: "剂型成本", unit: "元/件", type: "number", required: true, step: "0.01", hint: "胶囊壳/软糖成型/粉剂分装" },
-    { key: "capsuleType", label: "剂型", unit: "", type: "select", defaultValue: "gummy", options: [{ value: "gummy", label: "软糖" }, { value: "plant", label: "植物胶囊" }, { value: "gelatin", label: "明胶胶囊" }, { value: "tablet", label: "压片" }, { value: "powder", label: "粉剂" }, { value: "liquid", label: "口服液" }] },
+    { key: "encapsulationCost", label: "剂型成本", unit: "元/件", type: "number", required: true, step: "0.01", hint: "成型/分装" },
+    // 选项值集与文案随租户变化，由 pack 的 moduleFieldOverrides 提供
+    { key: "capsuleType", label: "剂型", unit: "", type: "select", options: [] },
     { key: "capsuleCount", label: "数量", unit: "粒/件", type: "number", defaultValue: 60 },
   ],
   calculate: (values) => {
@@ -94,7 +100,7 @@ export const packagingModule: CostModuleDef = {
   fields: [
     { key: "packagingCost", label: "外包装", unit: "元/件", type: "number", required: true, step: "0.01", hint: "纸盒、彩盒" },
     { key: "innerPackagingCost", label: "内包装", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "铝箔袋、内衬" },
-    { key: "bottleCost", label: "瓶/罐成本", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "化妆品瓶、保健品瓶" },
+    { key: "bottleCost", label: "瓶/罐成本", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "瓶/罐包装" },
     { key: "bottleType", label: "瓶型", unit: "", type: "select", defaultValue: "pet", options: [{ value: "pet", label: "PET塑料瓶" }, { value: "glass", label: "玻璃瓶" }, { value: "pouch", label: "自立袋" }, { value: "box", label: "纸盒" }, { value: "tube", label: "软管" }] },
     { key: "giftBox", label: "礼盒", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "礼盒额外成本" },
   ],
@@ -119,7 +125,7 @@ export const logisticsModule: CostModuleDef = {
     { key: "expressType", label: "快递类型", unit: "", type: "select", defaultValue: "STANDARD", options: [{ value: "STANDARD", label: "普通快递" }, { value: "COLD_CHAIN", label: "冷链" }, { value: "SF_EXPRESS", label: "顺丰" }, { value: "PREMIUM", label: "高端" }] },
     { key: "storageCost", label: "仓储费", unit: "元/件", type: "number", defaultValue: 0, step: "0.01" },
     { key: "bondedWarehouse", label: "保税仓费", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "跨境：保税仓" },
-    { key: "fragileFee", label: "易碎费", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "化妆品玻璃瓶" },
+    { key: "fragileFee", label: "易碎费", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "易碎容器附加" },
   ],
   calculate: (values) => {
     let freight = num(values, "freightBase", 4);
@@ -142,7 +148,7 @@ export const internationalLogisticsModule: CostModuleDef = {
   description: "跨境：国际运费、关税、清关",
   fields: [
     { key: "internationalFreight", label: "国际运费", unit: "元/件", type: "number", required: true, step: "0.01", hint: "海运/空运均摊" },
-    { key: "tariffRate", label: "关税率", unit: "%", type: "percent", defaultValue: 12, hint: "食品通常10-15%" },
+    { key: "tariffRate", label: "关税率", unit: "%", type: "percent", defaultValue: 12, hint: "跨境常见 10-15%" },
     { key: "tariffCost", label: "关税额", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "或按比例自动算" },
     { key: "customsFee", label: "报关费", unit: "元/件", type: "number", defaultValue: 1.2, step: "0.01" },
     { key: "clearanceFee", label: "清关费", unit: "元/件", type: "number", defaultValue: 0.8, step: "0.01" },
@@ -177,8 +183,8 @@ export const certificationModule: CostModuleDef = {
   fields: [
     { key: "certificationCost", label: "检测费", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "检测报告均摊" },
     { key: "testCount", label: "检测项", unit: "项", type: "number", defaultValue: 2, hint: "检测项目数量" },
-    { key: "safetyTest", label: "安全检测", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "化妆品安全检测" },
-    { key: "efficacyTest", label: "功效检测", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "化妆品功效检测" },
+    { key: "safetyTest", label: "安全检测", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "安全项检测" },
+    { key: "efficacyTest", label: "功效检测", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "功效项检测" },
   ],
   calculate: (values) => {
     const cert = num(values, "certificationCost");
@@ -197,18 +203,12 @@ export const complianceModule: CostModuleDef = {
   description: "备案、注册、标签、合规",
   fields: [
     { key: "complianceCost", label: "合规均摊", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "备案/注册费均摊到单件" },
-    { key: "complianceType", label: "合规类型", unit: "", type: "select", defaultValue: "food_sc", options: [
-      { value: "food_sc", label: "普通食品 SC" },
-      { value: "health_filing", label: "保健食品备案" },
-      { value: "health_registration", label: "保健食品注册(蓝帽)" },
-      { value: "cross_border", label: "跨境食品备案" },
-      { value: "cosmetics_filing", label: "化妆品备案" },
-      { value: "cosmetics_registration", label: "化妆品注册(特殊)" },
-    ] },
+    // 选项值集与文案随租户变化（不同行业的合规体系不同），由 pack 的 moduleFieldOverrides 提供
+    { key: "complianceType", label: "合规类型", unit: "", type: "select", options: [] },
     { key: "filingFee", label: "备案/注册费", unit: "元", type: "number", defaultValue: 0, step: "100", hint: "一次性费用" },
     { key: "filingAmortization", label: "摊销量", unit: "件", type: "number", defaultValue: 10000, hint: "按多少件摊" },
     { key: "labelCost", label: "标签费", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "中文标签、设计" },
-    { key: "efficacyClaim", label: "功效宣称", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "化妆品功效宣称成本" },
+    { key: "efficacyClaim", label: "功效宣称", unit: "元/件", type: "number", defaultValue: 0, step: "0.01", hint: "功效宣称成本" },
   ],
   calculate: (values) => {
     const compliance = num(values, "complianceCost");
@@ -220,11 +220,15 @@ export const complianceModule: CostModuleDef = {
     const total = compliance + filingPerUnit + labelCost + efficacyClaim;
 
     const notes: string[] = [];
-    // filingFee 是「一次性总费用」(元)，与市场参考价 20万/5万 同量纲，可直接比。
+    // filingFee 是「一次性总费用」(元)，与 pack 里的参考阈值同量纲，可直接比。
     // 早前写成拿它与摊销额比较，导致提示恒真，已改为直接比总费用。
-    if (str(values, "complianceType") === "health_registration" && filingFee > 0 && filingFee < 200000) notes.push("保健食品注册通常20万+，请确认填写的是一次性总费用还是单件均摊");
-    if (str(values, "complianceType") === "cosmetics_registration" && filingFee > 0 && filingFee < 50000) notes.push("特殊化妆品注册通常5万+，请确认填写的是一次性总费用还是单件均摊");
-    if (str(values, "complianceType") === "cross_border") notes.push("跨境需确认正面清单、中文标签、保税仓");
+    // 阈值与文案是逐品类的业务知识，由 pack 的 complianceNotes（按合规类型）提供。
+    const noteCfg = tenantCostTemplates().complianceNotes?.[str(values, "complianceType")];
+    if (noteCfg) {
+      const belowThreshold =
+        noteCfg.minFilingFee !== undefined && filingFee > 0 && filingFee < noteCfg.minFilingFee;
+      if (belowThreshold || noteCfg.minFilingFee === undefined) notes.push(noteCfg.note);
+    }
 
     return {
       cost: total,
@@ -308,20 +312,34 @@ export const customModule: CostModuleDef = {
   },
 };
 
-// 注册表
+/**
+ * 应用租户 pack 的字段覆盖（label / hint / defaultValue / options）。
+ * 字段的**结构**（key/unit/type）仍在内核；租户相关的**文案与选项**由 pack 决定 —— 换租户只换 pack。
+ * pack 未覆盖的字段原样保留。
+ */
+function withFieldOverrides(def: CostModuleDef): CostModuleDef {
+  const ov = tenantCostTemplates().moduleFieldOverrides?.[def.id];
+  if (!ov) return def;
+  return {
+    ...def,
+    fields: def.fields.map((f) => (ov[f.key] ? { ...f, ...ov[f.key] } : f)),
+  };
+}
+
+// 注册表（装配租户字段覆盖后）
 export const COST_MODULE_REGISTRY: Record<string, CostModuleDef> = {
-  material: materialModule,
-  formulation: formulationModule,
-  manufacturing: manufacturingModule,
-  encapsulation: encapsulationModule,
-  packaging: packagingModule,
-  logistics: logisticsModule,
-  international_logistics: internationalLogisticsModule,
-  certification: certificationModule,
-  compliance: complianceModule,
-  channel: channelModule,
-  overhead: overheadModule,
-  custom: customModule,
+  material: withFieldOverrides(materialModule),
+  formulation: withFieldOverrides(formulationModule),
+  manufacturing: withFieldOverrides(manufacturingModule),
+  encapsulation: withFieldOverrides(encapsulationModule),
+  packaging: withFieldOverrides(packagingModule),
+  logistics: withFieldOverrides(logisticsModule),
+  international_logistics: withFieldOverrides(internationalLogisticsModule),
+  certification: withFieldOverrides(certificationModule),
+  compliance: withFieldOverrides(complianceModule),
+  channel: withFieldOverrides(channelModule),
+  overhead: withFieldOverrides(overheadModule),
+  custom: withFieldOverrides(customModule),
 };
 
 export function getModuleDef(id: string): CostModuleDef | null {

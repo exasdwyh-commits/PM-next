@@ -17,6 +17,7 @@ import type { Block, ResponseEnvelope } from "@/modules/response-format/types";
 import { CONFIDENCE_LABEL, TRUST_LABEL } from "@/modules/response-format/types";
 import { validate } from "@/modules/response-format/validate";
 import { labelOf } from "@/shared/status-labels";
+import { SOURCE_AUTHORITY_LABEL } from "@/shared/vocabulary";
 import { CLAIM_LABEL } from "@/modules/response-format/types";
 import { useRole, useKernRoleIntelligence } from "@/components/role-context";
 import { inferRoleFromEnvelope } from "@/components/kern-role-intelligence";
@@ -108,8 +109,10 @@ function ProductBlock({ b, onRef }: { b: Block; onRef: (n: number) => void }) {
           <table className="rb-table-full">
             <thead><tr><th>结论</th><th>类型</th><th>可信度</th><th>来源</th></tr></thead>
             <tbody>
+              {/* 可信度列：keypoints 只带主张依据（已在「类型」列），没有来源可靠度数据 ——
+                  如实标「未评级」，不再用 kind 编一个不存在的 A/B 级，也绝不漏英文。 */}
               {b.items.map((it, i) => (
-                <tr key={i}><td><Inline text={it.text} onRef={onRef} /></td><td><span className={`badge ${it.kind}`}>{labelOf(CLAIM_LABEL, it.kind)}</span></td><td>{it.kind === "fact" ? "A级" : it.kind === "inference" ? "B级" : "UNKNOWN"}</td><td>待追溯</td></tr>
+                <tr key={i}><td><Inline text={it.text} onRef={onRef} /></td><td><span className={`badge ${it.kind}`}>{labelOf(CLAIM_LABEL, it.kind)}</span></td><td>{SOURCE_AUTHORITY_LABEL.unrated}</td><td>待追溯</td></tr>
               ))}
             </tbody>
           </table>

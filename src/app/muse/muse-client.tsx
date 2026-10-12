@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import type { ConversationRuntimeConfig, Decision, EvidenceRef, Message, MessageBlock, StudioModel } from "./types";
 import { readKernGraphCitation } from "@/modules/visual-intelligence/contracts";
 import type { KernGraphV1 } from "@/modules/visual-intelligence/contracts";
+import { confidenceOf } from "@/modules/muse/confidence";
 import { Btn, I } from "./components/kit";
 import { CheckIn, Turn, Working } from "./components/turn";
 import { useDesktopNotify } from "./desktop-notify";
@@ -111,9 +112,10 @@ function fromApiMessage(message: ApiMessage): Message {
         title: title || ref || "未命名来源",
         kind: kind.includes("desktop") ? ("runtime" as const) : ("internal" as const),
         source: kind,
-        confidence: "unknown" as const,
-        verified: false,
-        capturedAt: message.createdAt,
+        confidence: confidenceOf(item),
+        verified: item.verified === true,
+        capturedAt:
+          typeof item.capturedAt === "string" && item.capturedAt ? item.capturedAt : message.createdAt,
       },
     ];
   });

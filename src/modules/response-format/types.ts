@@ -6,9 +6,14 @@
  *
  * 规范原文见 docs/KERN_RESPONSE_SPEC.md。
  */
+import { CLAIM_BASIS_LABEL, type ClaimBasis } from "@/shared/vocabulary";
 
 export type Confidence = "HIGH" | "MEDIUM" | "LOW";
-export type ClaimKind = "fact" | "inference" | "unknown";
+/**
+ * 主张依据在响应信封里的**子集**：没有 `assumption` —— 信封块只承载事实 / 推断 / 未知。
+ * 值域与 `@/shared/vocabulary` 的 `ClaimBasis` 同源（此处只是收窄）。
+ */
+export type ClaimKind = Exclude<ClaimBasis, "assumption">;
 export type Trust = "trusted" | "untrusted" | "internal" | "demo";
 export type Tone = "info" | "ok" | "warn" | "blocked";
 
@@ -200,10 +205,11 @@ export interface ResponseEnvelope {
   meta: Meta;
 }
 
+/** 主张依据文案 —— 取自 `@/shared/vocabulary`（唯一来源），此处只收窄键集。 */
 export const CLAIM_LABEL: Record<ClaimKind, string> = {
-  fact: "事实",
-  inference: "推断",
-  unknown: "未知",
+  fact: CLAIM_BASIS_LABEL.fact,
+  inference: CLAIM_BASIS_LABEL.inference,
+  unknown: CLAIM_BASIS_LABEL.unknown,
 };
 
 export const CONFIDENCE_LABEL: Record<Confidence, string> = {

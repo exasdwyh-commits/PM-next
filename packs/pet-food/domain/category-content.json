@@ -30,6 +30,19 @@
     },
     "complianceShortName": "饲料标识",
     "salesPitch": "高蛋白低脂肪配方",
+    "classifyKeywords": [],
+    "report": {
+      "conclusion": {
+        "leadership": "犬用主粮走量为主，原料与包装是主要成本项，价格带竞争激烈",
+        "product": "原料11.2元+加工2.4+包装3.1+物流2.8，渠道22%，总成本18.5元，定价89元",
+        "sales": "高蛋白低脂肪+冻干双拼，89元大包装，话术突出配方与适口性"
+      },
+      "corePitch": "高蛋白低脂肪+冻干双拼，配方稳定",
+      "headerNote": "犬用主粮走量为主，原料与包装是主要成本项，富可视化动效",
+      "riskNote": "原料价格波动",
+      "summary": "走量摊薄固定成本",
+      "costFeature": "含原料与包装成本"
+    },
     "tools": [
       {
         "id": "cost",
@@ -78,6 +91,19 @@
     },
     "complianceShortName": "饲料标识",
     "salesPitch": "适口性好去毛球",
+    "classifyKeywords": ["猫粮", "猫"],
+    "report": {
+      "conclusion": {
+        "leadership": "猫用主粮高蛋白配方，原料成本占比高，牛磺酸与适口性是关键",
+        "product": "原料14.5元+加工2.6+包装3.3+物流3.0，渠道24%，总成本23元，定价109元",
+        "sales": "适口性好+去毛球+牛磺酸足量，109元中端，话术突出营养与适口性"
+      },
+      "corePitch": "适口性好+去毛球+牛磺酸足量，营养均衡",
+      "headerNote": "猫用主粮高蛋白配方，原料成本占比高，适口性决定复购",
+      "riskNote": "原料价格波动",
+      "summary": "原料成本占比高",
+      "costFeature": "含高蛋白原料"
+    },
     "tools": [
       {
         "id": "cost",
@@ -126,6 +152,19 @@
     },
     "complianceShortName": "零食合规",
     "salesPitch": "纯天然冻干工艺",
+    "classifyKeywords": ["零食", "冻干", "肉干"],
+    "report": {
+      "conclusion": {
+        "leadership": "宠物零食工艺溢价高，训练场景复购强，包装体验是卖点",
+        "product": "原料5.5元+冻干加工2.1+包装0.8+物流0.6，渠道32%，总成本9.2元，定价39元",
+        "sales": "纯天然+冻干工艺+训练奖励，39元高复购，话术突出工艺与适口性"
+      },
+      "corePitch": "纯天然+冻干工艺+训练奖励，适口性佳",
+      "headerNote": "宠物零食工艺溢价高，训练场景复购强，富可视化动效",
+      "riskNote": "新品培育",
+      "summary": "工艺溢价明显",
+      "costFeature": "含冻干工艺"
+    },
     "tools": [
       {
         "id": "cost",
@@ -174,6 +213,19 @@
     },
     "complianceShortName": "添加剂",
     "salesPitch": "兽医共创关节配方",
+    "classifyKeywords": ["营养品", "补充剂", "维生素", "钙片"],
+    "report": {
+      "conclusion": {
+        "leadership": "宠物营养品功能配方门槛高，检测与备案是核心成本，功效是卖点",
+        "product": "原料19元+提取工艺5+包装4+物流2，渠道36%，总成本31元，定价168元",
+        "sales": "兽医共创+益生菌+关节配方，168元高端，话术突出功能与安全"
+      },
+      "corePitch": "兽医共创+益生菌添加+关节配方，功能背书",
+      "headerNote": "宠物营养品功能配方门槛高，检测与备案是核心成本",
+      "riskNote": "功能宣称合规",
+      "summary": "检测与备案成本高",
+      "costFeature": "含检测与备案"
+    },
     "tools": [
       {
         "id": "cost",

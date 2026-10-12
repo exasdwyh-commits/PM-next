@@ -6,11 +6,22 @@
  * honest note instead of being "repaired" into numbers the model never gave.
  */
 import { PERSISTED_MARKER_RE } from "./protocol";
+import {
+  CLAIM_BASES,
+  CLAIM_BASIS_LABEL,
+  SOURCE_PROVENANCE_LABEL,
+  type ClaimBasis,
+  type SourceProvenance,
+} from "@/shared/vocabulary";
 
-export type Basis = "fact" | "inference" | "assumption" | "unknown";
-export const BASIS_LABEL: Record<Basis, string> = { fact: "事实", inference: "推断", assumption: "假设", unknown: "未知" };
-export type SourceTrust = "user" | "internal" | "external" | "model";
-export const SOURCE_TRUST_LABEL: Record<SourceTrust, string> = { user: "用户提供", internal: "内部记录", external: "外部未核实", model: "模型知识·未核实" };
+/**
+ * 主张依据 / 来源出处 —— 词表**唯一来源**是 `@/shared/vocabulary`。
+ * 这里沿用 `Basis` / `SourceTrust` 两个历史名字，值域与词汇宪法完全一致。
+ */
+export type Basis = ClaimBasis;
+export const BASIS_LABEL: Record<Basis, string> = CLAIM_BASIS_LABEL;
+export type SourceTrust = SourceProvenance;
+export const SOURCE_TRUST_LABEL: Record<SourceTrust, string> = SOURCE_PROVENANCE_LABEL;
 
 export type MetricsBlock = { type: "metrics"; title?: string; items: { label: string; value: string; note?: string; basis: Basis; source?: number }[] };
 export type CompareBlock = { type: "compare"; title?: string; options: { name: string; tagline?: string; pick?: boolean; pros: string[]; cons: string[] }[]; criteria: { label: string; values: string[] }[] };
@@ -38,7 +49,7 @@ const optStr = (v: unknown, max = 400): string | undefined => str(v, max) ?? und
 const strList = (v: unknown, maxItems = 8, max = 300): string[] => (Array.isArray(v) ? v.map((x) => str(x, max)).filter((x): x is string => !!x).slice(0, maxItems) : []);
 const arr = (v: unknown, maxItems: number): unknown[] => (Array.isArray(v) ? v.slice(0, maxItems) : []);
 const rec = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
-const basis = (v: unknown, fallback: Basis = "unknown"): Basis => (["fact", "inference", "assumption", "unknown"].includes(v as string) ? (v as Basis) : fallback);
+const basis = (v: unknown, fallback: Basis = "unknown"): Basis => ((CLAIM_BASES as readonly string[]).includes(v as string) ? (v as Basis) : fallback);
 const num = (v: unknown): number | null => {
   if (typeof v === "number" && Number.isFinite(v)) return v;
   if (typeof v === "string" && /^-?\d+(\.\d+)?$/.test(v.trim())) return Number(v.trim());

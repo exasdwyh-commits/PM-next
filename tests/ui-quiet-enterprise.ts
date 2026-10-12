@@ -260,7 +260,6 @@ function runRenderGuards() {
     "src/modules/cost-engine/html-report-rich.ts",
     "src/modules/cost-engine/visualizations/",
     "src/modules/artifacts/protocol.ts",
-    "src/modules/kern-prompts/",
   ];
   /**
    * 多色区分场景 —— **已知待收敛项**，诚实登记而非假装覆盖。
@@ -278,8 +277,6 @@ function runRenderGuards() {
     "src/components/cost-comparison-charts.tsx",
     "src/components/custom-chart.tsx",
     "src/components/daily-briefing-rich.tsx",
-    "src/components/executive-report-rich.tsx",
-    "src/components/research-report-rich.tsx",
     "src/components/glass-card.tsx", // 内联 boxShadow 的 rgba 属效果参数（项目阴影本就硬编码）
   ];
   /**

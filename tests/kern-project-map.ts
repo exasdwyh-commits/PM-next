@@ -160,7 +160,6 @@ console.log(
 // Coverage regression: classify real compatibility surfaces explicitly, not via a catch-all.
 const compatibilityFiles: ProjectSourceFile[] = [
   { path: "src/app/demo-cost-rich/page.tsx", imports: [] },
-  { path: "src/modules/kern-prompts/index.ts", imports: [] },
 ];
 assert.deepEqual(listUnmappedSourceFiles(compatibilityFiles), []);
 assert.deepEqual(
@@ -172,7 +171,6 @@ const compatibilityGraph = buildProjectArchitectureGraph({
   id: "compatibility-source-fixture", title: "Compatibility source fixture", files: compatibilityFiles,
 });
 assert.ok(compatibilityGraph.nodes.some((node) => node.id === "demo-surfaces"));
-assert.ok(compatibilityGraph.nodes.some((node) => node.id === "prompt-assets"));
 assert.equal(
   toArchifyArchitectureSpec(compatibilityGraph).components.find((node) => node.id === "demo-surfaces")?.type,
   "frontend"

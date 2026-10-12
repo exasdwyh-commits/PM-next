@@ -29,7 +29,7 @@ export function DailyBriefingRich({ data, onAction }: { data: DailyBriefingData;
   // 同 overview-role-based：本组件原本只展示前 3 条卖点，显式截取以保持数组长度一致。
   const content = categoryContent(category);
   const selling = content.selling.slice(0, 3);
-  // 价格与成本原为写死的三元，且第 104 行只有两个分支——普通食品会显示
+  // 价格与成本原为写死的三元，且第 104 行只有两个分支——低值品类会显示
   // 「竞品均价299元」（实际 39.9）、「成本10.2元」（跨品类共用一个值）。
   // 按用户确认改读 pack，两处均以 pack 数据为准。
   const timeGreeting = new Date().getHours() < 12 ? "早上好" : new Date().getHours() < 18 ? "下午好" : "晚上好";
@@ -41,7 +41,7 @@ export function DailyBriefingRich({ data, onAction }: { data: DailyBriefingData;
           <div>
             <span className="eyebrow" style={{ background: catInfo.color, color: "white" }}>{catInfo.icon} {catInfo.name} · 每日简报 · {timeGreeting} · 领导视角 · 富可视化</span>
             <h2>{timeGreeting}，今日有 {data.decisions} 项待决策，{data.gaps} 个缺口需关注</h2>
-            <small>Kern智能统筹 · {data.projectTitle || "多酚软糖项目"} · {catInfo.name}专用 · 一页看懂</small>
+            <small>Kern智能统筹 · {data.projectTitle || "示例项目"} · {catInfo.name}专用 · 一页看懂</small>
           </div>
           <div className="category-badge" style={{ background: catInfo.color, color: "white" }}>{catInfo.icon} {catInfo.name}</div>
         </div>
@@ -55,7 +55,7 @@ export function DailyBriefingRich({ data, onAction }: { data: DailyBriefingData;
 
         <div className="boss-summary" style={{ borderLeft: `3px solid ${catInfo.color}` }}>
           <strong>💡 老板一句话结论 · {catInfo.icon} {catInfo.name}</strong>
-          <p>{data.projectTitle || "多酚软糖项目"}还有{data.gaps}个缺口需解决，{data.decisions}项待决策，证据可信度{data.evidenceRate}%，{selling.join("、")}，建议今日推进{data.suggestions?.[0] || "成本优化"}，可进入下一阶段。</p>
+          <p>{data.projectTitle || "示例项目"}还有{data.gaps}个缺口需解决，{data.decisions}项待决策，证据可信度{data.evidenceRate}%，{selling.join("、")}，建议今日推进{data.suggestions?.[0] || "成本优化"}，可进入下一阶段。</p>
           <div className="suggestion-chips">
             {data.suggestions?.slice(0, 3).map((s, i) => <span key={i} style={{ background: `${catInfo.color}15`, color: catInfo.color }}>{s}</span>)}
           </div>
@@ -84,7 +84,7 @@ export function DailyBriefingRich({ data, onAction }: { data: DailyBriefingData;
       <div className="daily-briefing-rich sales" style={{ background: catInfo.gradient, borderColor: catInfo.color }}>
         <div className="briefing-header">
           <span className="badge" style={{ background: catInfo.color, color: "white" }}>💼 销售视角 · {catInfo.icon} {catInfo.name} · 每日简报 · {timeGreeting}</span>
-          <h2>{data.projectTitle || "多酚软糖"} · 销售简报 · {data.verifiedCount}条证据已核实 · {data.workRate}%完成</h2>
+          <h2>{data.projectTitle || "示例产品"} · 销售简报 · {data.verifiedCount}条证据已核实 · {data.workRate}%完成</h2>
           <p>今日待办{data.todos}项 · 待决策{data.decisions}项 · 缺口{data.gaps}个 · {selling.join(" · ")} · Kern已提炼卖点</p>
         </div>
 
@@ -105,7 +105,7 @@ export function DailyBriefingRich({ data, onAction }: { data: DailyBriefingData;
 
         <div className="script-hint" style={{ borderLeft: `3px solid ${catInfo.color}` }}>
           <strong>💬 今日推荐话术 · {catInfo.icon} {catInfo.name}</strong>
-          <p>&quot;{data.projectTitle || "多酚软糖"}经过{data.verifiedCount}条证据核实，{selling[0]}{selling[1]}，成本仅{content.costSummary}元，竞品均价{content.price}元，利润空间大。建议首批1000盒试销。&quot;</p>
+          <p>&quot;{data.projectTitle || "示例产品"}经过{data.verifiedCount}条证据核实，{selling[0]}{selling[1]}，成本仅{content.costSummary}元，竞品均价{content.price}元，利润空间大。建议首批1000盒试销。&quot;</p>
           <small>一键复制 · {catInfo.name}专用 · Kern生成 · {timeGreeting}可用</small>
         </div>
       </div>
@@ -118,7 +118,7 @@ export function DailyBriefingRich({ data, onAction }: { data: DailyBriefingData;
       <div className="briefing-header" style={{ background: catInfo.gradient }}>
         <div>
           <span className="eyebrow" style={{ background: catInfo.color, color: "white" }}>{catInfo.icon} {catInfo.name} · 每日简报 · {timeGreeting} · 研发视角 · 富可视化 · 15组件+8动效</span>
-          <h2>{data.projectTitle || "多酚软糖项目"} · 研发简报 · 证据{data.verifiedCount}/{data.totalEvidence} · 工作{data.doneWork}/{data.totalWork} · 缺口{data.gaps}</h2>
+          <h2>{data.projectTitle || "示例项目"} · 研发简报 · 证据{data.verifiedCount}/{data.totalEvidence} · 工作{data.doneWork}/{data.totalWork} · 缺口{data.gaps}</h2>
           <small>Kern智能统筹 · {catInfo.name}专用 · 专业严谨 · research_agent/scientific_evidence_agent/formulation_agent/cost_bom_agent已调度</small>
         </div>
         <div className="category-badge" style={{ background: catInfo.color, color: "white" }}>{catInfo.icon} {catInfo.name}</div>

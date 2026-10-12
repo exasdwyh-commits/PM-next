@@ -1,0 +1,56 @@
+{
+  "_note": "成本引擎的示例输入数据（BOM 原料清单 / 供应商报价样例），按品类。供快速填充与演示，不参与计算逻辑。换租户只改本文件，src/ 一行不动。",
+  "demoProductName": "多酚软糖",
+  "bomTemplates": {
+    "regular_food": [
+      { "id": "1", "name": "小麦粉", "quantity": 50, "unit": "g", "unitPrice": 0.008, "cost": 0.4, "category": "主原料" },
+      { "id": "2", "name": "白砂糖", "quantity": 15, "unit": "g", "unitPrice": 0.012, "cost": 0.18, "category": "辅料" },
+      { "id": "3", "name": "植物油", "quantity": 10, "unit": "g", "unitPrice": 0.02, "cost": 0.2, "category": "油脂" },
+      { "id": "4", "name": "鸡蛋", "quantity": 10, "unit": "g", "unitPrice": 0.02, "cost": 0.2, "category": "辅料" }
+    ],
+    "health_food": [
+      { "id": "1", "name": "多酚提取物", "quantity": 0.5, "unit": "g", "unitPrice": 8, "cost": 4, "category": "核心原料", "notes": "80度烘焙82%留存" },
+      { "id": "2", "name": "低聚果糖", "quantity": 3, "unit": "g", "unitPrice": 0.05, "cost": 0.15, "category": "辅料" },
+      { "id": "3", "name": "果胶", "quantity": 0.8, "unit": "g", "unitPrice": 0.2, "cost": 0.16, "category": "凝胶" },
+      { "id": "4", "name": "天然香料", "quantity": 0.1, "unit": "g", "unitPrice": 2, "cost": 0.2, "category": "调味" },
+      { "id": "5", "name": "植物胶囊壳", "quantity": 60, "unit": "粒", "unitPrice": 0.02, "cost": 1.2, "category": "剂型", "isImported": false }
+    ],
+    "cross_border_food": [
+      { "id": "1", "name": "进口乳粉", "quantity": 20, "unit": "g", "unitPrice": 0.15, "cost": 3, "category": "主原料", "isImported": true, "importDutyRate": 12 },
+      { "id": "2", "name": "进口坚果", "quantity": 15, "unit": "g", "unitPrice": 0.25, "cost": 3.75, "category": "主原料", "isImported": true, "importDutyRate": 12 },
+      { "id": "3", "name": "国产燕麦", "quantity": 10, "unit": "g", "unitPrice": 0.02, "cost": 0.2, "category": "辅料" },
+      { "id": "4", "name": "进口包装", "quantity": 1, "unit": "个", "unitPrice": 1.5, "cost": 1.5, "category": "包装", "isImported": true }
+    ],
+    "cosmetics": [
+      { "id": "1", "name": "透明质酸钠", "quantity": 0.5, "unit": "g", "unitPrice": 8, "cost": 4, "category": "核心成分", "notes": "保湿" },
+      { "id": "2", "name": "烟酰胺", "quantity": 1, "unit": "g", "unitPrice": 3, "cost": 3, "category": "功效成分", "notes": "美白" },
+      { "id": "3", "name": "甘油", "quantity": 5, "unit": "g", "unitPrice": 0.02, "cost": 0.1, "category": "保湿剂" },
+      { "id": "4", "name": "纯化水", "quantity": 40, "unit": "g", "unitPrice": 0.001, "cost": 0.04, "category": "溶剂" },
+      { "id": "5", "name": "乳化剂", "quantity": 2, "unit": "g", "unitPrice": 0.5, "cost": 1, "category": "乳化" },
+      { "id": "6", "name": "防腐剂", "quantity": 0.5, "unit": "g", "unitPrice": 1, "cost": 0.5, "category": "防腐" }
+    ]
+  },
+  "supplierTemplates": {
+    "regular_food": [
+      { "id": "1", "supplierName": "供应商A", "productName": "小麦粉", "unitPrice": 0.008, "moq": 1000, "leadTime": "7天", "validity": "30天", "category": "原料", "createdAt": "2026-10-08" },
+      { "id": "2", "supplierName": "供应商B", "productName": "小麦粉", "unitPrice": 0.0075, "moq": 2000, "leadTime": "10天", "validity": "30天", "category": "原料", "createdAt": "2026-10-08", "isSelected": true },
+      { "id": "3", "supplierName": "供应商C", "productName": "白砂糖", "unitPrice": 0.012, "moq": 500, "leadTime": "5天", "validity": "30天", "category": "原料", "createdAt": "2026-10-08" }
+    ],
+    "health_food": [
+      { "id": "1", "supplierName": "多酚原料厂A", "productName": "多酚提取物", "unitPrice": 8, "moq": 10, "leadTime": "15天", "validity": "60天", "category": "核心原料", "createdAt": "2026-10-08", "notes": "82%留存率验证" },
+      { "id": "2", "supplierName": "多酚原料厂B", "productName": "多酚提取物", "unitPrice": 7.5, "moq": 20, "leadTime": "20天", "validity": "60天", "category": "核心原料", "createdAt": "2026-10-08", "isSelected": true },
+      { "id": "3", "supplierName": "胶囊厂A", "productName": "植物胶囊壳", "unitPrice": 0.02, "moq": 10000, "leadTime": "10天", "validity": "30天", "category": "剂型", "createdAt": "2026-10-08" }
+    ],
+    "cross_border_food": [
+      { "id": "1", "supplierName": "海外供应商A", "productName": "进口乳粉", "unitPrice": 0.15, "moq": 500, "leadTime": "30天", "validity": "60天", "category": "原料", "isImported": true, "createdAt": "2026-10-08" },
+      { "id": "2", "supplierName": "海外供应商B", "productName": "进口乳粉", "unitPrice": 0.14, "moq": 1000, "leadTime": "45天", "validity": "60天", "category": "原料", "isImported": true, "createdAt": "2026-10-08", "isSelected": true },
+      { "id": "3", "supplierName": "清关代理A", "productName": "清关服务", "unitPrice": 0.8, "moq": 1, "leadTime": "3天", "validity": "30天", "category": "清关", "createdAt": "2026-10-08" }
+    ],
+    "cosmetics": [
+      { "id": "1", "supplierName": "原料厂A", "productName": "透明质酸钠", "unitPrice": 8, "moq": 5, "leadTime": "10天", "validity": "60天", "category": "核心成分", "createdAt": "2026-10-08" },
+      { "id": "2", "supplierName": "原料厂B", "productName": "透明质酸钠", "unitPrice": 7.2, "moq": 10, "leadTime": "15天", "validity": "60天", "category": "核心成分", "createdAt": "2026-10-08", "isSelected": true },
+      { "id": "3", "supplierName": "包材厂A", "productName": "玻璃瓶", "unitPrice": 5, "moq": 1000, "leadTime": "20天", "validity": "30天", "category": "包材", "createdAt": "2026-10-08" },
+      { "id": "4", "supplierName": "包材厂B", "productName": "玻璃瓶", "unitPrice": 4.5, "moq": 2000, "leadTime": "25天", "validity": "30天", "category": "包材", "createdAt": "2026-10-08", "isSelected": true }
+    ]
+  }
+}

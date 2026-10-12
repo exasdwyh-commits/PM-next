@@ -64,8 +64,9 @@ export function calculateModularCost(
         totalOverhead += result.cost;
         break;
       case "certification":
-        // 认证：保健食品和化妆品检测多，算入制造或合规
-        if (template.category === "化妆品" || template.category === "保健食品") {
+        // 认证/检测的归属由 pack 数据决定（certificationToCompliance）：
+        // 检测与备案强绑定的品类 → 计入合规；其余算常规出厂检验 → 计入制造。
+        if (template.certificationToCompliance) {
           totalCompliance += result.cost;
         } else {
           totalManufacturing += result.cost;

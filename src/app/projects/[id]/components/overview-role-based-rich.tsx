@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Panel, Badge } from "@/components/ui";
 import { useRole } from "@/components/role-context";
-import { categoryMeta, categoryContent } from "@/modules/tenant";
+import { categoryMeta, categoryContent, classifyCategoryByText } from "@/modules/tenant";
 import { inferRoleFromPage } from "@/components/kern-role-intelligence";
 import "@/components/role-switch.css";
 import { RoleTools } from "@/components/role-tools";
@@ -12,12 +12,9 @@ import "@/components/role-tools.css";
 import "./overview-role.css";
 import "./overview-role-based-rich.css";
 
+// 品类推断由 pack 的 classifyKeywords 驱动（无命中落 pack 兜底品类），内核不写死行业关键词。
 function getCategoryFromProject(project: any): string {
-  const text = `${project?.title || ""} ${project?.target || ""}`.toLowerCase();
-  if (text.includes("化妆") || text.includes("护肤") || text.includes("面膜") || text.includes("精华")) return "cosmetics";
-  if (text.includes("跨境") || text.includes("进口") || text.includes("保税")) return "cross_border_food";
-  if (text.includes("保健") || text.includes("多酚") || text.includes("胶囊") || text.includes("软糖") || text.includes("功能")) return "health_food";
-  return "regular_food";
+  return classifyCategoryByText(`${project?.title || ""} ${project?.target || ""}`);
 }
 
 export function OverviewRoleBasedRich({ project, gaps, evidenceInsight, opportunity, onTabChange }: any) {

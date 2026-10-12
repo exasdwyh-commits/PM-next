@@ -439,3 +439,28 @@ export async function reconcileLoopOnce(
 
   return result;
 }
+
+// ---------------------------------------------------------------------------
+// 6. knowledgeLoop：外部知识目录（Obsidian 等）有变化 → 增量同步进库
+// ---------------------------------------------------------------------------
+
+export async function knowledgeLoopOnce(options: LoopOptions = {}): Promise<LoopResult> {
+  const result = emptyResult();
+  const knowledge = workerHandlers().knowledge;
+  if (!knowledge) return result;
+  try {
+    const r = await knowledge.syncDrifted({
+      organizationId: options.organizationId,
+      limit: options.limit,
+    });
+    result.scanned = r.scanned;
+    result.acted = r.acted;
+    result.skipped = r.skipped;
+    result.errors = r.errors;
+    if (r.notes?.length) result.notes = r.notes;
+  } catch (error) {
+    result.errors += 1;
+    result.notes = [errorMessage(error)];
+  }
+  return result;
+}

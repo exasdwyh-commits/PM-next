@@ -5,7 +5,7 @@ import { useRole } from "./role-context";
 import { categoryMeta, categoryContent } from "@/modules/tenant";
 import "./marketing-landing-rich.css";
 
-export function MarketingLandingRich({ category = "health_food", productName = "多酚软糖", onExport }: any) {
+export function MarketingLandingRich({ category = "health_food", productName = "示例产品", onExport }: any) {
   const { role } = useRole();
   const catInfo = categoryMeta(category);
   const content = categoryContent(category);
@@ -155,9 +155,9 @@ export function MarketingLandingRich({ category = "health_food", productName = "
               <h4>✅ 合规可宣称清单 · {catInfo.icon} {catInfo.name} · {content.compliance.summary}</h4>
               <div className="compliance-list">
                 <div className="compliance-item ok" style={{ borderLeft: `3px solid var(--ok)` }}><strong>✅ {content.compliance.summary}</strong><small>已合规 · 可宣称 · {catInfo.name}专用</small><span className="lvl A">A级</span></div>
-                <div className="compliance-item ok" style={{ borderLeft: `3px solid var(--ok)` }}><strong>✅ 多酚功效可宣称</strong><small>多酚留存82%已验证 · lab_test A级 · 可宣称&quot;富含多酚&quot;</small><span className="lvl A">A级</span></div>
+                <div className="compliance-item ok" style={{ borderLeft: `3px solid var(--ok)` }}><strong>✅ {content.selling?.[0] ?? "卖点"}可宣称</strong><small>{content.compliance.summary} · lab_test A级</small><span className="lvl A">A级</span></div>
                 <div className="compliance-item warn" style={{ borderLeft: `3px solid var(--warn)` }}><strong>⚠️ 功能声称需注意</strong><small>不能宣称&quot;治疗&quot;，可宣称&quot;有助于&quot; · {catInfo.name}专用边界</small><span className="lvl B">B级</span></div>
-                <div className="compliance-item"><strong>📋 标签合规</strong><small>配料表+营养成分表+保质期+贮存条件已核实 · {content.compliance.summary}</small><span className="lvl A">A级</span></div>
+                <div className="compliance-item"><strong>📋 标签合规</strong><small>配料表+成分表+保质期+贮存条件已核实 · {content.compliance.summary}</small><span className="lvl A">A级</span></div>
               </div>
             </div>
           )}

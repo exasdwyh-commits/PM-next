@@ -2,6 +2,8 @@
  * Project Tracking Capability - P5 产品研发+项目管理
  */
 
+import { tenantSamples } from "@/modules/tenant";
+
 export interface ProjectTrackingInput {
   organizationId: string;
   projectId: string;
@@ -32,7 +34,7 @@ export async function generateProjectTracking(input: ProjectTrackingInput, prism
 
   if (!project) {
     return {
-      projectTitle: "多酚软糖项目",
+      projectTitle: tenantSamples().demoProductName ?? "示例项目",
       category: input.category || "health_food",
       progress: 62,
       doneWork: 5,
@@ -44,7 +46,7 @@ export async function generateProjectTracking(input: ProjectTrackingInput, prism
       owner: "张三",
       estimatedLaunch: "2024-11-15",
       timeline: [
-        { key: "formula", label: "配方确定", status: "done", date: "2024-10-01", desc: "多酚+低聚果糖+软糖基质" },
+        { key: "formula", label: "配方确定", status: "done", date: "2024-10-01", desc: "按配方单投料" },
         { key: "cost", label: "成本优化", status: "running", desc: "目标8元 · Kern调度中" },
         { key: "compliance", label: "合规检查", status: "queued", desc: "蓝帽子认证 · 依赖成本优化" },
         { key: "supplier", label: "供应商打样", status: "queued", desc: "3家供应商 · 依赖合规" },
@@ -74,7 +76,7 @@ export async function generateProjectTracking(input: ProjectTrackingInput, prism
     owner: project.owner?.name || "未指定",
     estimatedLaunch: "2024-11-15",
     timeline: [
-      { key: "formula", label: "配方确定", status: doneWork > 0 ? "done" : "queued", date: "2024-10-01", desc: "多酚+低聚果糖+软糖基质" },
+      { key: "formula", label: "配方确定", status: doneWork > 0 ? "done" : "queued", date: "2024-10-01", desc: "按配方单投料" },
       { key: "cost", label: "成本优化", status: doneWork < totalWork ? "running" : "done", desc: "目标8元 · Kern调度中" },
       { key: "compliance", label: "合规检查", status: "queued", desc: "蓝帽子认证" },
       { key: "supplier", label: "供应商打样", status: "queued", desc: "3家供应商" },

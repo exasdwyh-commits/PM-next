@@ -1,0 +1,28 @@
+{
+  "_note": "合规清单：宠物食品走《饲料和饲料添加剂管理条例》体系（与食品/保健食品完全不同）。清单是「要求」、成本模块的 compliance values 是「成本」。默认数值为参考起点，可按实际调整。",
+  "checklists": {
+    "dry_food": [
+      { "id": "feed_license", "label": "饲料生产许可证", "description": "宠物配合饲料生产许可", "required": true, "category": "生产许可", "estimatedCost": 0, "estimatedDays": 0 },
+      { "id": "label", "label": "宠物饲料标签审核", "description": "原料组成、成分分析保证值、适用动物种类", "required": true, "category": "标签", "estimatedCost": 500, "estimatedDays": 3 },
+      { "id": "inspection", "label": "出厂检验", "description": "每批出厂检验（水分、粗蛋白、粗脂肪等）", "required": true, "category": "检测", "estimatedCost": 600, "estimatedDays": 3 },
+      { "id": "shelf_life", "label": "保质期测试", "description": "保质期与稳定性验证", "required": false, "category": "检测", "estimatedCost": 1500, "estimatedDays": 25 }
+    ],
+    "cat_food": [
+      { "id": "feed_license", "label": "饲料生产许可证", "description": "宠物配合饲料生产许可", "required": true, "category": "生产许可", "estimatedCost": 0, "estimatedDays": 0 },
+      { "id": "label", "label": "宠物饲料标签审核", "description": "原料组成、成分分析保证值、适用动物种类", "required": true, "category": "标签", "estimatedCost": 500, "estimatedDays": 3 },
+      { "id": "inspection", "label": "出厂检验", "description": "每批出厂检验（牛磺酸、氨基酸等）", "required": true, "category": "检测", "estimatedCost": 700, "estimatedDays": 3 },
+      { "id": "shelf_life", "label": "保质期测试", "description": "保质期与稳定性验证", "required": false, "category": "检测", "estimatedCost": 1500, "estimatedDays": 25 }
+    ],
+    "treat": [
+      { "id": "feed_license", "label": "饲料生产许可证", "description": "宠物零食生产许可", "required": true, "category": "生产许可", "estimatedCost": 0, "estimatedDays": 0 },
+      { "id": "label", "label": "宠物饲料标签审核", "description": "标签合规，原料组成与成分分析保证值", "required": true, "category": "标签", "estimatedCost": 500, "estimatedDays": 3 },
+      { "id": "inspection", "label": "出厂检验", "description": "微生物与理化指标检验", "required": true, "category": "检测", "estimatedCost": 800, "estimatedDays": 3 }
+    ],
+    "supplement": [
+      { "id": "additive_license", "label": "饲料添加剂生产许可", "description": "宠物饲料添加剂生产许可", "required": true, "category": "生产许可", "estimatedCost": 0, "estimatedDays": 0 },
+      { "id": "label", "label": "宠物饲料标签审核", "description": "标签合规，适用动物种类与添加量", "required": true, "category": "标签", "estimatedCost": 500, "estimatedDays": 3 },
+      { "id": "function_test", "label": "功能性检测", "description": "功效与安全性验证", "required": true, "category": "检测", "estimatedCost": 12000, "estimatedDays": 30 },
+      { "id": "safety", "label": "安全性检测", "description": "毒理与卫生学检测", "required": true, "category": "检测", "estimatedCost": 6000, "estimatedDays": 20 }
+    ]
+  }
+}
