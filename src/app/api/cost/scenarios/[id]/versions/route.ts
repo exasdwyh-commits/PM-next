@@ -8,6 +8,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const session = await getServerSession(req);
     const { id } = await params;
     const scenarioId = id;
+    // 修前此处 `where: { scenarioId }` 完全没有组织限定 —— 任一登录用户拿他组织情景 id
+    // 都能把版本明细整段读走。改为先双限定确认父情景属于本组织，再按父情景查版本。
+    const scenario = await prisma.costScenario.findFirst({
+      where: { id: scenarioId, organizationId: session.organizationId },
+    });
+    if (!scenario) return NextResponse.json({ error: "Scenario not found" }, { status: 404 });
+
     const versions = await prisma.costScenarioVersion.findMany({
       where: { scenarioId },
       include: { creator: { select: { id: true, name: true } } },
@@ -15,8 +22,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     });
     return NextResponse.json({ versions });
   } catch (e) {
-    console.error("GET versions error", e);
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+    return handleApiError(e, req);
   }
 }
 
@@ -56,7 +62,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     return NextResponse.json({ version });
   } catch (e) {
-    console.error("POST versions error", e);
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+    return handleApiError(e, req);
   }
 }

@@ -82,6 +82,12 @@ model Organization {
   channelRuleProfiles  ChannelRuleProfileRecord[]
   channelSpecRoutes    ChannelSpecRoute[]
   potentialAssessments PotentialAssessmentRecord[]
+
+  // P0-1 真实报价 / 资料入库通道
+  supplierQuotes SupplierQuote[]
+  // 批次 D 知识库四模块
+  knowledgeModuleEntries KnowledgeModuleEntry[]
+  knowledgeBackfills     KnowledgeBackfill[]
 }
 
 /**
@@ -216,6 +222,12 @@ model User {
   kernSchedules   KernSchedule[]
   kernPlaybooks   KernPlaybook[]
 
+  // P0-1 真实报价 / 资料入库通道
+  supplierQuotesCreated SupplierQuote[] @relation("SupplierQuoteCreator")
+  // 批次 D 知识库四模块
+  knowledgeModuleEntriesCreated KnowledgeModuleEntry[] @relation("KnowledgeModuleEntryCreator")
+  knowledgeBackfillsCreated     KnowledgeBackfill[]     @relation("KnowledgeBackfillCreator")
+
   @@index([organizationId, isSystem])
   @@index([organizationId])
 }
@@ -303,6 +315,8 @@ model Project {
   researchRuns    ResearchRun[]
   launchPlans     LaunchPlan[]
   knowledgeDebts  KnowledgeDebt[]
+  // P0-1：真实报价 / 规格资料行（深度报告 ①② 块的数据来源）
+  supplierQuotes  SupplierQuote[]
 
   @@index([organizationId])
   @@index([ownerId])
@@ -840,6 +854,8 @@ model Evidence {
   claims         EvidenceClaim[]
   sourceCaptures EvidenceSourceCapture[]
   resolvingGap   DataGap[]       @relation("GapResolvedByEvidence")
+  /// P0-1：由本资料结构化出来的报价 / 规格行（反向锚点，便于「来源→落库行」追溯）
+  supplierQuotes SupplierQuote[]
 
   @@index([projectId])
   @@index([nature])
@@ -3157,6 +3173,177 @@ model CostScenarioApproval {
   @@index([scenarioId])
   @@index([organizationId])
   @@index([status])
+}
+
+// -------------------------------------------------------------
+// P0-1 真实报价 / 资料入库通道（数据供给侧）
+// -------------------------------------------------------------
+
+/**
+ * 报价行用途：区分「规格 / 检测资料」与「价格资料」。
+ * 两者都是**真实上传资料的结构化行**，但分别点亮深度报告的不同块：
+ * SPEC → ① 产品定义与规格（formulation_agent）；PRICE → ② 配方与 BOM 成本（cost_bom_agent）。
+ */
+enum SupplierQuoteKind {
+  SPEC
+  PRICE
+}
+
+/**
+ * 供应商报价 / 规格资料行（P0-1 数据供给通道）
+ *
+ * 铁律（与全仓诚实口径一致，改动前先读这三行）：
+ * 1. **每行必须锚定一条真实 Evidence**：evidenceId 必填且必须属于同一项目。
+ *    没有来源的报价行不允许落库 —— 这正是本通道区别于「手填估算」的地方，
+ *    也是深度报告 ①② 块敢把数字显示出来的唯一理由。
+ * 2. **数值一律可空**：单价 / 数量没有资料支撑时保持 null，视图显式标缺，
+ *    绝不用默认值、区间中值或行业经验填充（雷① 的教训：宁可空着，不能编）。
+ * 3. 只有 `item`（物料 / 规格项名称）是必填主键，其余字段缺即缺，如实记录。
+ */
+model SupplierQuote {
+  id             String            @id @default(uuid())
+  organizationId String
+  projectId      String
+  /// 来源锚点：指向本项目内一条真实上传资料（报价单 / 检测报告 / 供应商资料）
+  evidenceId     String
+  kind           SupplierQuoteKind
+  /// 供应商 / 来源方名称；资料未标注时为空（视图显式标缺，不猜）
+  supplier       String?
+  /// 物料、原料或规格项名称 —— 唯一必填主键
+  item           String
+  /// 规格描述（如「纯度 ≥98%」「30 条/盒」）
+  spec           String?
+  /// 计价单位（kg / 片 / 瓶 …）
+  uom            String?
+  /// 最小起订量。用字符串：真实报价单常写「500kg 起」「1 吨/批」，
+  /// 强行数值化要么丢单位、要么被迫猜测，故原样保存。
+  moq            String?
+  /// 单价；无价格资料时为 null，不做任何估算填充
+  unitPrice      Float?
+  currency       String            @default("CNY")
+  /// 报价日期（区别于 createdAt 录入时间）：资料是否过期由它判定
+  quotedAt       DateTime?
+  note           String?
+  createdById    String
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  evidence     Evidence     @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("SupplierQuoteCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([projectId, kind])
+  @@index([evidenceId])
+  @@index([organizationId, createdAt])
+}
+
+// -------------------------------------------------------------
+// 批次 D：知识库四模块结构化 + 事后回填通道（知识飞轮）
+// -------------------------------------------------------------
+
+/**
+ * 四个结构化知识模块。
+ *
+ * **刻意不预置任何行业条目**：合规红线 / 品类框架 / 渠道准入 / 操盘 SOP 的具体内容
+ * 属领域知识，由我凭空写出来就是编造 —— 与全仓「防编造」铁律直接冲突（雷① 的教训：
+ * 宁可空着，不能编）。本仓只提供**结构与录入通道**，条目一律由真实来源录入：
+ * 人工录入（带来源锚点）或从 Obsidian Vault 等知识源导入。
+ */
+enum KnowledgeModule {
+  /// 合规红线：能不能说、能不能卖的硬边界
+  COMPLIANCE_REDLINE
+  /// 品类框架：这个品类怎么拆、看哪些指标
+  CATEGORY_FRAMEWORK
+  /// 渠道准入：进各渠道要什么资质与门槛
+  CHANNEL_ACCESS
+  /// 操盘 SOP：打法与执行顺序
+  OPERATION_SOP
+}
+
+/**
+ * 四模块的结构化条目（组织级）。
+ *
+ * 铁律与 SupplierQuote 同源，改动前先读：
+ * 1. **`sourceRef` 必填** —— 没有来源锚点的条规不允许落库。这是 kern 合成时敢引用
+ *    并标注出处的唯一理由，也是「引用标注」能落到实处的地基。
+ * 2. `statement` 可空但**强烈建议填**：它是合成层识别「同一件事有不同说法」的依据，
+ *    空着就退化成只能按标题聚类，冲突报不出来。
+ * 3. 数值类内容不在本表 —— 会随业务变化的量走 `KnowledgeBackfill` 回填。
+ */
+model KnowledgeModuleEntry {
+  id             String          @id @default(uuid())
+  organizationId String
+  module         KnowledgeModule
+  /// 模块内稳定键（如 `claim.no_therapeutic`）：去重、回填关联、跨环境对齐都靠它
+  key            String
+  title          String
+  /// 可判定的主张（陈述句，如「保健食品不得宣称治疗功能」）
+  statement      String?
+  /// 适用范围的人读描述（品类 / 渠道 / 地区）
+  scopeLabel     String?
+  /// 来源锚点：法规编号 / 内部文件号 / URL。**必填**，无来源不落库
+  sourceRef      String
+  /// 权威档：first_party | curated | public | unknown（与 kern-contracts 的 AuthorityTier 对齐，
+  /// 存字符串以免 Prisma enum 与 TS 联合类型各自漂移；取值在写入时校验白名单）
+  authorityTier  String          @default("curated")
+  /// 结构化适用范围：{ categories?: string[], channels?: string[], regions?: string[] }
+  appliesTo      Json?
+  createdById    String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  /// 软删：历史引用保留最小快照，新检索不再命中
+  deletedAt      DateTime?
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User                @relation("KnowledgeModuleEntryCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  backfills    KnowledgeBackfill[]
+
+  @@unique([organizationId, module, key])
+  @@index([organizationId, module])
+  @@index([organizationId, deletedAt])
+}
+
+/**
+ * 事后回填：把「这家公司真实发生过什么」记回来（OEM 报价区间 / 检测周期 / 试销转化率 …）。
+ *
+ * 与静态条目的关系（关键设计）：回填值在合成层是**与静态条目并列的一条独立命中**，
+ * 两者共享同一 `conflictGroup`（`entry:{entryId}`），于是既有冲突机制会自然呈现
+ * 「教科书值 vs 本公司实测值」—— 而不是让回填悄悄覆盖掉条规。
+ * 这正是路线图说的「让系统越用越懂这家公司（不止懂教科书）」。
+ *
+ * 同样铁律：`sourceRef` 必填，没有实测来源的数字不落库。
+ */
+model KnowledgeBackfill {
+  id             String   @id @default(uuid())
+  organizationId String
+  /// 关联的静态条目；为 null 表示这是一条独立的公司事实（尚无对应条规）
+  entryId        String?
+  /// 观测指标键：oem_price_range / test_cycle_days / trial_conversion_rate …
+  metricKey      String
+  /// 区间值（报价区间、周期区间）
+  numericLow     Float?
+  numericHigh    Float?
+  /// 单值
+  numericValue   Float?
+  unit           String?
+  /// 无法数值化时的原样记录（如「30–45 天，视送检批次」）
+  textValue      String?
+  /// 观测时间（区别于 createdAt 录入时间）：新鲜度由它判定
+  observedAt     DateTime
+  /// 真实来源锚点（**必填**）：实测记录 / 报价单 / 检测报告
+  sourceRef      String
+  note           String?
+  createdById    String
+  createdAt      DateTime @default(now())
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  entry        KnowledgeModuleEntry? @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  createdBy    User                 @relation("KnowledgeBackfillCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, metricKey])
+  @@index([entryId])
+  @@index([organizationId, observedAt])
 }
 
 // Extend existing models with relations

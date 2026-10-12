@@ -61,8 +61,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("POST /api/kern/dispatch error:", error);
-    return NextResponse.json({ error: "Failed to dispatch" }, { status: 500 });
+    return handleApiError(error, req);
   }
 }
 
@@ -94,7 +93,6 @@ export async function GET(req: NextRequest) {
       count: 7,
     });
   } catch (error) {
-    console.error("GET /api/kern/dispatch error:", error);
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+    return handleApiError(error, req);
   }
 }
