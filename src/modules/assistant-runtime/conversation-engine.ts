@@ -24,6 +24,12 @@ import {
   type KernCapabilityResult,
 } from "./capabilities";
 import { claimRun } from "@/modules/advisor/runs";
+import {
+  assembleCompressedHistory,
+  historyKeepRecentTurns,
+  rollingSummaryCache,
+  summaryMaxChars,
+} from "@/modules/history-compression";
 import { tryResolveGatewayPolicyForAgentCode } from "@/modules/model-control/service";
 import {
   executeLegacyAdvisorModel,
@@ -309,6 +315,19 @@ export async function executeKernConversationTurn(
     conversationHistory = [];
   }
 
+  // C3：历史装配改为「近期原文 + 远期滚动摘要」。
+  // 摘要位未配置或调用失败时 assemble 返回 summaryBlock=null，
+  // 自动回退到旧行为（近期原文 + 环形截断省略声明），不抛错。
+  const compressedHistory = await assembleCompressedHistory({
+    turns: conversationHistory,
+    keepRecentTurns: historyKeepRecentTurns(),
+    maxChars: summaryMaxChars(),
+    cacheKey: `conv:${conversationId}`,
+    cache: rollingSummaryCache,
+  }).catch(() => null);
+  const promptHistory = compressedHistory?.recent ?? conversationHistory;
+  const historySummaryBlock = compressedHistory?.summaryBlock ?? null;
+
   if (!options?.execution) await prisma.message.create({
     data: { conversationId, role: "USER", content: text, runId: run.id },
   });
@@ -344,10 +363,11 @@ export async function executeKernConversationTurn(
     });
 
     const baseMessages = buildAdvisorLLMMessages({
-      history: conversationHistory,
+      history: promptHistory,
       currentQuery: text,
       toolKey: result.toolKey,
       toolResultText: result.text,
+      summaryBlock: historySummaryBlock,
     });
     const basePersona = buildDepartmentAssistantSystemPrompt(
       modelRoute.taskClass,

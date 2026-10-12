@@ -204,7 +204,7 @@ export const ADVISOR_LLM_HISTORY_MAX_TURNS = 10;
 /**
  * 组装 LLM 消息序列（纯函数，便于单测）。
  *
- * 结构：system → [历史轮…（时间顺序，环形截断保留最近）] → 本轮 user（含工具数据）。
+ * 结构：system → [省略声明?] → [滚动摘要块?（C3）] → [历史轮…（时间顺序，环形截断保留最近）] → 本轮 user（含工具数据）。
  *
  * 截断策略（字符预算）：
  * - 先从最近一轮往前收集，直到超出预算或达到轮数上限；
@@ -221,6 +221,11 @@ export function buildAdvisorLLMMessages(params: {
   toolResultText: string;
   maxChars?: number;
   maxTurns?: number;
+  /**
+   * C3：远期滚动摘要块（system 角色注入，位于历史轮次之前）。
+   * 为 null/空时行为与旧版完全一致（纯环形截断）。
+   */
+  summaryBlock?: string | null;
 }): AdvisorLLMMessage[] {
   const maxChars = params.maxChars ?? ADVISOR_LLM_HISTORY_MAX_CHARS;
   const maxTurns = params.maxTurns ?? ADVISOR_LLM_HISTORY_MAX_TURNS;
@@ -260,6 +265,10 @@ export function buildAdvisorLLMMessages(params: {
       role: "system",
       content: "（注：更早的会话历史因长度预算被省略，以下仅保留最近的对话轮次。）",
     });
+  }
+  // C3：远期滚动摘要（system 块，约束区原文保留）。摘要禁用时为 null，走旧行为。
+  if (params.summaryBlock && params.summaryBlock.trim()) {
+    messages.push({ role: "system", content: params.summaryBlock });
   }
   messages.push(...picked);
   messages.push({
