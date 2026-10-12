@@ -260,8 +260,14 @@ async function main() {
     const reportReplyCitations: unknown[] = Array.isArray(reportReply.message.citations)
       ? (reportReply.message.citations as unknown[])
       : [];
-    const reportCitation = reportReplyCitations.find(isExecutiveReportCitation);
+    const reportCitations = reportReplyCitations.filter(isExecutiveReportCitation);
+    // 同一份报告只能出现一条引用：结构化那条与 legacy artifact 那条并存时，
+    // 客户端「按标题匹配」会先拿到旧那条（没有 contentVersion/stats），
+    // 于是卡片渲染出 undefined —— 这正是 Experience CI 2026-10-12 的红点。
+    assert.equal(reportCitations.length, 1, "报告引用必须唯一：只保留 kind=executive-report 的结构化那一份");
+    const reportCitation = reportCitations[0];
     assert.ok(reportCitation, "对话必须带上 Executive Report 结构化引用");
+    assert.equal(reportCitation.kind, "executive-report");
     assert.equal(reportCitation.ref, reportArtifact.id);
     assert.equal(reportCitation.contentVersion, 1);
     assert.equal(reportCitation.reviewStatus, "ACCEPTED");
