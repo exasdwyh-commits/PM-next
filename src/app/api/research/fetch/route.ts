@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
       organizationId: session.organizationId,
       missionId,
       taskClass: "research_fetch",
+      eventType: "research_call",
       estimatedTokens: 500,
       modelProfileKey: "source-fetcher",
     });
