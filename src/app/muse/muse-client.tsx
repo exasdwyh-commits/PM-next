@@ -423,9 +423,12 @@ export default function KernClient({ model }: { model: StudioModel }) {
     const refreshMessages = async () => {
       if (disposed || refreshing || sendingRef.current || document.visibilityState === "hidden") return;
       refreshing = true;
+      const pollController = new AbortController();
+      const pollTimer = window.setTimeout(() => pollController.abort(), 20_000);
       try {
         const response = await fetch(`/api/conversations/${conversationId}/messages`, {
           cache: "no-store",
+          signal: pollController.signal,
         });
         if (!response.ok) return;
         const data = await response.json();
@@ -473,6 +476,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
       } catch {
         // 轮询失败不阻断当前对话；下一轮会继续尝试。
       } finally {
+        window.clearTimeout(pollTimer);
         refreshing = false;
       }
     };
@@ -599,12 +603,16 @@ export default function KernClient({ model }: { model: StudioModel }) {
     };
     setMessages((current) => current.some(message => message.id === mine.id) ? current : [...current, mine]);
 
+    const sendController = new AbortController();
+    let sendTimedOut = false;
+    const sendTimer = window.setTimeout(() => { sendTimedOut = true; sendController.abort(); }, 60_000);
     try {
       let activeId = conversationId;
       if (!activeId) {
         const create = await fetch("/api/conversations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: sendController.signal,
           body: JSON.stringify({
             clientConversationId: request.conversationId,
             title: text.slice(0, 60) || "新任务",
@@ -630,6 +638,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: sendController.signal,
           body: JSON.stringify({ content: text, clientMessageId: request.clientMessageId }),
         }
       );
@@ -663,8 +672,9 @@ export default function KernClient({ model }: { model: StudioModel }) {
         setDraftSaved(true);
         setDraft((current) => current || text);
       }
-      const message =
-        error instanceof Error ? error.message : "发送失败，请稍后重试";
+      const message = sendTimedOut
+        ? "发送超时（服务端可能在编译或网络慢），请重试；同一条消息会按标识去重，不会重复入库"
+        : error instanceof Error ? error.message : "发送失败，请稍后重试";
       setFeedback({ text: message, error: true });
       setMessages((current) => [
         ...current.map(m => m.id === mine.id ? { ...m, state: "error" as const } : m),
@@ -679,6 +689,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
       ]);
       return false;
     } finally {
+      window.clearTimeout(sendTimer);
       if (viewRef.current === view) {
         sendingRef.current = false;
         setSending(false);
