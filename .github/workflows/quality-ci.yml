@@ -42,6 +42,7 @@ jobs:
       - run: npm run test:token-usage
       - run: npm run test:desktop-runtime
       - run: npm run test:kern-project-map
+      - run: npm run test:regression-units
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
