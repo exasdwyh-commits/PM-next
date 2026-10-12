@@ -23,11 +23,19 @@ import { classifySourceUrl } from "@/modules/evidence/source-trust";
 import { searchKnowledge, type KnowledgeSearchResult } from "./search";
 import { authorityScore, trustTierToAuthorityTier, loadAuthorityPolicy } from "./authority";
 import { sourceTitle } from "./source-title";
+import { getCachedKnowledge, knowledgeCacheKey, setCachedKnowledge } from "./query-cache";
+import { rerankKnowledgeItems } from "./rerank";
 
 export interface KnowledgeProviderContext {
   session: SessionContext;
   query: string;
   limit: number;
+  /**
+   * C5-A1：本轮路由的取消信号。每个 provider 的 search 都必须收到它；
+   * 遵守信号的 provider（fetch/HTTP 类）在超时或上游取消时会被真实取消，
+   * 而不是「标记超时但在途请求继续跑」。不遵守的老 provider 走竞速兜底。
+   */
+  signal: AbortSignal;
   /**
    * 同一次路由内 memo 化的知识库检索。
    * `project` 与 `company-facts` 两个域其实来自同一次查询的两半，共用它避免查两遍。
@@ -46,12 +54,21 @@ export interface KnowledgeProvider {
 
 const registry = new Map<string, KnowledgeProvider>();
 
+/**
+ * C5-A3：provider 注册表版本号。register/unregister 时递增，缓存键计入它 ——
+ * 同一 scope 换了实现（测试里常见）时，旧缓存自动失效，不会把上一个
+ * provider 的结果当成这一个的。
+ */
+let registryVersion = 0;
+
 export function registerKnowledgeProvider(provider: KnowledgeProvider): void {
   registry.set(provider.scope, provider);
+  registryVersion++;
 }
 
 export function unregisterKnowledgeProvider(scope: string): void {
   registry.delete(scope);
+  registryVersion++;
 }
 
 export function listKnowledgeProviders(): { scope: string; label: string }[] {
@@ -194,27 +211,37 @@ registerKnowledgeProvider({
   label: "业务数据库（产品 / 项目当前状态）",
   search: async (ctx) => {
     const kws = keywords(ctx.query);
-    const [products, projects] = await Promise.all([
-      prisma.product.findMany({
-        where: { organizationId: ctx.session.organizationId },
-        orderBy: { updatedAt: "desc" },
-        take: 20,
-        select: {
-          id: true,
-          name: true,
-          identityCode: true,
-          lifecycleStage: true,
-          coreIdea: true,
-          updatedAt: true,
-        },
-      }),
-      prisma.project.findMany({
-        where: { organizationId: ctx.session.organizationId },
-        orderBy: { updatedAt: "desc" },
-        take: 20,
-        select: { id: true, title: true, stage: true, target: true, updatedAt: true },
-      }),
+    // C5-A1：DB 查询本身无 signal 支持；阶段间检查 + 竞速，保证取消时不 hang。
+    ctx.signal.throwIfAborted();
+    const abortRace = new Promise<never>((_, reject) => {
+      if (ctx.signal.aborted) reject(ctx.signal.reason ?? new Error("aborted"));
+      else ctx.signal.addEventListener("abort", () => reject(ctx.signal.reason ?? new Error("aborted")), { once: true });
+    });
+    const [products, projects] = await Promise.race([
+      Promise.all([
+        prisma.product.findMany({
+          where: { organizationId: ctx.session.organizationId },
+          orderBy: { updatedAt: "desc" },
+          take: 20,
+          select: {
+            id: true,
+            name: true,
+            identityCode: true,
+            lifecycleStage: true,
+            coreIdea: true,
+            updatedAt: true,
+          },
+        }),
+        prisma.project.findMany({
+          where: { organizationId: ctx.session.organizationId },
+          orderBy: { updatedAt: "desc" },
+          take: 20,
+          select: { id: true, title: true, stage: true, target: true, updatedAt: true },
+        }),
+      ]),
+      abortRace,
     ]);
+    ctx.signal.throwIfAborted();
 
     const out: KnowledgeResultItem[] = [];
     for (const p of products) {
@@ -356,6 +383,17 @@ for (const provider of KNOWLEDGE_MODULE_PROVIDERS) {
 export const RUN_TIMEOUT_MS = 6000;
 
 /**
+ * C5-A1：单个 provider 的超时熔断（ms），env 可配。
+ * 测试把 KERN_KNOWLEDGE_PROVIDER_TIMEOUT_MS 设小，即可快速验证
+ * 「超时 → 在途请求被真实取消」的证据链。
+ */
+export function knowledgeProviderTimeoutMs(): number {
+  const raw = process.env.KERN_KNOWLEDGE_PROVIDER_TIMEOUT_MS;
+  const n = raw ? Number.parseInt(raw, 10) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : RUN_TIMEOUT_MS;
+}
+
+/**
  * 仅按需域：不参与「未指定 scope 时展开全部注册域」的默认行为。
  *
  * `files` 扫的是**仓库自己的** markdown（docs/ capabilities/ knowledge/ packs/），
@@ -371,6 +409,36 @@ export interface RouteKnowledgeParams {
   scopes?: (KnowledgeScope | string)[];
   limit?: number;
   now?: Date;
+  /**
+   * C5-A1：上游取消信号（对话/Mission 的 AbortSignal 透传到这里）。
+   * 触发时在途的 provider 调用会被 abort（遵守信号的 provider 真实取消）。
+   */
+  signal?: AbortSignal;
+  /**
+   * C5-A3：跨轮缓存开关。默认开启；调用方明确要「每次都重查」时传 false。
+   */
+  cache?: boolean;
+}
+
+export function knowledgeProviderConcurrencyLimit(): number {
+  const raw = process.env.KERN_KNOWLEDGE_MAX_PROVIDER_CONCURRENCY;
+  const n = raw ? Number.parseInt(raw, 10) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : 4;
+}
+
+/** 极简信号量：多 provider 并发检索时的上限（C5-A2）。 */
+async function runWithConcurrencyLimit<T>(tasks: Array<() => Promise<T>>, limit: number): Promise<T[]> {
+  const results: T[] = new Array(tasks.length);
+  let next = 0;
+  async function worker(): Promise<void> {
+    while (next < tasks.length) {
+      const idx = next++;
+      results[idx] = await tasks[idx]();
+    }
+  }
+  const workers = Array.from({ length: Math.min(limit, tasks.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
 }
 
 export async function routeKnowledge(
@@ -384,11 +452,18 @@ export async function routeKnowledge(
     ? params.scopes
     : [...registry.keys()].filter((s) => !ON_DEMAND_ONLY_SCOPES.has(s))) as (KnowledgeScope | string)[];
 
+  // C5-A1：整轮的取消控制器。上游 signal 触发 → 整轮 abort；
+  // 单个 provider 超时 → 只 abort 它自己的控制器（见 runProvider），不牵连别家。
+  const runController = new AbortController();
+  const onUpstreamAbort = () => runController.abort(params.signal?.reason);
+  params.signal?.addEventListener("abort", onUpstreamAbort, { once: true });
+
   const searchMemo = new Map<string, Promise<KnowledgeSearchResult>>();
   const searchKnowledgeOnce = (): Promise<KnowledgeSearchResult> => {
     let p = searchMemo.get(query);
     if (!p) {
-      p = searchKnowledge(session, { query, limit: 8 });
+      // C5-A1：project/company-facts 两半共享的 DB 检索也进取消链。
+      p = searchKnowledge(session, { query, limit: 8 }, runController.signal);
       searchMemo.set(query, p);
     }
     return p;
@@ -402,60 +477,141 @@ export async function routeKnowledge(
     return { query, requested, ran, items, unavailable, elapsedMs: Date.now() - started };
   }
 
-  await Promise.all(
-    requested.map(async (scope) => {
-      const provider = registry.get(scope);
-      if (!provider) {
-        unavailable.push({
-          scope,
-          reason: MISSING_PROVIDER_NOTES[scope] ?? `provider 未实现（scope=${scope}）`,
-        });
-        return;
-      }
-      const ctx: KnowledgeProviderContext = {
-        session,
-        query,
-        limit,
-        searchKnowledgeOnce,
-      };
-      try {
-        const blocked = provider.unavailable?.(ctx);
-        if (blocked) {
-          unavailable.push({ scope, reason: blocked });
-          return;
-        }
-        const found = await withTimeout(provider.search(ctx), RUN_TIMEOUT_MS, scope);
-        ran.push(scope);
-        items.push(...found);
-      } catch (error) {
-        unavailable.push({
-          scope,
-          reason: error instanceof Error ? error.message.slice(0, 300) : String(error).slice(0, 300),
-        });
-      }
-    })
-  );
+  // C5-A3：跨轮缓存（进程级内存；键含组织+查询+域+limit；多实例下未命中只是多查一次）。
+  const useCache = params.cache !== false;
+  const cacheKey = knowledgeCacheKey({
+    organizationId: session.organizationId,
+    query,
+    scopes: requested.map(String),
+    limit,
+    registryVersion,
+  });
+  if (useCache) {
+    const cached = getCachedKnowledge(cacheKey);
+    if (cached) {
+      return { ...cached, elapsedMs: Date.now() - started };
+    }
+  }
 
-  return {
+  try {
+    // C5-A2：并发上限。provider 再多，同时在跑的也不超过配额。
+    const concurrency = knowledgeProviderConcurrencyLimit();
+    const perProvider = await runWithConcurrencyLimit(
+      requested.map((scope) => async () => {
+        const provider = registry.get(scope);
+        if (!provider) {
+          return {
+            scope,
+            items: [] as KnowledgeResultItem[],
+            unavailable: {
+              scope,
+              reason: MISSING_PROVIDER_NOTES[scope] ?? `provider 未实现（scope=${scope}）`,
+            } as { scope: string; reason: string } | null,
+            ran: false,
+          };
+        }
+        const ctx: KnowledgeProviderContext = {
+          session,
+          query,
+          limit,
+          signal: runController.signal,
+          searchKnowledgeOnce,
+        };
+        try {
+          const blocked = provider.unavailable?.(ctx);
+          if (blocked) {
+            return { scope, items: [] as KnowledgeResultItem[], unavailable: { scope, reason: blocked }, ran: false };
+          }
+          const found = await runProviderWithAbort(provider, ctx, scope, knowledgeProviderTimeoutMs(), runController);
+          return { scope, items: found, unavailable: null, ran: true };
+        } catch (error) {
+          return {
+            scope,
+            items: [] as KnowledgeResultItem[],
+            unavailable: {
+              scope,
+              reason: error instanceof Error ? error.message.slice(0, 300) : String(error).slice(0, 300),
+            },
+            ran: false,
+          };
+        }
+      }),
+      concurrency
+    );
+
+    for (const r of perProvider) {
+      if (r.ran) ran.push(r.scope);
+      if (r.unavailable) unavailable.push(r.unavailable);
+      items.push(...r.items);
+    }
+  } finally {
+    params.signal?.removeEventListener("abort", onUpstreamAbort);
+  }
+
+  // C5-A4：跨 provider 重排（可解释打分；原 score 不动，附 rerankScore）。
+  const reranked = rerankKnowledgeItems(items, params.now?.getTime() ?? Date.now());
+
+  const result: KnowledgeRouteResult = {
     query,
     requested,
     ran: [...new Set(ran)].sort(),
-    items,
+    items: reranked,
     unavailable: unavailable.sort((a, b) => a.scope.localeCompare(b.scope)),
     elapsedMs: Date.now() - started,
   };
+  if (useCache) {
+    // 只缓存「整轮正常完成」的结果：上游取消/超时导致的残缺结果不进缓存。
+    if (!runController.signal.aborted) setCachedKnowledge(cacheKey, result);
+  }
+  return result;
 }
 
-async function withTimeout<T>(promise: Promise<T>, ms: number, scope: string): Promise<T> {
-  let timer: NodeJS.Timeout | undefined;
+/**
+ * C5-A1：带真实取消的 provider 执行（替代旧的 withTimeout）。
+ *
+ * 旧实现是 Promise.race + 超时 reject：在途的 provider.search() 继续跑，
+ * 慢 provider 的 DB/HTTP 请求泄漏在后台 ——「标记超时」但没「真实取消」。
+ *
+ * 新实现：每个 provider 独占一个 AbortController。
+ * - 超时 → controller.abort()：遵守 ctx.signal 的 provider（fetch/HTTP、测试 fake）
+ *   会被真实取消；fake provider 可断言 signal.aborted === true（见单测）。
+ * - 不遵守信号的老 provider → 竞速兜底让路由继续，但它自己泄漏的在途请求
+ *   不再阻塞本轮（且超时原因如实写进 unavailable）。
+ * - 上游 signal（如对话 AbortSignal）→ 整轮控制器 abort，所有在途 provider
+ *   一起取消。
+ */
+async function runProviderWithAbort(
+  provider: KnowledgeProvider,
+  ctx: KnowledgeProviderContext,
+  scope: string,
+  timeoutMs: number,
+  runController: AbortController
+): Promise<KnowledgeResultItem[]> {
+  const controller = new AbortController();
+  const onRunAbort = () => controller.abort(runController.signal.reason);
+  runController.signal.addEventListener("abort", onRunAbort, { once: true });
+
+  const abortError = () =>
+    controller.signal.reason instanceof Error
+      ? controller.signal.reason
+      : new Error(`provider ${scope} 被取消`);
+
+  const timer = setTimeout(() => {
+    // 超时 = 真实取消在途请求，不只是 reject。
+    controller.abort(new Error(`provider ${scope} 超过 ${timeoutMs}ms 未返回（在途请求已取消）`));
+  }, timeoutMs);
+  // 超时计时器不该拖住进程退出。
+  if (typeof timer.unref === "function") timer.unref();
+
   try {
-    return await Promise.race([
-      promise,
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`provider ${scope} 超过 ${ms}ms 未返回`)), ms);
-      }),
-    ]);
+    const searchPromise = provider.search({ ...ctx, signal: controller.signal });
+    const abortPromise = new Promise<never>((_, reject) => {
+      if (controller.signal.aborted) reject(abortError());
+      else controller.signal.addEventListener("abort", () => reject(abortError()), { once: true });
+    });
+    return await Promise.race([searchPromise, abortPromise]);
   } finally {
-    if (timer) clearTimeout(timer);
+    clearTimeout(timer);
+    runController.signal.removeEventListener("abort", onRunAbort);
   }
 }

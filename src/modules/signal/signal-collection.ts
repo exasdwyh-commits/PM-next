@@ -26,6 +26,7 @@ import {
   SignalSourceDef,
   SignalCategory,
 } from "./source-registry";
+import { HN_ALGOLIA_SOURCE_KEY, createHackerNewsCollector } from "./hn-collector";
 import {
   BUSINESS_EVENT_TYPES,
   dispatchBusinessEvent,
@@ -48,10 +49,16 @@ export interface SignalCollector {
 }
 
 /**
- * 默认收集器解析：恒返回 null —— 所有外部平台 adapter 当前均不真实接入，
+ * 默认收集器解析：除 hn_tech_buzz（C5-B3 真实接入 HN Algolia，无需凭证）外
+ * 恒返回 null —— 其他外部平台 adapter 当前均不真实接入，
  * 采集时跳过（源标记 skipped），绝不伪造信号数据。
  */
 export function resolveCollector(source: SignalSourceDef): SignalCollector | null {
+  // C5-B3：hn_tech_buzz 返回真实的 HN Algolia 采集器（无需凭证）；
+  // 其他源仍返回 null（跳过、不伪造）。
+  if (source.key === HN_ALGOLIA_SOURCE_KEY) {
+    return createHackerNewsCollector();
+  }
   return null;
 }
 

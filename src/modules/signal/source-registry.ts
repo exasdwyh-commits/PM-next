@@ -52,6 +52,16 @@ export const SIGNAL_SOURCES: SignalSourceDef[] = [
     priority: "P2",
     mode: "manual",
   },
+  // C5-B3ï¼ç¬¬ä¸ä¸ªçå®ééæºï¼æ éå­è¯ï¼ãcollector è§ ./hn-collector.tsã
+  {
+    key: "hn_tech_buzz",
+    name: "Hacker News ææ¯/åä¸å¨æ",
+    category: "trend",
+    description:
+      "Hacker News ç­é¨è®¨è®ºï¼Algolia å¬å¼ APIï¼æ éå­è¯ï¼ãç«ååå¸ãè¡ä¸å¨æãå·¥å·å£ç¢ç±»ç¤¾äº¤ä¿¡å·ï¼verifyStatus æ UNVERIFIEDã",
+    priority: "P3",
+    mode: "auto",
+  },
 ];
 
 export const SIGNAL_SOURCE_MAP: Record<string, SignalSourceDef> = Object.fromEntries(

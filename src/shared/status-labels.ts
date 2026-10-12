@@ -450,6 +450,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   WORK_SUBMISSION_RECEIVED: "收到任务提交",
   WORK_SUBMISSION_LATE_IGNORED: "逾期提交未计入",
   RESEARCH_RUN_STARTED: "启动研究",
+  RESEARCH_TIER_RUN: "研究分档运行",
   ACTION_PROPOSAL_CREATED: "顾问提议待确认",
   ACTION_PROPOSAL_APPLIED: "顾问提议已应用",
   ACTION_PROPOSAL_REJECTED: "顾问提议被驳回",

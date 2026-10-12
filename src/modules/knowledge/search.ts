@@ -131,7 +131,10 @@ export interface KnowledgeSearchParams {
 
 export async function searchKnowledge(
   session: SessionContext,
-  params: KnowledgeSearchParams
+  params: KnowledgeSearchParams,
+  /** C5-A1：路由透传的取消信号。Prisma 查询本身不支持 signal，做法是：关键步骤之间
+   *  检查 aborted（慢查询的下一阶段不再发），调用方（router）另有竞速兜底保证不 hang。 */
+  signal?: AbortSignal
 ): Promise<KnowledgeSearchResult> {
   const query = params.query?.trim() || "";
   const limit = params.limit || 8;
@@ -161,6 +164,8 @@ export async function searchKnowledge(
 
   // 2. Search Knowledge Chunks (restricted strictly to organizationId, enabled sources and non-deleted documents)
   //    逐关键词取候选：见 collectCandidates 的注释（旧的一次性 take(40) 会让精确词命中被挤出）。
+  //    C5-A1：facts 查完后先检查取消 —— 在途的下一阶段查询不再发出。
+  signal?.throwIfAborted();
   const sourceFilter = params.sourceIds?.length
     ? { enabled: true, id: { in: params.sourceIds } }
     : { enabled: true };
