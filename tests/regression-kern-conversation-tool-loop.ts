@@ -121,6 +121,9 @@ async function main() {
     assert.ok(ledger1.every((r) => (r.requestMeta as Record<string, unknown>)?.intent === "KNOWLEDGE_SEARCH"));
 
     console.log("▶ DB2 先抓网页 → 作答（web_fetch 注入，账本累计 5 行）");
+    // requests 是跨场景的累计计数器：DB1 已消费 3 次；DB2 重新脚本化必须从 0 开始，
+    // 否则 handler 索引直接命中最后一条脚本，第一次模型调用就拿到终答文本、工具一次没调。
+    requests.length = 0;
     script = [
       () => toolCall("db2-1", "web_fetch", { url: "https://example.com/pricing" }),
       () => msg("结论：官网售价 129 元（来源：网页）"),
