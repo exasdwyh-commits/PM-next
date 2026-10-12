@@ -97,8 +97,8 @@ const MARK = CROSS_TENANT_MARKER;
 // +1 路由 / +1 方法：Muse v3 报告 /api/reports/{id}（GET，需登录）。
 // 另有部分是此前基线就已落后于源码的，本次一并校准到实测值。
 // +1 路由 / +1 方法：知识源启停 /api/knowledge/sources/{id}（PATCH，需组织管理员）。
-const BASELINE_ROUTES = 125;
-const BASELINE_METHODS = 186;
+const BASELINE_ROUTES = 126;
+const BASELINE_METHODS = 187;
 
 let passed = 0;
 const failures: string[] = [];
