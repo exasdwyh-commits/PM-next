@@ -58,6 +58,12 @@ export function localTestRequestAllowed(headers: { get(name: string): string | n
  *
  * 注意：这里刻意**只认 IPv4 私有段 + 回环**，不认 IPv6 ULA（fc00::/7）——
  * 内网部署实测用的是 192.168.x.x，放开 IPv6 反而扩大免密来源面。
+ *
+ * 2026-10-12 加固：Host 头是**攻击者可控**的输入，先做形状校验再判网段。
+ * 之前直接 `new URL("http://" + host)` 会把 `127.0.0.1:3100/path` 归一成
+ * `127.0.0.1`、把 `127.0.0.999` 当成合法 IPv4，于是"看着是内网"就放行。
+ * 现在只接受 `host[:port]` 与 `[ipv6][:port]` 两种形状，其余（含路径、用户信息、
+ * 空白、逗号、非法端口）一律拒绝；IPv4 每一段都必须 ≤ 255。
  */
 export function isPrivateHost(host: string): boolean {
   const hostname = hostToHostname(host);
@@ -65,8 +71,9 @@ export function isPrivateHost(host: string): boolean {
   if (hostname === "localhost" || hostname === "::1" || hostname === "[::1]") return true;
   const m = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (!m) return false;
-  const a = Number(m[1]);
-  const b = Number(m[2]);
+  const octets = m.slice(1, 5).map(Number);
+  if (octets.some((o) => o > 255)) return false; // 127.0.0.999 不是 IP
+  const [a, b] = octets;
   if (a === 127) return true;
   if (a === 10) return true;
   if (a === 172 && b >= 16 && b <= 31) return true;
@@ -74,12 +81,28 @@ export function isPrivateHost(host: string): boolean {
   return false;
 }
 
+function isValidPort(raw: string): boolean {
+  const port = Number(raw);
+  return Number.isInteger(port) && port >= 1 && port <= 65535;
+}
+
+/**
+ * Host 头 → hostname。只接受 `host[:port]` / `[ipv6][:port]`；
+ * 形状不合法直接返回 null（**不**交给 `new URL()` 去猜）。
+ */
 function hostToHostname(host: string): string | null {
-  try {
-    return new URL(`http://${host}`).hostname;
-  } catch {
-    return null;
+  const value = host.trim();
+  if (!value || /[\s/@?#\\,;]/.test(value)) return null; // 路径、用户信息、空白、逗号等
+  if (value === "::1") return "::1"; // 少数客户端直接给裸 IPv6 回环
+  const ipv6 = /^\[([0-9A-Fa-f:]+)\](?::(\d{1,5}))?$/.exec(value);
+  if (ipv6) {
+    if (ipv6[2] !== undefined && !isValidPort(ipv6[2])) return null;
+    return `[${ipv6[1].toLowerCase()}]`;
   }
+  const m = /^([A-Za-z0-9._-]+)(?::(\d{1,5}))?$/.exec(value);
+  if (!m) return null;
+  if (m[2] !== undefined && !isValidPort(m[2])) return null;
+  return m[1].toLowerCase();
 }
 
 /**
