@@ -5,10 +5,24 @@
  * 2026-10-12 加固：准入以 `UPDATE "Organization" ... WHERE used < quota` 的
  * **受影响行数**为准 —— 并发下只有先拿到行锁的请求能命中，命中 0 行即拒绝；
  * 拒绝时不写 UsageLedger、不占用配额。
+ *
+ * 2026-10-13 修正（配额口径）：上面那套判定的计数源是 `Organization.modelCallUsed`，
+ * 它**只增不减、从不按月归零** —— 文案说「月度上限」，实际是组织终身累计。
+ * 后果：配额用满后该组织**永久**被拒（除失败回滚外没有任何重置路径），
+ * 只能人工改库。现在把准入计数换成**按自然月的 UsageLedger 条数**：
+ *   - 与「月度」语义一致，跨月自动恢复；
+ *   - 并发安全改由组织级 advisory lock 保证（同一组织的准入串行执行，
+ *     统计与写入在同一事务内），不再依赖 UPDATE 的命中行数；
+ *   - `modelCallUsed` 保留自增，仍作为累计统计字段（账单/排查用），但不再是准入依据。
+ *
+ * 与 usage 层 `assertModelCallQuotaTx` 的分工：后者守**模型调用**（按 ModelRun 计数，
+ * 覆盖每一次 `executePersistedModelGateway`），本闸守**研究抓取等计费事件**
+ * （按 UsageLedger 计数）。两者管不同资源、用不同的锁，不互相阻塞。
  */
 
 import prisma from "@/shared/db";
 import { UnprocessableEntityError } from "@/shared/errors";
+import { calendarMonth } from "@/modules/usage";
 
 export interface CostGuardInput {
   organizationId: string;
@@ -44,8 +58,20 @@ export interface CostGuardResult {
 const MONTHLY_LIMIT_DEFAULT = 300; // 默认月度调用上限
 const TOKEN_COST_FACTOR = 0.001; // 每 token 成本因子
 
+/** 拒绝文案里的资源名 —— 让用户一眼看出是**哪一类**额度用完了。 */
+function describeEvent(eventType: string): string {
+  if (eventType === "research_call") return "研究抓取";
+  if (eventType === "desktop_action") return "本机动作";
+  return "模型调用";
+}
+
 export async function checkAndCharge(input: CostGuardInput): Promise<CostGuardResult> {
   return prisma.$transaction(async (tx) => {
+    // 0. 组织级准入串行化。准入依据是「本月已发生的事件条数」，统计与后续写入
+    //    必须在同一把锁内完成，否则并发请求会各自读到同一个旧计数、一起放行。
+    //    lock key 与 usage 层的模型调用闸不同 —— 两者管不同资源，不该互相阻塞。
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"kern-cost-guard:" + input.organizationId}))`;
+
     // 1. 获取组织配额
     const org = await tx.organization.findUnique({
       where: { id: input.organizationId },
@@ -54,48 +80,49 @@ export async function checkAndCharge(input: CostGuardInput): Promise<CostGuardRe
 
     // 若无配额字段，使用默认值
     const limit = (org as any)?.modelCallQuota ?? MONTHLY_LIMIT_DEFAULT;
-    const used = (org as any)?.modelCallUsed ?? 0;
-    const remaining = limit - used;
 
-    // 2. 快路径：读数上已经到上限就直接拒（真正的准入看第 3 步 UPDATE 的命中行数）
-    if (remaining <= 0) {
-      return {
-        allowed: false,
-        remaining: 0,
-        limit,
-        used,
-        reason: `月度模型调用已达上限 ${limit} 次，剩余 0，当前 ${used}，需等待下月或申请扩容`,
-      };
+    // 2. 本月已用量 —— 准入的**唯一**依据（按自然月统计，跨月自动归零）。
+    //    按 eventType 分别计数：研究抓取不占用模型调用的名额，反之亦然。
+    //    `releaseReservation` 失败回滚会把该行改写成 model_call_failed，
+    //    于是它自动退出本计数 —— 配额随之退还。
+    const eventType = input.eventType ?? "model_call";
+    const period = calendarMonth();
+    const monthlyUsed = await tx.usageLedger.count({
+      where: {
+        organizationId: input.organizationId,
+        eventType,
+        createdAt: { gte: period.start, lt: period.end },
+      },
+    });
+
+    const refuse = (used: number, reason: string): CostGuardResult => ({
+      allowed: false,
+      remaining: Math.max(0, limit - used),
+      limit,
+      used,
+      reason,
+    });
+
+    if (monthlyUsed >= limit) {
+      return refuse(
+        monthlyUsed,
+        `本月${describeEvent(eventType)}已达上限 ${limit} 次，剩余 0，当前 ${monthlyUsed}，需等待下月或申请扩容`
+      );
     }
 
     // 3. 预留并消费 (reserve → consume)
     const reservationId = `res_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-    // 原子更新已使用 —— **受影响行数**才是准入判定。
-    // 并发下多个请求都会通过上面的快路径读到同一个旧值，但只有先拿到行锁的那个能命中
-    // WHERE；其后每个 UPDATE 命中 0 行。以前不看返回值，于是「已到上限」的请求照样
-    // 拿到 allowed: true（上限被冲破、账本也被多记）。命中 0 行 = 拒绝。
+    // 累计统计自增 —— **不再是准入依据**，仅供账单与事后排查。
+    // 命中 0 行说明组织不存在，保守拒绝（fail closed）。
     const charged = await tx.$executeRaw`
-      UPDATE "Organization" 
+      UPDATE "Organization"
       SET "modelCallUsed" = COALESCE("modelCallUsed", 0) + 1,
           "updatedAt" = NOW()
       WHERE id = ${input.organizationId}
-      AND COALESCE("modelCallUsed", 0) < COALESCE("modelCallQuota", ${MONTHLY_LIMIT_DEFAULT})
     `;
     if (charged === 0) {
-      const latest = await tx.organization.findUnique({
-        where: { id: input.organizationId },
-        select: { modelCallQuota: true, modelCallUsed: true },
-      });
-      const latestLimit = latest?.modelCallQuota ?? MONTHLY_LIMIT_DEFAULT;
-      const latestUsed = latest?.modelCallUsed ?? limit;
-      return {
-        allowed: false,
-        remaining: Math.max(0, latestLimit - latestUsed),
-        limit: latestLimit,
-        used: latestUsed,
-        reason: `月度模型调用已达上限 ${latestLimit} 次（并发下由数据库行锁最终裁定），本次被拒，需等待下月或申请扩容`,
-      };
+      return refuse(monthlyUsed, "组织不存在或已被删除，拒绝计费请求");
     }
 
     // 4. 记录 UsageLedger
@@ -133,12 +160,9 @@ export async function checkAndCharge(input: CostGuardInput): Promise<CostGuardRe
       });
     }
 
-    // 扣减后的真实读数：并发下别用事务开始时的 used 做算术（会偏小）。
-    const after = await tx.organization.findUnique({
-      where: { id: input.organizationId },
-      select: { modelCallUsed: true },
-    });
-    const chargedUsed = after?.modelCallUsed ?? used + 1;
+    // 放行后的本月已用量：UsageLedger 行已在同一个事务（同一把锁）内写入，
+    // 直接 +1 即可 —— 不需要再回读组织列，也不该再拿累计列做算术。
+    const chargedUsed = monthlyUsed + 1;
     return {
       allowed: true,
       remaining: Math.max(0, limit - chargedUsed),

@@ -29,6 +29,10 @@ async function main() {
   const otherOrg = await prisma.organization.create({
     data: { name: "Research guard isolation", code: "RGI_" + tag, modelCallQuota: 1, modelCallUsed: 0 },
   });
+  // 模拟「上月就把累计列打满」的组织：本月还没有任何用量。
+  const monthOrg = await prisma.organization.create({
+    data: { name: "Research guard month rollover", code: "RGM_" + tag, modelCallQuota: 1, modelCallUsed: 1 },
+  });
   try {
     console.log("▶ CG1 配额只剩 1 时，8 个并发只有 1 个能拿到准入");
     const burst = await Promise.all(
@@ -69,9 +73,20 @@ async function main() {
     const other = await checkAndCharge({ organizationId: otherOrg.id, taskClass: "research_fetch", eventType: "research_call" });
     assert.equal(other.allowed, true, "另一个组织有自己的配额，不该被本组织拖住");
     assert.equal(other.remaining, 0);
+
+    console.log("▶ CG4 跨月重置：累计列已打满、但本月还没有用量时应放行");
+    const fresh = await checkAndCharge({
+      organizationId: monthOrg.id, taskClass: "research_fetch", eventType: "research_call",
+    });
+    assert.equal(
+      fresh.allowed,
+      true,
+      "配额是**月度**的：本月 0 次就该放行。若按累计列判定，组织会被永久锁死（无重置路径）"
+    );
+    assert.equal(fresh.remaining, 0, "放行后本月额度正好用尽");
   } finally {
-    await prisma.usageLedger.deleteMany({ where: { organizationId: { in: [org.id, otherOrg.id] } } });
-    await prisma.organization.deleteMany({ where: { id: { in: [org.id, otherOrg.id] } } });
+    await prisma.usageLedger.deleteMany({ where: { organizationId: { in: [org.id, otherOrg.id, monthOrg.id] } } });
+    await prisma.organization.deleteMany({ where: { id: { in: [org.id, otherOrg.id, monthOrg.id] } } });
     await prisma.$disconnect();
   }
   console.log("Research cost guard passed: concurrency never oversells, refusals stay honest.");
