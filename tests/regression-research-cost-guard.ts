@@ -1,6 +1,8 @@
 /**
  * Research fetch cost guard（`checkAndCharge`，/api/research/fetch 的准入）— DB regression.
  *
+ * 调用形态与 /api/research/fetch 一致（含 eventType: research_call）。
+ *
  * 覆盖 P0-D 遗留的一个洞：闸门走 Organization 行上的 `modelCallUsed < modelCallQuota`
  * 原子扣减，但代码只看事务开始时的读数、**不看 UPDATE 的命中行数**。并发时多个请求
  * 都会通过软预检，随后 WHERE 已经拦下的那些（命中 0 行）照样拿到 `allowed: true` ——
@@ -31,7 +33,7 @@ async function main() {
     console.log("▶ CG1 配额只剩 1 时，8 个并发只有 1 个能拿到准入");
     const burst = await Promise.all(
       Array.from({ length: 8 }, () =>
-        checkAndCharge({ organizationId: org.id, taskClass: "research_fetch", estimatedTokens: 500 })
+        checkAndCharge({ organizationId: org.id, taskClass: "research_fetch", eventType: "research_call", estimatedTokens: 500 })
       )
     );
     const allowed = burst.filter((r) => r.allowed);
@@ -59,12 +61,12 @@ async function main() {
     );
 
     console.log("▶ CG2 已到上限后再来一笔：直接拒绝");
-    const again = await checkAndCharge({ organizationId: org.id, taskClass: "research_fetch" });
+    const again = await checkAndCharge({ organizationId: org.id, taskClass: "research_fetch", eventType: "research_call" });
     assert.equal(again.allowed, false);
     assert.equal(again.remaining, 0);
 
     console.log("▶ CG3 组织之间互不影响");
-    const other = await checkAndCharge({ organizationId: otherOrg.id, taskClass: "research_fetch" });
+    const other = await checkAndCharge({ organizationId: otherOrg.id, taskClass: "research_fetch", eventType: "research_call" });
     assert.equal(other.allowed, true, "另一个组织有自己的配额，不该被本组织拖住");
     assert.equal(other.remaining, 0);
   } finally {
