@@ -50,7 +50,12 @@ async function main() {
     assert.equal(
       await prisma.usageLedger.count({ where: { organizationId: org.id, eventType: "research_call" } }),
       1,
-      "被拒的请求不该留下 UsageLedger 行"
+      "放行的那笔应记成 research_call；被拒的请求不该留下 UsageLedger 行"
+    );
+    assert.equal(
+      await prisma.usageLedger.count({ where: { organizationId: org.id, eventType: "model_call" } }),
+      0,
+      "研究抓取不是模型调用，不该记成 model_call（账单页按类目对账）"
     );
 
     console.log("▶ CG2 已到上限后再来一笔：直接拒绝");
