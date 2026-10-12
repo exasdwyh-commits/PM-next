@@ -32,9 +32,19 @@ async function main() {
     setMode("development", "false");
     assert.equal((await POST(request())).status, 403);
     setMode("development", "true");
-    for (const host of ["example.com", "127.0.0.1.example.com", "localhost@evil.test", "127.0.0.2", "127.0.0.1:3100/path"]) {
+    // 非内网来源一律拒绝（局域网免密只放行回环与私有网段）。
+    for (const host of ["example.com", "127.0.0.1.example.com", "localhost@evil.test", "8.8.8.8", "172.32.1.1", "169.254.1.1", "192.169.1.1"]) {
       assert.equal(localTestLoginEnabled(host), false);
       assert.equal((await POST(request(host))).status, 403);
+    }
+    // Host 头形状不合法必须拒绝 —— 这些形态会被 URL 归一成"看似内网"，必须先校验形状。
+    for (const host of ["127.0.0.1:3100/path", "127.0.0.1:70000", "127.0.0.999", "127.0.0.1,127.0.0.2", "user@127.0.0.1"]) {
+      assert.equal(localTestLoginEnabled(host), false);
+      assert.equal((await POST(request(host))).status, 403);
+    }
+    // 局域网免密（设计上允许）：回环整段（含 127.0.0.2）与 RFC1918 私有段放行。
+    for (const host of ["127.0.0.2:3100", "10.0.0.7", "172.16.3.9:3100", "192.168.1.20", "localhost:3100"]) {
+      assert.equal(localTestLoginEnabled(host), true);
     }
     assert.equal((await POST(request("127.0.0.1:3100", "http://evil.test"))).status, 403);
     assert.equal((await POST(request("127.0.0.1:3100", ""))).status, 403);
