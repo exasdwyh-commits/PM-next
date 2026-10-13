@@ -178,6 +178,9 @@ export interface ExecutiveReportDeep {
 }
 
 export interface ExecutiveReportPayload {
+  /** Personal NEW_PRODUCT mission: keep its full original synthesis, not a fabricated artifact. */
+  researchBody?: string;
+  researchSources?: { id: string; title: string; url: string; fetchedAt: string }[];
   summary?: string | null;
   verificationStatus?: string | null;
   conclusions?: ExecutiveReportConclusion[];

@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   executiveReportPath,
+  missionPosterPath,
   readExecutiveReportStats,
   type ExecutiveReportCitation,
 } from "@/shared/executive-report-citation";
@@ -51,7 +52,8 @@ export function ReportCard({ citation }: { citation: ExecutiveReportCitation }) 
     return () => io.disconnect();
   }, [visible]);
 
-  const href = executiveReportPath(citation.ref);
+  const isMission = citation.kind === "mission-report";
+  const href = isMission ? missionPosterPath(citation.ref) : executiveReportPath(citation.ref);
   const stats = readExecutiveReportStats(citation);
   const summary = citation.summary
     ?.replace(/READY_FOR_HUMAN_REVIEW/g, "等待负责人复核")
@@ -70,18 +72,18 @@ export function ReportCard({ citation }: { citation: ExecutiveReportCitation }) 
         aria-hidden
       >
         <span className="kxr-report-cover" aria-hidden>
-          <span className="kxr-report-cover-mark">ER</span>
+          <span className="kxr-report-cover-mark">Kern · V3</span>
           <span className="kxr-report-cover-title">{citation.title}</span>
         </span>
         {visible ? (
-          <iframe className="kxr-report-frame" src={href} title="" tabIndex={-1} loading="lazy" />
+          <iframe className="kxr-report-frame" src={href} title="报告海报缩略图" aria-hidden="true" tabIndex={-1} loading="lazy" />
         ) : null}
         <span className="kxr-report-veil" aria-hidden />
       </a>
 
       <div className="kxr-report-body">
         <div className="kxr-report-meta">
-          <span className="kxr-report-kind">Executive Report</span>
+          <span className="kxr-report-kind">研究报告 · V3 海报</span>
           {citation.contentVersion ? <span className="kxr-report-ver">v{citation.contentVersion}</span> : null}
           {citation.reviewStatus ? (
             <span className="kxr-report-status">· {reviewStatusLabel(citation.reviewStatus)}</span>
@@ -108,10 +110,10 @@ export function ReportCard({ citation }: { citation: ExecutiveReportCitation }) 
         </div>
         <div className="kxr-report-actions">
           <a className="kxr-btn" data-v="primary" href={href} target="_blank" rel="noreferrer">
-            打开报告
+            查看完整海报 →
           </a>
-          <a className="kxr-report-data-link" href={`/api/reports/${encodeURIComponent(citation.ref)}`} target="_blank" rel="noreferrer">
-            原始数据
+          <a className="kxr-report-data-link" href={isMission ? `/api/missions/${encodeURIComponent(citation.ref)}/export?format=md` : `/api/reports/${encodeURIComponent(citation.ref)}`} target="_blank" rel="noreferrer">
+            {isMission ? "下载研究原文" : "原始数据"}
           </a>
         </div>
       </div>

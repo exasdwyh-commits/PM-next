@@ -1522,3 +1522,13 @@
 .m-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .m-attach-pill { position: relative; cursor: pointer; }
 .m-attach-pill[data-busy="true"] { opacity: 0.6; cursor: progress; }
+
+/* Opening brief: scan a few broad choices, or state an exact constraint. */
+.m-brief-intro { margin: 0 0 20px; font-size: var(--m-t-sm); color: var(--m-ink-3); line-height: 1.8; }
+.m-brief .m-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.m-brief .m-opt { min-height: 44px; text-align: left; border-radius: 10px; padding: 11px 13px; line-height: 1.6; }
+.m-brief .m-opt[aria-checked="true"] { background: var(--m-accent-wash); color: var(--m-accent-ink); border-color: var(--m-accent); box-shadow: inset 3px 0 var(--m-accent); }
+.m-brief .m-opt:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 3px; }
+.m-brief .m-opt:disabled { cursor: wait; opacity: .65; }
+.m-brief .m-q-other { margin-top: 10px; }
+@media (max-width: 480px) { .m-brief .m-opts { grid-template-columns: minmax(0, 1fr); } }

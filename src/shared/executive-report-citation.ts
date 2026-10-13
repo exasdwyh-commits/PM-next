@@ -46,6 +46,9 @@ export function isExecutiveReportCitation(raw: unknown): raw is ExecutiveReportC
       (item.kind === "artifact" && /产品研发.*报告|研发管理报告/.test(item.title)));
 }
 
+/** Personal mission reports inherit requester-only access, not project artifact access. */
+export function missionPosterPath(id: string) { return `/reports/missions/${encodeURIComponent(id)}`; }
+
 /** 报告的站内页面路径。客户端直接用相对链接，同源即可打开。 */
 export function executiveReportPath(id: string) { return `/reports/${encodeURIComponent(id)}`; }
 

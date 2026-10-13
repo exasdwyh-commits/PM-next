@@ -4,6 +4,7 @@ import React, { useEffect, useId, useRef, useState, type ReactNode } from "react
 import type { ExecutiveReportPayload } from "@/shared/executive-report-types";
 import { fmtDateTime } from "@/shared/datetime";
 import "./report-v3.css";
+import { Prose } from "@/app/muse/components/prose";
 
 export function reportStatusLabel(status?: string | null) {
   const labels: Record<string, string> = {
@@ -138,14 +139,16 @@ export function ReportV3({ report, reviewStatus, embedded = false, controls, chi
       <section className="block" id={id("next")}><div className="nextcard">{heading("NEXT", "下一步行动")}
         {actions.length ? actions.map((a, i) => <div className="act" key={i}><span className="k">ACTION {i + 1}</span><p>{a}</p></div>) : <p>报告未登记建议动作。</p>}
       </div></section>
-      <section className="block" id={id("spec")}>{heading("SPEC", "专业明细", "规格、成本与验证各项的资料状态。")}
+      {report.researchBody !== undefined ? <section className="block" id={id("spec")}>{heading("RESEARCH", "完整研究分析", "保留原始汇总的全部章节、标注与来源；执行完成不代表所有判断已核实。") }
+        <div className="research-prose"><Prose text={report.researchBody} /></div>
+      </section> : <section className="block" id={id("spec")}>{heading("SPEC", "专业明细", "规格、成本与验证各项的资料状态。")}
         {SECTION_NAMES.map(([key, fallback]) => { const s = deep?.sections.find(s => s.key === key); return <div className="spec-row" key={key}><span className="n">{fallback.slice(0, 1)}</span><div className="body"><div className="t">{(s?.title ?? fallback).replace(/^[①-⑨]\s*/, "")}</div><p>{s?.gap ?? (s?.ready ? "已有内容，来源与核验情况请查看对应明细。" : "资料尚未登记，请补充该项输入与来源后更新报告。")}</p></div><span className={`st ${s?.ready ? "done" : "todo"}`}>{s?.ready ? "有内容" : "待补资料"}</span></div>; })}
         {deep?.spec && <details className="exec"><summary>产品定义与规格 · {deep.spec.title ?? "明细"}</summary><div className="rows">
           {deep.spec.dosageForm && <p>剂型：{deep.spec.dosageForm}</p>}
           <Table headings={["项目", "取值", "三态", "来源"]} rows={deep.spec.rows.map(r => [r.name, <span key="value">{r.value} {r.unit}{r.note && <p>{r.note}</p>}</span>, <ClaimBadge key="kind" kind={r.claimKind} />, r.evidenceRef])} />
         </div></details>}
         {deep?.bom && <details className="exec"><summary>配方与 BOM 成本 · {deep.bom.basis ?? "明细"}</summary><div className="rows"><p className="muted">货币：{deep.bom.currency ?? "未登记"} · 无来源的数字不得用作报价依据。</p><Table headings={["物料", "数量", "单价", "合计", "来源"]} rows={deep.bom.lines.map(l => [<span key="item">{l.item}{l.note && <p>{l.note}</p>}</span>, `${l.qty ?? "—"} ${l.uom ?? ""}`, l.unitCost, l.total, l.sourceRef || "无来源（不得报价）"])} /></div></details>}
-      </section>
+      </section>}
       <section className="block" id={id("g")}>{heading("G", `断言核验台账 · ${reportStatusLabel(deep?.validation?.qaStatus ?? report.verificationStatus)}`, "每条断言当前是否被证据支持；未核实的条目不会被写成已证实。")}
         {deep?.validation?.items.length ? <Table headings={["断言", "核验结果", "核验时间", "三态", "证据等级"]} rows={deep.validation.items.map(v => [v.claim, reportStatusLabel(v.latestStatus), v.checkedAt ? fmtDateTime(v.checkedAt) : "未登记", <ClaimBadge key="kind" kind={v.claimKind} />, v.evidenceLevel])} /> : <div className="empty"><div className="big">验证台账里还没有条目</div><p><a href={`#${id("d")}`}>查看核验缺口（{gaps.length} 项）→</a></p></div>}
         {!!deep?.validation?.gaps?.length && <details className="exec"><summary>核验缺口 · {deep.validation.gaps.length} 项</summary><div className="rows">{deep.validation.gaps.map((g, i) => <p key={i}>{g}</p>)}</div></details>}
@@ -155,7 +158,11 @@ export function ReportV3({ report, reviewStatus, embedded = false, controls, chi
       {children}
       <div className="honest"><h3>别把留白读成「没问题」</h3><p>这份报告里 <b>{gaps.length} 个未闭合项</b>、<b>{assumptions.length} 条假设</b>、<b>{risks.length} 项风险</b>仍需逐项复核。对外引用前请确认相关依据与核验结果。</p></div>
       <section className="block" id={id("src")}>{heading("SRC", "数据来源与未核实项", "保留每条来源引用与核验口径。")}
-        <div className="src"><p><b>口径声明</b> · 本页数据来自产品研发报告成果{report.contentVersion ? `（v${report.contentVersion}）` : ""}。核验状态：{reportStatusLabel(report.verificationStatus)}。</p>
+        <div className="src"><p><b>口径声明</b> · 本页数据来自{report.researchBody !== undefined ? "当前个人研究任务的持久化输出" : "产品研发报告成果"}{report.contentVersion ? `（v${report.contentVersion}）` : ""}。核验状态：{reportStatusLabel(report.verificationStatus)}。</p>
+          {!!report.researchSources?.length && <ol className="research-source-list">{report.researchSources.map((source, index) => <li key={source.id}>
+            <span>[{index + 1}] </span>{/^https?:\/\//i.test(source.url) ? <a href={source.url} target="_blank" rel="noopener noreferrer">{source.title}</a> : <span>{source.title}</span>}
+            <p className="muted">抓取于 {fmtDateTime(source.fetchedAt)} · 捕获来源不等于结论已核实</p>
+          </li>)}</ol>}
           {refs("证据来源", provenance?.sourceRefs)}{refs("执行记录", provenance?.agentRunRefs)}{refs("模型调用", provenance?.modelRunRefs)}{refs("知识债", provenance?.knowledgeDebtRefs)}{provenance?.researchSnapshotRef && refs("研究快照", [provenance.researchSnapshotRef])}
           {!provenance?.sourceRefs.length && <p>报告未登记来源引用。</p>}
         </div>

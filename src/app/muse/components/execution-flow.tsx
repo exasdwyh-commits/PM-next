@@ -17,6 +17,7 @@ export function ExecutionFlow({ status, events = [], connected = true, activity 
   const drag = useRef<{ pointer: number; x: number; y: number; view: View } | null>(null);
   const [size, setSize] = useState({ width: 640, height: 366 });
   const [view, setView] = useState<View | null>(null);
+  const [panning, setPanning] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [visible, setVisible] = useState(true);
@@ -29,7 +30,7 @@ export function ExecutionFlow({ status, events = [], connected = true, activity 
   const shownWidth = Math.max(FLOW_GOAL.width + FLOW_NODE.padding * 2, ...positions.filter(position => revealed.has(position.key)).map(position => position.x + FLOW_NODE.width + FLOW_NODE.padding));
   const goalY = (layout.height - FLOW_GOAL.height) / 2;
   const selected = status.nodes.find(node => node.key === selectedKey);
-  const fitScale = Math.min(1, Math.max(size.width < 480 ? .86 : .72, Math.min(size.width / shownWidth, size.height / layout.height)));
+  const fitScale = Math.min(1, Math.max(.05, Math.min((size.width - 24) / shownWidth, (size.height - 24) / layout.height)));
   const fitted = { scale: fitScale, x: (size.width - shownWidth * fitScale) / 2, y: (size.height - layout.height * fitScale) / 2 };
   const camera = view ?? fitted;
   const activeNodes = status.nodes.filter(node => flowNodeState(node, status).tone === "active");
@@ -62,12 +63,13 @@ export function ExecutionFlow({ status, events = [], connected = true, activity 
   }, [collapsed]);
 
   const zoom = (factor: number) => {
-    const scale = Math.min(1.6, Math.max(.38, camera.scale * factor));
+    const scale = Math.min(1.6, Math.max(.05, camera.scale * factor));
     const ratio = scale / camera.scale;
     setView({ scale, x: size.width / 2 - (size.width / 2 - camera.x) * ratio, y: size.height / 2 - (size.height / 2 - camera.y) * ratio });
   };
   const startDrag = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || (event.target as Element).closest("button")) return;
+    setPanning(true);
     event.currentTarget.setPointerCapture(event.pointerId);
     drag.current = { pointer: event.pointerId, x: event.clientX, y: event.clientY, view: camera };
   };
@@ -78,13 +80,13 @@ export function ExecutionFlow({ status, events = [], connected = true, activity 
   };
 
   return (
-    <section className="m-flow" data-motion={running && !collapsed ? "running" : "still"} aria-label="执行工作流">
+    <section className="m-flow" data-motion={running && !collapsed ? "running" : "still"} data-panning={panning || undefined} aria-label="执行工作流">
       <header className="m-flow-head">
         <span className="m-flow-heading"><I.plan /><strong>执行流程</strong><small>{status.progress.done}/{status.progress.total} 步已结束</small></span>
         <div className="m-flow-tools">
           {!collapsed ? <>
             <button type="button" aria-label="定位当前步骤" title="定位当前步骤" onClick={focusCurrent} disabled={!nodes.length}><FlowIcon kind="focus" /></button>
-            <button type="button" aria-label="缩小工作流" title="缩小" onClick={() => zoom(1 / 1.2)} disabled={camera.scale <= .38}><FlowIcon kind="minus" /></button>
+            <button type="button" aria-label="缩小工作流" title="缩小" onClick={() => zoom(1 / 1.2)} disabled={camera.scale <= .05}><FlowIcon kind="minus" /></button>
             <span className="m-flow-scale">{Math.round(camera.scale * 100)}%</span>
             <button type="button" aria-label="放大工作流" title="放大" onClick={() => zoom(1.2)} disabled={camera.scale >= 1.6}><FlowIcon kind="plus" /></button>
             <button type="button" aria-label="适应画布" title="适应画布" onClick={() => setView(null)}><FlowIcon kind="fit" /></button>
@@ -92,6 +94,9 @@ export function ExecutionFlow({ status, events = [], connected = true, activity 
           <button type="button" aria-label={collapsed ? "展开工作流" : "收起工作流"} title={collapsed ? "展开" : "收起"} aria-expanded={!collapsed} aria-controls={id} onClick={() => setCollapsed(value => !value)}><FlowIcon kind={collapsed ? "expand" : "collapse"} /></button>
         </div>
       </header>
+      <div className="m-flow-progress" role="progressbar" aria-label="已结束的执行步骤" aria-valuemin={0} aria-valuemax={Math.max(1, status.progress.total)} aria-valuenow={status.progress.done}>
+        <span style={{ width: `${status.progress.total ? Math.min(100, status.progress.done / status.progress.total * 100) : 0}%` }} />
+      </div>
       {!collapsed ? <div id={id}>
         <div className="m-flow-context"><span>{status.status === "DRAFT" ? "拟定计划" : activeNodes.length > 1 ? `${activeNodes.length} 项正在并行` : status.outcome ? "执行路径已留存" : "随执行展开"}</span>{!status.outcome && status.status !== "DRAFT" ? <button type="button" aria-pressed={showPlan} onClick={() => { setShowPlan(value => !value); setView(null); }}>{showPlan ? "只看当前路径" : hidden ? `查看全部步骤 · 还有 ${hidden} 项` : "查看全部步骤"}</button> : <small>点击节点查看结果</small>}</div>
         <div className="m-flow-viewport" ref={viewport} tabIndex={0} role="region" aria-label="工作流画布，用方向键移动" onKeyDown={event => {
@@ -101,12 +106,17 @@ export function ExecutionFlow({ status, events = [], connected = true, activity 
           if (!offset) return;
           event.preventDefault();
           setView({ ...camera, x: camera.x + offset[0], y: camera.y + offset[1] });
-        }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }}>
+        }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={() => { drag.current = null; setPanning(false); }} onPointerCancel={() => { drag.current = null; setPanning(false); }} onLostPointerCapture={() => { drag.current = null; setPanning(false); }}>
           <div className="m-flow-world" style={{ width: worldWidth, height: layout.height, transform: `translate(${camera.x}px, ${camera.y}px) scale(${camera.scale})` }}>
             <svg className="m-flow-wires" width={worldWidth} height={layout.height} aria-hidden="true">
               {nodes.filter(node => !(node.dependsOn?.length)).map(node => {
                 const position = positions.find(item => item.key === node.key)!;
-                return <path key={`goal:${node.key}`} className="m-flow-origin-wire" pathLength="1" d={wirePath(FLOW_NODE.padding + FLOW_GOAL.width, layout.height / 2, position.x, position.y + FLOW_NODE.height / 2)} />;
+                const path = wirePath(FLOW_NODE.padding + FLOW_GOAL.width, layout.height / 2, position.x, position.y + FLOW_NODE.height / 2);
+                const flowing = flowNodeState(node, status).tone === "active";
+                return <g key={`goal:${node.key}`} data-flowing={flowing || undefined} data-done={node.status === "SUCCEEDED" || undefined}>
+                  <path className="m-flow-origin-wire" pathLength="1" d={path} />
+                  {flowing ? <path className="m-flow-current" pathLength="1" d={path} /> : null}
+                </g>;
               })}
               {layout.edges.filter(edge => revealed.has(edge.from) && revealed.has(edge.to)).map(edge => {
                 const from = positions.find(position => position.key === edge.from)!;
@@ -126,13 +136,13 @@ export function ExecutionFlow({ status, events = [], connected = true, activity 
               })}
             </svg>
             <div className="m-flow-goal" style={{ left: FLOW_NODE.padding, top: goalY, width: FLOW_GOAL.width, height: FLOW_GOAL.height }} title={status.goal}><span><I.spark />工作目标</span><strong>{flowExcerpt(status.goal, 88)}</strong></div>
-            {nodes.map(node => {
+            {nodes.map((node, index) => {
               const position = positions.find(item => item.key === node.key)!;
               const state = flowNodeState(node, status);
               const detail = details.get(node.key)!;
               const summary = flowNodeSummary(node);
               const preview = state.tone === "done" ? flowExcerpt(summary, 86) || "步骤已完成，点击查看详情" : state.tone === "active" ? connected ? detail.activity || "正在执行这项任务" : "连接中断 · 保留最近进展" : node.reason ? reasonLabel(node.reason) : state.tone === "idle" ? node.status === "PENDING" ? "计划中的步骤，尚未执行" : state.label : state.label;
-              return <button key={node.key} type="button" className="m-flow-node" data-flow-state={state.tone} data-planned={node.status === "PENDING" || undefined} data-selected={selectedKey === node.key || undefined} aria-pressed={selectedKey === node.key} aria-label={`${flowNodeTitle(node)}，${state.label}，${agentLabel(node.agentCode)}`} title={node.objective || nodeLabel(node.key)} onClick={() => setSelectedKey(key => key === node.key ? null : node.key)} style={{ left: position.x, top: position.y, width: FLOW_NODE.width, height: FLOW_NODE.height } as CSSProperties}>
+              return <button key={node.key} type="button" className="m-flow-node" data-flow-state={state.tone} data-planned={node.status === "PENDING" || undefined} data-selected={selectedKey === node.key || undefined} aria-pressed={selectedKey === node.key} aria-label={`${flowNodeTitle(node)}，${state.label}，${agentLabel(node.agentCode)}`} title={node.objective || nodeLabel(node.key)} onClick={() => setSelectedKey(key => key === node.key ? null : node.key)} style={{ left: position.x, top: position.y, width: FLOW_NODE.width, height: FLOW_NODE.height, "--flow-enter-delay": `${Math.min(index, 8) * 35}ms` } as CSSProperties}>
                 <i className="m-flow-port is-input" aria-hidden="true" />
                 <span className="m-flow-node-top"><span className="m-flow-symbol" key={state.tone} aria-hidden="true">{state.tone === "done" ? <I.check /> : state.tone === "blocked" || state.tone === "failed" ? <FlowIcon kind="alert" /> : node.kind === "SYNTHESIS" ? <I.spark /> : node.kind === "QA" || node.kind === "RED_TEAM" ? <I.shield /> : <I.source />}</span><span className="m-flow-node-copy"><small>{agentLabel(node.agentCode)}{node.kind === "SYNTHESIS" ? " · 综合" : node.kind === "QA" ? " · 复核" : ""}</small><strong>{flowNodeTitle(node)}</strong></span></span>
                 <span className="m-flow-node-preview" key={node.status}>{preview}</span>

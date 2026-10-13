@@ -45,6 +45,7 @@ export async function loadMissionReport(session: SessionContext, missionTaskId: 
   const conclusion = synth ? out(synth) : null;
   return {
     missionTaskId: status.missionTaskId,
+    playbook: status.playbook,
     title: goalHeadline(status.goal),
     goal: status.goal,
     status: status.status,

@@ -1,4 +1,4 @@
-import { buildLanes, nodeLabel, toolInputPreview, type MissionEvent, type MissionNodeView, type MissionStatusView } from "./mission-timeline";
+import { buildLanes, NODE_LABEL, nodeLabel, toolInputPreview, type MissionEvent, type MissionNodeView, type MissionStatusView } from "./mission-timeline";
 
 export const FLOW_NODE = { width: 232, height: 146, column: 304, row: 180, padding: 32 };
 export const FLOW_GOAL = { width: 190, height: 116, offset: 246 };
@@ -6,7 +6,7 @@ export type FlowPosition = { key: string; x: number; y: number; rank: number };
 
 /** Titles describe recorded work; the specialist remains a secondary label. */
 export function flowNodeTitle(node: MissionNodeView) {
-  return flowExcerpt(node.objective ?? "", 64) || nodeLabel(node.key);
+  return NODE_LABEL[node.key] ?? (flowExcerpt(node.objective ?? "", 48) || nodeLabel(node.key));
 }
 
 export function flowNodeSummary(node: MissionNodeView) {
