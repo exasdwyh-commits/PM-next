@@ -38,10 +38,22 @@ import {
   toolSchemasFor,
   toolsFor,
   type AskOutcome,
+  type CapabilityToolConstraints,
   type ToolCallRecord,
   type ToolContext,
   type ToolLoopIncomplete,
 } from "./tools";
+import {
+  resolveCapabilities,
+} from "@/modules/assistant-runtime/capabilities/resolver";
+import type { CapabilitySkillDefinition } from "@/modules/kern-contracts";
+import { ensureAssistantKnowledgeProviders } from "@/modules/assistant-runtime/knowledge-providers";
+import {
+  resolveResearchTier,
+  runResearch,
+  type ResearchTier,
+} from "@/modules/research/research-tiers";
+import type { SessionContext } from "@/modules/identity/session";
 import { loadMissionSourceEvents, collectMissionSources, uniqueMissionSources } from "./research-sources";
 import { getWebSearch } from "./web-search";
 import { getWebCrawl } from "./web-crawl";
@@ -78,6 +90,12 @@ export interface MissionNodeContext {
   revisionFeedback: string | null;
   /** User input added mid-flight (shown as “已带入后续步骤”). */
   userInputs?: { id: string; text: string }[];
+  /**
+   * C6：Mission 研究步骤的研究档位（fast/deep/deeper，见 research-tiers）。
+   * 显式指定时知识检索走 runResearch（三档预算 + 分档计量）；不传时保持
+   * 原 searchKnowledge 行为，零变化。
+   */
+  researchTier?: string | null;
 }
 
 export function readMissionNodeContext(value: unknown): MissionNodeContext | null {
@@ -250,6 +268,79 @@ async function postQuestion(input: {
 
 /** 当前任务节点指向的已不是这次执行（被重派或跳过）。 */
 /**
+ * C6：Mission 节点开始时做一次能力解析 —— 把命中能力包的
+ * requiredTools/forbiddenTools 并集喂给工具循环执行侧。
+ *
+ * - tenants 按会话 organizationId 过滤（能力包未声明 = 对所有组织可见）。
+ * - role 沿用 C4 口径不传：SessionContext 没有 RBAC 角色，表现层推断的
+ *   role 不能混进权限过滤。
+ * - Mission 没有对话意图路由：intent 传空串，纯文本打分命中；没有能力包
+ *   命中（source NONE）→ 空约束，行为与原来一致。
+ * - 只做过滤，不参与打分（resolver 内部保证，W6 红线不动）。
+ */
+export function resolveMissionToolConstraints(input: {
+  session: Pick<SessionContext, "organizationId">;
+  /** 任务文本：总目标 + 本节点目标。 */
+  text: string;
+  /** 测试注入；不传则从磁盘加载能力包。 */
+  skills?: CapabilitySkillDefinition[];
+}): CapabilityToolConstraints {
+  const resolution = resolveCapabilities({
+    text: input.text,
+    intent: "",
+    organizationId: input.session.organizationId,
+    ...(input.skills ? { skills: input.skills } : {}),
+  });
+  return {
+    requiredTools: resolution.requiredTools,
+    forbiddenTools: resolution.forbiddenTools,
+  };
+}
+
+/** Mission 知识检索的返回形态（与工具循环的 searchKnowledge 契约一致）。 */
+export interface MissionKnowledgeHit {
+  title: string;
+  snippet: string;
+  ref: string;
+}
+
+/**
+ * C6：Mission 的研究步骤。researchTier 显式指定时走 runResearch
+ *（三档预算 + 分档计量，C5 语义；L2 的知识域 provider 先由外层注册，
+ * 依赖方向 L2 → L3）；不传时保持原 searchKnowledge 行为，零变化。
+ *
+ * runResearchFn 是测试缝：替换整轮研究（默认真实 runResearch）。
+ */
+export async function searchKnowledgeForMission(
+  session: SessionContext,
+  query: string,
+  opts: {
+    researchTier?: string | null;
+    limit?: number;
+    signal?: AbortSignal;
+    runResearchFn?: typeof runResearch;
+    /** 测试缝：不传档位时的 plain 路径（默认真实 searchKnowledge）。 */
+    plainSearchFn?: typeof searchKnowledge;
+  } = {}
+): Promise<MissionKnowledgeHit[]> {
+  if (!opts.researchTier) {
+    const r = await (opts.plainSearchFn ?? searchKnowledge)(session, { query, limit: opts.limit ?? 5 }, opts.signal);
+    return [
+      ...r.facts.map((f) => ({ title: `公司事实 · ${f.label}`, snippet: f.value.slice(0, 300), ref: `fact:${f.id}` })),
+      ...r.citations.map((c) => ({ title: c.docTitle, snippet: c.snippet, ref: `knowledge:${c.ref}` })),
+    ].slice(0, 6);
+  }
+  ensureAssistantKnowledgeProviders();
+  const tier: ResearchTier = resolveResearchTier(opts.researchTier);
+  const { route } = await (opts.runResearchFn ?? runResearch)(session, {
+    query,
+    tier,
+    limit: opts.limit ?? 8,
+    signal: opts.signal,
+  });
+  return route.items.map((i) => ({ title: i.title, snippet: i.snippet, ref: i.ref }));
+}
+/**
  * KX-31b：本节点的审批状态。
  * grants = 已批准（node.answered 带 grantId）的调用指纹 → 凭据 id；open = 仍在等确认的调用指纹（避免重复提问）。
  */
@@ -298,6 +389,11 @@ export async function buildMissionNodeMessages(input: {
   requestedByUserId?: string | null;
   /** 工具步数预算：提示词里的上限必须与执行侧强制的上限一致（C1）。 */
   toolStepLimit?: number;
+  /**
+   * C6：本轮 Mission 能力解析交过来的工具约束（requiredTools/forbiddenTools 并集）。
+   * 提示词里的工具说明与执行侧候选表用同一份约束，不传 = 不约束。
+   */
+  toolConstraints?: CapabilityToolConstraints;
 }): Promise<ModelGatewayMessage[]> {
   const memory = input.requestedByUserId
     ? await recallForPrompt(
@@ -323,7 +419,8 @@ export async function buildMissionNodeMessages(input: {
     }),
     nodeUsesTools(input.node.kind)
       ? toolInstructions(
-          toolsFor({ organizationId: "", ...webCapabilities(), askUser: async () => ({ mode: "ignore" }) }),
+          // C6：提示词里的工具说明与执行侧用同一份能力约束，不各说各话。
+          toolsFor({ organizationId: "", ...webCapabilities(), askUser: async () => ({ mode: "ignore" }) }, input.toolConstraints ?? {}),
           input.toolStepLimit
         )
       : "",
@@ -432,6 +529,13 @@ export const runMissionNodeAgent: ExecutorStrategy = async (context): Promise<Ex
     deadlineMs: positiveIntEnv("KERN_TOOL_BUDGET_MS", 600_000),
   };
 
+  // C6：Mission 任务开始时解析能力包 —— 能力包声明的 requiredTools/
+  // forbiddenTools/tenants 约束同时进提示词与执行侧。没有能力包命中时
+  // 约束为空，行为与原来一致。
+  const missionToolConstraints = resolveMissionToolConstraints({
+    session: context.session,
+    text: `${node.missionGoal} ${node.objective}`,
+  });
   const messages = await buildMissionNodeMessages({
     organizationId: context.session.organizationId,
     agent: task.agent,
@@ -444,6 +548,7 @@ export const runMissionNodeAgent: ExecutorStrategy = async (context): Promise<Ex
     requestedByUserId:
       ((task.parentTask?.contextSnapshot as Record<string, unknown> | null)?.requestedByUserId as string | undefined) ?? null,
     toolStepLimit,
+    toolConstraints: missionToolConstraints,
   });
 
   // Preserve captured source identity through QA and synthesis without upgrading trust.
@@ -524,13 +629,13 @@ export const runMissionNodeAgent: ExecutorStrategy = async (context): Promise<Ex
     signal: context.signal, assertActive: context.assertActive,
     organizationId: context.session.organizationId,
     ...webCapabilities(),
-    searchKnowledge: async (query) => {
-      const r = await searchKnowledge(context.session, { query, limit: 5 });
-      return [
-        ...r.facts.map((f) => ({ title: `公司事实 · ${f.label}`, snippet: f.value.slice(0, 300), ref: `fact:${f.id}` })),
-        ...r.citations.map((c) => ({ title: c.docTitle, snippet: c.snippet, ref: `knowledge:${c.ref}` })),
-      ].slice(0, 6);
-    },
+    // C6：researchTier 显式指定时走 runResearch（三档预算 + 分档计量）；
+    // 不传时保持原 searchKnowledge 行为，零变化。
+    searchKnowledge: async (query) =>
+      searchKnowledgeForMission(context.session, query, {
+        researchTier: node.researchTier ?? null,
+        signal: context.signal,
+      }),
     askUser: (q) => postQuestion({ emit, ...q }),
   };
   // 工具循环：每次模型调用照常记 model_call；工具调用单独记 node.tool，知识命中记 node.cite。
@@ -593,7 +698,10 @@ export const runMissionNodeAgent: ExecutorStrategy = async (context): Promise<Ex
       ]
     : (messages as { role: "system" | "user" | "assistant"; content: string }[]);
   let modelCalls = 0;
-  const loopTools = [...toolsFor(toolCtx), ...connectorExtra];
+  // C6：执行侧候选同样受能力约束 —— 声明了 required/forbidden 的包，
+  // 模型在 Mission 里实际能用的工具表就被约束住。连接器工具（用户已授权
+  // 的外部 MCP，走 KX-31 审批流）不进能力包约束口径。
+  const loopTools = [...toolsFor(toolCtx, missionToolConstraints), ...connectorExtra];
   // C1 原生 function calling：策略里存在启用且具备 TOOLS 能力的模型时才启用；
   // 否则维持文本协议。原生调用在运行时失败时由工具循环自动回落文本协议。
   const nativeTools = useTools
