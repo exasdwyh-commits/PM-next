@@ -1450,3 +1450,75 @@
 .m-skel-card span::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .6), transparent); transform: translateX(-100%); animation: m-sweep 1.4s var(--m-ease-out) infinite; }
 @media (prefers-color-scheme: dark) { .m-skel-card span::after { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .08), transparent); } }
 @media (prefers-reduced-motion: reduce) { :root:not([data-motion="full"]) .m-skel-card span::after { animation: none; opacity: 0; } }
+
+/* =========================================================================
+   输入区附件（Conversation Attachments）
+   只用既有的语义令牌，不在这里出现任何字面颜色 —— 主题翻深色时这块必须跟着翻。
+   ========================================================================= */
+
+.m-dock-inner[data-dragging="true"] {
+  border-color: var(--m-accent-line);
+  background: var(--m-accent-wash);
+}
+
+.m-dock-files {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 10px 16px 0;
+}
+
+/* 一份材料一个胶囊：文件名可截断，状态词不换行也不被挤掉 */
+.m-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 280px;
+  padding: 4px 5px 4px 8px;
+  border: 1px solid var(--m-hairline);
+  border-radius: var(--m-r-md);
+  background: var(--m-surface-2);
+  font-size: var(--m-t-xs);
+  color: var(--m-ink-2);
+}
+.m-file > svg { flex: none; width: 14px; height: 14px; opacity: 0.7; }
+.m-file > b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--m-ink);
+}
+.m-file > em { flex: none; font-style: normal; }
+.m-file[data-state="ready"] > em { color: var(--m-ok); }
+.m-file[data-state="pending"] > em { color: var(--m-warn); }
+.m-file[data-state="unsupported"] > em,
+.m-file[data-state="failed"] > em { color: var(--m-bad); }
+
+.m-file-x {
+  display: inline-flex;
+  flex: none;
+  padding: 2px;
+  border: 0;
+  border-radius: var(--m-r-sm);
+  background: transparent;
+  color: var(--m-ink-3);
+  cursor: pointer;
+}
+.m-file-x:hover { background: var(--m-bad-wash); color: var(--m-bad); }
+.m-file-x > svg { width: 12px; height: 12px; }
+
+.m-file-index {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--m-t-xs);
+  color: var(--m-ink-3);
+  cursor: pointer;
+}
+
+/* input 藏在 label 里：要用键盘仍能聚焦，所以不用 display:none */
+.m-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.m-attach-pill { position: relative; cursor: pointer; }
+.m-attach-pill[data-busy="true"] { opacity: 0.6; cursor: progress; }

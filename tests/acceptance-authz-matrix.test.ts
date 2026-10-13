@@ -99,8 +99,10 @@ const MARK = CROSS_TENANT_MARKER;
 // +1 路由 / +1 方法：知识源启停 /api/knowledge/sources/{id}（PATCH，需组织管理员）。
 // +1 路由 / +1 方法：C6 Office 往返 /api/missions/{id}/roundtrip（POST，需任务可见性门禁）。
 // +1 路由 / +1 方法：C7 二阶段 Memory Inspector /api/memory/inspector（GET 只读，需登录，仅本人记忆）。
-const BASELINE_ROUTES = 127;
-const BASELINE_METHODS = 188;
+// +2 路由 / +3 方法：对话附件 /api/conversations/{id}/attachments（GET·POST）与
+//   /api/conversations/{id}/attachments/{attachmentId}（DELETE）。
+const BASELINE_ROUTES = 129;
+const BASELINE_METHODS = 191;
 
 let passed = 0;
 const failures: string[] = [];
@@ -426,6 +428,37 @@ async function main() {
       versions: { create: { version: 1, title: `${MARK} 成果`, status: "READY", html: "<!doctype html><html><body>probe</body></html>", bytes: 46, contentHash: "probe" } },
     },
   });
+  // 2026-10-13 对话附件夹具。
+  //
+  // 为什么 `id` 要手动写成同一个 UUID：`expand()` 会把模板里**所有** `{…}` 展开成
+  // 同一个夹具 id，而 DELETE 路径带两个占位符（会话 id + 附件 id）。要让展开后的
+  // URL 真实可命中，两者必须取同一个值——所以这里刻意造一对共享 id 的会话与附件。
+  // 两张表各自管理主键，同值不冲突；会话删除时附件随 Cascade 一并清理。
+  const ATTACHMENT_PAIR_ID = "3f2b1c4d-5e6f-4071-8a9b-0c1d2e3f4a5b";
+  await prisma.conversation.create({
+    data: {
+      id: ATTACHMENT_PAIR_ID,
+      organizationId: orgA.id,
+      ownerId: ownerA.id,
+      title: `${MARK} 附件会话`,
+    },
+  });
+  const attachmentA = await prisma.conversationAttachment.create({
+    data: {
+      id: ATTACHMENT_PAIR_ID,
+      conversationId: ATTACHMENT_PAIR_ID,
+      organizationId: orgA.id,
+      uploadedById: ownerA.id,
+      originalFilename: `${MARK} 材料.docx`,
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      byteSize: 1024,
+      hash: `${MARK}-attachment-hash`,
+      fileKey: `${MARK}-attachment-filekey`,
+      parseStatus: "READY",
+      parsedKind: "docx",
+      extractedText: `${MARK} 这是矩阵夹具的可读正文`,
+    },
+  });
   const propA = await prisma.actionProposal.create({
     data: {
       organizationId: orgA.id,
@@ -601,6 +634,8 @@ async function main() {
   const RESOLVERS: Array<[RegExp, string]> = [
     [/^\/api\/agent-runs\//, agentRunA.id],
     [/^\/api\/attachments\//, evidenceA.id],
+    // 附件删除路由带两个占位符，排在 conversations 之前才能取到自己的夹具
+    [/^\/api\/conversations\/[^/]+\/attachments\/[^/]+$/, attachmentA.id],
     [/^\/api\/conversations\//, convA.id],
     [/^\/api\/artifacts\//, artifactA.id],
     [/^\/api\/reports\//, reportA.id],

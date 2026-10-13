@@ -3,6 +3,7 @@ import prisma from "@/shared/db";
 import type { SessionContext } from "@/modules/identity/session";
 import { ConflictError, NotFoundError, UnprocessableEntityError } from "@/shared/errors";
 import { getWorkerHealth } from "@/modules/worker/heartbeat";
+import { bindAttachmentsToMessage, MAX_FILES_PER_MESSAGE } from "./attachments";
 
 export const MAX_MESSAGE_LENGTH = 40_000;
 export function validateClientMessageId(value: unknown): string {
@@ -14,11 +15,34 @@ function view(run: { id: string; status: string; clientMessageId: string | null;
 }
 const select = { id: true, status: true, clientMessageId: true, inputMessageId: true, outputMessageId: true, createdAt: true, errorReason: true } as const;
 
+/**
+ * 随消息提交的附件 id。
+ *
+ * 只校验形状（字符串数组 + 数量），不在这里查库：归属校验发生在事务里
+ * 的 `bindAttachmentsToMessage`（它自己再核一次组织与会话），
+ * 两道校验的意义不同——这里挡的是畸形输入，那里挡的是越权 id。
+ */
+function validateAttachmentIds(value: unknown): string[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) throw new UnprocessableEntityError("附件列表格式无效");
+  if (value.length > MAX_FILES_PER_MESSAGE) {
+    throw new UnprocessableEntityError(`单条消息最多附带 ${MAX_FILES_PER_MESSAGE} 份材料`);
+  }
+  const ids = value.filter((v): v is string => typeof v === "string" && v.length > 0);
+  if (ids.length !== value.length) throw new UnprocessableEntityError("附件列表包含无效标识");
+  return ids;
+}
+
 /** Persist acceptance and its user message together. Replays never invoke a model. */
-export async function acceptKernMessage(session: SessionContext, conversationId: string, input: { content: unknown; clientMessageId: unknown }) {
+export async function acceptKernMessage(
+  session: SessionContext,
+  conversationId: string,
+  input: { content: unknown; clientMessageId: unknown; attachmentIds?: unknown }
+) {
   const clientMessageId = validateClientMessageId(input.clientMessageId);
   if (typeof input.content !== "string" || !input.content.trim() || input.content.length > MAX_MESSAGE_LENGTH) throw new UnprocessableEntityError(`消息必须为 1～${MAX_MESSAGE_LENGTH} 字符的文本`);
   const content = input.content.trim();
+  const attachmentIds = validateAttachmentIds(input.attachmentIds);
   const accepted = await prisma.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM "Conversation" WHERE id = ${conversationId} FOR UPDATE`;
     const conversation = await tx.conversation.findFirst({ where: { id: conversationId, organizationId: session.organizationId, ownerId: session.userId } });
@@ -37,6 +61,11 @@ export async function acceptKernMessage(session: SessionContext, conversationId:
       contextSnapshot: { schemaVersion: "kern-message/v1", runtimeOwner: "KERN_ASSISTANT", runtimeConfig: conversation.runtimeConfig ?? null },
     }, select });
     const message = await tx.message.create({ data: { id: messageId, conversationId, role: "USER", content, runId: run.id } });
+    // 在事务内绑定：附件与这条消息同一事务提交，不能出现「消息已入厍、附件还悬空」
+    // 的中间状态，否则后台读到一半材料也无从察觉是漏绑还是本就没有。
+    if (attachmentIds.length) {
+      await bindAttachmentsToMessage(tx, session.organizationId, conversationId, messageId, attachmentIds);
+    }
     await tx.conversation.update({ where: { id: conversationId }, data: { updatedAt: new Date() } });
     return { execution: view(run), message, replayed: false };
   }, { maxWait: 10_000, timeout: 10_000 });

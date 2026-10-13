@@ -37,7 +37,11 @@ export async function POST(
     const session = await getServerSession(req);
     const { id: conversationId } = await params;
     const body = await readJsonObjectBody(req);
-    const result = await acceptKernMessage(session, conversationId, { content: body?.content, clientMessageId: body?.clientMessageId });
+    const result = await acceptKernMessage(session, conversationId, {
+      content: body?.content,
+      clientMessageId: body?.clientMessageId,
+      attachmentIds: body?.attachmentIds,
+    });
     return NextResponse.json(result, { status: result.replayed ? 200 : 202 });
   } catch (error) {
     return handleApiError(error, req);

@@ -207,6 +207,31 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
   },
 
   {
+    path: "/api/conversations/{id}/attachments",
+    method: "GET",
+    authz: "列出会话材料：组织 + 本人会话，非本人会话一律 404",
+    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
+    ownerGate: [200],
+  },
+  {
+    path: "/api/conversations/{id}/attachments",
+    method: "POST",
+    authz: "上传并解析材料：归属先于 multipart 解析，非本人会话一律 404（不是 415）",
+    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
+    // 本人会话走到这里才轮到 content-type 校验：矩阵用 JSON 发 body，必得 415。
+    // 这正是「归属先判定」的用途——415 说明请求已经通过了门禁。
+    ownerGate: [415],
+    validationFirst: false,
+  },
+  {
+    path: "/api/conversations/{id}/attachments/{attachmentId}",
+    method: "DELETE",
+    authz: "撤下尚未发出的材料：仅本人会话，他人一律 404",
+    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
+    ownerGate: [200],
+  },
+
+  {
     path: "/api/conversations/{id}/runtime-config",
     method: "GET",
     authz: "会话运行配置（只读）：与会话消息同口径（组织 + 本人），非本人会话一律 404",

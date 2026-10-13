@@ -25,6 +25,7 @@ import { bindKnowledgeToEvidence } from "@/modules/knowledge/evidence-bridge";
 import { freshnessLabel } from "@/modules/knowledge/authority";
 import { resolveCapabilities, type CapabilityResolution } from "./capabilities/resolver";
 import { ensureAssistantKnowledgeProviders } from "./knowledge-providers";
+import { buildAttachmentPrompt } from "./attachments";
 
 export type CapabilityPromptLevel = "metadata" | "summary" | "full";
 
@@ -140,14 +141,28 @@ export function buildKnowledgeContextPrompt(
 export interface KernContextLayers {
   capabilityPrompt: string;
   knowledgePrompt: string;
+  /**
+   * 用户随本次消息上传、并已被系统读取出来的材料正文。
+   *
+   * 这一层为什么要在知识层**之前**：材料的出处是用户本人当轮提交的，
+   * 与正在问的事直接相关；知识库是背景。当两者冲突时，应当先看材料。
+   */
+  attachmentPrompt: string;
   resolution: CapabilityResolution;
   knowledge: { route: KnowledgeRouteResult; syn: SynthesizedKnowledge } | null;
 }
 
 export interface BuildKernContextLayersParams {
   session: SessionContext;
+  /** 会话 id：附件上下文需要它才能取出本会话上传的材料 */
+  conversationId: string;
   text: string;
   intent: string;
+  /**
+   * 当前用户消息 id。有它才能区分「本轮上传的」与「之前上传的」——
+   * 前者给完整正文，后者只给节选。没有时（如纯推理调用）降级为不含附件。
+   */
+  currentMessageId?: string | null;
   /** 会话运行时圈定的能力包 id；不传则不设限。 */
   explicitSkillIds?: string[] | null;
   /** 有项目上下文时，满足条件才把知识写进 Evidence。 */
@@ -169,6 +184,7 @@ export interface BuildKernContextLayersParams {
 export const EMPTY_CONTEXT_LAYERS: KernContextLayers = {
   capabilityPrompt: "",
   knowledgePrompt: "",
+  attachmentPrompt: "",
   resolution: {
     intent: "",
     nativeCapabilityKey: null,
@@ -216,11 +232,26 @@ export async function buildKernContextLayers(
 
   const capabilityPrompt = buildCapabilityContextPrompt(resolution);
 
+  // 附件层不依赖能力/知识是否命中：用户传了材料，就得让模型看见——
+  // 哪怕这一轮没选中任何能力包。失败同样降级为空，不挡对话。
+  const attachmentPrompt = params.currentMessageId
+    ? await buildAttachmentPrompt(
+        params.conversationId,
+        params.session.organizationId,
+        params.currentMessageId
+      )
+        .then((r) => r.prompt)
+        .catch(
+          () =>
+            "## 用户随消息提交的材料\n- 材料读取失败：不要据此认定用户没有提交材料，也不要杜撰其内容。"
+        )
+    : "";
+
   // 只有能力声明了知识域、或者本来就是知识检索意图，才真的去查——避免每轮都打知识库。
   const wantKnowledge =
     resolution.knowledgeScopes.length > 0 || params.intent === "KNOWLEDGE_SEARCH";
   if (!wantKnowledge) {
-    return { capabilityPrompt, knowledgePrompt: "", resolution, knowledge: null };
+    return { capabilityPrompt, knowledgePrompt: "", attachmentPrompt, resolution, knowledge: null };
   }
 
   try {
@@ -262,6 +293,7 @@ export async function buildKernContextLayers(
     return {
       capabilityPrompt,
       knowledgePrompt: buildKnowledgeContextPrompt(route, syn),
+      attachmentPrompt,
       resolution,
       knowledge: { route, syn },
     };
@@ -269,6 +301,7 @@ export async function buildKernContextLayers(
     return {
       capabilityPrompt,
       knowledgePrompt: `## 本轮知识依据（Knowledge Router）\n- 知识路由本轮失败：${error instanceof Error ? error.message.slice(0, 200) : String(error)}\n- 不要把失败当成「没有依据」。`,
+      attachmentPrompt,
       resolution,
       knowledge: null,
     };

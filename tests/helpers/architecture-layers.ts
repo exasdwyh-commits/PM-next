@@ -58,6 +58,10 @@ export const UNIT_LAYERS: Record<string, LayerId> = {
   // L3 领域（含产品生命周期任务包）
   "modules/research": 3,
   "modules/knowledge": 3,
+  // 文件读取栈：PPT/Word/PDF/Excel/网页/文本的解析器与注册表。归 L3 与 knowledge 同层——
+  // 它和知识同步一样是「把外部材料变成可用内容」的领域能力，且只被 L2 的对话编排调用。
+  // 刻意不依赖任何上层：只 import Node 内置与 npm 包，连 Prisma 都不碰。
+  "modules/file-intake": 3,
   "modules/decisions": 3,
   "modules/decision-intelligence": 3,
   "modules/products": 3,

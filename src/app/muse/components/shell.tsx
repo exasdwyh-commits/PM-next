@@ -1,7 +1,15 @@
 "use client";
 /** Kern 对话外壳：最近会话、输入坞、空态。 */
 import { useEffect, useRef, useState } from "react";
-import type { ConversationControlOption, ConversationControls, ConversationRuntimeConfig, ConversationSummary, RuntimeStatus, StudioModel } from "../types";
+import type {
+  ConversationAttachmentItem,
+  ConversationControlOption,
+  ConversationControls,
+  ConversationRuntimeConfig,
+  ConversationSummary,
+  RuntimeStatus,
+  StudioModel,
+} from "../types";
 import { I } from "./kit";
 import { Bento } from "@/components/kx";
 import { DesktopConfirmCard } from "./desktop-confirm-card";
@@ -419,6 +427,19 @@ const SLASH_COMMANDS = [
   { cmd: "/日报", hint: "生成今日工作日报", text: "生成今日工作日报，包括完成项、阻塞项和明日计划：" },
 ];
 
+/**
+ * 用中文说明这份材料现在处于什么状态。
+ *
+ * 解析没成功时必须**明说失败**：只放一个灰色图标，用户会以为材料已经读进去了，
+ * 然后对着一个答案里没有他文件内容的回复莫名其妙。
+ */
+function attachmentStateLabel(item: ConversationAttachmentItem): string {
+  if (item.parseStatus === "READY") return "已读取";
+  if (item.parseStatus === "UNSUPPORTED") return "暂不支持读取";
+  if (item.parseStatus === "FAILED") return "读取失败";
+  return "读取中";
+}
+
 export function Dock({
   value,
   onChange,
@@ -432,6 +453,13 @@ export function Dock({
   runtimeConnected = false,
   modelReady = true,
   onTrust,
+  attachments = [],
+  onUploadFiles,
+  onRemoveAttachment,
+  uploading = false,
+  indexForSearch = false,
+  onToggleIndexForSearch,
+  accepts = "",
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -445,10 +473,36 @@ export function Dock({
   runtimeConnected?: boolean;
   modelReady?: boolean;
   onTrust: () => void;
+  /** 本会话已上传、尚未随消息发出的材料 */
+  attachments?: ConversationAttachmentItem[];
+  onUploadFiles?: (files: File[]) => void;
+  onRemoveAttachment?: (id: string) => void;
+  uploading?: boolean;
+  /** 是否把这批材料同时写入长期检索（默认关：临时材料不该进全局搜索） */
+  indexForSearch?: boolean;
+  onToggleIndexForSearch?: (next: boolean) => void;
+  /** input[accept] 的值，由上限表统一给出，避免 UI 与后端白名单各写一份 */
+  accepts?: string;
 }) {
   const dock = useRef<HTMLDivElement>(null);
   const ta = useRef<HTMLTextAreaElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const composing = useRef(false);
+  const [dragging, setDragging] = useState(false);
+  /** 拖放到窗口上时只有 dragleave 不够（子元素会连续触发），用计数器判边界。 */
+  const dragDepth = useRef(0);
+
+  const pickFiles = (files: File[] | null) => {
+    if (!files || !files.length || !onUploadFiles) return;
+    onUploadFiles([...files]);
+  };
+
+  const relayDrag = (event: React.DragEvent) => {
+    if (!onUploadFiles) return;
+    if (!event.dataTransfer?.types?.includes("Files")) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  };
   useEffect(() => {
     const input = ta.current;
     if (!input) return;
@@ -487,8 +541,58 @@ export function Dock({
     <div className="m-dock" ref={dock}>
       <form
         className="m-dock-inner"
+        data-dragging={dragging ? "true" : undefined}
         onSubmit={(e) => { e.preventDefault(); onSend(); }}
+        onDragEnter={(e) => { relayDrag(e); if (!e.defaultPrevented) return; dragDepth.current += 1; setDragging(true); }}
+        onDragOver={relayDrag}
+        onDragLeave={() => {
+          dragDepth.current = Math.max(0, dragDepth.current - 1);
+          if (dragDepth.current === 0) setDragging(false);
+        }}
+        onDrop={(e) => {
+          relayDrag(e);
+          dragDepth.current = 0;
+          setDragging(false);
+          pickFiles(e.dataTransfer?.files ? [...e.dataTransfer.files] : null);
+        }}
       >
+        {attachments.length > 0 ? (
+          <div className="m-dock-files" role="list" aria-label="已附带的材料">
+            {attachments.map((item) => (
+              <span
+                key={item.id}
+                className="m-file"
+                role="listitem"
+                data-state={item.parseStatus.toLowerCase()}
+                title={item.parseNote ?? item.originalFilename}
+              >
+                <I.file />
+                <b>{item.originalFilename}</b>
+                <em>{attachmentStateLabel(item)}</em>
+                {onRemoveAttachment && !sending ? (
+                  <button
+                    type="button"
+                    className="m-file-x"
+                    aria-label={`移除 ${item.originalFilename}`}
+                    onClick={() => onRemoveAttachment(item.id)}
+                  >
+                    <I.close />
+                  </button>
+                ) : null}
+              </span>
+            ))}
+            {onToggleIndexForSearch ? (
+              <label className="m-file-index" title="勾选后这份材料会进入长期检索，之后在别处也能搜到">
+                <input
+                  type="checkbox"
+                  checked={indexForSearch}
+                  onChange={(e) => onToggleIndexForSearch(e.target.checked)}
+                />
+                存入长期检索
+              </label>
+            ) : null}
+          </div>
+        ) : null}
         <textarea
           ref={ta}
           value={value}
@@ -534,6 +638,29 @@ export function Dock({
           </div>
         ) : null}
         <div className="m-dock-bar">
+          {onUploadFiles ? (
+            <label
+              className="m-pill m-attach-pill"
+              data-busy={uploading ? "true" : undefined}
+              title="附上文档、表格、幻灯片或网页，Kern 会阅读其中的内容后再回答"
+            >
+              <I.paperclip />
+              {uploading ? "读取中…" : "加材料"}
+              <input
+                ref={fileInput}
+                type="file"
+                multiple
+                className="m-file-input"
+                accept={accepts || undefined}
+                disabled={uploading}
+                onChange={(e) => {
+                  pickFiles(e.target.files ? [...e.target.files] : null);
+                  // 清空 value：否则连续两次选同一个文件不会触发 change
+                  e.target.value = "";
+                }}
+              />
+            </label>
+          ) : null}
           <RunControls controls={controls} config={config} onChange={patch} modelReady={modelReady} />
           <button type="button" className="m-pill m-runtime-pill" onClick={onTrust} title={runtimeConnected ? "查看本机连接与可用能力" : "查看连接本机的方法与权限"}>
             <I.mac />

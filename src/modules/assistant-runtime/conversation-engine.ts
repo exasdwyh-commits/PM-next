@@ -389,15 +389,22 @@ export async function executeKernConversationTurn(
     // 永不抛错；解析失败时两个层都是空字符串，对话照常走。
     const contextLayers = await buildKernContextLayers({
       session,
+      conversationId,
       text,
       intent,
+      // 本轮用户消息 id：附件层靠它区分「这次传的」与「之前传的」。
+      // 后台执行时它来自 run.inputMessageId；缺了就降级为不带材料，不影响其它层。
+      currentMessageId: options?.execution?.inputMessageId ?? null,
       explicitSkillIds: runtimeSelection.config.capabilityPackIds ?? null,
       projectId: null,
     }).catch(() => null);
     const capabilityPrompt = contextLayers?.capabilityPrompt ?? "";
     const knowledgePrompt = contextLayers?.knowledgePrompt ?? "";
+    const attachmentPrompt = contextLayers?.attachmentPrompt ?? "";
     // One output contract for the model: reply-format (in basePersona) + kern-rich/v1 (KERN_RICH_PROMPT).
-    const assistantPersona = [basePersona, KERN_RICH_PROMPT, artifactPrompt, memoryPrompt, rolePrompt, capabilityPrompt, knowledgePrompt, selectionPrompt]
+    // 附件层排在知识层之前：材料是用户当轮亲手提交的，比知识库里的背景材料更贴近提问；
+    // 两者冲突时应当先看材料，并向用户指出差异。
+    const assistantPersona = [basePersona, KERN_RICH_PROMPT, artifactPrompt, memoryPrompt, rolePrompt, capabilityPrompt, attachmentPrompt, knowledgePrompt, selectionPrompt]
       .filter((value): value is string => Boolean(value))
       .join("\n\n");
     const llmMessages: AdvisorLLMMessage[] = assistantPersona

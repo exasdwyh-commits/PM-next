@@ -1576,10 +1576,75 @@ model Conversation {
   runs         AgentRun[]
   proposals    ActionProposal[]
   artifacts    KernArtifact[]
+  attachments  ConversationAttachment[]
 
   @@index([organizationId])
   @@index([ownerId])
   @@index([productId])
+}
+
+/**
+ * 对话附件：用户上传给 Kern 阅读的文件。
+ *
+ * 与 `Evidence` 上的 `fileKey`（项目资料留痕）是两条独立通道：
+ *  - Evidence 是**证据**，要求 projectId、参与者与审批验证流程；
+ *  - 这里是**工作材料**——用户临时交给 Kern 读一眼，默认随会话私有，不进证据链。
+ *  因此刻意不复用 Evidence，避免「读个 PPT」也要先建项目。
+ */
+model ConversationAttachment {
+  id             String @id @default(uuid())
+  conversationId String
+  organizationId String
+  uploadedById   String
+  /// 归属的用户消息；上传完成但消息尚未创建时为 null
+  messageId      String?
+
+  originalFilename String
+  mimeType         String @default("application/octet-stream")
+  byteSize         Int
+  /// 服务端计算的 SHA-256，与 Evidence 同一约定（不信任客户端摘要）
+  hash             String
+  /// `.uploads` 下的落盘键
+  fileKey          String
+
+  parseStatus      AttachmentParseStatus @default(PENDING)
+  /// 解析器识别出的格式：pdf / docx / pptx / xlsx / html / markdown / text / csv / json / image / video
+  parsedKind       String?
+  /// 提取出的正文；超长在 `MAX_EXTRACTED_CHARS` 处截断
+  extractedText    String?
+  /// 结构化元信息：页数 / 幻灯片数 / 工作表名 / 时长 / 分辨率 …
+  extractedMeta    Json?
+  /// 解析器给出的说明：不支持的原因、扫描型 PDF 提示、正文过长被截断的标记等
+  parseNote        String?
+  parsedAt         DateTime?
+
+  /**
+   * 是否写入长期知识检索。默认 false —— 附件先服务本轮对话；
+   * 只有用户在 UI 上显式勾选才入库，避免临时材料把全局检索污染。
+   */
+  indexForSearch Boolean   @default(false)
+  indexedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([conversationId, parseStatus])
+  @@index([organizationId])
+  @@index([indexForSearch])
+}
+
+enum AttachmentParseStatus {
+  /// 已落盘，等待后台解析
+  PENDING
+  /// 解析出可用正文（extractedText 非空）
+  READY
+  /// 格式未在注册表里（如在互利环境下的 SVG/PSD）：只登记元信息，不谎称读过内容
+  UNSUPPORTED
+  /// 注册表里有对应解析器，但本次解析失败；failureReason 在 parseNote
+  FAILED
 }
 
 /// Kern 可视化成果（kern-rich/v1）：同一会话内以 key 稳定标识，每次修改追加一个版本。
@@ -2660,6 +2725,12 @@ model ExperienceLesson {
 enum KnowledgeSourceKind {
   OBSIDIAN_VAULT
   LOCAL_DIR
+  /**
+   * 用户在对话里上传、并主动勾选「允许长期检索」的附件。
+   * 每个组织最多一个这样的源：它不是磁盘上的一棵子树，而是以
+   * ConversationAttachment 记录为逻辑文档的虚拟集合。
+   */
+  CONVERSATION_UPLOAD
 }
 
 model KnowledgeSource {

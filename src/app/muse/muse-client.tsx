@@ -4,7 +4,7 @@ import { executiveReportCitations, isExecutiveReportCitation } from "@/shared/ex
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import type { ConversationRuntimeConfig, Decision, EvidenceRef, Message, MessageBlock, StudioModel } from "./types";
+import type { ConversationAttachmentItem, ConversationRuntimeConfig, Decision, EvidenceRef, Message, MessageBlock, StudioModel } from "./types";
 import { readKernGraphCitation } from "@/modules/visual-intelligence/contracts";
 import type { KernGraphV1 } from "@/modules/visual-intelligence/contracts";
 import { confidenceOf } from "@/modules/muse/confidence";
@@ -233,6 +233,145 @@ export default function KernClient({ model }: { model: StudioModel }) {
   const draftsRef = useRef(new Map<string, string>());
   const saveTimer = useRef(0);
   const [draftSaved, setDraftSaved] = useState(false);
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 会话附件：上传 → 解析 → 随消息发出。
+  //
+  // 三个动作各有各的失败面，必须分开处理，不能一股脑 setFeedback：
+  //  - 上传失败 → 拦在计算进行前，材料进不了列表；
+  //  - 删除失败 → 乐观更新回滚，列表恢复原样；
+  //  - 发送失败 → 与消息共用已有的错误分支，材料保持在列表里等重试。
+  // ─────────────────────────────────────────────────────────────────────
+  const [attachments, setAttachments] = useState<ConversationAttachmentItem[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [indexForSearch, setIndexForSearchState] = useState(false);
+  const indexForSearchRef = useRef(false);
+  const [accepts, setAccepts] = useState("");
+
+  const setIndexForSearch = (next: boolean) => {
+    indexForSearchRef.current = next;
+    setIndexForSearchState(next);
+  };
+
+  // 材料是会话私有的：切换会话就清空，跟着会话一起换。
+  // 顺带从服务端取一次格式白名单——避免 UI 里手写一份后缀列表，与后端走岔。
+  useEffect(() => {
+    setAttachments([]);
+    if (!conversationId) {
+      setAccepts("");
+      return;
+    }
+    let alive = true;
+    fetch(`/api/conversations/${conversationId}/attachments`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!alive || !data) return;
+        const items = Array.isArray(data.attachments) ? data.attachments : [];
+        setAttachments(
+          items.filter((item: unknown): item is ConversationAttachmentItem =>
+            Boolean(item) && typeof (item as ConversationAttachmentItem).id === "string"
+          )
+        );
+        const extensions = data.limits?.extensions;
+        if (Array.isArray(extensions) && extensions.length) {
+          setAccepts(
+            extensions
+              .map((ext: string) => (ext.startsWith(".") ? ext : `.${ext}`))
+              .join(",")
+          );
+        }
+      })
+      .catch(() => null);
+    return () => {
+      alive = false;
+    };
+  }, [conversationId]);
+
+  // 发送回调里要读最新的附件清单。用 ref 而不是把 attachments 塞进它的依赖数组：
+  // send 的依赖一变，输入框相关的所有回调都会重建，代价远大于收益。
+  const attachmentIdsRef = useRef<string[]>([]);
+  useEffect(() => {
+    attachmentIdsRef.current = attachments.map((item) => item.id);
+  }, [attachments]);
+
+  // 上传前必须已有会话；还没有就先建一个（材料的标题优先，便于之后在列表里认出来）。
+  const ensureConversationForUpload = async (titleHint?: string): Promise<string | null> => {
+    const create = await fetch("/api/conversations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: titleHint ? `材料：${titleHint.slice(0, 40)}` : "新材料",
+        productId: model.newConversationProduct?.id ?? null,
+        runtimeConfig,
+      }),
+    });
+    if (!create.ok) return null;
+    const created = await create.json();
+    if (!created?.id) return null;
+    activeIdRef.current = created.id;
+    setConversationId(created.id);
+    window.history.replaceState(null, "", `/muse?c=${created.id}`);
+    return created.id as string;
+  };
+
+  const uploadFiles = async (files: File[]) => {
+    if (!files.length) return;
+    let targetId = activeIdRef.current;
+    if (!targetId) targetId = await ensureConversationForUpload(files[0]?.name);
+    if (!targetId) {
+      setFeedback({ text: "创建会话失败，材料未能上传。", error: true });
+      return;
+    }
+    setUploading(true);
+    try {
+      const form = new FormData();
+      for (const file of files) form.append("files", file);
+      form.append("indexForSearch", indexForSearchRef.current ? "true" : "false");
+      const res = await fetch(`/api/conversations/${targetId}/attachments`, { method: "POST", body: form });
+      const data = await res.json();
+      const results: { ok: boolean; attachment?: ConversationAttachmentItem; error?: string }[] =
+        Array.isArray(data?.uploads) ? data.uploads : [];
+      const ok = results.filter((r) => r.ok && r.attachment).map((r) => r.attachment!);
+      const failed = results.filter((r) => !r.ok);
+      if (ok.length) setAttachments((current) => [...current, ...ok]);
+      if (failed.length) {
+        setFeedback({
+          text: `${failed.length} 份材料没能读取：${failed.map((f) => f.error ?? "未知原因").slice(0, 2).join("；")}`,
+          error: true,
+        });
+      }
+      const extensions = data?.limits?.extensions;
+      if (Array.isArray(extensions) && extensions.length) {
+        setAccepts(extensions.map((ext: string) => (ext.startsWith(".") ? ext : `.${ext}`)).join(","));
+      }
+    } catch (error) {
+      setFeedback({
+        text: `材料上传失败：${error instanceof Error ? error.message.slice(0, 120) : String(error)}`,
+        error: true,
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeAttachment = async (id: string) => {
+    const targetId = activeIdRef.current;
+    if (!targetId) return;
+    const previous = attachments;
+    setAttachments((current) => current.filter((item) => item.id !== id));
+    try {
+      const res = await fetch(`/api/conversations/${targetId}/attachments/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        setAttachments(previous);
+        const data = await res.json().catch(() => null);
+        setFeedback({ text: data?.message ?? "撤下材料失败", error: true });
+      }
+    } catch {
+      // 乐观更新回滚：服务端没真的删掉，界面就不能假装删了
+      setAttachments(previous);
+      setFeedback({ text: "撤下材料失败，请重试", error: true });
+    }
+  };
   // 挂载时从本机恢复草稿（URL query 带来的种子文案优先，不覆盖）。
   useEffect(() => {
     pendingSendRef.current = loadPending(model.activeConversationId ?? "new");
@@ -639,13 +778,20 @@ export default function KernClient({ model }: { model: StudioModel }) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           signal: sendController.signal,
-          body: JSON.stringify({ content: text, clientMessageId: request.clientMessageId }),
+          body: JSON.stringify({
+            content: text,
+            clientMessageId: request.clientMessageId,
+            attachmentIds: attachmentIdsRef.current,
+          }),
         }
       );
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "发送失败");
 
       request.runId = data.execution.runId;
+      // 服务端已在同一个事务里把材料绑到这条消息上，本地列表可以清空了。
+      // 放在这里是刻意的：早于请求就清，请求失败时用户会丢掉已上传的材料。
+      setAttachments([]);
       persistPending(targetDraftKey, request);
       failedRef.current = null;
       pollBoostRef.current = 4;
@@ -1069,6 +1215,13 @@ export default function KernClient({ model }: { model: StudioModel }) {
           runtimeConnected={runtime.connected}
           modelReady={model.modelReady}
           onTrust={() => setSheet({ kind: "trust" })}
+          attachments={attachments}
+          onUploadFiles={(files) => void uploadFiles(files)}
+          onRemoveAttachment={(id) => void removeAttachment(id)}
+          uploading={uploading}
+          indexForSearch={indexForSearch}
+          onToggleIndexForSearch={setIndexForSearch}
+          accepts={accepts}
         />
       </main>
 

@@ -180,3 +180,24 @@ export interface StudioModel {
   runtime: RuntimeStatus;
   evidence: EvidenceRef[];
 }
+
+/**
+ * 输入坞里一份已上传的材料。
+ *
+ * 与服务端 `ConversationAttachment` 的公共视图一一对应，但**不带 fileKey**：
+ * 存储键对客户端没有正当用途，留在内存里只会通过 props 泄漏到各处。
+ */
+export interface ConversationAttachmentItem {
+  id: string;
+  originalFilename: string;
+  mimeType: string;
+  byteSize: number;
+  /** PENDING 只在极端时序下出现：上传接口已经解析完才返回，正常链路直接是终态 */
+  parseStatus: "PENDING" | "READY" | "UNSUPPORTED" | "FAILED";
+  parsedKind: string | null;
+  parseNote: string | null;
+  indexForSearch: boolean;
+  createdAt: string;
+  /** 解析结果的一小段预览，仅用于上传完成时的即时反馈 */
+  preview?: string;
+}
