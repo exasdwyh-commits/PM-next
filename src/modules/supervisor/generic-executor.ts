@@ -354,6 +354,8 @@ export async function buildMissionNodeMessages(input: {
       maxChars: summaryMaxChars(),
       cacheKey: `mission:${input.node.missionTaskId}`,
       cache: rollingSummaryCache,
+      // C7：真实摘要位经统一网关记账（aux 档位）所需的组织 id
+      organizationId: input.organizationId,
     })
       .then((a) => a.summaryBlock)
       .catch(() => null);

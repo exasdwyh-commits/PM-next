@@ -184,6 +184,7 @@ jobs:
       - run: npm run test:kern-execution-control
       - run: npm run test:model-cancellation
       - run: npm run test:kern-conversation-loop
+      - run: npm run test:kern-aux-metered
       - run: npm run test:model-execution-facts
       - run: npm run test:worker-fairness
       - run: npm run test:worker-failure-cleanup

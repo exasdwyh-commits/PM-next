@@ -324,6 +324,8 @@ export async function executeKernConversationTurn(
     maxChars: summaryMaxChars(),
     cacheKey: `conv:${conversationId}`,
     cache: rollingSummaryCache,
+    // C7：真实摘要位经统一网关记账（aux 档位）所需的组织 id
+    organizationId: session.organizationId,
   }).catch(() => null);
   const promptHistory = compressedHistory?.recent ?? conversationHistory;
   const historySummaryBlock = compressedHistory?.summaryBlock ?? null;
