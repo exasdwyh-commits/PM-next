@@ -137,6 +137,8 @@ segmentText: string;
 /** 摘要正文的目标上限（字符） */
 maxChars: number;
 signal?: AbortSignal;
+/** C7：统一网关记账要求组织 id；调用方（对话/Mission）透传 */
+organizationId?: string | null;
 }
 
 /**
@@ -156,6 +158,8 @@ const text = await callAuxModel(input.slot, {
 system,
 user,
 ...(input.signal? { signal: input.signal}: {}),
+// C7：经统一网关记账（aux 档位，配额豁免）
+...(input.organizationId? { organizationId: input.organizationId}: {}),
 });
 return truncateAtSentence(text, target);
 }
@@ -172,6 +176,9 @@ export type SummarizeFn = (input: {
 prevSummary: string | null;
 segmentText: string;
 maxChars: number;
+signal?: AbortSignal;
+/** C7：走真实摘要位时经统一网关记账所需 */
+organizationId?: string | null;
 }) => Promise<string>;
 
 async function defaultSummarize(input: {
@@ -179,6 +186,7 @@ prevSummary: string | null;
 segmentText: string;
 maxChars: number;
 signal?: AbortSignal;
+organizationId?: string | null;
 }): Promise<string> {
 const slot = resolveAuxModelSlot("summary");
 if (!slot) throw new Error("摘要辅助模型位未配置");
@@ -196,6 +204,8 @@ cache?: RollingSummaryCache;
 /** 可注入（单测用假摘要器）；默认走摘要辅助模型位 */
 summarize?: SummarizeFn;
 signal?: AbortSignal;
+/** C7：真实摘要位经统一网关记账所需的组织 id；不传则摘要调用缺 org 会抛错并降级 */
+organizationId?: string | null;
 }
 
 export interface AssembledHistory {
@@ -241,6 +251,7 @@ prevSummary,
 segmentText,
 maxChars: input.maxChars,
 ...(input.signal? { signal: input.signal}: {}),
+...(input.organizationId? { organizationId: input.organizationId}: {}),
 });
 if (cacheKey && cache && summaryText.trim()) {
 cache.put(cacheKey, older.length, summaryText);

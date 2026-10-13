@@ -38,6 +38,13 @@ export interface PersistedGatewayExecutionInput {
   /** Trusted server configuration only; never read from client payloads or persisted. */
   providerRuntime?: OpenAICompatibleProviderRuntime;
   requestMeta?: Record<string, string | number | boolean | null>;
+  /**
+   * C7 辅助档位：走统一网关记账（ModelRun + usage/cost 全部持久化），
+   * 但跳过成本闸配额断言（assertModelCallQuotaTx）。ModelRun.requestMeta 会被
+   * 打上 tier:"aux" 标记，配额统计与用量展示按「总数 − aux」排除。
+   * 普通调用（对话/Mission）不传，行为与原来完全一致。
+   */
+  auxTier?: boolean;
 }
 
 export interface PersistedGatewayExecutionResult {
@@ -66,13 +73,26 @@ export async function executePersistedModelGateway(
   let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
   let currentRun: { id: string; startedAt: Date } | null = null;
 
+  // C7：辅助档位在 requestMeta 里打 tier:"aux" 标记（配额统计与用量展示识别并排除）。
+  // 普通调用原样保留调用方传的 requestMeta（或 JsonNull），一个字都不变。
+  const auxRequestMeta = (): Prisma.InputJsonValue | typeof Prisma.JsonNull => {
+    if (!input.auxTier) return input.requestMeta ? jsonValue(input.requestMeta) : Prisma.JsonNull;
+    const base =
+      input.requestMeta && typeof input.requestMeta === "object" ? input.requestMeta : {};
+    return jsonValue({ ...base, tier: "aux" });
+  };
+
   // Rows represent admissions. Transport provenance distinguishes a closed,
   // unsent reservation from an actual attempt; retries share one logical ID.
   const admit = async (profile: ModelProfile) => {
     request.signal.throwIfAborted();
     const admitted = await prisma.$transaction(
-      (tx) => chargeModelCallInTx(tx, input.organizationId, async () => {
-        request.signal.throwIfAborted();
+      (tx) =>
+        chargeModelCallInTx(
+          tx,
+          input.organizationId,
+          async () => {
+            request.signal.throwIfAborted();
         const run = input.agentRunId ? await tx.agentRun.findUnique({
           where: { id: input.agentRunId }, select: {
             organizationId: true, agentTaskId: true, startedAt: true,
@@ -105,11 +125,17 @@ export async function executePersistedModelGateway(
           policyKey: input.policy.id, policyVersion: input.policy.version,
           profileKey: profile.id, provider: profile.provider, modelId: profile.modelId,
           status: "RUNNING",
-          requestMeta: input.requestMeta ? jsonValue(input.requestMeta) : Prisma.JsonNull,
+          requestMeta: auxRequestMeta(),
           startedAt: new Date(),
         } });
-        return { row, deadline };
-      }), { timeout: 10_000 },
+          return { row, deadline };
+        },
+        new Date(),
+        // C7：辅助档位跳过配额断言（行照常在同一事务内落库，可计量）；
+        // 普通调用 skipQuota=false，断言行为与原来完全一致。
+        { skipQuota: input.auxTier === true }
+      ),
+      { timeout: 10_000 }
     );
     currentRun = admitted.row;
     clearTimeout(deadlineTimer);

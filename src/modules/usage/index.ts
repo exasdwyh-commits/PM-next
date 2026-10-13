@@ -71,6 +71,38 @@ export const CHARGED_MODEL_ATTEMPT_WHERE: Prisma.ModelRunWhereInput = {
   OR: [{ transportKnown: false }, { transportStartedAt: { not: null } }, { status: "RUNNING" }],
 };
 
+/**
+ * C7 辅助档位标记：ModelRun.requestMeta.tier === "aux"。
+ * 辅助调用走统一网关记账（ModelRun + usage/cost 全写），但不进成本闸配额。
+ */
+export const AUX_TIER_META_WHERE: Prisma.ModelRunWhereInput = {
+  requestMeta: { path: ["tier"], equals: "aux" },
+};
+
+/**
+ * 配额/用量口径的「已用模型调用数」= 计费行总数 − 辅助档位行。
+ *
+ * 注意：不能用 JSON path 的 NOT 来直接排除（NOT 会把没有 tier 键的普通行也排除掉，
+ * 见 getUsage 里演示数的「总数 − 演示数」处理），所以用两次计数相减。
+ * 无 aux 行时恒等于原来的单次计数，普通调用的配额语义不变。
+ */
+export async function countChargedModelCalls(
+  client: { modelRun: { count: (args: { where: Prisma.ModelRunWhereInput }) => Promise<number> } },
+  organizationId: string,
+  period: { start: Date; end: Date }
+): Promise<number> {
+  const base: Prisma.ModelRunWhereInput = {
+    organizationId,
+    createdAt: { gte: period.start, lt: period.end },
+    ...CHARGED_MODEL_ATTEMPT_WHERE,
+  };
+  const [total, aux] = await Promise.all([
+    client.modelRun.count({ where: base }),
+    client.modelRun.count({ where: { ...base, ...AUX_TIER_META_WHERE } }),
+  ]);
+  return total - aux;
+}
+
 export async function getUsage(organizationId: string, now = new Date()) {
   const limits = deploymentLimits();
   const period = calendarMonth(now);
@@ -85,7 +117,7 @@ export async function getUsage(organizationId: string, now = new Date()) {
   const [allMissions, demoMissions, modelCalls, knownModelAttempts, modelReservations, unknownModelAttempts] = await Promise.all([
     prisma.agentTask.count({ where: missionWhere }),
     prisma.agentTask.count({ where: { ...missionWhere, AND: [{ contextSnapshot: { path: ["demo"], equals: true } }] } }),
-    prisma.modelRun.count({ where: { ...modelWhere, ...CHARGED_MODEL_ATTEMPT_WHERE } }),
+    countChargedModelCalls(prisma, organizationId, period),
     prisma.modelRun.count({ where: { ...modelWhere, transportKnown: true, transportStartedAt: { not: null } } }),
     prisma.modelRun.count({ where: { ...modelWhere, transportKnown: true, transportStartedAt: null, status: "RUNNING" } }),
     prisma.modelRun.count({ where: { ...modelWhere, transportKnown: false } }),
@@ -136,9 +168,8 @@ export async function assertModelCallQuotaTx(
   if (limit === null) return; // 未配置上限 → 不限流
   const period = calendarMonth(now);
   // 本次调用本身还没落库，所以在事务内统计时若已达到上限，说明这一笔就是超限的那一笔。
-  const used = await tx.modelRun.count({
-    where: { organizationId, createdAt: { gte: period.start, lt: period.end }, ...CHARGED_MODEL_ATTEMPT_WHERE },
-  });
+  // C7：辅助档位（tier:"aux"）不计入已用数。
+  const used = await countChargedModelCalls(tx, organizationId, period);
   if (used >= limit) {
     throw new UsageLimitError(
       `本月模型调用已达上限 ${limit} 次（每次尝试都计数，含调用失败）。${LIMIT_HINT}`,
@@ -159,13 +190,16 @@ export async function chargeModelCallInTx<T>(
   tx: Prisma.TransactionClient,
   organizationId: string,
   createTx: () => Promise<T>,
-  now = new Date()
+  now = new Date(),
+  opts?: { skipQuota?: boolean }
 ): Promise<T> {
   // key 派生沿用 memory 模块的既有约定（src/modules/memory/index.ts:170）：
   // "命名空间:组织id" 交给 Postgres 的 hashtext。不另发明一套哈希，
   // 避免同一组织在不同模块里落到不同的锁上。
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"kern-usage-model-calls:" + organizationId}))`;
-  await assertModelCallQuotaTx(tx, organizationId, now);
+  // C7：辅助档位调用跳过配额断言（仍在同一事务内落 ModelRun 行，可计量）。
+  // 普通调用不传 opts，断言行为与原来完全一致。
+  if (!opts?.skipQuota) await assertModelCallQuotaTx(tx, organizationId, now);
   return createTx();
 }
 

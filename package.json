@@ -140,6 +140,7 @@
     "test:kern-execution-control": "tsx scripts/run-test.ts tests/regression-kern-execution-control.ts",
     "test:model-cancellation": "tsx scripts/run-test.ts tests/regression-model-cancellation.ts",
     "test:kern-conversation-loop": "tsx scripts/run-test.ts tests/regression-kern-conversation-tool-loop.ts",
+    "test:kern-aux-metered": "tsx scripts/run-test.ts tests/regression-kern-aux-metered.ts",
     "test:kern-message-execution": "tsx scripts/run-test.ts tests/regression-kern-message-execution.ts",
     "test:model-execution-facts": "tsx scripts/run-test.ts tests/regression-model-execution-facts.ts",
     "test:worker-review-probes": "tsx scripts/run-test.ts tests/regression-worker-review-probes.ts",
