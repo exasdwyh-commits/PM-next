@@ -3,6 +3,7 @@ label: 读取用户上传的材料
 description: 当用户随消息提交了文件（PPT/Word/PDF/Excel/网页/文本/图片/视频）时，如何基于系统提取出的正文回答，以及卡在哪些地方不能越界。
 triggers: [这份材料, 这份文件, 附件, 上传, 这个 PPT, 这个 ppt, 幻灯片, 表格里, 文档里, 第几页, 材料里说, 文件里写, 帮我看看这份, 总结一下这份]
 intents: [KNOWLEDGE_SEARCH]
+agents: [research_agent, hermes_pm]
 scopes: [project, company-facts]
 evidencePolicy: "引用材料内容时必须带上文件名；材料没写的部分一律说「这份材料没有提到」，不得用常识或推测补齐。"
 outputTypes: [brief, report]
