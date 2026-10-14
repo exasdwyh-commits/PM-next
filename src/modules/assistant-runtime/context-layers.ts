@@ -23,7 +23,7 @@ import { routeKnowledge } from "@/modules/knowledge/router";
 import { synthesizeKnowledge } from "@/modules/knowledge/synthesis";
 import { bindKnowledgeToEvidence } from "@/modules/knowledge/evidence-bridge";
 import { freshnessLabel } from "@/modules/knowledge/authority";
-import { resolveCapabilities, type CapabilityResolution } from "./capabilities/resolver";
+import { resolveConversationCapabilities, type CapabilityResolution } from "./capabilities/resolver";
 import { ensureAssistantKnowledgeProviders } from "./knowledge-providers";
 import { buildAttachmentPrompt } from "./attachments";
 
@@ -211,7 +211,8 @@ export async function buildKernContextLayers(
 ): Promise<KernContextLayers> {
   let resolution: CapabilityResolution;
   try {
-    resolution = resolveCapabilities({
+    // 与能力预告接口共用同一入口，避免「预告看到的」和「真正会用的」不一致。
+    resolution = resolveConversationCapabilities({
       text: params.text,
       intent: params.intent,
       explicitSkillIds: params.explicitSkillIds ?? null,

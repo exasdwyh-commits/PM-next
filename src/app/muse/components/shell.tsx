@@ -448,13 +448,13 @@ function RunControls({
               </button>
               <button type="button" role="radio" className="m-control-row" aria-checked={config.delegationMode === "full"}
                 onClick={() => onChange({ delegationMode: "full" })}>
-                <span><b>全委托</b><small>本轮取舍交给 Kern：方案取舍与草稿细节不再回问，直接按它判断的最佳方案产出；补的假设会标注出来。业务执行仍需你在提议卡上确认。</small></span>
+                <span><b>全委托</b><small>草稿细节与方案取舍由 Kern 自行决定，补全的假设会标注；业务写入仍需你在提议卡上确认——全委托不代替批准。</small></span>
                 <i>{config.delegationMode === "full" ? "✓" : ""}</i>
               </button>
             </div>
             <p className="m-run-hint">
               {config.delegationMode === "full"
-                ? "全委托只影响表达与决策口径，不放宽任何工具或权限边界。"
+                ? "全委托适用于方案生成；需要确认的业务操作仍由你批准。"
                 : "常规协作：不确定的地方会先和你确认。"}
             </p>
           </section>
@@ -648,7 +648,7 @@ export function Dock({
           <div className="m-dock-hint" role="status">
             <I.spark />
             <span>
-              本轮会自动用到：<b>{packHint.labels.join("、")}</b>
+              根据当前输入，可能用到：<b>{packHint.labels.join("、")}</b>
               {packHint.total > packHint.labels.length ? ` 等 ${packHint.total} 个` : ""}
             </span>
             <button
