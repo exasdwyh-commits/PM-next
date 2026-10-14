@@ -30,7 +30,7 @@ export function ExecutionFlow({ status, events = [], connected = true, activity 
   const shownWidth = Math.max(FLOW_GOAL.width + FLOW_NODE.padding * 2, ...positions.filter(position => revealed.has(position.key)).map(position => position.x + FLOW_NODE.width + FLOW_NODE.padding));
   const goalY = (layout.height - FLOW_GOAL.height) / 2;
   const selected = status.nodes.find(node => node.key === selectedKey);
-  const fitScale = Math.min(1, Math.max(.05, Math.min((size.width - 24) / shownWidth, (size.height - 24) / layout.height)));
+  const fitScale = Math.min(1, Math.max(size.width < 480 ? .86 : .72, Math.min((size.width - 24) / shownWidth, (size.height - 24) / layout.height)));
   const fitted = { scale: fitScale, x: (size.width - shownWidth * fitScale) / 2, y: (size.height - layout.height * fitScale) / 2 };
   const camera = view ?? fitted;
   const activeNodes = status.nodes.filter(node => flowNodeState(node, status).tone === "active");
@@ -63,7 +63,7 @@ export function ExecutionFlow({ status, events = [], connected = true, activity 
   }, [collapsed]);
 
   const zoom = (factor: number) => {
-    const scale = Math.min(1.6, Math.max(.05, camera.scale * factor));
+    const scale = Math.min(1.6, Math.max(.38, camera.scale * factor));
     const ratio = scale / camera.scale;
     setView({ scale, x: size.width / 2 - (size.width / 2 - camera.x) * ratio, y: size.height / 2 - (size.height / 2 - camera.y) * ratio });
   };
@@ -86,7 +86,7 @@ export function ExecutionFlow({ status, events = [], connected = true, activity 
         <div className="m-flow-tools">
           {!collapsed ? <>
             <button type="button" aria-label="定位当前步骤" title="定位当前步骤" onClick={focusCurrent} disabled={!nodes.length}><FlowIcon kind="focus" /></button>
-            <button type="button" aria-label="缩小工作流" title="缩小" onClick={() => zoom(1 / 1.2)} disabled={camera.scale <= .05}><FlowIcon kind="minus" /></button>
+            <button type="button" aria-label="缩小工作流" title="缩小" onClick={() => zoom(1 / 1.2)} disabled={camera.scale <= .38}><FlowIcon kind="minus" /></button>
             <span className="m-flow-scale">{Math.round(camera.scale * 100)}%</span>
             <button type="button" aria-label="放大工作流" title="放大" onClick={() => zoom(1.2)} disabled={camera.scale >= 1.6}><FlowIcon kind="plus" /></button>
             <button type="button" aria-label="适应画布" title="适应画布" onClick={() => setView(null)}><FlowIcon kind="fit" /></button>
