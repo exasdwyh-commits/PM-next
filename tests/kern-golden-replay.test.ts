@@ -9,10 +9,13 @@
  * 全部纯函数 + 脚本化 invoker：不碰数据库、不调模型、CI 可跑、零花费。
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import test from "node:test";
 import { conversationProductGoal } from "../src/modules/assistant-runtime/product-goal";
 import { routeIntent } from "../src/modules/assistant-runtime/router";
 import { buildNewProductMissionPlan, decideMissionLaunch } from "../src/modules/supervisor/plan";
+import { buildMissionPoster } from "../src/modules/supervisor/report-poster";
 import {
   missionDependencyKeys,
   missionOutputText,
@@ -152,4 +155,67 @@ test("G3b：gtm 真失败时综合输入如实 UNKNOWN——截断与失败都�
   assert.match(failed, /gtm.*未能完成 → 视为 UNKNOWN/s);
   const emptyButSucceeded = renderMissionUpstream([{ key: "gtm", agentCode: "marketing_agent", status: "SUCCEEDED", summary: null }]);
   assert.match(emptyButSucceeded, /无产出/, "成功但空产出同样如实标注，不许编上游");
+});
+
+// ---------------------------------------------------------------------------
+// G4：海报配色对比度（用户报告⑤「无法阅读的配色」——浏览器实测发现 muted/faint
+//     两档低于 WCAG AA，改深后用本测试焊死：任何人再把它调浅，CI 直接红）。
+//     对比度是纯数学，harness 完全守得住。
+// ---------------------------------------------------------------------------
+
+test("G4：V3 海报调色板全部达到 WCAG AA（小字 ≥4.5:1，大字 ≥3:1）", () => {
+  const css = readFileSync(path.join(process.cwd(), "src", "components", "report-v3.css"), "utf8");
+  const block = /\.rv3\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
+  const tokens = new Map<string, string>();
+  for (const m of block.matchAll(/--([a-z0-9-]+):\s*#([0-9a-fA-F]{6})/g)) tokens.set(m[1], m[2]);
+  const lum = (hex: string) => {
+    const [r, g, b] = [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a: string, b: string) => {
+    const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  const need = (fg: string, bg: string, min: number, label: string) => {
+    const f = tokens.get(fg), g = tokens.get(bg);
+    assert.ok(f && g, `调色板缺少 --${f ? fg : bg}`);
+    const r = contrast(f, g);
+    assert.ok(r >= min, `${label}：--${fg} on --${bg} = ${r.toFixed(2)}:1，低于 ${min}:1`);
+  };
+  // 正文小字（≥4.5）
+  need("ink", "bg", 4.5, "正文/底");
+  need("ink", "paper", 4.5, "正文/纸");
+  need("muted", "bg", 4.5, "次要文字/底");
+  need("muted", "paper", 4.5, "次要文字/纸");
+  need("faint", "paper2", 4.5, "弱文字/浅面板");
+  need("faint", "bg", 4.5, "弱文字/底");
+  need("accent", "paper", 4.5, "强调/纸");
+  need("accent", "accent-soft", 4.5, "强调/强调底");
+  need("amber-tx", "amber-bg", 4.5, "琥珀标注");
+  need("ok-tx", "ok-bg", 4.5, "绿色标注");
+  need("dark-tx", "dark", 4.5, "深色块文字");
+  // 大标题（≥3.0）
+  need("ink", "amber-bg", 3.0, "大字/琥珀");
+});
+
+// ---------------------------------------------------------------------------
+// G5：海报投影层复读清洗——历史任务的 conclusion/steps 里已存下的工具复读，
+//     打开报告时也必须干净（③ 的纵深防御：执行侧剔除 + 交付侧再剔除）。
+// ---------------------------------------------------------------------------
+
+test("G5：buildMissionPoster 对已入库的复读正文同样清洗，不谎称已核实", () => {
+  const echo = LEAKY_FINAL;
+  const report = {
+    missionId: "m-test", title: "红参胶原蛋白肽女士奶粉", playbook: "NEW_PRODUCT", outcome: "COMPLETED",
+    createdAt: new Date("2026-10-12T00:00:00Z"), demo: false,
+    conclusion: echo, recommendation: null, decision: null, researchSources: [],
+    steps: [{ key: "market", agent: "research_agent", status: "SUCCEEDED", output: echo }],
+  };
+  const poster = buildMissionPoster(report as unknown as Parameters<typeof buildMissionPoster>[0]);
+  const all = JSON.stringify(poster);
+  assert.ok(!/"tool":|%timeout|kern-tool/.test(all), "海报任何字段都不得携带工具复读");
+  assert.ok(poster.researchBody?.startsWith("### 研究边界"), "研究正文从结论开始");
+  assert.ok(poster.advisoryNotes?.[0]?.summary?.startsWith("### 研究边界"), "步骤笔记从结论开始");
+  assert.equal(poster.conclusions?.[0]?.claimKind, "INFERENCE", "模型自评不得升格为已核实");
+  assert.ok(poster.unknowns?.some(u => u.includes("尚无已捕获的外部来源")), "无来源时诚实标注，不谎称核实");
 });

@@ -2,6 +2,13 @@
 import type { ExecutiveReportPayload } from "@/shared/executive-report-types";
 import type { ExecutiveReportCitation } from "@/shared/executive-report-citation";
 import { conclusionLead, resolveSourceMarkers, type MissionReport } from "./report-format";
+import { stripToolRequestNoise } from "./tools";
+
+/** 交付前最后一道复读防护：历史任务正文里已存下的工具请求行，打开报告时也应干净。 */
+function clean(body: string): string {
+  const stripped = stripToolRequestNoise(body);
+  return stripped === null ? body : stripped;
+}
 
 /** Only actual list items become risk cards; a section heading is never a risk. */
 function riskItems(text: string): string[] {
@@ -20,7 +27,7 @@ function riskItems(text: string): string[] {
 /** Keep the entire original Markdown, including unrecognized sections and fenced code. */
 export function buildMissionPoster(report: MissionReport): ExecutiveReportPayload {
   const sources = report.demo ? [] : report.researchSources ?? [];
-  const text = resolveSourceMarkers(report.conclusion ?? "", sources);
+  const text = clean(resolveSourceMarkers(report.conclusion ?? "", sources));
   const unknowns = [...new Set([text, ...report.steps.map(step => step.output ?? "")]
     .flatMap(body => body.split(/\r?\n/).filter(line => /UNKNOWN\s*[：:]/i.test(line)).map(line => line.trim())))];
   if (!sources.length) unknowns.unshift(report.demo ? "演示数据：不能作为真实研究、报价或审批依据。" : "尚无已捕获的外部来源：需补齐真实研究资料；执行完成不等于结论已核实。");
@@ -36,7 +43,7 @@ export function buildMissionPoster(report: MissionReport): ExecutiveReportPayloa
     risks: riskItems(text),
     decisionsRequired: report.decision ? [resolveSourceMarkers(report.decision, sources)] : [],
     recommendedActions: report.recommendation ? [resolveSourceMarkers(report.recommendation, sources)] : [],
-    advisoryNotes: report.steps.map(step => ({ agentCode: step.key, agentName: step.agent, status: step.status, summary: step.output ? resolveSourceMarkers(step.output, sources) : step.output })),
+    advisoryNotes: report.steps.map(step => ({ agentCode: step.key, agentName: step.agent, status: step.status, summary: step.output ? clean(resolveSourceMarkers(step.output, sources)) : step.output })),
     provenance: { sourceRefs: sources.map(source => source.url), agentRunRefs: [], modelRunRefs: [], knowledgeDebtRefs: [], researchSnapshotRef: null },
     researchBody: text,
     researchSources: sources.map(source => ({ id: source.sourceId, title: source.title, url: source.url, fetchedAt: source.fetchedAt })),
