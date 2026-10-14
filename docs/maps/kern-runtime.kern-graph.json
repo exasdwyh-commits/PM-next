@@ -12,6 +12,36 @@
   "generator": "DETERMINISTIC",
   "nodes": [
     {
+      "id": "demo-surfaces",
+      "type": "DEMO_UI",
+      "label": "Demonstration Surfaces",
+      "detail": "Explicit demo routes; source presence does not establish production use.",
+      "layer": 0,
+      "truth": "VERIFIED",
+      "metadata": {
+        "fileCount": 9,
+        "repository": "exasdwyh-commits/PM-next",
+        "revision": "WORKTREE"
+      },
+      "evidenceRefs": [
+        {
+          "ref": "src/app/demo-beautified/page.tsx",
+          "title": "src/app/demo-beautified/page.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/demo-beautified-advanced/page.tsx",
+          "title": "src/app/demo-beautified-advanced/page.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/demo-cost-modular/page.tsx",
+          "title": "src/app/demo-cost-modular/page.tsx",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
       "id": "chat-ui",
       "type": "CHAT_UI",
       "label": "Kern Chat",
@@ -19,11 +49,16 @@
       "layer": 0,
       "truth": "VERIFIED",
       "metadata": {
-        "fileCount": 30,
+        "fileCount": 45,
         "repository": "exasdwyh-commits/PM-next",
         "revision": "WORKTREE"
       },
       "evidenceRefs": [
+        {
+          "ref": "src/app/muse/briefing-summary.ts",
+          "title": "src/app/muse/briefing-summary.ts",
+          "kind": "repository-source"
+        },
         {
           "ref": "src/app/muse/components/ask-card.tsx",
           "title": "src/app/muse/components/ask-card.tsx",
@@ -33,11 +68,6 @@
           "ref": "src/app/muse/components/brief.tsx",
           "title": "src/app/muse/components/brief.tsx",
           "kind": "repository-source"
-        },
-        {
-          "ref": "src/app/muse/components/conclusion-decisions.tsx",
-          "title": "src/app/muse/components/conclusion-decisions.tsx",
-          "kind": "repository-source"
         }
       ]
     },
@@ -45,11 +75,11 @@
       "id": "workbench",
       "type": "WORKBENCH",
       "label": "Management Workbench",
-      "detail": "Products, projects, tasks, evidence and audit management.",
+      "detail": "Products, projects, tasks, evidence, audit management and standalone report pages.",
       "layer": 0,
       "truth": "VERIFIED",
       "metadata": {
-        "fileCount": 47,
+        "fileCount": 51,
         "repository": "exasdwyh-commits/PM-next",
         "revision": "WORKTREE"
       },
@@ -79,24 +109,24 @@
       "layer": 1,
       "truth": "VERIFIED",
       "metadata": {
-        "fileCount": 4,
+        "fileCount": 6,
         "repository": "exasdwyh-commits/PM-next",
         "revision": "WORKTREE"
       },
       "evidenceRefs": [
         {
-          "ref": "src/app/api/conversations/[id]/messages/route.ts",
-          "title": "src/app/api/conversations/[id]/messages/route.ts",
+          "ref": "src/app/api/conversations/route.ts",
+          "title": "src/app/api/conversations/route.ts",
           "kind": "repository-source"
         },
         {
-          "ref": "src/app/api/conversations/[id]/route.ts",
-          "title": "src/app/api/conversations/[id]/route.ts",
+          "ref": "src/app/api/conversations/[id]/attachments/route.ts",
+          "title": "src/app/api/conversations/[id]/attachments/route.ts",
           "kind": "repository-source"
         },
         {
-          "ref": "src/app/api/conversations/[id]/runtime-config/route.ts",
-          "title": "src/app/api/conversations/[id]/runtime-config/route.ts",
+          "ref": "src/app/api/conversations/[id]/attachments/[attachmentId]/route.ts",
+          "title": "src/app/api/conversations/[id]/attachments/[attachmentId]/route.ts",
           "kind": "repository-source"
         }
       ]
@@ -109,7 +139,7 @@
       "layer": 1,
       "truth": "VERIFIED",
       "metadata": {
-        "fileCount": 90,
+        "fileCount": 123,
         "repository": "exasdwyh-commits/PM-next",
         "revision": "WORKTREE"
       },
@@ -120,13 +150,13 @@
           "kind": "repository-source"
         },
         {
-          "ref": "src/app/api/agent-runs/[runId]/cancel/route.ts",
-          "title": "src/app/api/agent-runs/[runId]/cancel/route.ts",
+          "ref": "src/app/api/agent-runs/route.ts",
+          "title": "src/app/api/agent-runs/route.ts",
           "kind": "repository-source"
         },
         {
-          "ref": "src/app/api/agent-runs/[runId]/route.ts",
-          "title": "src/app/api/agent-runs/[runId]/route.ts",
+          "ref": "src/app/api/agent-runs/[runId]/cancel/route.ts",
+          "title": "src/app/api/agent-runs/[runId]/cancel/route.ts",
           "kind": "repository-source"
         }
       ]
@@ -169,11 +199,16 @@
       "layer": 3,
       "truth": "VERIFIED",
       "metadata": {
-        "fileCount": 12,
+        "fileCount": 19,
         "repository": "exasdwyh-commits/PM-next",
         "revision": "WORKTREE"
       },
       "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/active-push.ts",
+          "title": "src/modules/assistant-runtime/capabilities/active-push.ts",
+          "kind": "repository-source"
+        },
         {
           "ref": "src/modules/assistant-runtime/capabilities/catalog.ts",
           "title": "src/modules/assistant-runtime/capabilities/catalog.ts",
@@ -182,11 +217,6 @@
         {
           "ref": "src/modules/assistant-runtime/capabilities/challenge.ts",
           "title": "src/modules/assistant-runtime/capabilities/challenge.ts",
-          "kind": "repository-source"
-        },
-        {
-          "ref": "src/modules/assistant-runtime/capabilities/contracts.ts",
-          "title": "src/modules/assistant-runtime/capabilities/contracts.ts",
           "kind": "repository-source"
         }
       ]
@@ -199,11 +229,16 @@
       "layer": 2,
       "truth": "VERIFIED",
       "metadata": {
-        "fileCount": 19,
+        "fileCount": 25,
         "repository": "exasdwyh-commits/PM-next",
         "revision": "WORKTREE"
       },
       "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/attachments.ts",
+          "title": "src/modules/assistant-runtime/attachments.ts",
+          "kind": "repository-source"
+        },
         {
           "ref": "src/modules/assistant-runtime/autonomy.ts",
           "title": "src/modules/assistant-runtime/autonomy.ts",
@@ -212,11 +247,6 @@
         {
           "ref": "src/modules/assistant-runtime/collaboration-planner.ts",
           "title": "src/modules/assistant-runtime/collaboration-planner.ts",
-          "kind": "repository-source"
-        },
-        {
-          "ref": "src/modules/assistant-runtime/context-builder.ts",
-          "title": "src/modules/assistant-runtime/context-builder.ts",
           "kind": "repository-source"
         }
       ]
@@ -259,7 +289,7 @@
       "layer": 4,
       "truth": "VERIFIED",
       "metadata": {
-        "fileCount": 13,
+        "fileCount": 16,
         "repository": "exasdwyh-commits/PM-next",
         "revision": "WORKTREE"
       },
@@ -275,8 +305,8 @@
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/model-gateway/gateway.ts",
-          "title": "src/modules/model-gateway/gateway.ts",
+          "ref": "src/modules/model-gateway/aux-slots.ts",
+          "title": "src/modules/model-gateway/aux-slots.ts",
           "kind": "repository-source"
         }
       ]
@@ -289,7 +319,7 @@
       "layer": 4,
       "truth": "VERIFIED",
       "metadata": {
-        "fileCount": 27,
+        "fileCount": 35,
         "repository": "exasdwyh-commits/PM-next",
         "revision": "WORKTREE"
       },
@@ -319,7 +349,7 @@
       "layer": 5,
       "truth": "VERIFIED",
       "metadata": {
-        "fileCount": 17,
+        "fileCount": 22,
         "repository": "exasdwyh-commits/PM-next",
         "revision": "WORKTREE"
       },
@@ -349,7 +379,7 @@
       "layer": 5,
       "truth": "VERIFIED",
       "metadata": {
-        "fileCount": 6,
+        "fileCount": 7,
         "repository": "exasdwyh-commits/PM-next",
         "revision": "WORKTREE"
       },
@@ -365,8 +395,8 @@
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/desktop-runtime/index.ts",
-          "title": "src/modules/desktop-runtime/index.ts",
+          "ref": "src/modules/desktop-runtime/extended-actions.ts",
+          "title": "src/modules/desktop-runtime/extended-actions.ts",
           "kind": "repository-source"
         }
       ]
@@ -409,11 +439,16 @@
       "layer": 5,
       "truth": "VERIFIED",
       "metadata": {
-        "fileCount": 8,
+        "fileCount": 12,
         "repository": "exasdwyh-commits/PM-next",
         "revision": "WORKTREE"
       },
       "evidenceRefs": [
+        {
+          "ref": "src/modules/research/citation-lineage.ts",
+          "title": "src/modules/research/citation-lineage.ts",
+          "kind": "repository-source"
+        },
         {
           "ref": "src/modules/research/evidence-claims.ts",
           "title": "src/modules/research/evidence-claims.ts",
@@ -422,11 +457,6 @@
         {
           "ref": "src/modules/research/market-research.ts",
           "title": "src/modules/research/market-research.ts",
-          "kind": "repository-source"
-        },
-        {
-          "ref": "src/modules/research/opportunity-analysis.ts",
-          "title": "src/modules/research/opportunity-analysis.ts",
           "kind": "repository-source"
         }
       ]
@@ -439,11 +469,16 @@
       "layer": 5,
       "truth": "VERIFIED",
       "metadata": {
-        "fileCount": 13,
+        "fileCount": 27,
         "repository": "exasdwyh-commits/PM-next",
         "revision": "WORKTREE"
       },
       "evidenceRefs": [
+        {
+          "ref": "src/modules/cost-engine/bom-import.ts",
+          "title": "src/modules/cost-engine/bom-import.ts",
+          "kind": "repository-source"
+        },
         {
           "ref": "src/modules/cost-engine/budget-variance.ts",
           "title": "src/modules/cost-engine/budget-variance.ts",
@@ -452,11 +487,6 @@
         {
           "ref": "src/modules/cost-engine/channel.ts",
           "title": "src/modules/cost-engine/channel.ts",
-          "kind": "repository-source"
-        },
-        {
-          "ref": "src/modules/cost-engine/cost-total.ts",
-          "title": "src/modules/cost-engine/cost-total.ts",
           "kind": "repository-source"
         }
       ]
@@ -529,7 +559,7 @@
       "layer": 6,
       "truth": "VERIFIED",
       "metadata": {
-        "fileCount": 8,
+        "fileCount": 9,
         "repository": "exasdwyh-commits/PM-next",
         "revision": "WORKTREE"
       },
@@ -559,7 +589,7 @@
       "layer": 6,
       "truth": "VERIFIED",
       "metadata": {
-        "fileCount": 31,
+        "fileCount": 43,
         "repository": "exasdwyh-commits/PM-next",
         "revision": "WORKTREE"
       },
@@ -585,28 +615,28 @@
       "id": "platform-services",
       "type": "PLATFORM",
       "label": "Platform Services",
-      "detail": "Tenancy, identity, scheduling, notifications and supporting services.",
+      "detail": "Tenancy, identity, scheduling, notifications, artifacts, file intake, feedback, history compression and supporting services.",
       "layer": 6,
       "truth": "VERIFIED",
       "metadata": {
-        "fileCount": 49,
+        "fileCount": 71,
         "repository": "exasdwyh-commits/PM-next",
         "revision": "WORKTREE"
       },
       "evidenceRefs": [
         {
-          "ref": "src/modules/automation-trace/index.ts",
-          "title": "src/modules/automation-trace/index.ts",
+          "ref": "src/modules/artifacts/protocol.ts",
+          "title": "src/modules/artifacts/protocol.ts",
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/automation-trace/service.ts",
-          "title": "src/modules/automation-trace/service.ts",
+          "ref": "src/modules/artifacts/rich-blocks.ts",
+          "title": "src/modules/artifacts/rich-blocks.ts",
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/autopilot/index.ts",
-          "title": "src/modules/autopilot/index.ts",
+          "ref": "src/modules/artifacts/service.ts",
+          "title": "src/modules/artifacts/service.ts",
           "kind": "repository-source"
         }
       ]
@@ -640,15 +670,20 @@
       "id": "shared-kernel",
       "type": "SHARED_KERNEL",
       "label": "Shared Kernel",
-      "detail": "Cross-cutting helpers, UI primitives, contracts and reply formats.",
+      "detail": "Cross-cutting helpers, request middleware, UI primitives, contracts and reply formats.",
       "layer": 7,
       "truth": "VERIFIED",
       "metadata": {
-        "fileCount": 61,
+        "fileCount": 103,
         "repository": "exasdwyh-commits/PM-next",
         "revision": "WORKTREE"
       },
       "evidenceRefs": [
+        {
+          "ref": "src/components/app-shell-nav.tsx",
+          "title": "src/components/app-shell-nav.tsx",
+          "kind": "repository-source"
+        },
         {
           "ref": "src/components/app-shell.tsx",
           "title": "src/components/app-shell.tsx",
@@ -657,11 +692,6 @@
         {
           "ref": "src/components/automation-trace.tsx",
           "title": "src/components/automation-trace.tsx",
-          "kind": "repository-source"
-        },
-        {
-          "ref": "src/components/challenge-report-card.tsx",
-          "title": "src/components/challenge-report-card.tsx",
           "kind": "repository-source"
         }
       ]
@@ -892,8 +922,8 @@
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/advisor/runs.ts",
-          "title": "src/modules/advisor/runs.ts",
+          "ref": "src/shared/status-labels.ts",
+          "title": "src/shared/status-labels.ts",
           "kind": "repository-source"
         }
       ]
@@ -957,18 +987,18 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
+          "ref": "src/modules/assistant-runtime/context-layers.ts",
+          "title": "src/modules/assistant-runtime/context-layers.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/resolver.ts",
+          "title": "src/modules/assistant-runtime/capabilities/resolver.ts",
+          "kind": "repository-source"
+        },
+        {
           "ref": "src/modules/assistant-runtime/conversation-config.ts",
           "title": "src/modules/assistant-runtime/conversation-config.ts",
-          "kind": "repository-source"
-        },
-        {
-          "ref": "src/modules/assistant-runtime/capabilities/catalog.ts",
-          "title": "src/modules/assistant-runtime/capabilities/catalog.ts",
-          "kind": "repository-source"
-        },
-        {
-          "ref": "src/modules/assistant-runtime/conversation-engine.ts",
-          "title": "src/modules/assistant-runtime/conversation-engine.ts",
           "kind": "repository-source"
         }
       ]
@@ -989,6 +1019,51 @@
         {
           "ref": "src/modules/decision-intelligence/index.ts",
           "title": "src/modules/decision-intelligence/index.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-assistant-runtime-desktop-runtime",
+      "from": "assistant-runtime",
+      "to": "desktop-runtime",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/conversation-tool-loop.ts",
+          "title": "src/modules/assistant-runtime/conversation-tool-loop.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/desktop-runtime/presence.ts",
+          "title": "src/modules/desktop-runtime/presence.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-assistant-runtime-domain-data",
+      "from": "assistant-runtime",
+      "to": "domain-data",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/attachments.ts",
+          "title": "src/modules/assistant-runtime/attachments.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/knowledge/sync.ts",
+          "title": "src/modules/knowledge/sync.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/context-layers.ts",
+          "title": "src/modules/assistant-runtime/context-layers.ts",
           "kind": "repository-source"
         }
       ]
@@ -1077,8 +1152,8 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/modules/assistant-runtime/context-builder.ts",
-          "title": "src/modules/assistant-runtime/context-builder.ts",
+          "ref": "src/modules/assistant-runtime/attachments.ts",
+          "title": "src/modules/assistant-runtime/attachments.ts",
           "kind": "repository-source"
         },
         {
@@ -1087,8 +1162,8 @@
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/assistant-runtime/conversation-config.ts",
-          "title": "src/modules/assistant-runtime/conversation-config.ts",
+          "ref": "src/modules/assistant-runtime/context-builder.ts",
+          "title": "src/modules/assistant-runtime/context-builder.ts",
           "kind": "repository-source"
         }
       ]
@@ -1102,8 +1177,8 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/modules/assistant-runtime/context-builder.ts",
-          "title": "src/modules/assistant-runtime/context-builder.ts",
+          "ref": "src/modules/assistant-runtime/attachments.ts",
+          "title": "src/modules/assistant-runtime/attachments.ts",
           "kind": "repository-source"
         },
         {
@@ -1112,8 +1187,28 @@
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/assistant-runtime/conversation-config.ts",
-          "title": "src/modules/assistant-runtime/conversation-config.ts",
+          "ref": "src/modules/file-intake/index.ts",
+          "title": "src/modules/file-intake/index.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-assistant-runtime-research",
+      "from": "assistant-runtime",
+      "to": "research",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/assistant-runtime/context-layers.ts",
+          "title": "src/modules/assistant-runtime/context-layers.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/research/research-tiers.ts",
+          "title": "src/modules/research/research-tiers.ts",
           "kind": "repository-source"
         }
       ]
@@ -1127,8 +1222,8 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/modules/assistant-runtime/context-builder.ts",
-          "title": "src/modules/assistant-runtime/context-builder.ts",
+          "ref": "src/modules/assistant-runtime/attachments.ts",
+          "title": "src/modules/assistant-runtime/attachments.ts",
           "kind": "repository-source"
         },
         {
@@ -1137,8 +1232,8 @@
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/assistant-runtime/conversation-config.ts",
-          "title": "src/modules/assistant-runtime/conversation-config.ts",
+          "ref": "src/modules/assistant-runtime/context-builder.ts",
+          "title": "src/modules/assistant-runtime/context-builder.ts",
           "kind": "repository-source"
         }
       ]
@@ -1152,13 +1247,18 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/modules/assistant-runtime/service.ts",
-          "title": "src/modules/assistant-runtime/service.ts",
+          "ref": "src/modules/assistant-runtime/conversation-engine.ts",
+          "title": "src/modules/assistant-runtime/conversation-engine.ts",
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/supervisor/index.ts",
-          "title": "src/modules/supervisor/index.ts",
+          "ref": "src/modules/supervisor/tools.ts",
+          "title": "src/modules/supervisor/tools.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/conversation-tool-loop.ts",
+          "title": "src/modules/assistant-runtime/conversation-tool-loop.ts",
           "kind": "repository-source"
         }
       ]
@@ -1337,18 +1437,18 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/modules/assistant-runtime/capabilities/challenge.ts",
-          "title": "src/modules/assistant-runtime/capabilities/challenge.ts",
+          "ref": "src/modules/assistant-runtime/capabilities/active-push.ts",
+          "title": "src/modules/assistant-runtime/capabilities/active-push.ts",
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/identity/session.ts",
-          "title": "src/modules/identity/session.ts",
+          "ref": "src/modules/notify/index.ts",
+          "title": "src/modules/notify/index.ts",
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/assistant-runtime/capabilities/contracts.ts",
-          "title": "src/modules/assistant-runtime/capabilities/contracts.ts",
+          "ref": "src/modules/tenant/index.ts",
+          "title": "src/modules/tenant/index.ts",
           "kind": "repository-source"
         }
       ]
@@ -1464,6 +1564,31 @@
       ]
     },
     {
+      "id": "import-chat-ui-capability-registry",
+      "from": "chat-ui",
+      "to": "capability-registry",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/muse/briefing-summary.ts",
+          "title": "src/app/muse/briefing-summary.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/capabilities/daily-briefing.ts",
+          "title": "src/modules/assistant-runtime/capabilities/daily-briefing.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/muse/components/daily-briefing-summary.tsx",
+          "title": "src/app/muse/components/daily-briefing-summary.tsx",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
       "id": "import-chat-ui-governance",
       "from": "chat-ui",
       "to": "governance",
@@ -1492,18 +1617,18 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
+          "ref": "src/app/muse/components/daily-briefing.tsx",
+          "title": "src/app/muse/components/daily-briefing.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/tenant/index.ts",
+          "title": "src/modules/tenant/index.ts",
+          "kind": "repository-source"
+        },
+        {
           "ref": "src/app/muse/components/graph.tsx",
           "title": "src/app/muse/components/graph.tsx",
-          "kind": "repository-source"
-        },
-        {
-          "ref": "src/modules/visual-intelligence/contracts.ts",
-          "title": "src/modules/visual-intelligence/contracts.ts",
-          "kind": "repository-source"
-        },
-        {
-          "ref": "src/app/muse/muse-client.tsx",
-          "title": "src/app/muse/muse-client.tsx",
           "kind": "repository-source"
         }
       ]
@@ -1567,8 +1692,8 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/app/api/conversations/[id]/messages/route.ts",
-          "title": "src/app/api/conversations/[id]/messages/route.ts",
+          "ref": "src/app/api/conversations/route.ts",
+          "title": "src/app/api/conversations/route.ts",
           "kind": "repository-source"
         },
         {
@@ -1577,8 +1702,8 @@
           "kind": "repository-source"
         },
         {
-          "ref": "src/app/api/conversations/[id]/route.ts",
-          "title": "src/app/api/conversations/[id]/route.ts",
+          "ref": "src/app/api/conversations/[id]/attachments/route.ts",
+          "title": "src/app/api/conversations/[id]/attachments/route.ts",
           "kind": "repository-source"
         }
       ]
@@ -1592,8 +1717,8 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/app/api/conversations/[id]/messages/route.ts",
-          "title": "src/app/api/conversations/[id]/messages/route.ts",
+          "ref": "src/app/api/conversations/route.ts",
+          "title": "src/app/api/conversations/route.ts",
           "kind": "repository-source"
         },
         {
@@ -1602,8 +1727,8 @@
           "kind": "repository-source"
         },
         {
-          "ref": "src/app/api/conversations/[id]/route.ts",
-          "title": "src/app/api/conversations/[id]/route.ts",
+          "ref": "src/app/api/conversations/[id]/attachments/route.ts",
+          "title": "src/app/api/conversations/[id]/attachments/route.ts",
           "kind": "repository-source"
         }
       ]
@@ -1617,8 +1742,8 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/app/api/conversations/[id]/messages/route.ts",
-          "title": "src/app/api/conversations/[id]/messages/route.ts",
+          "ref": "src/app/api/conversations/route.ts",
+          "title": "src/app/api/conversations/route.ts",
           "kind": "repository-source"
         },
         {
@@ -1667,13 +1792,43 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/modules/cost-engine/presets.ts",
-          "title": "src/modules/cost-engine/presets.ts",
+          "ref": "src/modules/cost-engine/bom-import.ts",
+          "title": "src/modules/cost-engine/bom-import.ts",
           "kind": "repository-source"
         },
         {
           "ref": "src/modules/tenant/index.ts",
           "title": "src/modules/tenant/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/cost-engine/compliance-checklist.ts",
+          "title": "src/modules/cost-engine/compliance-checklist.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-cost-engine-shared-kernel",
+      "from": "cost-engine",
+      "to": "shared-kernel",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/cost-engine/html-report-rich.ts",
+          "title": "src/modules/cost-engine/html-report-rich.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/response-format/types.ts",
+          "title": "src/modules/response-format/types.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/shared/datetime.ts",
+          "title": "src/shared/datetime.ts",
           "kind": "repository-source"
         }
       ]
@@ -1734,6 +1889,81 @@
         {
           "ref": "src/shared/audit.ts",
           "title": "src/shared/audit.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-demo-surfaces-chat-ui",
+      "from": "demo-surfaces",
+      "to": "chat-ui",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/demo-kern/page.tsx",
+          "title": "src/app/demo-kern/page.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/muse/response/response-view.tsx",
+          "title": "src/app/muse/response/response-view.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/muse/response/response-view-v2.tsx",
+          "title": "src/app/muse/response/response-view-v2.tsx",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-demo-surfaces-cost-engine",
+      "from": "demo-surfaces",
+      "to": "cost-engine",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/demo-cost-rich/page.tsx",
+          "title": "src/app/demo-cost-rich/page.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/cost-engine/modules/calculator.ts",
+          "title": "src/modules/cost-engine/modules/calculator.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/cost-engine/bom-import.ts",
+          "title": "src/modules/cost-engine/bom-import.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-demo-surfaces-shared-kernel",
+      "from": "demo-surfaces",
+      "to": "shared-kernel",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/demo-beautified/page.tsx",
+          "title": "src/app/demo-beautified/page.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/components/role-context.tsx",
+          "title": "src/components/role-context.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/components/daily-briefing-rich.tsx",
+          "title": "src/components/daily-briefing-rich.tsx",
           "kind": "repository-source"
         }
       ]
@@ -1867,13 +2097,18 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/modules/projects/project-view.ts",
-          "title": "src/modules/projects/project-view.ts",
+          "ref": "src/modules/knowledge/router.ts",
+          "title": "src/modules/knowledge/router.ts",
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/evidence/evidence-view.ts",
-          "title": "src/modules/evidence/evidence-view.ts",
+          "ref": "src/modules/evidence/source-trust.ts",
+          "title": "src/modules/evidence/source-trust.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/projects/project-view.ts",
+          "title": "src/modules/projects/project-view.ts",
           "kind": "repository-source"
         }
       ]
@@ -1917,8 +2152,8 @@
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/knowledge/brief-snapshot.ts",
-          "title": "src/modules/knowledge/brief-snapshot.ts",
+          "ref": "src/modules/knowledge/auto-sync.ts",
+          "title": "src/modules/knowledge/auto-sync.ts",
           "kind": "repository-source"
         }
       ]
@@ -2292,8 +2527,8 @@
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/model-gateway/runtime.ts",
-          "title": "src/modules/model-gateway/runtime.ts",
+          "ref": "src/modules/model-gateway/cost-guard.ts",
+          "title": "src/modules/model-gateway/cost-guard.ts",
           "kind": "repository-source"
         }
       ]
@@ -2387,8 +2622,33 @@
           "kind": "repository-source"
         },
         {
-          "ref": "src/app/api/agent-runs/[runId]/cancel/route.ts",
-          "title": "src/app/api/agent-runs/[runId]/cancel/route.ts",
+          "ref": "src/app/api/agent-runs/route.ts",
+          "title": "src/app/api/agent-runs/route.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-api-assistant-runtime",
+      "from": "platform-api",
+      "to": "assistant-runtime",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/capabilities/resolve/route.ts",
+          "title": "src/app/api/capabilities/resolve/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/context-layers.ts",
+          "title": "src/modules/assistant-runtime/context-layers.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/api/knowledge/synthesize/route.ts",
+          "title": "src/app/api/knowledge/synthesize/route.ts",
           "kind": "repository-source"
         }
       ]
@@ -2402,18 +2662,18 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/app/api/capabilities/route.ts",
-          "title": "src/app/api/capabilities/route.ts",
+          "ref": "src/app/api/assistant/active-push/route.ts",
+          "title": "src/app/api/assistant/active-push/route.ts",
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/assistant-runtime/capabilities/directory-loader.ts",
-          "title": "src/modules/assistant-runtime/capabilities/directory-loader.ts",
+          "ref": "src/modules/assistant-runtime/capabilities/active-push.ts",
+          "title": "src/modules/assistant-runtime/capabilities/active-push.ts",
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/assistant-runtime/capabilities/directory.ts",
-          "title": "src/modules/assistant-runtime/capabilities/directory.ts",
+          "ref": "src/app/api/assistant/daily-briefing/route.ts",
+          "title": "src/app/api/assistant/daily-briefing/route.ts",
           "kind": "repository-source"
         }
       ]
@@ -2427,13 +2687,18 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/app/api/products/[id]/cost-scenarios/route.ts",
-          "title": "src/app/api/products/[id]/cost-scenarios/route.ts",
+          "ref": "src/app/api/harness/validate/route.ts",
+          "title": "src/app/api/harness/validate/route.ts",
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/cost-engine/scenarios.ts",
-          "title": "src/modules/cost-engine/scenarios.ts",
+          "ref": "src/modules/cost-engine/harness/r1-r17-validation.ts",
+          "title": "src/modules/cost-engine/harness/r1-r17-validation.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/api/products/[id]/cost-scenarios/route.ts",
+          "title": "src/app/api/products/[id]/cost-scenarios/route.ts",
           "kind": "repository-source"
         }
       ]
@@ -2447,8 +2712,8 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/app/api/desktop-runtime/overview/route.ts",
-          "title": "src/app/api/desktop-runtime/overview/route.ts",
+          "ref": "src/app/api/desktop/action/route.ts",
+          "title": "src/app/api/desktop/action/route.ts",
           "kind": "repository-source"
         },
         {
@@ -2457,8 +2722,8 @@
           "kind": "repository-source"
         },
         {
-          "ref": "src/app/api/desktop-runtime/tasks/[id]/claim/route.ts",
-          "title": "src/app/api/desktop-runtime/tasks/[id]/claim/route.ts",
+          "ref": "src/app/api/desktop-runtime/overview/route.ts",
+          "title": "src/app/api/desktop-runtime/overview/route.ts",
           "kind": "repository-source"
         }
       ]
@@ -2472,18 +2737,18 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/app/api/decision-packets/[id]/decide/route.ts",
-          "title": "src/app/api/decision-packets/[id]/decide/route.ts",
+          "ref": "src/app/api/capabilities/resolve/route.ts",
+          "title": "src/app/api/capabilities/resolve/route.ts",
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/decisions/service.ts",
-          "title": "src/modules/decisions/service.ts",
+          "ref": "src/modules/knowledge/router.ts",
+          "title": "src/modules/knowledge/router.ts",
           "kind": "repository-source"
         },
         {
-          "ref": "src/app/api/decision-packets/[id]/submit/route.ts",
-          "title": "src/app/api/decision-packets/[id]/submit/route.ts",
+          "ref": "src/modules/knowledge/authority.ts",
+          "title": "src/modules/knowledge/authority.ts",
           "kind": "repository-source"
         }
       ]
@@ -2522,13 +2787,18 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/app/api/model-control/route.ts",
-          "title": "src/app/api/model-control/route.ts",
+          "ref": "src/app/api/billing/route.ts",
+          "title": "src/app/api/billing/route.ts",
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/model-control/service.ts",
-          "title": "src/modules/model-control/service.ts",
+          "ref": "src/modules/model-gateway/cost-guard.ts",
+          "title": "src/modules/model-gateway/cost-guard.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/api/model-control/route.ts",
+          "title": "src/app/api/model-control/route.ts",
           "kind": "repository-source"
         }
       ]
@@ -2542,8 +2812,8 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/app/api/attachments/[id]/route.ts",
-          "title": "src/app/api/attachments/[id]/route.ts",
+          "ref": "src/app/api/assistant/active-push/route.ts",
+          "title": "src/app/api/assistant/active-push/route.ts",
           "kind": "repository-source"
         },
         {
@@ -2552,8 +2822,8 @@
           "kind": "repository-source"
         },
         {
-          "ref": "src/app/api/auth/session/route.ts",
-          "title": "src/app/api/auth/session/route.ts",
+          "ref": "src/app/api/assistant/daily-briefing/route.ts",
+          "title": "src/app/api/assistant/daily-briefing/route.ts",
           "kind": "repository-source"
         }
       ]
@@ -2577,8 +2847,8 @@
           "kind": "repository-source"
         },
         {
-          "ref": "src/app/api/agent-runs/[runId]/cancel/route.ts",
-          "title": "src/app/api/agent-runs/[runId]/cancel/route.ts",
+          "ref": "src/app/api/agent-runs/route.ts",
+          "title": "src/app/api/agent-runs/route.ts",
           "kind": "repository-source"
         }
       ]
@@ -2652,8 +2922,8 @@
           "kind": "repository-source"
         },
         {
-          "ref": "src/app/api/missions/[id]/control/route.ts",
-          "title": "src/app/api/missions/[id]/control/route.ts",
+          "ref": "src/app/api/missions/brief/[messageId]/route.ts",
+          "title": "src/app/api/missions/brief/[messageId]/route.ts",
           "kind": "repository-source"
         }
       ]
@@ -2667,18 +2937,18 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
+          "ref": "src/app/api/playbook/new-product/route.ts",
+          "title": "src/app/api/playbook/new-product/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/product-rnd/playbook.ts",
+          "title": "src/modules/product-rnd/playbook.ts",
+          "kind": "repository-source"
+        },
+        {
           "ref": "src/app/api/products/[id]/analyses/route.ts",
           "title": "src/app/api/products/[id]/analyses/route.ts",
-          "kind": "repository-source"
-        },
-        {
-          "ref": "src/modules/product-development/analysis.ts",
-          "title": "src/modules/product-development/analysis.ts",
-          "kind": "repository-source"
-        },
-        {
-          "ref": "src/app/api/products/[id]/channel-routes/route.ts",
-          "title": "src/app/api/products/[id]/channel-routes/route.ts",
           "kind": "repository-source"
         }
       ]
@@ -2732,18 +3002,18 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
+          "ref": "src/modules/memory/role-preference.ts",
+          "title": "src/modules/memory/role-preference.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/role-intelligence.ts",
+          "title": "src/modules/assistant-runtime/role-intelligence.ts",
+          "kind": "repository-source"
+        },
+        {
           "ref": "src/modules/muse/read-model.ts",
           "title": "src/modules/muse/read-model.ts",
-          "kind": "repository-source"
-        },
-        {
-          "ref": "src/modules/assistant-runtime/index.ts",
-          "title": "src/modules/assistant-runtime/index.ts",
-          "kind": "repository-source"
-        },
-        {
-          "ref": "src/modules/visual-intelligence/council-graph.ts",
-          "title": "src/modules/visual-intelligence/council-graph.ts",
           "kind": "repository-source"
         }
       ]
@@ -2847,13 +3117,18 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/modules/memory/index.ts",
-          "title": "src/modules/memory/index.ts",
+          "ref": "src/modules/history-compression/assembly.ts",
+          "title": "src/modules/history-compression/assembly.ts",
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/usage/index.ts",
-          "title": "src/modules/usage/index.ts",
+          "ref": "src/modules/model-gateway/aux-slots.ts",
+          "title": "src/modules/model-gateway/aux-slots.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/memory/index.ts",
+          "title": "src/modules/memory/index.ts",
           "kind": "repository-source"
         }
       ]
@@ -2867,8 +3142,8 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/modules/automation-trace/service.ts",
-          "title": "src/modules/automation-trace/service.ts",
+          "ref": "src/modules/artifacts/service.ts",
+          "title": "src/modules/artifacts/service.ts",
           "kind": "repository-source"
         },
         {
@@ -2877,8 +3152,8 @@
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/autopilot/service.ts",
-          "title": "src/modules/autopilot/service.ts",
+          "ref": "src/modules/automation-trace/service.ts",
+          "title": "src/modules/automation-trace/service.ts",
           "kind": "repository-source"
         }
       ]
@@ -2892,18 +3167,18 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/modules/autopilot/service.ts",
-          "title": "src/modules/autopilot/service.ts",
+          "ref": "src/modules/artifacts/rich-blocks.ts",
+          "title": "src/modules/artifacts/rich-blocks.ts",
           "kind": "repository-source"
         },
         {
-          "ref": "src/shared/audit.ts",
-          "title": "src/shared/audit.ts",
+          "ref": "src/shared/vocabulary.ts",
+          "title": "src/shared/vocabulary.ts",
           "kind": "repository-source"
         },
         {
-          "ref": "src/shared/errors.ts",
-          "title": "src/shared/errors.ts",
+          "ref": "src/modules/artifacts/service.ts",
+          "title": "src/modules/artifacts/service.ts",
           "kind": "repository-source"
         }
       ]
@@ -2979,6 +3254,31 @@
       ]
     },
     {
+      "id": "import-research-domain-data",
+      "from": "research",
+      "to": "domain-data",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/research/research-tiers.ts",
+          "title": "src/modules/research/research-tiers.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/knowledge/router.ts",
+          "title": "src/modules/knowledge/router.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/knowledge/rerank.ts",
+          "title": "src/modules/knowledge/rerank.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
       "id": "import-research-persistence",
       "from": "research",
       "to": "persistence",
@@ -2994,6 +3294,11 @@
         {
           "ref": "src/shared/db.ts",
           "title": "src/shared/db.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/research/research-tiers.ts",
+          "title": "src/modules/research/research-tiers.ts",
           "kind": "repository-source"
         }
       ]
@@ -3049,6 +3354,76 @@
       ]
     },
     {
+      "id": "import-shared-kernel-assistant-runtime",
+      "from": "shared-kernel",
+      "to": "assistant-runtime",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/response-format/from-mission.ts",
+          "title": "src/modules/response-format/from-mission.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/role-intelligence.ts",
+          "title": "src/modules/assistant-runtime/role-intelligence.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-shared-kernel-chat-ui",
+      "from": "shared-kernel",
+      "to": "chat-ui",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/components/cost-html-report-rich.tsx",
+          "title": "src/components/cost-html-report-rich.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/app/muse/response/response-view.tsx",
+          "title": "src/app/muse/response/response-view.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/components/cost-html-report.tsx",
+          "title": "src/components/cost-html-report.tsx",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-shared-kernel-cost-engine",
+      "from": "shared-kernel",
+      "to": "cost-engine",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/components/bom-import.tsx",
+          "title": "src/components/bom-import.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/cost-engine/bom-import.ts",
+          "title": "src/modules/cost-engine/bom-import.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/components/bom-virtual-list.tsx",
+          "title": "src/components/bom-virtual-list.tsx",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
       "id": "import-shared-kernel-model-gateway",
       "from": "shared-kernel",
       "to": "model-gateway",
@@ -3077,13 +3452,18 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/shared/session-view.ts",
-          "title": "src/shared/session-view.ts",
+          "ref": "src/components/billing-dashboard-rich.tsx",
+          "title": "src/components/billing-dashboard-rich.tsx",
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/identity/session.ts",
-          "title": "src/modules/identity/session.ts",
+          "ref": "src/modules/tenant/index.ts",
+          "title": "src/modules/tenant/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/components/bom-import.tsx",
+          "title": "src/components/bom-import.tsx",
           "kind": "repository-source"
         }
       ]
@@ -3194,6 +3574,31 @@
         {
           "ref": "src/modules/knowledge/search.ts",
           "title": "src/modules/knowledge/search.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/supervisor/worker-runtime.ts",
+          "title": "src/modules/supervisor/worker-runtime.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-supervisor-evidence",
+      "from": "supervisor",
+      "to": "evidence",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/supervisor/research-integration.ts",
+          "title": "src/modules/supervisor/research-integration.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/evidence/verifier/index.ts",
+          "title": "src/modules/evidence/verifier/index.ts",
           "kind": "repository-source"
         }
       ]
@@ -3307,13 +3712,18 @@
       "truth": "VERIFIED",
       "evidenceRefs": [
         {
-          "ref": "src/modules/supervisor/worker-runtime.ts",
-          "title": "src/modules/supervisor/worker-runtime.ts",
+          "ref": "src/modules/supervisor/research-integration.ts",
+          "title": "src/modules/supervisor/research-integration.ts",
           "kind": "repository-source"
         },
         {
-          "ref": "src/modules/research/research-run.ts",
-          "title": "src/modules/research/research-run.ts",
+          "ref": "src/modules/research/source-fetch/index.ts",
+          "title": "src/modules/research/source-fetch/index.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/research/research-run-idempotency.ts",
+          "title": "src/modules/research/research-run-idempotency.ts",
           "kind": "repository-source"
         }
       ]
@@ -3589,6 +3999,31 @@
       ]
     },
     {
+      "id": "import-work-engine-supervisor",
+      "from": "work-engine",
+      "to": "supervisor",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/modules/product-rnd/playbook.ts",
+          "title": "src/modules/product-rnd/playbook.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/supervisor/research-integration.ts",
+          "title": "src/modules/supervisor/research-integration.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/supervisor/report-format.ts",
+          "title": "src/modules/supervisor/report-format.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
       "id": "import-work-engine-worker",
       "from": "work-engine",
       "to": "worker",
@@ -3809,6 +4244,31 @@
       ]
     },
     {
+      "id": "import-workbench-supervisor",
+      "from": "workbench",
+      "to": "supervisor",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/reports/missions/[id]/page.tsx",
+          "title": "src/app/reports/missions/[id]/page.tsx",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/supervisor/takeaway.ts",
+          "title": "src/modules/supervisor/takeaway.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/supervisor/report-poster.ts",
+          "title": "src/modules/supervisor/report-poster.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
       "id": "import-workbench-work-engine",
       "from": "workbench",
       "to": "work-engine",
@@ -3827,8 +4287,8 @@
           "kind": "repository-source"
         },
         {
-          "ref": "src/app/workforce/page.tsx",
-          "title": "src/app/workforce/page.tsx",
+          "ref": "src/app/reports/[id]/page.tsx",
+          "title": "src/app/reports/[id]/page.tsx",
           "kind": "repository-source"
         }
       ]
