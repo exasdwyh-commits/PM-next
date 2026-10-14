@@ -255,9 +255,13 @@ export default function KernClient({ model }: { model: StudioModel }) {
           const labels = skills
             .map((s: { label?: unknown }) => (typeof s?.label === "string" ? s.label : ""))
             .filter((x: string) => x.length > 0);
-          // 只对「按关键词自动命中」提示：用户确实可能没打算用这个能力包。
+          // 只对「系统自动选中」提示：用户确实可能没打算用这个能力包。
+          // 自动来源有两种：关键词命中（TRIGGER）与意图路由（INTENT）。两者都不由用户指定，
+          // 只认 TRIGGER 会让意图路由这一路悄悄跳过引导，等于引导失效。
           // 命中常常不止一个（一句话踩中多个触发词），只报前几个，其余用「等 N 个」收敛。
-          if (resolution?.source === "TRIGGER" && labels.length) {
+          const source = resolution?.source;
+          const automatic = source === "TRIGGER" || source === "INTENT";
+          if (automatic && labels.length) {
             setPackHint({ labels: labels.slice(0, 3), total: labels.length });
           } else {
             setPackHint(null);
