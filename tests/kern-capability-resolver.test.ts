@@ -7,7 +7,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { CapabilitySkillDefinition } from "@/modules/kern-contracts";
-import { resolveCapabilities } from "@/modules/assistant-runtime/capabilities/resolver";
+import { readFileSync } from "node:fs";
+import {
+  DEFAULT_CAPABILITY_LIMIT,
+  resolveCapabilities,
+  resolveConversationCapabilities,
+} from "@/modules/assistant-runtime/capabilities/resolver";
 import { clearCapabilitySkillCache } from "@/modules/assistant-runtime/capabilities/skill-registry";
 
 function mk(over: Partial<CapabilitySkillDefinition> & { id: string }): CapabilitySkillDefinition {
@@ -170,6 +175,75 @@ test("仓库里的能力包可被真实文本命中（三句 demo 文案之一�
   assert.ok(r.skills.length >= 1);
   assert.ok(r.skills.some((s) => s.domain === "software"), `期望命中 software 域，实际：${r.skills.map((s) => s.id)}`);
   assert.ok(r.knowledgeScopes.includes("files") || r.knowledgeScopes.includes("project"));
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// 预告 = 所见即所用：能力预告接口与对话执行链必须走同一入口、同一上限。
+// ─────────────────────────────────────────────────────────────────────────
+
+test("共用入口：不传 limit 时按 DEFAULT_CAPABILITY_LIMIT 收敛，不多给候选", () => {
+  const many = Array.from({ length: 6 }, (_, i) =>
+    mk({ id: `pack.p${i}`, label: `能力${i}`, triggers: ["交付"], priority: 5 })
+  );
+  const r = resolveConversationCapabilities({ text: "交付", intent: "UNSUPPORTED", skills: many });
+  assert.equal(DEFAULT_CAPABILITY_LIMIT, 3);
+  assert.ok(r.skills.length <= DEFAULT_CAPABILITY_LIMIT, `选中数不得超过共用上限，实际 ${r.skills.length}`);
+});
+
+test("共用入口：组织可见性生效（预告接口漏传 organizationId 就会多看到包）", () => {
+  const open = mk({ id: "a.open", label: "对所有人可见", triggers: ["交付"] });
+  const scoped = mk({ id: "b.scoped", label: "只对特定组织可见", triggers: ["交付"], tenants: ["org-a"] });
+
+  const seenInA = resolveConversationCapabilities({
+    text: "交付",
+    intent: "UNSUPPORTED",
+    organizationId: "org-a",
+    skills: [open, scoped],
+  });
+  const seenInB = resolveConversationCapabilities({
+    text: "交付",
+    intent: "UNSUPPORTED",
+    organizationId: "org-b",
+    skills: [open, scoped],
+  });
+
+  assert.deepEqual(seenInA.skills.map((s) => s.id).sort(), ["a.open", "b.scoped"]);
+  assert.deepEqual(
+    seenInB.skills.map((s) => s.id),
+    ["a.open"],
+    "未声明的包对所有组织可见；声明了 tenants 的只对该组织可见"
+  );
+});
+
+test("共用入口：同一次输入对预告与执行给出相同结果（无调用方自拼参数的空间）", () => {
+  const input = {
+    text: "这批改动到底能不能交付",
+    intent: "UNSUPPORTED",
+    explicitSkillIds: null,
+    organizationId: "org-a",
+    skills: [A, B],
+  };
+  const preview = resolveConversationCapabilities(input);
+  const execution = resolveConversationCapabilities({ ...input });
+  assert.equal(preview.source, execution.source);
+  assert.deepEqual(
+    preview.skills.map((s) => s.id),
+    execution.skills.map((s) => s.id)
+  );
+});
+
+test("预告接口不许自拼解析参数：必须走共用入口，且不得自带 limit", () => {
+  const source = readFileSync(
+    new URL("../src/app/api/capabilities/resolve/route.ts", import.meta.url),
+    "utf8"
+  );
+  assert.match(source, /resolveConversationCapabilities\(/, "预告接口必须调用共用入口");
+  assert.doesNotMatch(
+    source,
+    /(?<!resolveConversation)resolveCapabilities\(/,
+    "预告接口不得绕过共用入口直接调用底层解析"
+  );
+  assert.match(source, /organizationId:\s*session\.organizationId/, "组织可见性必须取自登录会话");
 });
 
 test("拉丁短词只认整词：ai 不许靠子串撞 claim 把宣称评审顶进来", () => {

@@ -122,8 +122,48 @@ export function filterSkillsByTenantAndRole(
   });
 }
 
+/**
+ * 对话解析的默认候选上限。**预告与实际执行共用同一个值** ——
+ * 两边给出不同的上限，用户看到的候选就会和真正会用的能力不一致。
+ */
+export const DEFAULT_CAPABILITY_LIMIT = 3;
+
+export interface ConversationCapabilityResolveInput {
+  text: string;
+  intent: string;
+  /** 会话运行时圈定的能力包 id；null = 不设限。 */
+  explicitSkillIds?: string[] | null;
+  /** 当前登录会话所属组织。预告接口必须传，否则会看到本组织看不见的能力包。 */
+  organizationId?: string | null;
+  /** 调用方已知的用户角色；不传 = 不按角色过滤。 */
+  role?: string | null;
+  /** 默认 `DEFAULT_CAPABILITY_LIMIT`；只有确实需要更多候选时才覆盖。 */
+  limit?: number | null;
+  /** 测试注入；不传则从磁盘加载。 */
+  skills?: CapabilitySkillDefinition[];
+}
+
+/**
+ * 会话能力解析的唯一入口：对话执行链与能力预告接口都经这里，
+ * 让「用户看得到什么」与「真正会用什么」使用同一组输入与同一个上限。
+ * 新增解析参数时改这一处，两边同时生效 —— 不要在各调用点自己拼参数。
+ */
+export function resolveConversationCapabilities(
+  input: ConversationCapabilityResolveInput
+): CapabilityResolution {
+  return resolveCapabilities({
+    text: input.text,
+    intent: input.intent,
+    explicitSkillIds: input.explicitSkillIds ?? null,
+    organizationId: input.organizationId ?? null,
+    role: input.role ?? null,
+    limit: input.limit ?? DEFAULT_CAPABILITY_LIMIT,
+    ...(input.skills ? { skills: input.skills } : {}),
+  });
+}
+
 export function resolveCapabilities(input: ResolveCapabilitiesInput): CapabilityResolution {
-  const limit = Math.max(1, input.limit ?? 3);
+  const limit = Math.max(1, input.limit ?? DEFAULT_CAPABILITY_LIMIT);
   const loaded = input.skills ?? loadCapabilitySkills().skills;
   // C4：先按组织/角色过滤候选，再走原有四档选择与打分（打分参数不动）。
   const all = filterSkillsByTenantAndRole(loaded, {

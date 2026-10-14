@@ -234,14 +234,14 @@ export default function KernClient({ model }: { model: StudioModel }) {
   const saveTimer = useRef(0);
   const [draftSaved, setDraftSaved] = useState(false);
   /**
-   * 误触发引导：草稿命中能力包关键词时，提示「本轮会自动用到哪些包」，并给一个改选入口。
+   * 候选引导：草稿命中能力包关键词时给出预估与改选入口，最终选择以执行结果为准。
    * 只在自动模式（未显式圈定能力包）下算——显式模式下解析走 EXPLICIT，不存在误触发。
    */
   const [packHint, setPackHint] = useState<{ labels: string[]; total: number } | null>(null);
   useEffect(() => {
+    setPackHint(null);
     const text = draft.trim();
     if (runtimeConfig.capabilityPackIds !== null || sending || text.length < 4) {
-      setPackHint(null);
       return;
     }
     const controller = new AbortController();
@@ -249,6 +249,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
       fetch(`/api/capabilities/resolve?q=${encodeURIComponent(text)}`, { signal: controller.signal })
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
+          if (controller.signal.aborted) return;
           const resolution = data?.resolution;
           const skills = Array.isArray(resolution?.skills) ? resolution.skills : [];
           const labels = skills
@@ -263,14 +264,15 @@ export default function KernClient({ model }: { model: StudioModel }) {
           }
         })
         .catch(() => {
-          // 解析失败静默：引导只是锦上添花，不该打断输入或弹错。
+          // 旧请求取消后不得覆盖新请求的结果；当前请求失败则清空预估。
+          if (!controller.signal.aborted) setPackHint(null);
         });
     }, 500);
     return () => {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [draft, runtimeConfig.capabilityPackIds, sending]);
+  }, [draft, runtimeConfig.capabilityPackIds, sending, conversationId]);
 
   // ─────────────────────────────────────────────────────────────────────
   // 会话附件：上传 → 解析 → 随消息发出。
