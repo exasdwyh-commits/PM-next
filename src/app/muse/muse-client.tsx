@@ -1000,6 +1000,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
           skillKeys: null,
           capabilityKeys: null,
           capabilityPackIds: null,
+          delegationMode: "auto",
         });
         router.push("/muse");
         return;

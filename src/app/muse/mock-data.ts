@@ -128,6 +128,7 @@ export const studioModel: StudioModel = {
       skillKeys: null,
       capabilityKeys: null,
       capabilityPackIds: null,
+      delegationMode: "auto",
     },
     models: [
       {

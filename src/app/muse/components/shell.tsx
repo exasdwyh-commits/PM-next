@@ -375,7 +375,13 @@ function RunControls({
       >
         <span className="m-auto-dot" aria-hidden data-t={staleModel || !modelReady ? "warn" : undefined} />
         <span>{!modelReady ? "模型未就绪" : model ? model.label : staleModel ? "模型已停用" : "Auto · Kern"}</span>
-        {custom ? <small>+{custom} 项自定义</small> : <small>高级</small>}
+        {config.delegationMode === "full" ? (
+          <small>全委托</small>
+        ) : custom ? (
+          <small>+{custom} 项自定义</small>
+        ) : (
+          <small>高级</small>
+        )}
         <svg className="m-auto-chev" width="10" height="10" viewBox="0 0 10 10" aria-hidden><path d="M2.5 6.2 5 3.8l2.5 2.4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </button>
       {open ? (
@@ -430,6 +436,26 @@ function RunControls({
             </div>
             <p className="m-run-hint">
               {picked === null ? "Kern 会根据任务自己选择。" : `只使用选中的 ${picked.length} 项。全部取消即回到自动。`}
+            </p>
+          </section>
+          <section className="m-run-sec">
+            <h4>授权</h4>
+            <div className="m-run-list" role="radiogroup" aria-label="授权档位">
+              <button type="button" role="radio" className="m-control-row" aria-checked={config.delegationMode === "auto"}
+                onClick={() => onChange({ delegationMode: "auto" })}>
+                <span><b>我来把关</b><small>需要你拍板的地方，Kern 会先问再动。</small></span>
+                <i>{config.delegationMode === "auto" ? "✓" : ""}</i>
+              </button>
+              <button type="button" role="radio" className="m-control-row" aria-checked={config.delegationMode === "full"}
+                onClick={() => onChange({ delegationMode: "full" })}>
+                <span><b>全委托</b><small>本轮取舍交给 Kern：不再追问，直接按它判断的最佳方案产出；补的假设会标注出来。</small></span>
+                <i>{config.delegationMode === "full" ? "✓" : ""}</i>
+              </button>
+            </div>
+            <p className="m-run-hint">
+              {config.delegationMode === "full"
+                ? "全委托只影响表达与决策口径，不放宽任何工具或权限边界。"
+                : "常规协作：不确定的地方会先和你确认。"}
             </p>
           </section>
         </div>

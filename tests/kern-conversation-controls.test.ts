@@ -77,6 +77,34 @@ test("runtime config write rejects unknown capability packs but accepts loaded o
   assert.deepEqual(ok.capabilityPackIds, [goodId]);
 });
 
+test("delegation mode defaults to auto, keeps full, and never invents a third value", () => {
+  assert.equal(normalizeKernConversationRuntimeConfig({}).delegationMode, "auto");
+  assert.equal(
+    normalizeKernConversationRuntimeConfig({ delegationMode: "full" }).delegationMode,
+    "full"
+  );
+  // 历史/脏配置一律回落 auto（存储侧容忍），不抛错。
+  assert.equal(
+    normalizeKernConversationRuntimeConfig({ delegationMode: "FULL" }).delegationMode,
+    "auto"
+  );
+});
+
+test("runtime config write rejects an unknown delegation mode", async () => {
+  const fakeSession = { organizationId: "org-test", userId: "user-test" } as any;
+
+  await assert.rejects(
+    () =>
+      validateKernConversationRuntimeConfig(fakeSession, { delegationMode: "yolo" }),
+    /授权档位只能是 auto 或 full/
+  );
+
+  const full = await validateKernConversationRuntimeConfig(fakeSession, {
+    delegationMode: "full",
+  });
+  assert.equal(full.delegationMode, "full");
+});
+
 test("capability catalog maps intents and narrows the audited tool whitelist", () => {
   assert.equal(capabilityKeyForIntent("DESKTOP_EXECUTION"), "desktop");
   assert.equal(capabilityKeyForIntent("START_PRODUCT_RND"), "product-rnd");

@@ -10,12 +10,22 @@ import {
 } from "./capabilities/catalog";
 import { loadCapabilitySkills } from "./capabilities/skill-registry";
 
+export type KernDelegationMode = "auto" | "full";
+
 export interface KernConversationRuntimeConfig {
   version: "kern-conversation-config/v1";
   modelProfileKey: string | null;
   advisorCodes: string[] | null;
   skillKeys: string[] | null;
   capabilityKeys: KernCapabilityKey[] | null;
+  /**
+   * 授权档位：
+   * - `auto`（默认）：常规协作，需要用户拍板的地方照常问。
+   * - `full`：全委托——用户把本轮取舍权交给 Kern，不再追问确认，可直接按最佳判断产出；
+   *   被补全的缺失细节必须以「假设」标注，不得写成既定事实。
+   * 只影响提示词语气，不放宽任何工具/权限边界。
+   */
+  delegationMode: KernDelegationMode;
   /**
    * 文件式能力包（`capabilities/<域>/<名称>/SKILL.md`）的 id，形如 `<域>.<名称>`。
    * 与 `capabilityKeys`（原生能力）是两个命名空间：前者圈「用哪套做法」，后者圈「开哪些功能」。
@@ -52,6 +62,7 @@ export const DEFAULT_KERN_CONVERSATION_RUNTIME_CONFIG: KernConversationRuntimeCo
   skillKeys: null,
   capabilityKeys: null,
   capabilityPackIds: null,
+  delegationMode: "auto",
 };
 
 function record(value: unknown): Record<string, unknown> {
@@ -78,6 +89,8 @@ export function normalizeKernConversationRuntimeConfig(
   const skillKeys = stringListOrNull(raw.skillKeys);
   const requestedCapabilities = stringListOrNull(raw.capabilityKeys);
   const capabilityPackIds = stringListOrNull(raw.capabilityPackIds);
+  // 授权档位只有两档；历史配置缺字段或写坏值一律落回 auto，不阻断对话。
+  const delegationMode: KernDelegationMode = raw.delegationMode === "full" ? "full" : "auto";
   const allowed = new Set(KERN_CAPABILITY_CATALOG.map((item) => item.key));
   const capabilityKeys =
     requestedCapabilities === null
@@ -94,6 +107,7 @@ export function normalizeKernConversationRuntimeConfig(
     skillKeys,
     capabilityKeys,
     capabilityPackIds,
+    delegationMode,
   };
 }
 
@@ -133,6 +147,14 @@ export async function validateKernConversationRuntimeConfig(
         capabilityPackIds: unknown,
       });
     }
+  }
+  // 授权档位：写坏值直接报错，不要悄悄回落成 auto（用户会以为「全委托」已生效）。
+  if (
+    value.delegationMode !== undefined &&
+    value.delegationMode !== "auto" &&
+    value.delegationMode !== "full"
+  ) {
+    throw new UnprocessableEntityError("授权档位只能是 auto 或 full");
   }
   const config = normalizeKernConversationRuntimeConfig(value);
 
