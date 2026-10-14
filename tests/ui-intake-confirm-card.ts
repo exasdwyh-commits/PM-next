@@ -117,6 +117,24 @@ async function main() {
     projects: await prisma.project.count({ where: { organizationId: org.id } }),
   });
 
+  /**
+   * 轮询等待提议落到目标状态。
+   * dev 模式下首次命中的路由需要编译，固定 sleep 会把「还没编完」误判成功能失败，
+   * 因此最终态一律用轮询断言，并把实际等待时长写进证据。
+   */
+  const waitProposalStatus = async (id: string, status: string, timeoutMs = 25000) => {
+    const started = Date.now();
+    let last = "(未读到)";
+    while (Date.now() - started < timeoutMs) {
+      const row = await prisma.actionProposal.findUnique({ where: { id } });
+      last = row?.status ?? "(未读到)";
+      if (last === status) return { ok: true, waitedMs: Date.now() - started, last };
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    const row = await prisma.actionProposal.findUnique({ where: { id } });
+    return { ok: false, waitedMs: Date.now() - started, last: row?.status ?? last };
+  };
+
   const browser = await chromium.launch({
     executablePath: CHROME_PATH,
     args: ["--no-sandbox", "--disable-dev-shm-usage", "--no-proxy-server"],
@@ -294,7 +312,11 @@ async function main() {
     await page.fill("#m-reject-reason", "证据不足，暂不建品（浏览器验收）");
     await shot("06-reject-sheet");
     await page.click('button[type="submit"]:has-text("确认拒绝")');
-    await page.waitForTimeout(3000);
+    const waitReject = await waitProposalStatus(pReject.id, "REJECTED", 25000);
+    if (!waitReject.ok) {
+      const left = await card(pReject.id).first().innerText().catch(() => "<卡片已消失>");
+      console.log(`   · 拒绝后卡片未进入 REJECTED，页面文案：${left.slice(0, 300)}`);
+    }
     const after6 = await counts();
     const rejected = await prisma.actionProposal.findUniqueOrThrow({ where: { id: pReject.id } });
     must(
@@ -303,10 +325,10 @@ async function main() {
         after6.projects === before6.projects,
       `拒绝不应产生任何业务记录：product ${before6.products}→${after6.products}, version ${before6.versions}→${after6.versions}, project ${before6.projects}→${after6.projects}`
     );
-    must(rejected.status === "REJECTED", `提议状态应为 REJECTED，实际 ${rejected.status}`);
+    must(waitReject.ok, `提议状态应为 REJECTED（等待 ${waitReject.waitedMs}ms），实际 ${rejected.status}`);
     must((rejected.decisionReason ?? "").includes("证据不足"), `拒绝理由应落库，实际 ${rejected.decisionReason}`);
     record("S6", "拒绝不创建业务记录、理由落库", "PASS",
-      `业务记录 0 新增（product ${before6.products}→${after6.products}）；状态=${rejected.status}；理由=${rejected.decisionReason}`);
+      `业务记录 0 新增（product ${before6.products}→${after6.products}）；状态=${rejected.status}（等待 ${waitReject.waitedMs}ms）；理由=${rejected.decisionReason}`);
 
     // ---------- S7 失败不隐藏卡片、不误报成功、可重试 ----------
     await pick(convB.title);
