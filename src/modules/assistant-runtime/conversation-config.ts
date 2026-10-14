@@ -8,6 +8,7 @@ import {
   KERN_CAPABILITY_CATALOG,
   type KernCapabilityKey,
 } from "./capabilities/catalog";
+import { loadCapabilitySkills } from "./capabilities/skill-registry";
 
 export interface KernConversationRuntimeConfig {
   version: "kern-conversation-config/v1";
@@ -18,9 +19,9 @@ export interface KernConversationRuntimeConfig {
   /**
    * 文件式能力包（`capabilities/<域>/<名称>/SKILL.md`）的 id，形如 `<域>.<名称>`。
    * 与 `capabilityKeys`（原生能力）是两个命名空间：前者圈「用哪套做法」，后者圈「开哪些功能」。
-   * 可选：历史配置里没有这个字段，省略即「不限」。
+   * 历史配置缺这个字段时由 `stringListOrNull` 归一为 null（= 不限，走自动识别）。
    */
-  capabilityPackIds?: string[] | null;
+  capabilityPackIds: string[] | null;
 }
 
 export interface KernConversationControlOption {
@@ -36,6 +37,12 @@ export interface KernConversationControlState {
   advisors: KernConversationControlOption[];
   skills: KernConversationControlOption[];
   capabilities: KernConversationControlOption[];
+  /**
+   * 文件式能力包（`capabilities/<域>/<名称>/SKILL.md`），对应 `config.capabilityPackIds`。
+   * 与 `capabilities`（原生能力开关）是两个命名空间：这里选的是「这类活用哪套做法」。
+   * 选中后对话走 EXPLICIT 档，不再靠关键词猜。
+   */
+  capabilityPacks: KernConversationControlOption[];
 }
 
 export const DEFAULT_KERN_CONVERSATION_RUNTIME_CONFIG: KernConversationRuntimeConfig = {
@@ -115,6 +122,17 @@ export async function validateKernConversationRuntimeConfig(
   const allowed = new Set<string>(KERN_CAPABILITY_CATALOG.map((item) => item.key));
   if (capabilities?.some((key) => !allowed.has(key.trim()))) {
     throw new UnprocessableEntityError("功能选择包含不支持的能力");
+  }
+  // 能力包是仓库内闭合集合：点名不存在的包直接报错，别静默落库再在选择器里被丢弃。
+  const packIds = value.capabilityPackIds as string[] | null | undefined;
+  if (packIds?.length) {
+    const availablePacks = new Set(loadCapabilitySkills().skills.map((skill) => skill.id));
+    const unknown = packIds.map((id) => id.trim()).filter((id) => !availablePacks.has(id));
+    if (unknown.length) {
+      throw new UnprocessableEntityError("能力包选择包含不存在或未启用的包", {
+        capabilityPackIds: unknown,
+      });
+    }
   }
   const config = normalizeKernConversationRuntimeConfig(value);
 
@@ -282,6 +300,15 @@ export async function getKernConversationControlState(
       label: capability.label,
       description: capability.description,
     })),
+    // 只列能真正加载出来的包：加载失败的进 diagnostics，不该出现在可选清单里。
+    capabilityPacks: loadCapabilitySkills()
+      .skills.filter((skill) => skill.enabled && !skill.error)
+      .map((skill) => ({
+        key: skill.id,
+        label: skill.label,
+        description: skill.description,
+        meta: skill.domain,
+      })),
   };
 }
 

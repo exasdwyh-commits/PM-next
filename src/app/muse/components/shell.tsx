@@ -290,9 +290,15 @@ export function Rail({
   );
 }
 
-type RunTab = "advisors" | "skills" | "capabilities";
-const RUN_TABS: { key: RunTab; label: string; field: "advisorCodes" | "skillKeys" | "capabilityKeys" }[] = [
+type RunTab = "advisors" | "skills" | "capabilities" | "capabilityPacks";
+const RUN_TABS: {
+  key: RunTab;
+  label: string;
+  field: "advisorCodes" | "skillKeys" | "capabilityKeys" | "capabilityPackIds";
+}[] = [
   { key: "capabilities", label: "功能", field: "capabilityKeys" },
+  // 文件式能力包：选中即走 EXPLICIT 档，不再靠关键词猜（消除「乱触发」）。
+  { key: "capabilityPacks", label: "能力包", field: "capabilityPackIds" },
   { key: "advisors", label: "顾问", field: "advisorCodes" },
   { key: "skills", label: "技能", field: "skillKeys" },
 ];

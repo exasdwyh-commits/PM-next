@@ -961,6 +961,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
           advisorCodes: null,
           skillKeys: null,
           capabilityKeys: null,
+          capabilityPackIds: null,
         });
         router.push("/muse");
         return;
