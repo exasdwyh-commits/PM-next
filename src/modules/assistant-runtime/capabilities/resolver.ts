@@ -61,11 +61,16 @@ export interface CapabilityResolution {
 const INTENT_BOOST = 60;
 const PRIORITY_WEIGHT = 2;
 /**
- * 关键词最低有效分：单靠一个字面擦边就进候选，会被高 priority 的能力包
- * （priority×2 是常数项）顶进来，出现「评估产品方案却选中法规评审」这种噪音。
- * 达不到这条线的只有 intent 明确声明了才放行。
+ * 关键词最低有效分 = 一条**强证据**。
+ *
+ * 打分口径（见 directory.searchCapabilitiesScored）：整条触发词/标签原样出现 3 分、
+ * 标签整词命中 3 分；中文子串擦边 1 分、描述擦边 1 分。
+ *
+ * 门槛取 3 而不是 2：2 分可以由「一个子串擦边 + 一个描述擦边」凑出来，而中文里
+ * 「帮我」「一下」「什么」这类口语填充词到处擦边 —— 「帮我订一份外卖」「今天天气真好」
+ * 就是这样被顶进候选的。要求一条强证据后，弱证据再多也只能靠 intent 声明放行。
  */
-const MIN_KEYWORD_SCORE = 2;
+const MIN_KEYWORD_SCORE = 3;
 const DEFAULT_KNOWLEDGE_SCOPES = ["project", "company-facts"];
 
 function union(lists: string[][]): string[] {

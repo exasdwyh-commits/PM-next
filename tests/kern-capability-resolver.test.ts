@@ -261,3 +261,46 @@ test("拉丁短词只认整词：ai 不许靠子串撞 claim 把宣称评审顶�
   );
   assert.equal(r.skills[0]?.id, "research.digest", "这条文案的正解是动态摘要");
 });
+
+test("无关文本不得被顶进候选：口语填充词不许靠 bigram 擦边过线", () => {
+  // 中文按 2 字切片后，「帮我」「一下」「什么」「这个」这些填充词会到处擦中
+  // 触发词（`帮我看看这份` / `整理一下` / `最近有什么`）。它们只是弱证据，
+  // 达不到「一条强证据」的门槛，因此这些日常闲聊必须落到 NONE。
+  const noise = [
+    "帮我订一份外卖",
+    "今天天气真好",
+    "帮我订机票去上海",
+    "晚上吃什么呢",
+    "这首歌叫什么名字",
+    "帮我关一下灯",
+    "帮我洗个车",
+    "这个月房租多少",
+    "帮我给他打个电话",
+    "帮我算一下 123 加 456",
+  ];
+  for (const text of noise) {
+    clearCapabilitySkillCache();
+    const r = resolveCapabilities({ text, intent: "UNSUPPORTED", limit: 3 });
+    assert.equal(
+      r.source,
+      "NONE",
+      `「${text}」与产品研发无关，不该命中能力包；实际 source=${r.source}，选中 ${r.skills.map((s) => s.id).join("、")}`
+    );
+  }
+});
+
+test("强证据仍然有效：真实说法不能跟着一起被误杀", () => {
+  // 收紧门槛的代价必须锁住 —— 这些是**已入库**能力包的自然说法
+  // （刻意不引用尚未入库的能力包，保证 CI 与本地结论一致）。
+  const positive = [
+    "最近有什么行业动态", // research.digest：整条触发词「最近有什么」出现
+    "帮我做一次代码评审", // software.code-review：标题/触发词命中
+    "卖点怎么提炼，一句话介绍", // marketing.positioning
+  ];
+  for (const text of positive) {
+    clearCapabilitySkillCache();
+    const r = resolveCapabilities({ text, intent: "UNSUPPORTED", limit: 3 });
+    assert.notEqual(r.source, "NONE", `「${text}」应命中能力包，实际 NONE（${r.reason}）`);
+    assert.ok(r.skills.length >= 1, `「${text}」应至少选中 1 个能力包`);
+  }
+});
