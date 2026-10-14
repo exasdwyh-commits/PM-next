@@ -47,10 +47,14 @@
      配 --on-dark（白字）即成白底白字、整段不可读。 */
   --deep: #0f1116;
 
-  /* —— 状态语义 ok / warn / block / neutral —— */
+  /* —— 状态语义 ok / warn / block / info / neutral —— */
   --ok:       var(--k-ok);  --ok-ink: var(--k-ok);  --ok-bg: var(--k-ok-soft);  --ok-line: var(--k-ok-line);
   --warn:     var(--k-warn);  --warn-ink: var(--k-warn);  --warn-bg: var(--k-warn-soft);  --warn-line: var(--k-warn-line);
   --block:    var(--k-bad);  --block-ink: var(--k-bad);  --block-bg: var(--k-bad-soft);  --block-line: var(--k-bad-line);
+  /* info = 中性通知/待确认语气。此前无令牌，组件写死 #eaf1fe/#cfe0fd/#1d4ed8，
+     暗色下浅蓝底 + 主题翻上来的浅色字 ≈1.1:1 不可读。改指品牌三色，它们已在
+     kern-design.css 的 prefers-color-scheme: dark 里各自校准过对比度。 */
+  --info:      var(--k-brand);  --info-ink: var(--k-brand-ink);  --info-bg: var(--k-brand-soft);  --info-line: var(--k-brand-line);
   --neutral-ink: var(--k-ink-3); --neutral-bg: var(--k-sunk); --neutral-line: var(--k-line);
 
   /* —— 遮罩与阴影 —— */
@@ -169,6 +173,8 @@
   --ok:       #0c9b78;  --ok-ink:    #0c7a5f;  --ok-bg:    #e8f8f2;  --ok-line:    #bfe8dc;
   --warn:     #bd8154;  --warn-ink:  #8a6320;  --warn-bg:  #fdf3e3;  --warn-line:  #f0dcb6;
   --block:    #d94b4b;  --block-ink: #9e4636;  --block-bg: #fff0eb;  --block-line: #e7b5a8;
+  /* info 三档取组件历史上写死的浅蓝值，paper 回退视觉与旧态逐字一致 */
+  --info:      #2563eb;  --info-ink:  #1d4ed8;  --info-bg:  #eaf1fe;  --info-line:  #cfe0fd;
   --neutral-ink: #5d6a70; --neutral-bg: #eceeeb; --neutral-line: #dbe0dd;
 
   --overlay:      rgba(5, 20, 28, .46);
