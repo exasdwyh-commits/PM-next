@@ -99,11 +99,66 @@ export function Sources({ refs, onOpen }: { refs: EvidenceRef[]; onOpen: (r: Evi
   );
 }
 
-/** 审批 check-in。Kern 只在这种时刻打断人，所以它必须是页面上最重的东西。 */
-export function CheckIn({ d, onOpenSource, onResolve }: { d: Decision; onOpenSource: (r: EvidenceRef) => void; onResolve: (d: Decision, choice: Decision["options"][number]) => void }) {
+/**
+ * 审批 check-in。Kern 只在这种时刻打断人，所以它必须是页面上最重的东西。
+ *
+ * 本轮补齐的四条交互约束：
+ * - 批准前必须看得见内容：`d.summary` 列出将要写入的字段，光有标题等于让用户盲批。
+ * - 请求在途（`busy`）时所有按钮禁用：在途再点一次就是重复提交。
+ * - 失败时卡片留在原处、给错误与「重试」：失败既不能隐藏卡片，更不能显示成成功。
+ *   重试沿用父级保存的同一个幂等键，因此不会二次写入。
+ * - 「稍后处理」= 折叠为待办提示（`deferred`）：推迟既不是批准也不是拒绝，
+ *   服务端状态仍是待确认，一个字节的业务数据都没写。
+ */
+export function CheckIn({
+  d,
+  onOpenSource,
+  onResolve,
+  busy = false,
+  error = null,
+  onRetry,
+  deferred = false,
+  onRestore,
+}: {
+  d: Decision;
+  onOpenSource: (r: EvidenceRef) => void;
+  onResolve: (d: Decision, choice: Decision["options"][number]) => void;
+  /** 本卡片有请求在途 */
+  busy?: boolean;
+  /** 上一次处理失败的原因；非空时展示错误与重试入口 */
+  error?: string | null;
+  onRetry?: () => void;
+  /** 已被「稍后处理」折叠 */
+  deferred?: boolean;
+  onRestore?: () => void;
+}) {
   const tone = TONE[d.tone] === "bad" ? "bad" : "warn";
+  if (deferred) {
+    return (
+      <div className="m-checkin" data-t={tone} data-testid="checkin-deferred" data-decision-id={d.id}>
+        <div className="m-checkin-body">
+          <h3>{d.title}</h3>
+          <p className="m-hint">
+            已推迟处理：这条提议仍是「待你确认」，不会自动执行，也不等于拒绝；业务数据一个都没写。
+          </p>
+          <div className="m-btn-row">
+            <Btn v="default" onClick={onRestore} disabled={busy} data-testid="checkin-restore">
+              继续处理
+            </Btn>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className="m-checkin" data-t={tone}>
+    <div
+      className="m-checkin"
+      data-t={tone}
+      data-testid="checkin"
+      data-decision-id={d.id}
+      data-busy={busy ? "" : undefined}
+      aria-busy={busy}
+    >
       <div className="m-checkin-strip">
         <I.shield />
         需要你确认 · {d.dueLabel}
@@ -111,26 +166,63 @@ export function CheckIn({ d, onOpenSource, onResolve }: { d: Decision; onOpenSou
       <div className="m-checkin-body">
         <h3>{d.title}</h3>
         <p className="m-because">{d.because}</p>
+        {d.summary && d.summary.length > 0 ? (
+          <div data-testid="checkin-summary" style={{ marginTop: 8 }}>
+            <p className="m-hint" style={{ margin: 0 }}>将要写入的内容：</p>
+            <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+              {d.summary.map((line) => (
+                <li key={line} className="m-hint">{line}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <p className="m-else">继续放着：{d.ifIgnored}</p>
         {d.evidence.length > 0 ? <Sources refs={d.evidence} onOpen={onOpenSource} /> : (
-          <p className="m-else" style={{ color: "var(--m-warn)", background: "var(--m-warn-wash)" }}>
-            这件事目前没有可追溯的依据，确认前可以让 Kern 先去补。
+          <p
+            className="m-else"
+            data-testid="checkin-empty-evidence"
+            style={{ color: "var(--m-warn)", background: "var(--m-warn-wash)" }}
+          >
+            {d.emptyEvidenceHint ?? "这件事目前没有可追溯的依据，确认前可以让 Kern 先去补。"}
           </p>
         )}
         <div className="m-btn-row">
           {d.options.map((o, i) =>
-            // 触及受保护动作（gate）的批准不可撤回：用长按确认防误触。
+            // 触及受保护动作（gate）的批准不可撤回：用长按确认防误触（默认 600ms）。
             d.gate && o.kind === "approve" ? (
-              <HoldToConfirm key={o.id} v="primary" hint={`按住${o.label}`} onConfirm={() => onResolve(d, o)}>
-                {o.label}
-              </HoldToConfirm>
+              <span key={o.id} data-testid="checkin-approve">
+                <HoldToConfirm v="primary" hint={`按住${o.label}`} disabled={busy} onConfirm={() => onResolve(d, o)}>
+                  {o.label}
+                </HoldToConfirm>
+              </span>
             ) : (
-              <Btn key={o.id} v={i === 0 ? "primary" : o.kind === "reject" ? "danger" : "default"} title={o.hint} onClick={() => onResolve(d, o)}>
+              <Btn
+                key={o.id}
+                v={i === 0 ? "primary" : o.kind === "reject" ? "danger" : "default"}
+                title={o.hint}
+                disabled={busy}
+                data-testid={o.kind === "reject" ? "checkin-reject" : o.kind === "defer" ? "checkin-defer" : undefined}
+                onClick={() => onResolve(d, o)}
+              >
                 {o.label}
               </Btn>
             ),
           )}
         </div>
+        {error ? (
+          <div data-testid="checkin-error" style={{ marginTop: 8 }}>
+            <p className="m-else" style={{ color: "var(--m-bad)", background: "var(--m-bad-wash)" }}>
+              处理失败：{error}（提议仍是待确认，没有写入任何业务数据。）
+            </p>
+            {onRetry ? (
+              <div className="m-btn-row">
+                <Btn v="default" onClick={onRetry} disabled={busy} data-testid="checkin-retry">
+                  {busy ? "重试中…" : "重试"}
+                </Btn>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         <p className="m-hint">{d.raisedBy} 提出{d.gate ? ` · ${d.gate}` : ""}。确认后 Kern 会自己继续，不用你盯着。</p>
       </div>
     </div>

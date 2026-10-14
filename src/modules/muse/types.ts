@@ -76,6 +76,10 @@ export interface Decision {
   evidence: EvidenceRef[];
   dueLabel: string;
   raisedBy: string;
+  /** 提议内容摘要：确认前必须能看清「将要写入什么」，只有标题等于让用户盲批。 */
+  summary?: string[];
+  /** 证据为空时的提示：不同来源的提议依据不同，不能一律说「没有任何依据」。 */
+  emptyEvidenceHint?: string;
 }
 
 export type MessageBlock =
