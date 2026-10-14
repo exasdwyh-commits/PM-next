@@ -122,6 +122,7 @@ export async function sendDepartmentAssistantMessage(
   // Supervisor: goal-shaped / multi-agent work becomes a real mission.
   const missionDecision = decideMissionLaunch({
     text: content,
+    productDevelopmentGoal: result.productDevelopmentGoal,
     intent: result.intent,
     collaboration: collaborationPlanShadow,
     productBound: Boolean(context.productId),
@@ -204,7 +205,7 @@ export async function sendDepartmentAssistantMessage(
       const playbook = missionDecision.playbook === "NEW_PRODUCT" ? "NEW_PRODUCT" : "GENERIC";
       const brief = await createBriefForMessage(session, {
         messageId: result.message.id,
-        goal: content,
+        goal: playbook === "NEW_PRODUCT" ? result.productDevelopmentGoal ?? content : content,
         playbook,
         goalPlan: playbook === "GENERIC" ? buildMissionPlanFromGoalPlan(goalPlanShadow) : undefined,
       });

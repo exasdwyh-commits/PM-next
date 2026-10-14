@@ -182,6 +182,39 @@
   color: var(--k-brand);
 }
 
+/* 本地测试提示：仅在开发/内网免密模式由服务端注入。
+   弱化为次要说明块，配色与 .kx-alert 同一套令牌，避免与角色卡片抢主次。 */
+.kx-login-testhint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  margin: 2px 0 0;
+  padding: 10px 14px;
+  border: 1px dashed var(--k-line-2);
+  border-radius: var(--k-r);
+  background: var(--k-surface);
+  color: var(--k-ink-2);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.kx-login-testhint b { font-weight: 650; color: var(--k-ink); }
+.kx-login-testhint-fill {
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--k-line-2);
+  border-radius: 999px;
+  background: none;
+  color: var(--k-brand);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: var(--m-tr-ui);
+}
+.kx-login-testhint-fill:hover { border-color: var(--k-brand); }
+.kx-login-testhint-fill:focus-visible { outline: 2px solid var(--k-brand); outline-offset: 2px; }
+
 /* 折叠入口：长得像文字而不是第二个主按钮，避免和角色卡片抢主次 */
 .kx-login-link {
   align-self: flex-start;

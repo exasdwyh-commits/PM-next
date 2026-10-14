@@ -330,6 +330,22 @@ test("CT6：对话只开放只读工具——ask_user 注入也进不了候选",
   assert.equal(n, 2);
 });
 
+test("CT8：显式提供搜索和爬取时开放对应工具", async () => {
+  const seen: InvokeCall[] = [];
+  await withEnv({ KERN_WEB_FETCH: "on", KERN_CRAWL: "on" }, () => withInvoker(
+    async input => { seen.push(input); return ok("结论：无需执行工具"); },
+    async () => {
+      await runConversationToolLoop({
+        ...baseInput, profiles: profilesWithTools,
+        toolContextOverrides: { webSearch: async () => [], webCrawl: async () => [] },
+      });
+    }
+  ));
+  assert.equal(seen.length, 1);
+  assert.deepEqual(seen[0].tools!.map(tool => tool.name).sort(),
+    ["calculate", "desktop_status", "knowledge_search", "web_fetch", "web_search", "web_crawl"].sort());
+});
+
 test("CT7：网关缝形状——原生下发 tools + requiredCapabilities TOOLS", async () => {
   const seen: InvokeCall[] = [];
   await withInvoker(
@@ -338,12 +354,15 @@ test("CT7：网关缝形状——原生下发 tools + requiredCapabilities TOOLS
       return ok("结论：无工具需求");
     },
     async () => {
-      await runConversationToolLoop({ ...baseInput, profiles: profilesWithTools });
+      await withEnv({ KERN_WEB_FETCH: "on" }, () => runConversationToolLoop({
+        ...baseInput, profiles: profilesWithTools,
+        toolContextOverrides: { webSearch: undefined, webCrawl: undefined },
+      }).then(() => undefined));
     }
   );
   assert.equal(seen.length, 1);
   const names = seen[0].tools!.map((t) => t.name).sort();
-  // 测试环境未配 web_search/web_crawl 提供方；web_fetch 默认开启（KERN_WEB_FETCH=off 才关）
+  // 显式固定提供方与 web_fetch 开关，测试不依赖本机配置。
   assert.deepEqual(names, ["calculate", "desktop_status", "knowledge_search", "web_fetch"].sort());
   // 生产 invoker 会把这组 tools + requiredCapabilities ["TOOLS"] 原样送进
   // executePersistedModelGateway（见 conversation-tool-loop 默认 invoker）；

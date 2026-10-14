@@ -33,10 +33,11 @@
     "**/*.tsx",
     ".next-acc/types/**/*.ts",
     ".next-fixed/types/**/*.ts",
+    ".next-local-test/types/**/*.ts",
     ".next-verify/types/**/*.ts",
     ".next/types/**/*.ts",
     "next-env.d.ts",
-    ".next-local-test/types/**/*.ts"
+    ".next-loginhint-20261013/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

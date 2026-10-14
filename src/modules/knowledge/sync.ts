@@ -3,7 +3,7 @@ import path from "path";
 import crypto from "crypto";
 import prisma from "@/shared/db";
 import { ForbiddenError, NotFoundError, UnprocessableEntityError } from "@/shared/errors";
-import { KnowledgeSyncStatus } from "@prisma/client";
+import { KnowledgeSourceKind, KnowledgeSyncStatus } from "@prisma/client";
 import { SessionContext } from "../identity/session";
 
 export interface ParsedMarkdown {
@@ -155,6 +155,15 @@ export async function syncKnowledgeSource(
 
   if (!source || source.organizationId !== session.organizationId) {
     throw new NotFoundError("Knowledge source not found");
+  }
+
+  // CONVERSATION_UPLOAD 是以 ConversationAttachment 记录为逻辑文档的虚拟集合
+  // （见 schema.prisma 的 kind 注释），不是磁盘上的一棵 Markdown 子树：
+  // 其文档 relativePath 是附件 ID，磁盘文件名是 hash_timestamp.extension，
+  // 目录扫描永远对不上，只会把附件索引全部软删除。这里明确拒绝，
+  // 附件索引的增删只走 indexAttachmentForSearch / unindexAttachment。
+  if (source.kind === KnowledgeSourceKind.CONVERSATION_UPLOAD) {
+    throw new UnprocessableEntityError("对话附件来源不是目录知识源，不能执行目录扫描同步");
   }
 
   if (!fs.existsSync(source.rootPath)) {

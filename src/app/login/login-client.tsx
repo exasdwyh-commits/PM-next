@@ -26,7 +26,11 @@ const ROLES: { key: EntryRole; label: string; icon: string; desc: string }[] = [
 
 const ROLE_STORAGE_KEY = "kern.user-role.v1";
 
-export default function LoginClient({ localTestLogin }: { localTestLogin: boolean }) {
+/**
+ * testHint 只在服务端判定为本地测试模式时才有值（开发环境 + 本机/内网请求），
+ * 且口令由服务端从环境读取后传入——源码里没有任何真实凭据，生产构建拿不到它。
+ */
+export default function LoginClient({ localTestLogin, testHint }: { localTestLogin: boolean; testHint?: { email: string; password: string } | null }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -102,6 +106,20 @@ export default function LoginClient({ localTestLogin }: { localTestLogin: boolea
     }
   }
 
+  const testAccountHint = testHint && (
+    <p className="kx-login-testhint">
+      <b>本地测试账号</b>
+      <span>{testHint.email} · 密码 {testHint.password}</span>
+      <button type="button" className="kx-login-testhint-fill" onClick={() => {
+        setShowPasswordForm(true);
+        setEmail(testHint.email);
+        setPassword(testHint.password);
+      }}>
+        填入账号登录
+      </button>
+    </p>
+  );
+
   return (
     <main className="kx-login">
       <section className="kx-login-main">
@@ -139,6 +157,8 @@ export default function LoginClient({ localTestLogin }: { localTestLogin: boolea
                   <span>{error}</span>
                 </p>
               )}
+
+              {testAccountHint}
 
               <button
                 type="button"
@@ -220,6 +240,7 @@ export default function LoginClient({ localTestLogin }: { localTestLogin: boolea
               <button type="submit" disabled={submitting !== null} className="kx-btn">
                 {submitting === "password" ? "登录中…" : "登录"}
               </button>
+              {testAccountHint}
             </form>
           )}
         </div>

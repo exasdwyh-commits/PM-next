@@ -197,6 +197,8 @@ export interface ConversationAttachmentItem {
   parsedKind: string | null;
   parseNote: string | null;
   indexForSearch: boolean;
+  indexedAt?: string | null;
+  sent?: boolean;
   createdAt: string;
   /** 解析结果的一小段预览，仅用于上传完成时的即时反馈 */
   preview?: string;

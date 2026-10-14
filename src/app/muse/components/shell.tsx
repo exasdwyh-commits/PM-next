@@ -454,6 +454,7 @@ export function Dock({
   modelReady = true,
   onTrust,
   attachments = [],
+  attachmentConversationId,
   onUploadFiles,
   onRemoveAttachment,
   uploading = false,
@@ -475,6 +476,7 @@ export function Dock({
   onTrust: () => void;
   /** 本会话已上传、尚未随消息发出的材料 */
   attachments?: ConversationAttachmentItem[];
+  attachmentConversationId?: string | null;
   onUploadFiles?: (files: File[]) => void;
   onRemoveAttachment?: (id: string) => void;
   uploading?: boolean;
@@ -568,7 +570,8 @@ export function Dock({
               >
                 <I.file />
                 <b>{item.originalFilename}</b>
-                <em>{attachmentStateLabel(item)}</em>
+                <em>{attachmentStateLabel(item)}{item.indexForSearch ? item.indexedAt ? " · 已存入检索" : " · 检索未完成" : ""}</em>
+                {attachmentConversationId ? <a href={`/api/conversations/${attachmentConversationId}/attachments/${item.id}`} download aria-label={`下载 ${item.originalFilename}`}>下载</a> : null}
                 {onRemoveAttachment && !sending ? (
                   <button
                     type="button"
@@ -586,6 +589,7 @@ export function Dock({
                 <input
                   type="checkbox"
                   checked={indexForSearch}
+                  disabled={uploading || sending}
                   onChange={(e) => onToggleIndexForSearch(e.target.checked)}
                 />
                 存入长期检索
@@ -668,7 +672,7 @@ export function Dock({
           </button>
           {draftSaved && value.trim() ? <span className="m-kbd">草稿已保存</span> : null}
           <span className="m-kbd">/ 快捷指令 · Enter 发送</span>
-          <button type="submit" className="m-send" disabled={sending || value.trim().length === 0} aria-label={sending ? "正在发送" : "发送"} aria-busy={sending}>
+          <button type="submit" className="m-send" disabled={sending || uploading || value.trim().length === 0} aria-label={sending ? "正在发送" : "发送"} aria-busy={sending}>
             <I.send />
           </button>
         </div>

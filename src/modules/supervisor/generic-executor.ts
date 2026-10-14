@@ -18,6 +18,7 @@ import { extractMarkedClaims } from "./claims";
 import { buildNewProductConclusionContract, SPECIALIST_EVIDENCE_RULE } from "./report-contract";
 import { KERN_REPLY_FORMAT_PROMPT, normalizeReply } from "@/modules/assistant-runtime/reply-format";
 import { appendMissionEvents, type MissionEventInput } from "./events";
+import { truncateUpstreamForPrompt } from "./handoff";
 import {
   assembleCompressedHistory,
   missionKeepRecentUpstream,
@@ -360,12 +361,13 @@ export async function buildMissionNodeMessages(input: {
       .then((a) => a.summaryBlock)
       .catch(() => null);
   }
+  // GTM 尾部保护：不得静默掐头去尾。保留头部与尾部（渠道建议与验证动作常在尾部），截断处显式标记。
   const upstream = [upstreamSummaryBlock, recentUpstreamNodes.length
     ? recentUpstreamNodes
         .map(
           (u) =>
             `### ${u.key}（${u.agentCode}，${u.status}）\n${
-              u.summary ? u.summary.slice(0, 3000) : u.status === "SUCCEEDED" ? "(无摘要)" : "该部分未能完成 → 视为 UNKNOWN"
+              u.summary ? truncateUpstreamForPrompt(u.summary) : u.status === "SUCCEEDED" ? "(无摘要)" : "该部分未能完成 → 视为 UNKNOWN"
             }`
         )
         .join("\n\n")

@@ -195,6 +195,7 @@ export function decideMissionLaunch(input: {
   collaboration: KernCollaborationPlanShadow;
   /** R-03：未绑定产品时「挑战判断」没有专用报告可出，交给红队任务。缺省按已绑定处理（兼容旧调用）。 */
   productBound?: boolean;
+  productDevelopmentGoal?: string | null;
 }): { launch: boolean; playbook: MissionPlaybook | null; reason: string } {
   // Governed write / local execution paths keep their own policies.
   if (input.intent.startsWith("PROPOSE_") || input.intent === "DESKTOP_EXECUTION") {
@@ -206,10 +207,13 @@ export function decideMissionLaunch(input: {
     return { launch: false, playbook: null, reason: "DEDICATED_TOOL_ANSWERED" };
   }
   // Product R&D on a bound product already has a dedicated orchestrator.
-  if (input.intent === "START_PRODUCT_RND" || input.collaboration.mode === "FULL_RND") {
+  if (input.productBound !== false && (input.intent === "START_PRODUCT_RND" || input.collaboration.mode === "FULL_RND")) {
     return { launch: false, playbook: null, reason: "PRODUCT_RND_PLAYBOOK_OWNS_IT" };
   }
-  const playbook = detectMissionPlaybook(input.text);
+  if (/(不要|不用|无需|别|暂不|先不|不想).{0,12}(开发|研发|启动|做|创建|推进)|只(?:想|是)?(?:聊|讨论|了解)|^(?:引用|摘录|下面是|例如|假设)/.test(input.text.trim())) {
+    return { launch: false, playbook: null, reason: "USER_DECLINED_MISSION" };
+  }
+  const playbook = input.productDevelopmentGoal ? "NEW_PRODUCT" : detectMissionPlaybook(input.text);
   if (playbook) return { launch: true, playbook, reason: "NEW_PRODUCT_GOAL" };
   // A requested deliverable needs the worker's tools and export path even when
   // only one specialist is involved. Chat prose cannot substitute for execution.

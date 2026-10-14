@@ -45,6 +45,8 @@ export const ATTACHMENT_PUBLIC_SELECT = {
   extractedMeta: true,
   parseNote: true,
   indexForSearch: true,
+  indexedAt: true,
+  messageId: true,
   createdAt: true,
 } as const;
 
@@ -61,6 +63,8 @@ function publicView(row: {
   extractedMeta: unknown;
   parseNote: string | null;
   indexForSearch: boolean;
+  indexedAt: Date | null;
+  messageId: string | null;
   createdAt: Date;
 }) {
   return {
@@ -73,6 +77,8 @@ function publicView(row: {
     extractedMeta: row.extractedMeta,
     parseNote: row.parseNote,
     indexForSearch: row.indexForSearch,
+    indexedAt: row.indexedAt?.toISOString() ?? null,
+    sent: row.messageId !== null,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -125,6 +131,7 @@ export async function uploadConversationAttachments(
 
   for (const file of accepted) {
     const name = file.name || "未命名文件";
+    let stagedPath: string | null = null;
     try {
       if (file.size > MAX_UPLOAD_BYTES) {
         uploads.push({ ok: false, error: `${name}：超过 ${MAX_UPLOAD_BYTES / 1024 / 1024}MB 上限` });
@@ -148,43 +155,53 @@ export async function uploadConversationAttachments(
       });
 
       await fs.mkdir(UPLOAD_ROOT, { recursive: true });
-      const fileKey = `${hash.slice(0, 16)}_${Date.now()}${ext}`;
-      await fs.writeFile(path.join(UPLOAD_ROOT, fileKey), buffer);
+      const fileKey = `${crypto.randomUUID()}${ext}`;
+      stagedPath = path.join(UPLOAD_ROOT, fileKey);
+      await fs.writeFile(stagedPath, buffer, { flag: "wx" });
 
-      const row = await prisma.conversationAttachment.create({
-        data: {
-          conversationId,
-          organizationId: session.organizationId,
-          uploadedById: session.userId,
-          originalFilename: name,
-          mimeType: file.type || "application/octet-stream",
-          byteSize: buffer.length,
-          hash,
-          fileKey,
-          parseStatus: outcome.status,
-          parsedKind: outcome.kind,
-          extractedText: outcome.text || null,
-          extractedMeta: outcome.meta as never,
-          parseNote: outcome.note ?? null,
-          parsedAt: new Date(),
-          indexForSearch: Boolean(options.indexForSearch),
-        },
-        select: ATTACHMENT_PUBLIC_SELECT,
+      let row = await prisma.$transaction(async tx => {
+        const created = await tx.conversationAttachment.create({
+          data: {
+            conversationId,
+            organizationId: session.organizationId,
+            uploadedById: session.userId,
+            originalFilename: name,
+            mimeType: file.type || "application/octet-stream",
+            byteSize: buffer.length,
+            hash,
+            fileKey,
+            parseStatus: outcome.status,
+            parsedKind: outcome.kind,
+            extractedText: outcome.text || null,
+            extractedMeta: outcome.meta as never,
+            parseNote: outcome.note ?? null,
+            parsedAt: new Date(),
+            indexForSearch: Boolean(options.indexForSearch),
+          },
+          select: ATTACHMENT_PUBLIC_SELECT,
+        });
+
+        await tx.auditEvent.create({
+          data: {
+            actorId: session.userId,
+            action: "CONVERSATION_ATTACHMENT_UPLOADED",
+            objectType: "ConversationAttachment",
+            objectId: created.id,
+            summary: `对话附件「${name}」（${(buffer.length / 1024).toFixed(1)}KB）${outcome.status === "READY" ? "解析成功" : outcome.status === "UNSUPPORTED" ? "格式不支持" : "解析失败"}`,
+          },
+        });
+
+        return created;
       });
-
-      await prisma.auditEvent.create({
-        data: {
-          actorId: session.userId,
-          action: "CONVERSATION_ATTACHMENT_UPLOADED",
-          objectType: "ConversationAttachment",
-          objectId: row.id,
-          summary: `对话附件「${name}」（${(buffer.length / 1024).toFixed(1)}KB）${outcome.status === "READY" ? "解析成功" : outcome.status === "UNSUPPORTED" ? "格式不支持" : "解析失败"}`,
-        },
-      });
-
-      // 勾选了长期检索的，写完库就灌进知识表；失败不影响上传结果本身
+      stagedPath = null;
+      // 上传与长期索引分开反馈：索引失败仍保留可用于本轮的材料，并允许重试。
       if (options.indexForSearch && outcome.text) {
-        await indexAttachmentForSearch(row.id).catch(() => null);
+        try {
+          await indexAttachmentForSearch(row.id);
+          row = await prisma.conversationAttachment.findUniqueOrThrow({ where: { id: row.id }, select: ATTACHMENT_PUBLIC_SELECT });
+        } catch {
+          console.error("[attachments] Long-term indexing failed", row.id);
+        }
       }
 
       uploads.push({
@@ -195,6 +212,9 @@ export async function uploadConversationAttachments(
         },
       });
     } catch (error) {
+      if (stagedPath) {
+        await fs.unlink(stagedPath).catch(() => console.error("[attachments] Staged file cleanup failed", path.basename(stagedPath!)));
+      }
       uploads.push({
         ok: false,
         error: `${name}：${error instanceof Error ? error.message.slice(0, 160) : String(error)}`,
@@ -234,12 +254,28 @@ export async function removeConversationAttachment(
   // 已随消息发出去的材料成为那轮对话的依据，抽走会让历史回答失去出处
   if (row.messageId) throw new ConflictError("这份材料已随消息发出，不能撤下");
 
-  if (row.indexForSearch) await unindexAttachment(row.id).catch(() => null);
-  await prisma.conversationAttachment.delete({ where: { id: row.id } });
-
-  // 磁盘清理失败不该让删除失败：库里的记录已经消失，孤儿文件由运维清理
-  await fs.unlink(path.join(UPLOAD_ROOT, row.fileKey)).catch(() => null);
-  return { id: row.id, removed: true };
+  await prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM "Conversation" WHERE id = ${conversationId} FOR UPDATE`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`attachment-index:${session.organizationId}`}))`;
+    const latest = await tx.conversationAttachment.findUnique({ where: { id: row.id } });
+    if (!latest) throw new NotFoundError("Attachment not found");
+    if (latest.messageId) throw new ConflictError("这份材料已随消息发出，不能撤下");
+    await tx.knowledgeDocument.deleteMany({ where: {
+      organizationId: session.organizationId, relativePath: row.id,
+      source: { kind: KnowledgeSourceKind.CONVERSATION_UPLOAD },
+    } });
+    await tx.conversationAttachment.delete({ where: { id: row.id } });
+  });
+  // 保留删除结果，同时明确反馈磁盘清理是否完成。
+  let storageCleanupPending = false;
+  try { await fs.unlink(path.join(UPLOAD_ROOT, row.fileKey)); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      storageCleanupPending = true;
+      console.error("[attachments] Removed file cleanup pending", row.id);
+    }
+  }
+  return { id: row.id, removed: true, storageCleanupPending };
 }
 
 // ---------------------------------------------------------------------------
@@ -260,7 +296,8 @@ export async function bindAttachmentsToMessage(
   messageId: string,
   attachmentIds: string[]
 ) {
-  const ids = [...new Set(attachmentIds)].slice(0, MAX_FILES_PER_MESSAGE);
+  const ids = [...new Set(attachmentIds)];
+  if (ids.length > MAX_FILES_PER_MESSAGE) throw new ConflictError(`单条消息最多附带 ${MAX_FILES_PER_MESSAGE} 份附件`);
   if (!ids.length) return 0;
   const result = await client.conversationAttachment.updateMany({
     where: {
@@ -271,6 +308,9 @@ export async function bindAttachmentsToMessage(
     },
     data: { messageId },
   });
+  if (result.count !== ids.length) {
+    throw new ConflictError("附件不存在、已用于另一条消息或不属于当前会话，请重新选择材料");
+  }
   return result.count;
 }
 
@@ -287,13 +327,13 @@ const VIRTUAL_ROOT = ".uploads/conversations";
  * 会话一多就到处都是源，用户没法一次性关掉；而且知识源在语义上是「一类去处」，
  * 不是「一次上传」。所以这里收敛成一个，`rootPath` 记枢要位置备查。
  */
-async function ensureUploadSource(organizationId: string) {
-  const existing = await prisma.knowledgeSource.findFirst({
+async function ensureUploadSource(organizationId: string, client: Prisma.TransactionClient) {
+  const existing = await client.knowledgeSource.findFirst({
     where: { organizationId, kind: KnowledgeSourceKind.CONVERSATION_UPLOAD },
     select: { id: true },
   });
   if (existing) return existing.id;
-  const created = await prisma.knowledgeSource.create({
+  const created = await client.knowledgeSource.create({
     data: {
       organizationId,
       kind: KnowledgeSourceKind.CONVERSATION_UPLOAD,
@@ -321,47 +361,62 @@ export async function indexAttachmentForSearch(attachmentId: string): Promise<vo
   });
   if (!row || !row.indexForSearch || !row.extractedText) return;
 
-  const sourceId = await ensureUploadSource(row.organizationId);
-  // 同一附件重复入库时幂等：先清掉旧切片，避免内容更新后新旧条目互相打架
-  const existingDoc = await prisma.knowledgeDocument.findUnique({
-    where: { sourceId_relativePath: { sourceId, relativePath: row.id } },
-    select: { id: true, contentHash: true },
-  });
-  if (existingDoc?.contentHash === row.hash) return;
-
   const title = row.originalFilename.replace(/\.[^.]+$/, "");
   const chunks = chunkMarkdownByHeadings(row.extractedText, title);
-  const doc = existingDoc
-    ? existingDoc
-    : await prisma.knowledgeDocument.create({
-        data: {
-          sourceId,
-          organizationId: row.organizationId,
-          relativePath: row.id,
-          title,
-          contentHash: row.hash,
-          byteSize: row.byteSize,
-        },
-        select: { id: true },
-      });
-
-  await prisma.knowledgeChunk.deleteMany({ where: { documentId: doc.id } });
-  if (chunks.length) {
-    await prisma.knowledgeChunk.createMany({
-      data: chunks.map((c) => ({
-        documentId: doc.id,
-        organizationId: row.organizationId,
-        chunkIndex: c.chunkIndex,
-        headingPath: c.headingPath,
-        content: c.content,
-        tokens: Math.ceil(c.content.length / 2),
-      })),
+  await prisma.$transaction(async tx => {
+    // 同组织的虚拟源创建与附件索引串行，防止并发建立多个来源或重复切片。
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`attachment-index:${row.organizationId}`}))`;
+    const latest = await tx.conversationAttachment.findUnique({ where: { id: row.id } });
+    if (!latest?.indexForSearch) return;
+    const sourceId = await ensureUploadSource(row.organizationId, tx);
+    const doc = await tx.knowledgeDocument.upsert({
+      where: { sourceId_relativePath: { sourceId, relativePath: row.id } },
+      create: { sourceId, organizationId: row.organizationId, relativePath: row.id, title, contentHash: row.hash, byteSize: row.byteSize },
+      update: { title, contentHash: row.hash, byteSize: row.byteSize, deletedAt: null, indexedAt: new Date() },
+      select: { id: true },
     });
-  }
-  await prisma.conversationAttachment.update({
-    where: { id: row.id },
-    data: { indexedAt: new Date() },
+    await tx.knowledgeChunk.deleteMany({ where: { documentId: doc.id } });
+    if (chunks.length) await tx.knowledgeChunk.createMany({ data: chunks.map(c => ({
+      documentId: doc.id, organizationId: row.organizationId, chunkIndex: c.chunkIndex,
+      headingPath: c.headingPath, content: c.content, tokens: Math.ceil(c.content.length / 2),
+    })) });
+    await tx.conversationAttachment.update({ where: { id: row.id }, data: { indexedAt: new Date() } });
   });
+}
+
+export async function setConversationAttachmentSearch(
+  session: SessionContext, conversationId: string, attachmentId: string, enabled: boolean
+) {
+  await assertConversationOwner(session, conversationId);
+  await prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM "Conversation" WHERE id = ${conversationId} FOR UPDATE`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`attachment-index:${session.organizationId}`}))`;
+    const row = await tx.conversationAttachment.findFirst({ where: { id: attachmentId, conversationId, organizationId: session.organizationId } });
+    if (!row) throw new NotFoundError("Attachment not found");
+    if (row.messageId) throw new ConflictError("这份材料已随消息发出，不能更改检索设置");
+    if (!enabled) await tx.knowledgeDocument.deleteMany({ where: {
+      organizationId: session.organizationId, relativePath: row.id, source: { kind: KnowledgeSourceKind.CONVERSATION_UPLOAD },
+    } });
+    await tx.conversationAttachment.update({ where: { id: row.id }, data: { indexForSearch: enabled, indexedAt: null } });
+  });
+  if (enabled) {
+    try { await indexAttachmentForSearch(attachmentId); }
+    catch { throw new ConflictError("材料已保留，但长期检索写入失败，请重试"); }
+  }
+  return publicView(await prisma.conversationAttachment.findUniqueOrThrow({ where: { id: attachmentId }, select: ATTACHMENT_PUBLIC_SELECT }));
+}
+
+export async function readConversationAttachment(session: SessionContext, conversationId: string, attachmentId: string) {
+  const conversation = await prisma.conversation.findFirst({ where: { id: conversationId, organizationId: session.organizationId, ownerId: session.userId }, select: { id: true } });
+  if (!conversation) throw new NotFoundError("Conversation not found");
+  const row = await prisma.conversationAttachment.findFirst({ where: { id: attachmentId, conversationId, organizationId: session.organizationId } });
+  if (!row) throw new NotFoundError("Attachment not found");
+  try {
+    return { bytes: await fs.readFile(path.join(UPLOAD_ROOT, row.fileKey)), filename: row.originalFilename };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") throw new NotFoundError("附件文件已不可用");
+    throw error;
+  }
 }
 
 export async function unindexAttachment(attachmentId: string): Promise<void> {
@@ -383,13 +438,66 @@ export async function unindexAttachment(attachmentId: string): Promise<void> {
 // 给 prompts 层供货
 // ---------------------------------------------------------------------------
 
-/** 本轮附件可用的正文预算；历史附件另算，避免互相挤。 */
+/**
+ * 本轮所有附件正文**共享**的预算（字符数）。
+ *
+ * 原来是每份各 60,000：8 份材料实测拼出 480,455 字符的 prompt。
+ * 现在整轮共用 60,000，按下面的 water-filling 分配。
+ */
 const CURRENT_TEXT_BUDGET = 60_000;
-const HISTORY_TEXT_BUDGET = 30_000;
+/** 历史附件最多展示几份（沿用旧行为的 6 席）。 */
+const HISTORY_ATTACHMENT_LIMIT = 6;
+/** 单份历史节选最多展示字符；历史节选总量天然 ≤ 6×600，不挤占本轮额度。 */
+const HISTORY_EXCERPT_CHARS = 600;
+/** 文件名展示上限：超出用 … 截断，来源仍可辨识。 */
+const FILENAME_DISPLAY_LIMIT = 120;
+/** 解析说明展示上限。 */
+const PARSE_NOTE_LIMIT = 200;
+/**
+ * 附件层总长度上限（含标题、文件名、说明等全部开销），可测试：
+ * 本轮正文 ≤60,000 ＋ 历史节选 ≤3,600 ＋ 8 份本轮开销约 3,500
+ * ＋ 历史开销约 1,000 ＋ 框架约 300 → 70,000 兜底。
+ * 正常分配到不了这里；超出则显式标注后截断，保证总 prompt 有界。
+ */
+export const ATTACHMENT_PROMPT_MAX_CHARS = 70_000;
 
-function clamp(text: string, budget: number): { text: string; truncated: boolean } {
-  if (text.length <= budget) return { text, truncated: false };
-  return { text: text.slice(0, budget), truncated: true };
+/**
+ * Water-filling 额度分配：短文件按需取用，余量让给长文件；长文件均分剩余。
+ *
+ * 为什么不用「先到先得」：第一份 80,000 字的材料会独自吃掉全部 60,000 预算，
+ * 后面 7 份直接消失，模型还以为本轮只有一份材料。按长度从小到大走，
+ * 短文件拿足、长文件均分剩下的——每份至少能露个头，分配结果可解释。
+ *
+ * 返回每份的字符配额（按输入顺序），总和 ≤ budget。
+ */
+function allocateTextBudget(lengths: number[], budget: number): number[] {
+  const quotas = new Array<number>(lengths.length).fill(0);
+  if (!lengths.length || budget <= 0) return quotas;
+  const order = lengths.map((len, i) => ({ len, i })).sort((a, b) => a.len - b.len);
+  let remaining = budget;
+  let active = lengths.length;
+  for (let k = 0; k < order.length; k++) {
+    const share = Math.floor(remaining / active);
+    if (order[k].len <= share) {
+      quotas[order[k].i] = order[k].len;
+      remaining -= order[k].len;
+    } else {
+      for (let j = k; j < order.length; j++) quotas[order[j].i] = share;
+      break;
+    }
+    active -= 1;
+  }
+  return quotas;
+}
+
+function displayName(name: string): string {
+  if (name.length <= FILENAME_DISPLAY_LIMIT) return name;
+  return `${name.slice(0, FILENAME_DISPLAY_LIMIT)}…`;
+}
+
+function displayNote(note: string): string {
+  if (note.length <= PARSE_NOTE_LIMIT) return note;
+  return `${note.slice(0, PARSE_NOTE_LIMIT)}…`;
 }
 
 export interface AttachmentTurnContext {
@@ -409,9 +517,14 @@ export async function buildAttachmentPrompt(
   organizationId: string,
   currentMessageId: string
 ): Promise<AttachmentTurnContext> {
-  const rows = await prisma.conversationAttachment.findMany({
-    where: { conversationId, organizationId, messageId: { not: null } },
-    orderBy: { createdAt: "desc" },
+  const message = await prisma.message.findFirst({
+    where: { id: currentMessageId, conversationId, conversation: { organizationId } },
+    select: { id: true },
+  });
+  if (!message) return { prompt: "", counts: { total: 0, readable: 0, unsupported: 0 } };
+  const current = await prisma.conversationAttachment.findMany({
+    where: { conversationId, organizationId, messageId: currentMessageId },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     select: {
       id: true,
       originalFilename: true,
@@ -423,14 +536,41 @@ export async function buildAttachmentPrompt(
       messageId: true,
     },
   });
-
-  const current = rows.filter((r) => r.messageId === currentMessageId);
-  const history = rows.filter((r) => r.messageId !== currentMessageId);
   const counts = {
     total: current.length,
     readable: current.filter((r) => r.parseStatus === "READY" && r.extractedText).length,
     unsupported: current.filter((r) => r.parseStatus !== "READY").length,
   };
+
+  // 队列顺序与 claimMessage / conversation-engine 一致：比较 AgentRun 的
+  // (createdAt, id)，不能用随机的 Message.id 判断接受顺序。
+  // 历史消息没有接受记录时，仅纳入严格早于本轮的材料；等时历史材料保守省略。
+  // 在 SQL 层限制条数与正文长度，保留数据库时间精度且不加载全部历史正文。
+  const history = await prisma.$queryRaw<Array<{ originalFilename: string; excerpt: string | null }>>`
+    SELECT a."originalFilename",
+           substring(a."extractedText" from 1 for ${HISTORY_EXCERPT_CHARS}::integer) AS excerpt
+      FROM "ConversationAttachment" a
+      JOIN "Message" m ON m.id = a."messageId" AND m."conversationId" = a."conversationId"
+      JOIN "Message" cm ON cm.id = ${currentMessageId} AND cm."conversationId" = a."conversationId"
+      LEFT JOIN "AgentRun" r ON r.id = m."runId" AND r."conversationId" = a."conversationId"
+        AND r."organizationId" = a."organizationId"
+      LEFT JOIN "AgentRun" cr ON cr.id = cm."runId" AND cr."inputMessageId" = cm.id
+        AND cr."clientMessageId" IS NOT NULL AND cr."organizationId" = a."organizationId"
+        AND cr."conversationId" = a."conversationId"
+     WHERE a."conversationId" = ${conversationId} AND a."organizationId" = ${organizationId}
+       AND m.role = 'USER' AND m.id <> cm.id
+       AND (
+         (cr.id IS NOT NULL AND (
+           (r."clientMessageId" IS NOT NULL AND r."inputMessageId" = m.id
+             AND (r."createdAt", r.id) < (cr."createdAt", cr.id))
+           OR (r."clientMessageId" IS NULL AND m."createdAt" < cm."createdAt")
+         ))
+         OR (cr.id IS NULL AND m."createdAt" < cm."createdAt")
+       )
+     ORDER BY COALESCE(r."createdAt", m."createdAt") DESC, r.id DESC,
+              a."createdAt" DESC, a.id DESC
+     LIMIT ${HISTORY_ATTACHMENT_LIMIT}
+  `;
 
   if (!current.length && !history.length) return { prompt: "", counts };
 
@@ -441,14 +581,26 @@ export async function buildAttachmentPrompt(
   ];
 
   if (current.length) {
-    lines.push("", `### 本轮附带的 ${current.length} 份材料`);
-    for (const row of current) {
-      lines.push("", `#### ${row.originalFilename}（${describeMeta(row.extractedMeta)}）`);
-      if (row.parseNote) lines.push(`> 解析说明：${row.parseNote}`);
+    lines.push("", `### 本轮附带的 ${current.length} 份材料（正文合计 ≤ ${CURRENT_TEXT_BUDGET} 字，按短优先分配）`);
+    // 共享预算：短文件按需取用，余量让给长文件（water-filling）。
+    const quotas = allocateTextBudget(
+      current.map((r) => r.extractedText?.length ?? 0),
+      CURRENT_TEXT_BUDGET
+    );
+    for (let i = 0; i < current.length; i++) {
+      const row = current[i];
+      lines.push("", `#### ${displayName(row.originalFilename)}（${describeMeta(row.extractedMeta)}）`);
+      if (row.parseNote) lines.push(`> 解析说明：${displayNote(row.parseNote)}`);
       if (row.extractedText) {
-        const { text, truncated } = clamp(row.extractedText, CURRENT_TEXT_BUDGET);
-        if (truncated) lines.push(`> 正文较长，以下是前 ${CURRENT_TEXT_BUDGET} 字。`);
-        lines.push(text);
+        const quota = quotas[i];
+        if (row.extractedText.length > quota) {
+          lines.push(
+            `> 这是第 ${i + 1}/${current.length} 份材料的节选：本轮 ${current.length} 份材料共用 ${CURRENT_TEXT_BUDGET} 字额度，本份分得 ${quota} 字（原文 ${row.extractedText.length} 字），不得当作全文使用。`
+          );
+          lines.push(row.extractedText.slice(0, quota));
+        } else {
+          lines.push(row.extractedText);
+        }
       } else {
         lines.push("（这份材料没有提取到可读正文。）");
       }
@@ -458,17 +610,24 @@ export async function buildAttachmentPrompt(
   if (history.length) {
     lines.push(
       "",
-      `### 本会话更早上传过的 ${history.length} 份材料（正文为节选，仅供参考）`
+      `### 本会话更早的 ${history.length} 份材料（各取前 ${HISTORY_EXCERPT_CHARS} 字（节选），仅供参考，不占本轮额度）`
     );
-    for (const row of history.slice(0, 6)) {
-      const excerpt = row.extractedText
-        ? clamp(row.extractedText, HISTORY_TEXT_BUDGET).text.replace(/\s+/g, " ").slice(0, 600)
+    for (const row of history) {
+      const excerpt = row.excerpt
+        ? row.excerpt.replace(/\s+/g, " ")
         : "（无可读正文）";
-      lines.push(`- **${row.originalFilename}**：${excerpt}`);
+      lines.push(`- **${displayName(row.originalFilename)}**：${excerpt}`);
     }
   }
 
-  return { prompt: lines.join("\n"), counts };
+  let prompt = lines.join("\n");
+  // 总长度兜底：正常分配到不了这里；超出则显式标注后截断，保证 prompt 有界。
+  if (prompt.length > ATTACHMENT_PROMPT_MAX_CHARS) {
+    const notice = `\n> （附件上下文超出 ${ATTACHMENT_PROMPT_MAX_CHARS} 字上限，已截断；被截掉的部分本轮不可见。）`;
+    prompt = prompt.slice(0, ATTACHMENT_PROMPT_MAX_CHARS - notice.length) + notice;
+  }
+
+  return { prompt, counts };
 }
 
 function describeMeta(meta: unknown): string {

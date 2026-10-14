@@ -170,7 +170,7 @@ function persistDrafts(drafts: Map<string, string>) {
   }
 }
 
-type PendingSend = { clientMessageId: string; conversationId: string; text: string; runId?: string };
+type PendingSend = { clientMessageId: string; conversationId: string; text: string; attachmentIds?: string[]; runId?: string };
 type MessageExecution = { runId: string; status: string; clientMessageId: string; createdAt?: string; error?: string | null };
 const PENDING_KEY = "kern.muse.pending.v1";
 function loadPending(key: string): PendingSend | null {
@@ -248,9 +248,24 @@ export default function KernClient({ model }: { model: StudioModel }) {
   const indexForSearchRef = useRef(false);
   const [accepts, setAccepts] = useState("");
 
-  const setIndexForSearch = (next: boolean) => {
+  const setIndexForSearch = async (next: boolean) => {
+    const targetId = activeIdRef.current;
+    if (!targetId || uploading) return;
     indexForSearchRef.current = next;
     setIndexForSearchState(next);
+    setUploading(true);
+    try {
+      for (const item of attachments) {
+        const res = await fetch(`/api/conversations/${targetId}/attachments/${item.id}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ indexForSearch: next }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.message ?? "保存检索设置失败，请重试");
+        if (activeIdRef.current === targetId) setAttachments(current => current.map(row => row.id === item.id ? data : row));
+      }
+    } catch (error) {
+      setFeedback({ text: error instanceof Error ? error.message : "保存检索设置失败，请重试", error: true });
+    } finally { setUploading(false); }
   };
 
   // 材料是会话私有的：切换会话就清空，跟着会话一起换。
@@ -269,7 +284,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
         const items = Array.isArray(data.attachments) ? data.attachments : [];
         setAttachments(
           items.filter((item: unknown): item is ConversationAttachmentItem =>
-            Boolean(item) && typeof (item as ConversationAttachmentItem).id === "string"
+            Boolean(item) && typeof (item as ConversationAttachmentItem).id === "string" && !(item as ConversationAttachmentItem).sent
           )
         );
         const extensions = data.limits?.extensions;
@@ -315,25 +330,26 @@ export default function KernClient({ model }: { model: StudioModel }) {
   };
 
   const uploadFiles = async (files: File[]) => {
-    if (!files.length) return;
-    let targetId = activeIdRef.current;
-    if (!targetId) targetId = await ensureConversationForUpload(files[0]?.name);
-    if (!targetId) {
-      setFeedback({ text: "创建会话失败，材料未能上传。", error: true });
-      return;
-    }
+    if (!files.length || uploading || sendingRef.current) return;
     setUploading(true);
     try {
+      let targetId = activeIdRef.current;
+      if (!targetId) targetId = await ensureConversationForUpload(files[0]?.name);
+      if (!targetId) throw new Error("创建会话失败，材料未能上传。");
       const form = new FormData();
       for (const file of files) form.append("files", file);
       form.append("indexForSearch", indexForSearchRef.current ? "true" : "false");
       const res = await fetch(`/api/conversations/${targetId}/attachments`, { method: "POST", body: form });
       const data = await res.json();
+      if (!res.ok && !Array.isArray(data?.uploads)) throw new Error(data?.message ?? "材料上传失败，请重试");
       const results: { ok: boolean; attachment?: ConversationAttachmentItem; error?: string }[] =
         Array.isArray(data?.uploads) ? data.uploads : [];
       const ok = results.filter((r) => r.ok && r.attachment).map((r) => r.attachment!);
       const failed = results.filter((r) => !r.ok);
-      if (ok.length) setAttachments((current) => [...current, ...ok]);
+      if (ok.length && activeIdRef.current === targetId) setAttachments(current => [...current.filter(row => !ok.some(item => item.id === row.id)), ...ok]);
+      if (ok.some(item => item.indexForSearch && !item.indexedAt)) {
+        setFeedback({ text: "材料已上传，但尚未存入长期检索。可再次勾选重试；不可读文件无法入库。", error: true });
+      }
       if (failed.length) {
         setFeedback({
           text: `${failed.length} 份材料没能读取：${failed.map((f) => f.error ?? "未知原因").slice(0, 2).join("；")}`,
@@ -361,13 +377,17 @@ export default function KernClient({ model }: { model: StudioModel }) {
     setAttachments((current) => current.filter((item) => item.id !== id));
     try {
       const res = await fetch(`/api/conversations/${targetId}/attachments/${id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => null);
+      if (activeIdRef.current !== targetId) return;
       if (!res.ok) {
         setAttachments(previous);
-        const data = await res.json().catch(() => null);
         setFeedback({ text: data?.message ?? "撤下材料失败", error: true });
+      } else if (data?.storageCleanupPending) {
+        setFeedback({ text: "材料已撤下并移出检索，但本地文件清理未完成。", error: true });
       }
     } catch {
       // 乐观更新回滚：服务端没真的删掉，界面就不能假装删了
+      if (activeIdRef.current !== targetId) return;
       setAttachments(previous);
       setFeedback({ text: "撤下材料失败，请重试", error: true });
     }
@@ -709,6 +729,10 @@ export default function KernClient({ model }: { model: StudioModel }) {
       }
     } catch {}
 
+    if (uploading) {
+      setFeedback({ text: "材料正在上传或保存检索设置，请稍等。" });
+      return false;
+    }
     if (sendingRef.current || processingRef.current || decisionBusy) {
       if (text) setFeedback({ text: "Kern 还在处理上一条，稍等一下。" });
       return false;
@@ -720,7 +744,9 @@ export default function KernClient({ model }: { model: StudioModel }) {
     const storedPending = pendingSendRef.current ?? loadPending(draftKey);
     const request: PendingSend = storedPending?.text === text ? storedPending : {
       clientMessageId: crypto.randomUUID(), conversationId: conversationId ?? crypto.randomUUID(), text,
+      attachmentIds: [...attachmentIdsRef.current],
     };
+    request.attachmentIds ??= [...attachmentIdsRef.current];
     pendingSendRef.current = request;
     persistPending(draftKey, request);
     let targetDraftKey = draftKey;
@@ -781,7 +807,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
           body: JSON.stringify({
             content: text,
             clientMessageId: request.clientMessageId,
-            attachmentIds: attachmentIdsRef.current,
+            attachmentIds: request.attachmentIds,
           }),
         }
       );
@@ -841,7 +867,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
         setSending(false);
       }
     }
-  }, [draft, conversationId, model.newConversationProduct?.id, runtimeConfig, decisionBusy]);
+  }, [draft, conversationId, model.newConversationProduct?.id, runtimeConfig, decisionBusy, uploading]);
 
   const retryFailed = useCallback(() => {
     const text = failedRef.current;
@@ -1216,6 +1242,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
           modelReady={model.modelReady}
           onTrust={() => setSheet({ kind: "trust" })}
           attachments={attachments}
+          attachmentConversationId={conversationId}
           onUploadFiles={(files) => void uploadFiles(files)}
           onRemoveAttachment={(id) => void removeAttachment(id)}
           uploading={uploading}
