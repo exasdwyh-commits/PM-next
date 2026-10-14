@@ -75,7 +75,7 @@
       "id": "workbench",
       "type": "WORKBENCH",
       "label": "Management Workbench",
-      "detail": "Products, projects, tasks, evidence, audit management and standalone report pages.",
+      "detail": "Products, projects, tasks, evidence and audit management.",
       "layer": 0,
       "truth": "VERIFIED",
       "metadata": {
@@ -139,7 +139,7 @@
       "layer": 1,
       "truth": "VERIFIED",
       "metadata": {
-        "fileCount": 123,
+        "fileCount": 124,
         "repository": "exasdwyh-commits/PM-next",
         "revision": "WORKTREE"
       },
@@ -615,7 +615,7 @@
       "id": "platform-services",
       "type": "PLATFORM",
       "label": "Platform Services",
-      "detail": "Tenancy, identity, scheduling, notifications, artifacts, file intake, feedback, history compression and supporting services.",
+      "detail": "Tenancy, identity, scheduling, notifications and supporting services.",
       "layer": 6,
       "truth": "VERIFIED",
       "metadata": {
@@ -670,11 +670,11 @@
       "id": "shared-kernel",
       "type": "SHARED_KERNEL",
       "label": "Shared Kernel",
-      "detail": "Cross-cutting helpers, request middleware, UI primitives, contracts and reply formats.",
+      "detail": "Cross-cutting helpers, UI primitives, contracts and reply formats.",
       "layer": 7,
       "truth": "VERIFIED",
       "metadata": {
-        "fileCount": 103,
+        "fileCount": 102,
         "repository": "exasdwyh-commits/PM-next",
         "revision": "WORKTREE"
       },
@@ -2774,6 +2774,26 @@
         {
           "ref": "src/app/api/projects/[id]/evidences/route.ts",
           "title": "src/app/api/projects/[id]/evidences/route.ts",
+          "kind": "repository-source"
+        }
+      ]
+    },
+    {
+      "id": "import-platform-api-kern-router",
+      "from": "platform-api",
+      "to": "kern-router",
+      "relation": "IMPORTS",
+      "label": "代码依赖",
+      "truth": "VERIFIED",
+      "evidenceRefs": [
+        {
+          "ref": "src/app/api/capabilities/resolve/route.ts",
+          "title": "src/app/api/capabilities/resolve/route.ts",
+          "kind": "repository-source"
+        },
+        {
+          "ref": "src/modules/assistant-runtime/router.ts",
+          "title": "src/modules/assistant-runtime/router.ts",
           "kind": "repository-source"
         }
       ]
