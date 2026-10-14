@@ -1461,6 +1461,47 @@
   background: var(--m-accent-wash);
 }
 
+/* 误触发引导：草稿命中能力包关键词时给出「本轮会自动用到谁」，并留一个改选入口 */
+.m-dock-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 16px 0;
+  padding: 6px 10px;
+  border: 1px solid var(--m-accent-line);
+  border-radius: var(--m-r-sm);
+  background: var(--m-accent-wash);
+  font-size: var(--m-t-xs);
+  color: var(--m-ink-2);
+}
+.m-dock-hint > svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--m-accent);
+}
+.m-dock-hint > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.m-dock-hint > span > b {
+  color: var(--m-accent-ink);
+  font-weight: 600;
+}
+.m-dock-hint-act {
+  flex: none;
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--m-accent-line);
+  border-radius: var(--m-r-sm);
+  background: var(--m-surface-2);
+  color: var(--m-accent-ink);
+  font-size: var(--m-t-xs);
+  cursor: pointer;
+}
+
 .m-dock-files {
   display: flex;
   align-items: center;

@@ -319,15 +319,27 @@ function RunControls({
   config,
   onChange,
   modelReady,
+  focusRequest,
 }: {
   controls: ConversationControls;
   config: ConversationRuntimeConfig;
   onChange: (next: Partial<ConversationRuntimeConfig>) => void;
   modelReady: boolean;
+  /**
+   * 外部请求打开面板并聚焦某个页签（如「误触发引导」让用户改选能力包）。
+   * 每次传入新对象即触发一次；不看 nonce 内容，只靠引用变化。
+   */
+  focusRequest?: { tab: RunTab; nonce: number } | null;
 }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<RunTab>("capabilities");
   const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!focusRequest) return;
+    setTab(focusRequest.tab);
+    setOpen(true);
+  }, [focusRequest]);
 
   useEffect(() => {
     if (!open) return;
@@ -466,6 +478,7 @@ export function Dock({
   indexForSearch = false,
   onToggleIndexForSearch,
   accepts = "",
+  packHint = null,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -489,12 +502,18 @@ export function Dock({
   onToggleIndexForSearch?: (next: boolean) => void;
   /** input[accept] 的值，由上限表统一给出，避免 UI 与后端白名单各写一份 */
   accepts?: string;
+  /**
+   * 误触发引导：本轮按关键词自动命中了这些能力包。点「改选」即打开高级配置的
+   * 能力包页签，让用户显式圈定（走 EXPLICIT 档），而不是被动接受自动匹配。
+   */
+  packHint?: { labels: string[]; total: number } | null;
 }) {
   const dock = useRef<HTMLDivElement>(null);
   const ta = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const composing = useRef(false);
   const [dragging, setDragging] = useState(false);
+  const [runFocus, setRunFocus] = useState<{ tab: RunTab; nonce: number } | null>(null);
   /** 拖放到窗口上时只有 dragleave 不够（子元素会连续触发），用计数器判边界。 */
   const dragDepth = useRef(0);
 
@@ -599,6 +618,22 @@ export function Dock({
             ) : null}
           </div>
         ) : null}
+        {packHint && packHint.labels.length > 0 ? (
+          <div className="m-dock-hint" role="status">
+            <I.spark />
+            <span>
+              本轮会自动用到：<b>{packHint.labels.join("、")}</b>
+              {packHint.total > packHint.labels.length ? ` 等 ${packHint.total} 个` : ""}
+            </span>
+            <button
+              type="button"
+              className="m-dock-hint-act"
+              onClick={() => setRunFocus({ tab: "capabilityPacks", nonce: Date.now() })}
+            >
+              改选
+            </button>
+          </div>
+        ) : null}
         <textarea
           ref={ta}
           value={value}
@@ -667,7 +702,7 @@ export function Dock({
               />
             </label>
           ) : null}
-          <RunControls controls={controls} config={config} onChange={patch} modelReady={modelReady} />
+          <RunControls controls={controls} config={config} onChange={patch} modelReady={modelReady} focusRequest={runFocus} />
           <button type="button" className="m-pill m-runtime-pill" onClick={onTrust} title={runtimeConnected ? "查看本机连接与可用能力" : "查看连接本机的方法与权限"}>
             <I.mac />
             {runtimeConnected ? capabilities.length ? `${capabilities.length} 项本机能力` : "本机已连接" : "连接本机"}

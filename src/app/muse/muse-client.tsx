@@ -233,6 +233,44 @@ export default function KernClient({ model }: { model: StudioModel }) {
   const draftsRef = useRef(new Map<string, string>());
   const saveTimer = useRef(0);
   const [draftSaved, setDraftSaved] = useState(false);
+  /**
+   * 误触发引导：草稿命中能力包关键词时，提示「本轮会自动用到哪些包」，并给一个改选入口。
+   * 只在自动模式（未显式圈定能力包）下算——显式模式下解析走 EXPLICIT，不存在误触发。
+   */
+  const [packHint, setPackHint] = useState<{ labels: string[]; total: number } | null>(null);
+  useEffect(() => {
+    const text = draft.trim();
+    if (runtimeConfig.capabilityPackIds !== null || sending || text.length < 4) {
+      setPackHint(null);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      fetch(`/api/capabilities/resolve?q=${encodeURIComponent(text)}`, { signal: controller.signal })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          const resolution = data?.resolution;
+          const skills = Array.isArray(resolution?.skills) ? resolution.skills : [];
+          const labels = skills
+            .map((s: { label?: unknown }) => (typeof s?.label === "string" ? s.label : ""))
+            .filter((x: string) => x.length > 0);
+          // 只对「按关键词自动命中」提示：用户确实可能没打算用这个能力包。
+          // 命中常常不止一个（一句话踩中多个触发词），只报前几个，其余用「等 N 个」收敛。
+          if (resolution?.source === "TRIGGER" && labels.length) {
+            setPackHint({ labels: labels.slice(0, 3), total: labels.length });
+          } else {
+            setPackHint(null);
+          }
+        })
+        .catch(() => {
+          // 解析失败静默：引导只是锦上添花，不该打断输入或弹错。
+        });
+    }, 500);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [draft, runtimeConfig.capabilityPackIds, sending]);
 
   // ─────────────────────────────────────────────────────────────────────
   // 会话附件：上传 → 解析 → 随消息发出。
@@ -1223,6 +1261,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
           indexForSearch={indexForSearch}
           onToggleIndexForSearch={setIndexForSearch}
           accepts={accepts}
+          packHint={packHint}
         />
       </main>
 
