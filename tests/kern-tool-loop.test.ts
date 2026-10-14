@@ -10,6 +10,7 @@ import {
   parseToolCall,
   resolveToolStepLimit,
   runToolLoop,
+  stripToolRequestNoise,
   toolInstructions,
   toolSchemasFor,
   usageTokensOf,
@@ -475,4 +476,58 @@ test("TL25：incomplete → 诚实 BLOCKED reason 映射", () => {
   assert.equal(incompleteToReason("BUDGET_TOKENS"), "BUDGET_TOKENS");
   assert.equal(incompleteToReason("BUDGET_TIME"), "BUDGET_TIME");
   assert.equal(incompleteToReason("EMPTY_OUTPUT"), "OUTPUT_INCOMPLETE:EMPTY_OUTPUT");
+});
+
+// ---------------------------------------------------------------------------
+// 复读防护：模型把会话里序列化过的工具请求抄进最终答复（ff812eee 市场节点实录）
+// ---------------------------------------------------------------------------
+
+test("TL26：复读检测与剔除——噪声行删除、结论保留、合法 JSON 块不误伤", () => {
+  const leaked = [
+    '{"tool":"web_search","input":{"query":"中老年奶粉 市场规模 2025"}}',
+    "%timeout",
+    '{"tool":"knowledge_search","input":{"query":"中老年营养奶粉 市场 竞品 价格 渠道 用户需求"}}',
+    "### 研究边界",
+    "- 本轮检索未取得可引用的市场资料。（事实）",
+  ].join("\n");
+  assert.equal(parseToolCall(leaked), null, "复读文本不会再触发执行");
+  const cleaned = stripToolRequestNoise(leaked);
+  assert.ok(cleaned !== null);
+  assert.equal(cleaned, "### 研究边界\n- 本轮检索未取得可引用的市场资料。（事实）");
+  assert.equal(stripToolRequestNoise("## 结论\n正常回答，不含工具请求"), null, "干净答复走快速路径");
+  const legit = '说明如下：\n```json\n{"price": 199, "input": {"note": "数据示例"}}\n```\n结束';
+  assert.equal(stripToolRequestNoise(legit), null, "合法 JSON 代码块不得误伤");
+  const fenced = '前文\n```kern-tool\n{"tool":"calculate","input":{"expression":"1+1"}}\n```\n后文';
+  assert.equal(stripToolRequestNoise(fenced), "前文\n后文");
+});
+
+test("TL27：复读防护进入循环——最终答复里只留干净结论", async () => {
+  const toolReq = block({ tool: "knowledge_search", input: { query: "竞品 价格" } });
+  const echo = '{"tool":"knowledge_search","input":{"query":"竞品 价格"}}\n%timeout';
+  const replies = [toolReq, echo + "\n## 结论\n毛利约 79.6 元（事实：知识库）"];
+  let idx = 0;
+  const out = await runToolLoop({
+    messages: [{ role: "user", content: "go" }],
+    invoke: async () => ok(replies[Math.min(idx++, replies.length - 1)]),
+    ctx: { organizationId: "o", searchKnowledge: async () => [{ title: "竞品表", snippet: "小佩 299 元", ref: "k1" }] },
+  });
+  assert.equal((out as { text: string }).text, "## 结论\n毛利约 79.6 元（事实：知识库）");
+  assert.equal(out.toolCalls?.length, 1, "复读不得触发第二次工具执行");
+});
+
+test("TL28：整条答复全是复读——不交付空答案，回喂后拿到真结论", async () => {
+  const toolReq = block({ tool: "knowledge_search", input: { query: "竞品 价格" } });
+  const echo = '{"tool":"web_search","input":{"query":"x"}}\n%timeout\n{"tool":"knowledge_search","input":{"query":"竞品 价格"}}';
+  const replies = [toolReq, echo, "结论：已按知识库回答"];
+  let idx = 0;
+  const seen: Msg[][] = [];
+  const out = await runToolLoop({
+    messages: [{ role: "user", content: "go" }],
+    invoke: async (m) => { seen.push(m); return ok(replies[Math.min(idx++, replies.length - 1)]); },
+    ctx: { organizationId: "o", searchKnowledge: async () => [{ title: "竞品表", snippet: "小佩 299 元", ref: "k1" }] },
+  });
+  assert.equal((out as { text: string }).text, "结论：已按知识库回答");
+  assert.equal(out.toolCalls?.length, 1);
+  assert.equal(idx, 3, "复读轮只要求重新给结论，不再调用工具");
+  assert.match(seen[2].at(-1)!.content, /不是结论/, "全复读时有明确回喂");
 });

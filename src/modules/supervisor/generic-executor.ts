@@ -34,6 +34,7 @@ import {
   DEFAULT_TOOL_OUTPUT_LIMIT,
   DEFAULT_TOOL_TIMEOUT_MS,
   runToolLoop,
+  stripToolRequestNoise,
   toolInstructions,
   toolSchemasFor,
   toolsFor,
@@ -674,7 +675,12 @@ export const runMissionNodeAgent: ExecutorStrategy = async (context): Promise<Ex
     };
   }
 
-  const text = out.text.trim();
+  const rawText = out.text.trim();
+  // 复读防护（非工具节点）：上游摘要里可能带着被复读的工具请求行，这里同样剔除；
+  // 工具循环路径已在 runToolLoop 内剔除，不重复处理。
+  const text = useTools
+    ? rawText
+    : (() => { const cleaned = stripToolRequestNoise(rawText); return cleaned === null ? rawText : cleaned; })();
   const normalized = node.kind === "QA" ? text : normalizeReply(text).text;
   const incomplete: ToolLoopIncomplete | null =
     "incomplete" in out
