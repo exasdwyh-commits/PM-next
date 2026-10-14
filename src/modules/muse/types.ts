@@ -111,7 +111,7 @@ export interface ConversationRuntimeConfig {
   capabilityKeys: string[] | null;
   /** 文件式能力包 id（`<域>.<名称>`）；null = 不限，走自动识别。 */
   capabilityPackIds: string[] | null;
-  /** 授权档位：auto 常规协作；full 全委托（Kern 自行决定取舍，不再追问）。 */
+  /** 授权档位：auto 常规协作；full 全委托（Kern 自行决定方案取舍，不再回问草稿细节；业务执行确认仍走服务端既有人工确认入口）。 */
   delegationMode: "auto" | "full";
 }
 

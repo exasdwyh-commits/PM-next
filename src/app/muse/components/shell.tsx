@@ -448,7 +448,7 @@ function RunControls({
               </button>
               <button type="button" role="radio" className="m-control-row" aria-checked={config.delegationMode === "full"}
                 onClick={() => onChange({ delegationMode: "full" })}>
-                <span><b>全委托</b><small>本轮取舍交给 Kern：不再追问，直接按它判断的最佳方案产出；补的假设会标注出来。</small></span>
+                <span><b>全委托</b><small>本轮取舍交给 Kern：方案取舍与草稿细节不再回问，直接按它判断的最佳方案产出；补的假设会标注出来。业务执行仍需你在提议卡上确认。</small></span>
                 <i>{config.delegationMode === "full" ? "✓" : ""}</i>
               </button>
             </div>
