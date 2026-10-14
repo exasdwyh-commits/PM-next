@@ -231,3 +231,17 @@
 .rv3 .research-source-list { padding-left: 20px; line-height: 1.7; }
 .rv3 .research-source-list li { margin-bottom: 14px; overflow-wrap: anywhere; }
 @media print { .rv3 .research-prose { padding: 0; border: 0; }.rv3 .research-prose .m-h[data-l="2"] { break-after: avoid; }.rv3 .research-prose .m-table-wrap { overflow: visible; } }
+
+/* 质量门禁横幅：报告未通过或待补证时，在正文之前先说清状态与补齐方式。 */
+.rv3 .qgate{border:1px solid var(--amber-line);border-left:4px solid var(--amber-tx);
+  background:var(--amber-bg);border-radius:0 var(--r) var(--r) 0;padding:18px 22px;margin:18px 0 0}
+.rv3 .qgate[data-status="BLOCKED"]{border-color:var(--accent-line);border-left-color:var(--accent);background:var(--accent-soft)}
+.rv3 .qgate-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.rv3 .qgate-hd strong{font-size:15.5px;color:var(--ink)}
+.rv3 .qgate-badge{font-size:12px;letter-spacing:1px;padding:3px 11px;border-radius:999px;
+  border:1.5px solid var(--amber-line);background:var(--paper);color:var(--amber-tx);white-space:nowrap}
+.rv3 .qgate[data-status="BLOCKED"] .qgate-badge{border-color:var(--accent-line);color:var(--accent)}
+.rv3 .qgate-list{margin:0;padding-left:18px;font-size:13.5px;color:var(--ink)}
+.rv3 .qgate-list li{margin:6px 0}
+.rv3 .qgate-fix{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+@media print{.rv3 .qgate{break-inside:avoid}}

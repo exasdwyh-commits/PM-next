@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getServerSessionFromContext } from "@/modules/identity/session";
 import { loadMissionReport } from "@/modules/supervisor/takeaway";
 import { buildMissionPoster } from "@/modules/supervisor/report-poster";
+import { assessMissionReportQuality } from "@/modules/supervisor/report-quality";
 import { ReportV3 } from "@/components/report-v3";
 import { NotFoundError, UnauthorizedError } from "@/shared/errors";
 
@@ -22,5 +23,5 @@ export default async function MissionReportPage({ params }: { params: Promise<{ 
     throw error;
   }
   if (report.playbook !== "NEW_PRODUCT" || report.outcome !== "COMPLETED" || !report.conclusion) notFound();
-  return <ReportV3 report={buildMissionPoster(report)} />;
+  return <ReportV3 report={buildMissionPoster(report, assessMissionReportQuality(report))} />;
 }

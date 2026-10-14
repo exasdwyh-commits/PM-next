@@ -88,6 +88,11 @@ export function ReportCard({ citation }: { citation: ExecutiveReportCitation }) 
           {citation.reviewStatus ? (
             <span className="kxr-report-status">· {reviewStatusLabel(citation.reviewStatus)}</span>
           ) : null}
+          {citation.qualityStatus && citation.qualityStatus !== "DELIVERABLE" ? (
+            <span className="kxr-report-quality" data-status={citation.qualityStatus}>
+              {citation.qualityStatus === "BLOCKED" ? "未通过质量检查" : "待补证草稿"}
+            </span>
+          ) : null}
         </div>
         <h3 className="kxr-report-title">{citation.title}</h3>
         {summary ? <p className="kxr-report-summary">{summary}</p> : null}
@@ -102,7 +107,7 @@ export function ReportCard({ citation }: { citation: ExecutiveReportCitation }) 
             <strong>{stats.risks}</strong> 项风险
           </span>
           <span>
-            <strong>{stats.unknowns}</strong> 项 UNKNOWN
+            <strong>{stats.unknowns}</strong> 项待验证
           </span>
           <span>
             <strong>{stats.decisions}</strong> 项待决策

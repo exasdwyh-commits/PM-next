@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/modules/identity/session";
 import { loadMissionReport, missionReportHtml, missionReportMarkdown, reportFileName } from "@/modules/supervisor";
+import { assessMissionReportQuality, REPORT_QUALITY_LABEL } from "@/modules/supervisor/report-quality";
 import { handleApiError } from "@/shared/api-handler";
 
 const OFFICE = new Set(["docx", "xlsx", "pptx"]);
@@ -34,7 +35,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         },
       });
     }
-    const md = missionReportMarkdown(report);
+    // 交付与展示同源：下载件也带上质量状态，不让未通过的结论以正式报告的样子流出。
+    const quality = report.playbook === "NEW_PRODUCT" && report.outcome === "COMPLETED" && report.conclusion
+      ? assessMissionReportQuality(report) : null;
+    const gate = quality && quality.status !== "DELIVERABLE"
+      ? [`> **${REPORT_QUALITY_LABEL[quality.status]}**：${quality.status === "BLOCKED" ? "这份报告不能作为正式研究交付。" : "这份报告还需补证才能定稿。"}`,
+         ...quality.issues.map((issue) => `> - ${issue.where}：${issue.detail}（补齐方式：${issue.fix}）`), ""]
+      : [];
+    const md0 = missionReportMarkdown(report);
+    const md = gate.length ? md0.replace(/^([^\n]*\n)/, `$1\n${gate.join("\n")}\n`) : md0;
     if (format === "pdf") {
       return new NextResponse(missionReportHtml(report, md), {
         headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },

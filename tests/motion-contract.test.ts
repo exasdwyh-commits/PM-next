@@ -109,6 +109,8 @@ const DATABAR_ALLOWLIST: Record<string, string> = {
     "依赖图节点完成度条：宽度 = 该节点的进度数据。",
   "src/components/product-rnd-panel-rich.css .progress-bar .fill":
     "研发流程进度条：宽度 = 当前阶段完成百分比。",
+  "src/app/muse/components/execution-flow.css .m-flow-progress > span":
+    "任务执行进度条：宽度 = 已完成步骤的占比，过渡让进度推进可读，删掉只剩跳变。",
 };
 
 function isAllowedDatabar(file: string, selector: string, prop: string): boolean {
