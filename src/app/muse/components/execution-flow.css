@@ -106,3 +106,41 @@
 @keyframes m-flow-appear { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 640px) { .m-flow-head { flex-wrap: wrap; padding: 10px 12px; gap: 5px; }.m-flow-heading { flex: 1 1 130px; }.m-flow-heading small { display: none; }.m-flow-viewport { height: 330px; }.m-flow-tools button { width: 30px; height: 30px; }.m-flow-context { padding: 9px 12px; font-size: 10px; }.m-flow-inspector header { flex-wrap: wrap; }.m-flow-inspector header button { flex-shrink: 0; }.m-flow-minimap { width: 90px; height: 46px; } }
 @media (prefers-reduced-motion: reduce) { :root:not([data-motion="full"]) .m-flow *, :root:not([data-motion="full"]) .m-flow *::before, :root:not([data-motion="full"]) .m-flow *::after { animation: none !important; transition: none !important; } }
+
+/* Warm editorial canvas: movement only illustrates recorded execution. */
+.m-flow { border-radius: 18px; box-shadow: 0 8px 30px color-mix(in srgb, var(--m-ink) 4%, transparent); }
+.m-flow-head { padding: 16px 18px; background: var(--m-surface); }
+.m-flow-heading { gap: 10px; }
+.m-flow-heading strong { font-size: 14px; letter-spacing: -.2px; }
+.m-flow-tools { padding: 3px; border: 1px solid var(--m-hairline); border-radius: 10px; background: var(--m-surface-2); }
+.m-flow-progress { height: 3px; background: var(--m-surface-sunk); overflow: hidden; }
+.m-flow-progress > span { display: block; height: 100%; background: var(--m-accent); transition: width .5s cubic-bezier(.2,.8,.2,1); }
+.m-flow-context { padding: 11px 18px; background: var(--m-surface-2); }
+.m-flow-viewport { height: 480px; background-size: 24px 24px; background-image: radial-gradient(circle, color-mix(in srgb, var(--m-hairline-2) 65%, transparent) .8px, transparent .8px); }
+.m-flow-world { transition: transform .36s cubic-bezier(.22,1,.36,1); }
+.m-flow[data-panning] .m-flow-world { transition: none; }
+.m-flow-goal { border-radius: 16px; padding: 17px; box-shadow: 0 4px 16px color-mix(in srgb, var(--m-accent) 5%, transparent); }
+.m-flow-goal > span { letter-spacing: .5px; }
+.m-flow-node { border-radius: 15px; box-shadow: 0 5px 16px color-mix(in srgb, var(--m-ink) 5%, transparent); animation-delay: var(--flow-enter-delay, 0ms); }
+.m-flow-node[data-flow-state="active"] { background: linear-gradient(135deg, var(--m-surface) 45%, var(--m-accent-wash)); animation-delay: var(--flow-enter-delay, 0ms), .5s; }
+.m-flow-node[data-flow-state="done"] { background: linear-gradient(135deg, var(--m-surface) 65%, var(--m-ok-wash)); }
+.m-flow-node[data-planned] { opacity: .72; }
+.m-flow-node:hover, .m-flow-node[data-selected] { opacity: 1; }
+.m-flow-symbol { width: 32px; height: 32px; border-radius: 10px; }
+.m-flow-node-copy strong { font-weight: 600; }
+.m-flow-current { animation-duration: 1.8s; stroke-width: 3; }
+.m-flow-wire { stroke-linecap: round; }
+.m-flow-foot { padding: 13px 18px; background: var(--m-surface); }
+.m-flow-inspector { padding: 18px; background: var(--m-surface); }
+.m-flow-minimap { border-radius: 10px; width: 124px; height: 64px; opacity: .9; }
+@media (max-width: 640px) {
+  .m-flow-head { padding: 12px; }
+  .m-flow-viewport { height: 390px; }
+  .m-flow-context, .m-flow-foot { padding: 10px 12px; }
+  .m-flow-minimap { width: 90px; height: 48px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .m-flow .m-flow-world, .m-flow .m-flow-progress > span { transition: none !important; }
+}
+.m-flow-wires g[data-done] .m-flow-origin-wire { stroke: color-mix(in srgb, var(--m-ok) 42%, var(--m-hairline)); stroke-dasharray: none; }
+.m-flow-wires g[data-flowing] .m-flow-origin-wire { stroke: var(--m-accent-line); stroke-dasharray: none; }

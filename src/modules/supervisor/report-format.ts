@@ -19,6 +19,7 @@ export interface ReportSource {
 }
 
 export type MissionReport = {
+  playbook?: string;
   missionTaskId: string;
   title: string;
   goal: string;
