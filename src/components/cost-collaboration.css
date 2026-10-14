@@ -11,7 +11,7 @@
 .comment-content p { margin: 0; font-size: 11px; line-height: 1.5; }
 .comment-content .mention { background: #eaf1fe; color: #2563eb; padding: 1px 4px; border-radius: 4px; font-weight: 600; }
 .comment-content .mentions { color: var(--ok); background: var(--ok-bg); padding: 2px 6px; border-radius: 4px; }
-.empty { padding: 20px; text-align: center; color: var(--ink-faint); font-size: 11px; border: 1px dashed #e7e9ef; border-radius: 8px; }
+.empty { padding: 20px; text-align: center; color: var(--ink-2); font-size: 11px; border: 1px dashed #e7e9ef; border-radius: 8px; }
 .comment-input { display: grid; gap: 8px; padding: 12px; background: var(--surface-soft); border: 1px solid #e7e9ef; border-radius: 8px; position: relative; }
 .comment-input textarea { padding: 8px 10px; border-radius: 6px; border: 1px solid #e7e9ef; font-size: 12px; resize: vertical; }
 .mention-dropdown { position: absolute; bottom: 60px; left: 12px; background: var(--surface); border: 1px solid #e7e9ef; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: grid; z-index: 10; min-width: 150px; }
