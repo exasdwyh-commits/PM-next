@@ -11,28 +11,43 @@ import {
   buildCapabilityContextPrompt,
   pickCapabilityPromptLevel,
 } from "@/modules/assistant-runtime/context-layers";
-import { resolveCapabilities } from "@/modules/assistant-runtime/capabilities/resolver";
+import { resolveConversationCapabilities } from "@/modules/assistant-runtime/capabilities/resolver";
+import { routeIntent } from "@/modules/assistant-runtime/router";
 import { capabilitySkillDiagnostics } from "@/modules/assistant-runtime/capabilities/directory-loader";
 import { listKnowledgeProviders, MISSING_PROVIDER_NOTES } from "@/modules/knowledge/router";
 import { loadAuthorityPolicy } from "@/modules/knowledge/authority";
 
 export async function GET(req: NextRequest) {
   try {
-    await getServerSession(req);
+    // 组织可见性必须来自登录会话本身，不接受客户端自称——否则预告会漏掉过滤。
+    const session = await getServerSession(req);
     const sp = req.nextUrl.searchParams;
     const text = (sp.get("q") ?? "").slice(0, 2000);
-    const intent = (sp.get("intent") ?? "UNSUPPORTED").slice(0, 60);
+    const intentParam = (sp.get("intent") ?? "").trim();
+    // 执行侧用的是 kx 路由出的 intent；这里没显式给 intent 时按同一套确定性规则推一遍，
+    // 而不是一律 UNSUPPORTED（那会让 INTENT 档永远不参与，预告系统性偏少）。
+    const intent = intentParam
+      ? intentParam.slice(0, 60)
+      : routeIntent(text, sp.get("productBound") === "1");
+    const intentSource = intentParam ? "PARAM" : "DETERMINISTIC";
     const packsRaw = (sp.get("packs") ?? "").trim();
     const explicitSkillIds = packsRaw
       ? packsRaw.split(",").map((s) => s.trim()).filter(Boolean)
       : null;
 
-    const resolution = resolveCapabilities({ text, intent, explicitSkillIds, limit: 5 });
+    // 与对话执行链共用同一入口与同一上限，预告即所见。
+    const resolution = resolveConversationCapabilities({
+      text,
+      intent,
+      explicitSkillIds,
+      organizationId: session.organizationId,
+    });
     const level = pickCapabilityPromptLevel(resolution.skills.length);
 
     return NextResponse.json({
       query: text,
       intent,
+      intentSource,
       resolution,
       promptLevel: level,
       capabilityPrompt: buildCapabilityContextPrompt(resolution, level),
