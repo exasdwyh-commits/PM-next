@@ -163,3 +163,71 @@ test("接线守卫：导出路由必须在 Office 分支之前跑门禁，并在
   assert.ok(/X-Kern-Quality/.test(src), "非可交付件应带质量状态响应头");
 });
 
+/* ---------- 需求 §5：重复生成 / 交付请求（幂等） ---------- */
+
+test("同一份报告重复请求交付：标题、正文与状态逐字一致，不产生第二份产物", () => {
+  const report = mk({ researchSources: [], conclusion: `${COMPLIANT_CONCLUSION}
+- 该结论已核实。` });
+  const first = planMissionDelivery(report);
+  const second = planMissionDelivery(report);
+  assert.deepEqual(second, first, "重复请求必须拿到同一份交付计划");
+});
+
+test("同一内容重复存档：指纹与状态不变，判定记录只有一条", () => {
+  const quality = assessMissionReportQuality(mk());
+  const first = attachQuality(JSON.stringify({ schemaVersion: "1.0" }), quality, new Date("2026-10-14T10:00:00Z"));
+  const second = attachQuality(first, quality, new Date("2026-10-14T11:00:00Z"));
+  const stored = readQuality(second);
+  assert.equal(stored?.contentVersion, quality.version, "重复存档不能改指纹");
+  assert.equal(stored?.status, quality.status, "重复存档不能改状态");
+  const keys = Object.keys(JSON.parse(second) as Record<string, unknown>).filter((key) => key === "quality");
+  assert.equal(keys.length, 1, "重复存档不能堆出第二条判定");
+});
+
+test("阻断态重复请求：每次都不出件，原因与提示稳定一致（失败状态可恢复、不抖动）", () => {
+  const blocked = () =>
+    mk({
+      demo: true,
+      researchSources: [],
+      conclusion: `## 结论：推荐做「高蛋白海苔脆」（示例）
+同价位下蛋白含量领先约 40%。`,
+    });
+  const first = planMissionDelivery(blocked());
+  const second = planMissionDelivery(blocked());
+  assert.equal(first.blocked, true);
+  assert.equal(second.blocked, true);
+  assert.equal(second.blockedReason, first.blockedReason, "重复请求给出的阻断原因必须一致");
+  assert.deepEqual(second.gate, first.gate);
+});
+
+/* ---------- 需求 §5：历史报告缺检查记录 ---------- */
+
+test("历史报告没有检查记录：读回 null，且读取不改写原文", () => {
+  const original = JSON.stringify({ schemaVersion: "1.0", body: "历史原文" });
+  assert.equal(readQuality(original), null, "没有记录就是没检查过，不得伪造通过");
+  assert.equal(original, JSON.stringify({ schemaVersion: "1.0", body: "历史原文" }), "原文必须逐字不变");
+});
+
+test("历史纯文本行：写质量状态时不改写原文，交由调用方决定如何处理", () => {
+  const plain = "早期报告正文（不是 JSON）";
+  assert.equal(attachQuality(plain, assessMissionReportQuality(mk())), plain, "不能把历史原文改得面目全非");
+});
+
+test("旧版本判定不算当前通过：schemaVersion 不一致 → null", () => {
+  const legacy = JSON.stringify({
+    schemaVersion: "1.0",
+    quality: { schemaVersion: "report-quality/v0", status: "DELIVERABLE", contentVersion: "old", assessedAt: "2026-01-01T00:00:00Z", issues: [] },
+  });
+  assert.equal(readQuality(legacy), null, "旧判定不能冒充当前通过");
+});
+
+test("历史报告重新判定后写入当前状态与问题清单，不沿用旧结论", () => {
+  const report = mk({ researchSources: [], conclusion: `${COMPLIANT_CONCLUSION}
+- 该结论已核实。` });
+  const quality = assessMissionReportQuality(report);
+  assert.equal(quality.status, "DRAFT_UNVERIFIED");
+  const stored = readQuality(attachQuality(JSON.stringify({ schemaVersion: "1.0" }), quality));
+  assert.equal(stored?.status, "DRAFT_UNVERIFIED");
+  assert.ok((stored?.issues.length ?? 0) > 0, "问题清单要随状态一起存档，界面才说得清原因");
+});
+

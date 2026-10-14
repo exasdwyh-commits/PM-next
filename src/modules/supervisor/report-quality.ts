@@ -8,6 +8,7 @@
  * - 约束覆盖：需求写明的人群 / 预算 / 主推要素要落进报告，否则降级并提示补齐；
  * - 缺口保留：UNKNOWN 逐条留在缺口清单里，没写补齐方式的仍保留并提示补；
  * - 演示隔离：演示脚本与本次需求不一致时阻断，示例不冒充真实研究。
+ * - 多来源口径：多份来源并存、正文又下确定性结论时，必须写明口径差异或待验证项。
  *
  * 判定只看报告自身、不调用模型；状态与内容版本一起返回，内容改了旧判定自然失效。
  */
@@ -161,6 +162,34 @@ function wordingIssues(report: MissionReport, body: string): ReportQualityIssue[
   return [];
 }
 
+/**
+ * 多来源口径（需求 §5「多来源重复/矛盾/不相关材料」）。
+ * 确定性规则判断不了两份材料谁对，但能判断：正文引用了多份来源、又下了确定性结论，
+ * 却一个字没提口径差异或待验证项。这种情况不能冒充已核实——把差异写进缺口清单即可通过。
+ */
+const CONFLICT_CLAIM = /已核实|已验证|经过验证|证据显示|研究表明|数据显示|结论确定|可以确认/;
+/**
+ * 已如实交代限制：待验证 / 矛盾 / 口径差异 / 推断标注 / 缺口条目。
+ * 不含「需要」——八节契约本身要求「需要你决定」字样，放进来会让这条规则形同虚设。
+ */
+const CONFLICT_ACK = /待验证|矛盾|不一致|口径|（推断）|UNKNOWN|尚待|未能确认/;
+
+function conflictIssues(report: MissionReport, body: string): ReportQualityIssue[] {
+  const sources = report.researchSources?.length ?? 0;
+  if (sources < 2) return [];
+  if (!CONFLICT_CLAIM.test(body)) return [];
+  if (CONFLICT_ACK.test(body)) return [];
+  return [
+    {
+      rule: "R-CONFLICT",
+      level: "draft",
+      where: "多来源口径",
+      detail: `正文引用了 ${sources} 份来源并给出确定性结论，但没有说明这些来源之间是否存在口径差异或待验证项。`,
+      fix: "多份来源并存时，把冲突的数字与口径写进缺口清单（UNKNOWN：…（需要 …）），或把确定性表述改成条件式结论。",
+    },
+  ];
+}
+
 export function assessMissionReportQuality(report: MissionReport): ReportQuality {
   const issues: ReportQualityIssue[] = [];
   const conclusion = (report.conclusion ?? "").trim();
@@ -222,6 +251,7 @@ export function assessMissionReportQuality(report: MissionReport): ReportQuality
   issues.push(...numberIssues(body));
   issues.push(...evidenceIssues(report, body));
   issues.push(...wordingIssues(report, body));
+  issues.push(...conflictIssues(report, body));
 
   const unknownLines = body.split(/\r?\n/).filter((line) => /UNKNOWN\s*[：:]/i.test(line));
   if (unknownLines.some((line) => !/需要/.test(line))) {

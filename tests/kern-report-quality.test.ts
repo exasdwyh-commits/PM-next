@@ -11,6 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 
 import {
   assessMissionReportQuality,
@@ -19,6 +20,8 @@ import {
 } from "../src/modules/supervisor/report-quality";
 import { goalConstraintPhrases, reportSubject, reportTitle, type MissionReport } from "../src/modules/supervisor/report-format";
 import { buildMissionPoster, missionPosterCitation } from "../src/modules/supervisor/report-poster";
+import { collectMissionSources, uniqueMissionSources } from "../src/modules/supervisor/research-sources";
+import type { MissionEventRecord } from "../src/modules/supervisor/events";
 
 /** 截图里的原始需求：整句提问 + 人群 + 预算 + 主推要素。 */
 const SHOT_GOAL =
@@ -208,3 +211,118 @@ test("界面不再裸露英文 UNKNOWN，也不再宣称结论已核实", () => 
   assert.doesNotMatch(v3, />\s*UNKNOWN\s*</);
   assert.match(v3, /badge unknown">待验证</);
 });
+/* ---------- 需求 §5：多来源重复 / 矛盾 / 不相关材料 ---------- */
+
+/** 造一条来源引用事件；contentHash 必须与快照自洽，否则按来路不明丢弃。 */
+function cite(over: { id: string; seq: number; nodeKey: string; sourceId: string; url: string; taskId?: string }): MissionEventRecord {
+  const snapshot = `snapshot-${over.sourceId}`;
+  return {
+    id: over.id,
+    seq: over.seq,
+    type: "node.cite",
+    nodeKey: over.nodeKey,
+    actorUserId: null,
+    demo: false,
+    createdAt: "2026-10-14T01:00:00Z",
+    payload: {
+      taskId: over.taskId ?? "task-1",
+      sourceId: over.sourceId,
+      url: over.url,
+      title: over.url,
+      snapshot,
+      contentHash: createHash("sha256").update(snapshot).digest("hex"),
+      fetchedAt: "2026-10-14T01:00:00Z",
+      sourceKind: "FETCHED_PAGE",
+    },
+  };
+}
+
+function missionEvent(type: MissionEventRecord["type"], nodeKey: string, payload: Record<string, unknown> = {}): MissionEventRecord {
+  return { id: `${type}-${nodeKey}`, seq: 99, type, nodeKey, actorUserId: null, demo: false, createdAt: "2026-10-14T01:00:00Z", payload };
+}
+
+const CONFLICT_SOURCES: MissionReport["researchSources"] = [
+  { sourceId: "s1", eventId: "e1", title: "平台 A 抽样", url: "https://example.com/a", fetchedAt: "2026-10-14T01:00:00Z", sourceKind: "FETCHED_PAGE", contentHash: "h1", snapshot: "body", truncated: false },
+  { sourceId: "s2", eventId: "e2", title: "平台 B 抽样", url: "https://example.com/b", fetchedAt: "2026-10-14T01:00:00Z", sourceKind: "FETCHED_PAGE", contentHash: "h2", snapshot: "body", truncated: false },
+];
+
+/** 两份材料给出互相打架的数字（22% 与 9%），其余八节齐全；extra 用来挂缺口行。 */
+function conflictConclusion(extra = ""): string {
+  const lines = [
+    "## 结论摘要",
+    "**结论与建议**：先做小批验证「红参胶原蛋白肽女士奶粉」（事实）。",
+    "## 产品定位",
+    "面向 35-55 岁女性，主打新疆奶源（事实）。",
+    "## 成本与经济性",
+    "单罐成本按 10 万元以内的预算控制（事实）。",
+    "## 销售机制与渠道",
+    "小红书种草优先（事实）。",
+    "## 营销策略",
+    "首批内容围绕女性日常营养（事实）。",
+    "## 风险评估",
+    "- 线上复购率约 22%（事实）[source:s1]；另一份材料给出复购率约 9%（事实）[source:s2]。",
+    "## 合规边界",
+    "功效宣称需按保健食品标准复核。",
+    "## 验证计划与待决策",
+    "**需要你决定**：是否在 10 万元以内启动首轮验证。",
+  ];
+  if (extra) lines.push(extra);
+  return lines.join(String.fromCharCode(10));
+}
+
+test("同一份材料被多个节点重复引用：对外只算一条来源", () => {
+  const raw = collectMissionSources([
+    cite({ id: "e1", seq: 1, nodeKey: "market", sourceId: "dup", url: "https://example.com/dup" }),
+    cite({ id: "e2", seq: 2, nodeKey: "competitor", sourceId: "dup", url: "https://example.com/dup" }),
+  ]);
+  assert.equal(raw.length, 2, "不同节点各自引用时先各自登记");
+  const unique = uniqueMissionSources(raw);
+  assert.equal(unique.length, 1, "对外只算一条，不能靠重复引用把证据条数刷上去");
+  assert.equal(unique[0]?.sourceId, "dup");
+});
+
+test("节点重跑后旧引用作废，迟到的旧任务引用也不计入本次来源", () => {
+  const sources = uniqueMissionSources(
+    collectMissionSources([
+      cite({ id: "e1", seq: 1, nodeKey: "market", sourceId: "old", url: "https://example.com/old", taskId: "task-1" }),
+      missionEvent("node.rerun", "market"),
+      missionEvent("node.started", "market", { taskId: "task-2" }),
+      cite({ id: "e3", seq: 3, nodeKey: "market", sourceId: "fresh", url: "https://example.com/fresh", taskId: "task-2" }),
+      cite({ id: "e4", seq: 4, nodeKey: "market", sourceId: "stale", url: "https://example.com/stale", taskId: "task-1" }),
+    ]),
+  );
+  assert.deepEqual(sources.map((s) => s.sourceId), ["fresh"], "重跑前的材料与迟到返回的旧任务材料都不能算本次来源");
+});
+
+test("快照与哈希不自洽的引用不算来源：来路不明的材料不进证据", () => {
+  const forged = cite({ id: "e1", seq: 1, nodeKey: "market", sourceId: "forged", url: "https://example.com/forged" });
+  forged.payload.contentHash = "deadbeef";
+  const real = cite({ id: "e2", seq: 2, nodeKey: "market", sourceId: "real", url: "https://example.com/real" });
+  assert.deepEqual(uniqueMissionSources(collectMissionSources([forged, real])).map((s) => s.sourceId), ["real"]);
+});
+
+test("多来源给出矛盾数字、结论又下确定性判断 → 降级并提示写明口径差异", () => {
+  const report: MissionReport = {
+    ...compliantReport(),
+    researchSources: CONFLICT_SOURCES,
+    conclusion: `${conflictConclusion()}
+- 数据显示：复购率已核实，赛道可以确认。`,
+  };
+  const quality = assessMissionReportQuality(report);
+  assert.equal(report.researchSources?.length, 2, "矛盾材料不能因为内容打架被悄悄删掉");
+  assert.ok(quality.issues.some((issue) => issue.rule === "R-CONFLICT"), `应命中多来源口径规则：${JSON.stringify(quality.issues)}`);
+  assert.equal(quality.status, "DRAFT_UNVERIFIED");
+});
+
+test("矛盾已如实写进缺口清单时不再判多来源问题：限制已反映在结论里", () => {
+  const report: MissionReport = {
+    ...compliantReport(),
+    researchSources: CONFLICT_SOURCES,
+    conclusion: `${conflictConclusion("- UNKNOWN：两份材料的复购率口径不一致（需要统一统计口径后重新抽样）。")}
+- 数据显示：赛道可以确认。`,
+  };
+  const quality = assessMissionReportQuality(report);
+  assert.ok(!quality.issues.some((issue) => issue.rule === "R-CONFLICT"), `已披露差异就不该再降级：${JSON.stringify(quality.issues)}`);
+  assert.equal(quality.status, "DELIVERABLE", `已披露差异应放行，实际命中：${JSON.stringify(quality.issues)}`);
+});
+
