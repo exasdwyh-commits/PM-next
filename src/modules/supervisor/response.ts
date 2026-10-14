@@ -13,8 +13,14 @@ import type { ResponseEnvelope } from "@/modules/response-format/types";
 
 import { loadMissionSourceEvents } from "./research-sources";
 import { loadMissionReport } from "./takeaway";
+import { buildMissionPoster, missionPosterCitation } from "./report-poster";
 
 export async function missionResponseEnvelope(session: SessionContext, missionTaskId: string): Promise<ResponseEnvelope> {
+  return (await missionResponsePresentation(session, missionTaskId)).envelope;
+}
+
+/** Both presentations read the same authorized snapshot, so revisions cannot drift. */
+export async function missionResponsePresentation(session: SessionContext, missionTaskId: string) {
   const report = await loadMissionReport(session, missionTaskId);
   const events = await loadMissionSourceEvents(session.organizationId, missionTaskId);
 
@@ -28,10 +34,13 @@ export async function missionResponseEnvelope(session: SessionContext, missionTa
     quota = { used: usage.used.missions, limit: usage.limits.missionsPerMonth };
   }
 
-  return envelopeFromMission(report, {
+  const envelope = envelopeFromMission(report, {
     model: report.demo ? "演示脚本" : models.length ? models.join("、") : "未记录",
     elapsedMs,
     quota,
     researchSources: report.researchSources ?? [],
   });
+  const poster = report.playbook === "NEW_PRODUCT" && report.outcome === "COMPLETED" && report.conclusion
+    ? buildMissionPoster(report) : null;
+  return { envelope, poster, citation: poster ? missionPosterCitation(poster, missionTaskId) : null };
 }
