@@ -3,6 +3,7 @@ import prisma from "@/shared/db";
 import { NotFoundError } from "@/shared/errors";
 import { requireProjectRole, type SessionContext } from "@/modules/identity/session";
 import { buildExecutiveReportPreview } from "./orchestrator";
+import { readQuality } from "@/modules/supervisor/report-quality-store";
 
 /**
  * 可读取的 Executive Report 版本标识。
@@ -45,8 +46,12 @@ export async function getExecutiveReportView(session: SessionContext, id: string
   if (!isKnownExecutiveReportVersion(version)) throw new NotFoundError("Report not found");
   const preview = buildExecutiveReportPreview(artifact.content);
   if (!preview) throw new NotFoundError("Report not found");
+  // 质量状态随内容一起存档；读不到就明确说「还没经过当前质量检查」，绝不伪造通过。
+  const quality = readQuality(artifact.content);
   return {
     report: { ...preview, artifactId: artifact.id, title: artifact.title, contentVersion: artifact.contentVersion, createdAt: artifact.createdAt.toISOString() },
     reviewStatus: artifact.reviewStatus,
+    quality,
+    qualityNote: quality ? null : "这份报告还没有经过当前质量检查；没有检查记录不等于通过。",
   };
 }

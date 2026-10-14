@@ -186,7 +186,14 @@ test("交付入口都经过质量门禁（预览、报告页、下载）", () =>
   const page = fs.readFileSync("src/app/reports/missions/[id]/page.tsx", "utf8");
   assert.match(page, /assessMissionReportQuality/);
   const exp = fs.readFileSync("src/app/api/missions/[id]/export/route.ts", "utf8");
-  assert.match(exp, /assessMissionReportQuality/);
+  // 门禁改由交付计划统一提供（Markdown / PDF / Office 共用），守卫随之收紧：
+  // 门禁必须在 Office 分支之前，且阻断时终止交付。
+  assert.match(exp, /planMissionDelivery/);
+  assert.ok(
+    exp.indexOf("planMissionDelivery(report)") < exp.indexOf("OFFICE.has(format)"),
+    "门禁必须排在 Office 分支之前，否则正式导出件会绕过检查",
+  );
+  assert.match(exp, /if \(plan\.blocked\)/);
 });
 
 test("界面不再裸露英文 UNKNOWN，也不再宣称结论已核实", () => {

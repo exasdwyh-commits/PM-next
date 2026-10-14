@@ -72,6 +72,95 @@ function constraintMissing(text: string, body: string): boolean {
   return grams.size > 0;
 }
 
+/**
+ * 数字口径（需求 §4.5）：金额、比例、样本与效果数字必须写明来源、单位或适用范围，
+ * 并标注（事实）/（推断）；缺依据的数字只能当假设/待验证，不能写成既定事实。
+ */
+const NUMBER_CLAIM = /\d[\d.,]*\s*(?:%|％|万|亿|元|块|kg|g|mg|天|个月|月|年|周|小时|倍|人|条|家|款|件|次|吨|ml|L)/g;
+/** 同一行出现这些标记，视为该数字已交代来源或口径。 */
+const CLAIM_MARK = /（事实）|（推断）|（UNKNOWN|来源\s*[:：]|参考\s*[:：]|引自|据.{0,6}显示/;
+/**
+ * 这些行不算「数字缺依据」：缺口条目（UNKNOWN／待验证／需要补齐）、需求里自带的
+ * 用户约束与假设。施工需求 §2 明确预算是开发约束而非市场证据，引用预算不应判无依据。
+ */
+const NUMBER_EXEMPT = /UNKNOWN|待验证|待补|尚未|未知|需要|预算|假设|预估|上限|以内/;
+
+function numberIssues(body: string): ReportQualityIssue[] {
+  const bad: string[] = [];
+  for (const raw of body.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const hits = line.match(NUMBER_CLAIM) ?? [];
+    if (hits.length > 0 && !CLAIM_MARK.test(line) && !NUMBER_EXEMPT.test(line)) bad.push(line.slice(0, 48));
+  }
+  if (bad.length === 0) return [];
+  return [
+    {
+      rule: "R-NUMBER",
+      level: "draft",
+      where: "数字依据",
+      detail: `有 ${bad.length} 处数字（金额/比例/样本/效果）没写来源、统计范围或事实与推断标注，例如：「${bad[0]}」。`,
+      fix: "给每个关键数字补上来源、统计范围与时间，并标注（事实）或（推断）；没有依据的按待验证处理，不要写成事实。",
+    },
+  ];
+}
+
+/**
+ * 依据检查（需求 §4.4）：来源引用要真的存在；用户输入与演示数据不能抬高证据等级。
+ * 只做确定性判定——来源条数为 0 却声称已核实/已验证，一律降级并说明。
+ */
+function evidenceIssues(report: MissionReport, body: string): ReportQualityIssue[] {
+  const sources = report.researchSources?.length ?? 0;
+  const claimsVerified = /已核实|已验证|经过验证|证据显示|研究表明|数据显示/.test(body);
+  if (sources === 0 && claimsVerified) {
+    return [
+      {
+        rule: "R-EVIDENCE",
+        level: "draft",
+        where: "依据",
+        detail: "正文声称已核实/已有数据支撑，但本次任务没有留下任何研究来源记录。",
+        fix: "补上来源记录，或把这类表述改成「待验证」；来源存在不等于事实已被独立核验，未核验要如实标注。",
+      },
+    ];
+  }
+  if (report.demo && sources > 0) {
+    return [
+      {
+        rule: "R-EVIDENCE",
+        level: "block",
+        where: "依据",
+        detail: "演示运行里出现的来源不能算作本次需求的真实研究来源。",
+        fix: "演示只用于流程演练；本需求需要真实运行，来源才计入证据。",
+      },
+    ];
+  }
+  return [];
+}
+
+/**
+ * 措辞检查（需求 §4.6）：证据不足时不能用兜底话术变成「已核实」「零风险」。
+ * 零风险需要真实检查依据，否则必须显示「尚未完成风险评估」。
+ */
+const OVERCLAIM = /零风险|无风险|没有风险|可直接上市|直接上市|可直接用于客户沟通|已核实|全部验证|完全可靠/g;
+
+function wordingIssues(report: MissionReport, body: string): ReportQualityIssue[] {
+  const hits = Array.from(new Set(body.match(OVERCLAIM) ?? []));
+  const sources = report.researchSources?.length ?? 0;
+  if (hits.length === 0) return [];
+  if (sources === 0 || report.demo) {
+    return [
+      {
+        rule: "R-WORDING",
+        level: "draft",
+        where: "措辞",
+        detail: `正文出现了「${hits.join("、")}」这类确定性结论，但本次没有可用的来源支撑。`,
+        fix: "把确定性表述改成条件式结论；没有完成风险评估时写「尚未完成风险评估」，不要写零风险。",
+      },
+    ];
+  }
+  return [];
+}
+
 export function assessMissionReportQuality(report: MissionReport): ReportQuality {
   const issues: ReportQualityIssue[] = [];
   const conclusion = (report.conclusion ?? "").trim();
@@ -129,6 +218,10 @@ export function assessMissionReportQuality(report: MissionReport): ReportQuality
       });
     }
   }
+
+  issues.push(...numberIssues(body));
+  issues.push(...evidenceIssues(report, body));
+  issues.push(...wordingIssues(report, body));
 
   const unknownLines = body.split(/\r?\n/).filter((line) => /UNKNOWN\s*[：:]/i.test(line));
   if (unknownLines.some((line) => !/需要/.test(line))) {

@@ -8,8 +8,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/modules/identity/session";
 import { loadMissionReport, missionReportHtml, missionReportMarkdown, reportFileName } from "@/modules/supervisor";
-import { assessMissionReportQuality, REPORT_QUALITY_LABEL } from "@/modules/supervisor/report-quality";
+import { planMissionDelivery } from "@/modules/supervisor/report-delivery";
 import { handleApiError } from "@/shared/api-handler";
+import { ConflictError } from "@/shared/errors";
 
 const OFFICE = new Set(["docx", "xlsx", "pptx"]);
 
@@ -19,12 +20,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const report = await loadMissionReport(session, id);
     const format = req.nextUrl.searchParams.get("format") ?? "md";
+    // 门禁先于任何交付：Office / PDF / Markdown 共用同一判定。
+    // 此前 Office 分支在门禁之前就返回，正式导出件等于绕过了质量检查。
+    const plan = planMissionDelivery(report);
+    if (plan.blocked) throw new ConflictError(plan.blockedReason);
+    // 非可交付状态在文件标题上带状态戳，避免下载件看起来像正式成品。
+    const stamped = plan.title === report.title ? report : { ...report, title: plan.title };
     if (OFFICE.has(format)) {
       // 按需加载：办公库体积大，只在真的导出时才进内存。
       const { buildOfficeReport, OFFICE_MIME } = await import("@/modules/supervisor/office-export");
       const f = format as "docx" | "xlsx" | "pptx";
-      const { buffer, check } = await buildOfficeReport(report, f);
-      const name = reportFileName(report, f);
+      const { buffer, check } = await buildOfficeReport(stamped, f);
+      const name = reportFileName(stamped, f);
       return new NextResponse(new Uint8Array(buffer), {
         headers: {
           "Content-Type": OFFICE_MIME[f],
@@ -32,18 +39,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           "Cache-Control": "no-store",
           "X-Kern-SHA256": check.sha256,
           "X-Kern-Check": encodeURIComponent(JSON.stringify(check.detail)),
+          ...(plan.quality ? { "X-Kern-Quality": plan.quality.status, "X-Kern-Quality-Version": plan.quality.version } : {}),
         },
       });
     }
-    // 交付与展示同源：下载件也带上质量状态，不让未通过的结论以正式报告的样子流出。
-    const quality = report.playbook === "NEW_PRODUCT" && report.outcome === "COMPLETED" && report.conclusion
-      ? assessMissionReportQuality(report) : null;
-    const gate = quality && quality.status !== "DELIVERABLE"
-      ? [`> **${REPORT_QUALITY_LABEL[quality.status]}**：${quality.status === "BLOCKED" ? "这份报告不能作为正式研究交付。" : "这份报告还需补证才能定稿。"}`,
-         ...quality.issues.map((issue) => `> - ${issue.where}：${issue.detail}（补齐方式：${issue.fix}）`), ""]
-      : [];
     const md0 = missionReportMarkdown(report);
-    const md = gate.length ? md0.replace(/^([^\n]*\n)/, `$1\n${gate.join("\n")}\n`) : md0;
+    const md = plan.gate.length ? md0.replace(/^([^\n]*\n)/, `$1\n${plan.gate.join("\n")}\n`) : md0;
     if (format === "pdf") {
       return new NextResponse(missionReportHtml(report, md), {
         headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
