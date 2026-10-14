@@ -109,6 +109,10 @@ export interface ConversationRuntimeConfig {
   advisorCodes: string[] | null;
   skillKeys: string[] | null;
   capabilityKeys: string[] | null;
+  /** 文件式能力包 id（`<域>.<名称>`）；null = 不限，走自动识别。 */
+  capabilityPackIds: string[] | null;
+  /** 授权档位：auto 常规协作；full 自行决定草稿细节与方案取舍，业务操作仍按确认要求执行。 */
+  delegationMode: "auto" | "full";
 }
 
 export interface ConversationControlOption {
@@ -124,6 +128,7 @@ export interface ConversationControls {
   advisors: ConversationControlOption[];
   skills: ConversationControlOption[];
   capabilities: ConversationControlOption[];
+  capabilityPacks: ConversationControlOption[];
 }
 
 export interface RuntimeStatus {

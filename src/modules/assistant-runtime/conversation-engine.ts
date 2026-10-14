@@ -403,10 +403,22 @@ export async function executeKernConversationTurn(
     const capabilityPrompt = contextLayers?.capabilityPrompt ?? "";
     const knowledgePrompt = contextLayers?.knowledgePrompt ?? "";
     const attachmentPrompt = contextLayers?.attachmentPrompt ?? "";
+    // 授权档位：全委托时把「自己拍板、不再追问」写进口径，并强制把补全的假设标出来。
+    // 只改表达与决策口径，不放宽任何工具/权限/治理边界。
+    const delegationPrompt =
+      runtimeSelection.config.delegationMode === "full"
+        ? [
+            "## 全委托模式（本轮已由用户授权）",
+            "- 用户已把本轮的取舍权交给你：不要再回问确认，直接按你判断的最佳方案产出。",
+            "- 缺失的细节可以自行补全，但每处补全必须以「假设：」显式标注；不得把假设写成既定事实或来源事实。",
+            "- 这与证据纪律不冲突：有据的写有据，没据的按上面标注，不得为了「完整」而编造来源。",
+            "- 本模式不放宽工具、权限或治理授权，只改变是否停下来征求确认。",
+          ].join("\n")
+        : "";
     // One output contract for the model: reply-format (in basePersona) + kern-rich/v1 (KERN_RICH_PROMPT).
     // 附件层排在知识层之前：材料是用户当轮亲手提交的，比知识库里的背景材料更贴近提问；
     // 两者冲突时应当先看材料，并向用户指出差异。
-    const assistantPersona = [basePersona, KERN_RICH_PROMPT, artifactPrompt, memoryPrompt, rolePrompt, capabilityPrompt, attachmentPrompt, knowledgePrompt, selectionPrompt]
+    const assistantPersona = [basePersona, KERN_RICH_PROMPT, artifactPrompt, memoryPrompt, rolePrompt, delegationPrompt, capabilityPrompt, attachmentPrompt, knowledgePrompt, selectionPrompt]
       .filter((value): value is string => Boolean(value))
       .join("\n\n");
     const llmMessages: AdvisorLLMMessage[] = assistantPersona

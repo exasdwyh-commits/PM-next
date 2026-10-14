@@ -127,6 +127,8 @@ export const studioModel: StudioModel = {
       advisorCodes: null,
       skillKeys: null,
       capabilityKeys: null,
+      capabilityPackIds: null,
+      delegationMode: "auto",
     },
     models: [
       {
@@ -160,6 +162,20 @@ export const studioModel: StudioModel = {
         key: "visualize",
         label: "可视化",
         description: "生成结构与关系图",
+      },
+    ],
+    capabilityPacks: [
+      {
+        key: "research.digest",
+        label: "动态摘要",
+        description: "把最近发生了什么压成一页可扫读的摘要",
+        meta: "research",
+      },
+      {
+        key: "marketing.positioning",
+        label: "卖点提炼",
+        description: "从产品事实提炼一句话价值主张",
+        meta: "marketing",
       },
     ],
   },

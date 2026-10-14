@@ -279,14 +279,22 @@ function tokens(text: string): string[] {
 }
 
 /**
- * 关键词打分：标签命中 3 分、标签部分命中 2 分、标题命中 2 分、描述命中 1 分；不可用条目降权但不剔除。
+ * 关键词打分：整条标签/触发词出现 3 分、标签整词命中 3 分、标签部分命中 1 分、
+ * 标题命中 2 分、描述命中 1 分；不可用条目降权但不剔除。
  *
  * 子串匹配只对**中文**开放。拉丁词做子串是纯噪音：`ai ⊂ claim` 让「宣称评审」
- * 白拿 2 分，叠一个「什么」撞进描述就凑够门槛，被顶进「今天 AI 行业有什么值得关注」。
- * 拉丁只认整词等于标签；短于 3 个字符的拉丁词连标题/描述的子串命中也不算。
+ * 白拿分，叠一个「什么」撞进描述就凑够门槛。拉丁只认整词等于标签；
+ * 短于 3 个字符的拉丁词连标题/描述的子串命中也不算。
+ *
+ * 中文子串命中只给 1 分（弱证据），因为触发词是**完整短语**，拆成 2 字片段去擦边
+ * 会命中大量口语填充词：`帮我看看这份` 被「帮我」擦中、`最近有什么` 被「什么」擦中、
+ * `整理一下` 被「一下」擦中 —— 「帮我订一份外卖」「今天天气真好」这类无关文本
+ * 因此被顶进候选。真正强的是**整条短语出现**（见 MIN_PHRASE_LEN），单独一条给 3 分。
  */
 const CJK_TOKEN = /[\u4e00-\u9fff]/;
 const MIN_LATIN_LEN = 3;
+/** 完整短语命中所需的最短长度：2 字标签已由「整词等于」覆盖，此处只管更长的触发词。 */
+const MIN_PHRASE_LEN = 3;
 
 export interface CapabilitySearchHit {
   item: CapabilityEntry;
@@ -301,22 +309,32 @@ export function searchCapabilitiesScored(
 ): CapabilitySearchHit[] {
   const q = tokens(query);
   if (!q.length) return items.slice(0, limit).map((item) => ({ item, score: 0 }));
+  const lowerQuery = query.toLowerCase();
   const scored = items
     .map((it) => {
       const tagSet = it.tags.map((t) => t.toLowerCase());
       const label = it.label.toLowerCase();
       const desc = it.description.toLowerCase();
       let score = 0;
+      // 强证据：整条标签/触发词原样出现在文本里（「帮我看看这份」整句出现）。
+      for (const g of tagSet) {
+        if (g.length >= MIN_PHRASE_LEN && lowerQuery.includes(g)) score += 3;
+      }
+      // 描述命中是弱证据，**每条目至多 +1**：描述是长句，逐 token 累加会让
+      // 一篇恰好含「值得」「什么」的描述白拿两分，把真正该选中的条目挤下去
+      // （「今天 AI 行业有什么值得关注」曾因此选中竞品简报而非动态摘要）。
+      let descHit = false;
       for (const t of q) {
         const isCjk = CJK_TOKEN.test(t);
         const shortLatin = !isCjk && t.length < MIN_LATIN_LEN;
         if (tagSet.includes(t)) score += 3;
-        else if (isCjk && tagSet.some((g) => g.includes(t))) score += 2;
+        else if (isCjk && tagSet.some((g) => g.includes(t))) score += 1;
         if (!shortLatin) {
           if (label.includes(t)) score += 2;
-          if (desc.includes(t)) score += 1;
+          if (desc.includes(t)) descHit = true;
         }
       }
+      if (descHit) score += 1;
       if (!it.available) score *= 0.5;
       return { item: it, score };
     })

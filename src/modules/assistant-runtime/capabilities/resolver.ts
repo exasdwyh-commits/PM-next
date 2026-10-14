@@ -61,11 +61,16 @@ export interface CapabilityResolution {
 const INTENT_BOOST = 60;
 const PRIORITY_WEIGHT = 2;
 /**
- * 关键词最低有效分：单靠一个字面擦边就进候选，会被高 priority 的能力包
- * （priority×2 是常数项）顶进来，出现「评估产品方案却选中法规评审」这种噪音。
- * 达不到这条线的只有 intent 明确声明了才放行。
+ * 关键词最低有效分 = 一条**强证据**。
+ *
+ * 打分口径（见 directory.searchCapabilitiesScored）：整条触发词/标签原样出现 3 分、
+ * 标签整词命中 3 分；中文子串擦边 1 分、描述擦边 1 分。
+ *
+ * 门槛取 3 而不是 2：2 分可以由「一个子串擦边 + 一个描述擦边」凑出来，而中文里
+ * 「帮我」「一下」「什么」这类口语填充词到处擦边 —— 「帮我订一份外卖」「今天天气真好」
+ * 就是这样被顶进候选的。要求一条强证据后，弱证据再多也只能靠 intent 声明放行。
  */
-const MIN_KEYWORD_SCORE = 2;
+const MIN_KEYWORD_SCORE = 3;
 const DEFAULT_KNOWLEDGE_SCOPES = ["project", "company-facts"];
 
 function union(lists: string[][]): string[] {
@@ -122,8 +127,48 @@ export function filterSkillsByTenantAndRole(
   });
 }
 
+/**
+ * 对话解析的默认候选上限。**预告与实际执行共用同一个值** ——
+ * 两边给出不同的上限，用户看到的候选就会和真正会用的能力不一致。
+ */
+export const DEFAULT_CAPABILITY_LIMIT = 3;
+
+export interface ConversationCapabilityResolveInput {
+  text: string;
+  intent: string;
+  /** 会话运行时圈定的能力包 id；null = 不设限。 */
+  explicitSkillIds?: string[] | null;
+  /** 当前登录会话所属组织。预告接口必须传，否则会看到本组织看不见的能力包。 */
+  organizationId?: string | null;
+  /** 调用方已知的用户角色；不传 = 不按角色过滤。 */
+  role?: string | null;
+  /** 默认 `DEFAULT_CAPABILITY_LIMIT`；只有确实需要更多候选时才覆盖。 */
+  limit?: number | null;
+  /** 测试注入；不传则从磁盘加载。 */
+  skills?: CapabilitySkillDefinition[];
+}
+
+/**
+ * 会话能力解析的唯一入口：对话执行链与能力预告接口都经这里，
+ * 让「用户看得到什么」与「真正会用什么」使用同一组输入与同一个上限。
+ * 新增解析参数时改这一处，两边同时生效 —— 不要在各调用点自己拼参数。
+ */
+export function resolveConversationCapabilities(
+  input: ConversationCapabilityResolveInput
+): CapabilityResolution {
+  return resolveCapabilities({
+    text: input.text,
+    intent: input.intent,
+    explicitSkillIds: input.explicitSkillIds ?? null,
+    organizationId: input.organizationId ?? null,
+    role: input.role ?? null,
+    limit: input.limit ?? DEFAULT_CAPABILITY_LIMIT,
+    ...(input.skills ? { skills: input.skills } : {}),
+  });
+}
+
 export function resolveCapabilities(input: ResolveCapabilitiesInput): CapabilityResolution {
-  const limit = Math.max(1, input.limit ?? 3);
+  const limit = Math.max(1, input.limit ?? DEFAULT_CAPABILITY_LIMIT);
   const loaded = input.skills ?? loadCapabilitySkills().skills;
   // C4：先按组织/角色过滤候选，再走原有四档选择与打分（打分参数不动）。
   const all = filterSkillsByTenantAndRole(loaded, {

@@ -290,9 +290,15 @@ export function Rail({
   );
 }
 
-type RunTab = "advisors" | "skills" | "capabilities";
-const RUN_TABS: { key: RunTab; label: string; field: "advisorCodes" | "skillKeys" | "capabilityKeys" }[] = [
+type RunTab = "advisors" | "skills" | "capabilities" | "capabilityPacks";
+const RUN_TABS: {
+  key: RunTab;
+  label: string;
+  field: "advisorCodes" | "skillKeys" | "capabilityKeys" | "capabilityPackIds";
+}[] = [
   { key: "capabilities", label: "功能", field: "capabilityKeys" },
+  // 文件式能力包：选中即走 EXPLICIT 档，不再靠关键词猜（消除「乱触发」）。
+  { key: "capabilityPacks", label: "能力包", field: "capabilityPackIds" },
   { key: "advisors", label: "顾问", field: "advisorCodes" },
   { key: "skills", label: "技能", field: "skillKeys" },
 ];
@@ -313,15 +319,27 @@ function RunControls({
   config,
   onChange,
   modelReady,
+  focusRequest,
 }: {
   controls: ConversationControls;
   config: ConversationRuntimeConfig;
   onChange: (next: Partial<ConversationRuntimeConfig>) => void;
   modelReady: boolean;
+  /**
+   * 外部请求打开面板并聚焦某个页签（如「误触发引导」让用户改选能力包）。
+   * 每次传入新对象即触发一次；不看 nonce 内容，只靠引用变化。
+   */
+  focusRequest?: { tab: RunTab; nonce: number } | null;
 }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<RunTab>("capabilities");
   const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!focusRequest) return;
+    setTab(focusRequest.tab);
+    setOpen(true);
+  }, [focusRequest]);
 
   useEffect(() => {
     if (!open) return;
@@ -357,7 +375,13 @@ function RunControls({
       >
         <span className="m-auto-dot" aria-hidden data-t={staleModel || !modelReady ? "warn" : undefined} />
         <span>{!modelReady ? "模型未就绪" : model ? model.label : staleModel ? "模型已停用" : "Auto · Kern"}</span>
-        {custom ? <small>+{custom} 项自定义</small> : <small>高级</small>}
+        {config.delegationMode === "full" ? (
+          <small>全委托</small>
+        ) : custom ? (
+          <small>+{custom} 项自定义</small>
+        ) : (
+          <small>高级</small>
+        )}
         <svg className="m-auto-chev" width="10" height="10" viewBox="0 0 10 10" aria-hidden><path d="M2.5 6.2 5 3.8l2.5 2.4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </button>
       {open ? (
@@ -414,6 +438,26 @@ function RunControls({
               {picked === null ? "Kern 会根据任务自己选择。" : `只使用选中的 ${picked.length} 项。全部取消即回到自动。`}
             </p>
           </section>
+          <section className="m-run-sec">
+            <h4>授权</h4>
+            <div className="m-run-list" role="radiogroup" aria-label="授权档位">
+              <button type="button" role="radio" className="m-control-row" aria-checked={config.delegationMode === "auto"}
+                onClick={() => onChange({ delegationMode: "auto" })}>
+                <span><b>我来把关</b><small>需要你拍板的地方，Kern 会先问再动。</small></span>
+                <i>{config.delegationMode === "auto" ? "✓" : ""}</i>
+              </button>
+              <button type="button" role="radio" className="m-control-row" aria-checked={config.delegationMode === "full"}
+                onClick={() => onChange({ delegationMode: "full" })}>
+                <span><b>全委托</b><small>草稿细节与方案取舍由 Kern 自行决定，补全的假设会标注；业务写入仍按确认要求执行。</small></span>
+                <i>{config.delegationMode === "full" ? "✓" : ""}</i>
+              </button>
+            </div>
+            <p className="m-run-hint">
+              {config.delegationMode === "full"
+                ? "全委托适用于方案生成；需要确认的业务操作仍由你批准。"
+                : "常规协作：不确定的地方会先和你确认。"}
+            </p>
+          </section>
         </div>
       ) : null}
     </div>
@@ -461,6 +505,7 @@ export function Dock({
   indexForSearch = false,
   onToggleIndexForSearch,
   accepts = "",
+  packHint = null,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -485,12 +530,18 @@ export function Dock({
   onToggleIndexForSearch?: (next: boolean) => void;
   /** input[accept] 的值，由上限表统一给出，避免 UI 与后端白名单各写一份 */
   accepts?: string;
+  /**
+   * 误触发引导：本轮按关键词自动命中了这些能力包。点「改选」即打开高级配置的
+   * 能力包页签，让用户显式圈定（走 EXPLICIT 档），而不是被动接受自动匹配。
+   */
+  packHint?: { labels: string[]; total: number } | null;
 }) {
   const dock = useRef<HTMLDivElement>(null);
   const ta = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const composing = useRef(false);
   const [dragging, setDragging] = useState(false);
+  const [runFocus, setRunFocus] = useState<{ tab: RunTab; nonce: number } | null>(null);
   /** 拖放到窗口上时只有 dragleave 不够（子元素会连续触发），用计数器判边界。 */
   const dragDepth = useRef(0);
 
@@ -597,6 +648,22 @@ export function Dock({
             ) : null}
           </div>
         ) : null}
+        {packHint && packHint.labels.length > 0 ? (
+          <div className="m-dock-hint" role="status">
+            <I.spark />
+            <span>
+              根据当前输入，可能用到：<b>{packHint.labels.join("、")}</b>
+              {packHint.total > packHint.labels.length ? ` 等 ${packHint.total} 个` : ""}
+            </span>
+            <button
+              type="button"
+              className="m-dock-hint-act"
+              onClick={() => setRunFocus({ tab: "capabilityPacks", nonce: Date.now() })}
+            >
+              改选
+            </button>
+          </div>
+        ) : null}
         <textarea
           ref={ta}
           value={value}
@@ -665,7 +732,7 @@ export function Dock({
               />
             </label>
           ) : null}
-          <RunControls controls={controls} config={config} onChange={patch} modelReady={modelReady} />
+          <RunControls controls={controls} config={config} onChange={patch} modelReady={modelReady} focusRequest={runFocus} />
           <button type="button" className="m-pill m-runtime-pill" onClick={onTrust} title={runtimeConnected ? "查看本机连接与可用能力" : "查看连接本机的方法与权限"}>
             <I.mac />
             {runtimeConnected ? capabilities.length ? `${capabilities.length} 项本机能力` : "本机已连接" : "连接本机"}
