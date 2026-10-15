@@ -3,7 +3,7 @@ import prisma from "@/shared/db";
 import { NotFoundError } from "@/shared/errors";
 import { requireProjectRole, type SessionContext } from "@/modules/identity/session";
 import { buildExecutiveReportPreview } from "./orchestrator";
-import { readQuality } from "@/modules/supervisor/report-quality-store";
+import { readQuality } from "@/shared/report-quality-store";
 
 /**
  * 可读取的 Executive Report 版本标识。

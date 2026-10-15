@@ -14,11 +14,13 @@
  */
 
 import { validateNewProductConclusion } from "./report-contract";
-import { goalConstraintPhrases, reportSubject, type MissionReport } from "./report-format";
+import { goalConstraintPhrases, type MissionReport } from "./report-format";
 
-export const REPORT_QUALITY_VERSION = "report-quality/v1";
+import { REPORT_QUALITY_SCHEMA_VERSION, type StoredReportQuality } from "@/shared/report-quality-store";
 
-export type ReportQualityStatus = "DELIVERABLE" | "DRAFT_UNVERIFIED" | "BLOCKED";
+export const REPORT_QUALITY_VERSION = REPORT_QUALITY_SCHEMA_VERSION;
+
+export type ReportQualityStatus = StoredReportQuality["status"];
 
 export interface ReportQualityIssue {
   /** 稳定规则 id，供测试与诊断引用。 */
@@ -47,20 +49,10 @@ export const REPORT_QUALITY_LABEL: Record<ReportQualityStatus, string> = {
 
 /** djb2 指纹，纯函数、无 node 依赖，客户端也能算。 */
 export function reportContentVersion(report: MissionReport): string {
-  const text = [report.title, report.goal, report.conclusion ?? "", ...report.steps.map((step) => step.output ?? "")].join("\n");
+  const text = [report.title, report.goal, report.conclusion ?? "", ...report.steps.map((step) => step.output ?? ""), JSON.stringify(report.content ?? null), report.contentStatus ?? "MISSING"].join("\n");
   let hash = 5381;
   for (let i = 0; i < text.length; i++) hash = ((hash << 5) + hash + text.charCodeAt(i)) | 0;
   return (hash >>> 0).toString(36);
-}
-
-/**
- * 研究对象是否真的出现在正文里。判据取研究对象尾部的品类词（尾 2 字 / 尾 3 字），
- * 而不是任意公共子串——否则「红参胶原蛋白肽女士奶粉」与「高蛋白海苔脆」会因为都含
- * 「蛋白」而被误判成同一主题。
- */
-function topicMissing(subject: string, body: string): boolean {
-  const cores = [subject.slice(-2), subject.slice(-3)].filter((core) => core.length >= 2);
-  return cores.length > 0 && !cores.some((core) => body.includes(core));
 }
 
 /** 约束有没有落进报告：数字或连续二字片段命中即算覆盖（宽松，只用于降级提示）。 */
@@ -205,15 +197,14 @@ export function assessMissionReportQuality(report: MissionReport): ReportQuality
     });
   }
 
-  const subject = reportSubject(report.goal);
-  if (subject && conclusion && topicMissing(subject, body)) {
-    issues.push({
-      rule: "R-TOPIC",
-      level: "block",
-      where: "研究对象",
-      detail: `需求的研究对象是「${subject}」，报告正文没有围绕它展开。`,
-      fix: "按需求的研究对象重新生成结论；示例内容或其他品类的分析不能当作本次研究结果。",
-    });
+  // Semantics are reviewed by the Agent after durable template projection, never suffix regexes.
+  if (report.content?.review?.topicMatch === false || report.contentStatus === "REJECTED") {
+    issues.push({ rule: "R-TOPIC", level: "block", where: "研究对象",
+      detail: report.content?.review?.note || "Agent 审校发现需求与报告对象不匹配。", fix: "按需求重新研究，不能通过标题改写包装错配内容。" });
+  }
+  if (report.contentStatus !== "READY" || report.content?.status !== "READY" || report.content.review?.topicMatch !== true) {
+    issues.push({ rule: "R-PRESENTATION", level: "draft", where: "内容审校",
+      detail: "结构化内容尚未完成落库、模板读回与 Agent 审校；不能当作成品卡片。", fix: "运行内容提炼与有界审校；历史报告需重新运行，GET 不调用模型。" });
   }
 
   if (report.demo && issues.some((issue) => issue.rule === "R-TOPIC")) {
