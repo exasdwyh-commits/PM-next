@@ -7,6 +7,11 @@ import {
   listKernConversations,
 } from "@/modules/assistant-runtime";
 import { listProposals } from "@/modules/advisor/proposals";
+import {
+  PROPOSAL_DECISION_GATE,
+  proposalEmptyEvidenceHint,
+  summarizeProposal,
+} from "@/shared/proposal-summary";
 import { getDesktopOverview } from "@/modules/desktop-runtime";
 import prisma from "@/shared/db";
 import { buildAttentionBrief, type AttentionSignal } from "@/modules/supervisor/attention";
@@ -133,20 +138,23 @@ function messageView(row: {
 function proposalDecision(
   row: Awaited<ReturnType<typeof listProposals>>[number]
 ): Decision {
+  const actionType = String((row as { actionType?: unknown }).actionType ?? "");
   const payload = asRecord(row.payloadJson);
   const rationale =
     typeof payload.rationale === "string" && payload.rationale.trim()
       ? payload.rationale.trim()
-      : "Kern 生成了一个受保护业务变更，需要人工 Gate 才能继续。";
+      : "Kern 整理了一个受保护的业务写入，需要你批准才会执行。";
   const scope = row.product?.name || row.project?.title || "当前工作";
+  // 批准前要能核对「将要写入什么」：把提议载荷整理成可读的几行，而不是只给一个标题。
+  const { label, lines } = summarizeProposal(actionType, row.payloadJson);
 
   return {
     id: row.id,
-    title: `${row.actionLabel} · ${scope}`,
+    title: `${row.actionLabel || label} · ${scope}`,
     because: rationale,
     ifIgnored: "该受保护动作会保持待确认，不会自动写入业务数据。",
     tone: "warn",
-    gate: "Proposal / Approval",
+    gate: PROPOSAL_DECISION_GATE,
     conversationId: row.conversationId ?? null,
     dueLabel: "等待你确认",
     raisedBy: row.proposedBy?.name || "Kern",
@@ -156,6 +164,8 @@ function proposalDecision(
       { id: "defer", label: "稍后处理", kind: "defer" },
     ],
     evidence: [],
+    summary: lines.map((line) => `${line.k}：${line.v}`),
+    emptyEvidenceHint: proposalEmptyEvidenceHint(actionType),
   };
 }
 

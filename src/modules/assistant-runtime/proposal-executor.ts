@@ -1,6 +1,6 @@
 import type { SessionContext } from "@/modules/identity/session";
 import { applyProposal } from "@/modules/advisor/proposals";
-import { assessChatProposalAutonomy } from "./autonomy";
+import { assessChatProposalAutonomy, requiresChatUserConfirmation } from "./autonomy";
 
 export interface KernProposalBackedResult {
   text: string;
@@ -25,6 +25,13 @@ export async function applyExplicitChatProposal<
 ): Promise<T> {
   const proposal = input.result.proposal;
   if (!proposal) return input.result;
+
+  // 用户确认要求（与风险分级无关）：这类动作在对话里不自动落库，
+  // 保持 PENDING_CONFIRMATION，等人在既有确认入口确认后才写业务数据。
+  // 确认态只认服务端提议状态，不接受客户端传入的 confirmed 标记。
+  if (requiresChatUserConfirmation(proposal.actionType)) {
+    return input.result;
+  }
 
   const autonomy = assessChatProposalAutonomy({
     intent: input.intent,

@@ -405,14 +405,17 @@ export async function executeKernConversationTurn(
     const attachmentPrompt = contextLayers?.attachmentPrompt ?? "";
     // 授权档位：全委托时把「自己拍板、不再追问」写进口径，并强制把补全的假设标出来。
     // 只改表达与决策口径，不放宽任何工具/权限/治理边界。
+    // 全委托只放开「方案取舍与草稿细节要不要再问」；业务执行确认由服务端治理决定，
+    // 提示词不能替服务端宣布「已执行」。
     const delegationPrompt =
       runtimeSelection.config.delegationMode === "full"
         ? [
             "## 全委托模式（本轮已由用户授权）",
-            "- 用户已把本轮的取舍权交给你：不要再回问确认，直接按你判断的最佳方案产出。",
+            "- 用户已把本轮的取舍权交给你：草稿细节与方案取舍不必回问，直接按你判断的最佳方案产出。",
             "- 缺失的细节可以自行补全，但每处补全必须以「假设：」显式标注；不得把假设写成既定事实或来源事实。",
             "- 这与证据纪律不冲突：有据的写有据，没据的按上面标注，不得为了「完整」而编造来源。",
-            "- 本模式不放宽工具、权限或治理授权，只改变是否停下来征求确认。",
+            "- 方案取舍与草稿细节由你决定；业务执行状态以服务端结果为准。服务端返回待确认时，说明尚未执行，并引导使用已有确认入口。",
+            "- 本模式不放宽工具、权限或治理授权。",
           ].join("\n")
         : "";
     // One output contract for the model: reply-format (in basePersona) + kern-rich/v1 (KERN_RICH_PROMPT).

@@ -26,6 +26,9 @@ import { KernHostContext, type KernHost, type ReaderItem } from "./rich/reader-c
 import { ReaderPane } from "./rich/reader-pane";
 import "./rich/rich.css";
 
+/** 「稍后处理」的本地存储键：只影响前端折叠，不写业务数据、不改数据库结构 */
+const DEFERRED_DECISIONS_KEY = "muse.deferredDecisions";
+
 const ConnectorSheet = dynamic(() => import("./components/sheets").then(module => module.ConnectorSheet));
 const LibrarySheet = dynamic(() => import("./components/sheets").then(module => module.LibrarySheet));
 const MemorySheet = dynamic(() => import("./components/sheets").then(module => module.MemorySheet));
@@ -206,6 +209,34 @@ export default function KernClient({ model }: { model: StudioModel }) {
   const completedRunRef = useRef<string | null>(null);
   const activeRunRef = useRef<string | null>(null);
   const [decisionBusy, setDecisionBusy] = useState<string | null>(null);
+  /** 每条决策上一次处理失败的原因：非空时卡片留在原处，并给出「重试」 */
+  const [decisionError, setDecisionError] = useState<Record<string, string>>({});
+  /** 「稍后处理」的提议 id：纯前端折叠，服务端状态始终是「待你确认」 */
+  const [deferredDecisions, setDeferredDecisions] = useState<string[]>([]);
+  /** 上一次提交的选择与理由：「重试」原样重放，幂等键不变，因此不会二次写入 */
+  const attemptsRef = useRef<Record<string, { choice: Decision["options"][number]; reason: string | null }>>({});
+  // 稍后处理只改前端呈现，不写数据库：刷新后仍记得哪些提议被推迟，
+  // 但服务端状态始终以真实提议为准——一旦被批准/拒绝，卡片自然从接口消失。
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(DEFERRED_DECISIONS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        setDeferredDecisions(parsed.filter((x): x is string => typeof x === "string"));
+      }
+    } catch {
+      /* localStorage 不可用时退化为仅本次会话有效 */
+    }
+  }, []);
+  const persistDeferred = useCallback((ids: string[]) => {
+    setDeferredDecisions(ids);
+    try {
+      window.localStorage.setItem(DEFERRED_DECISIONS_KEY, JSON.stringify(ids));
+    } catch {
+      /* 忽略：推迟只是便利功能，不该因为存储失败而阻塞确认 */
+    }
+  }, []);
   const [sheet, setSheet] = useState<SheetState>(null);
   useDesktopNotify();
   const [palette, setPalette] = useState(false);
@@ -494,11 +525,10 @@ export default function KernClient({ model }: { model: StudioModel }) {
     [brief.conversations, conversationId]
   );
   const pending = brief.decisions.filter((decision) => !resolved[decision.id]);
+  // 提议卡片按会话归属渲染：本会话出现，其它会话不出现，conversationId 为空（空归属）也不出现。
+  // 此前这里额外排除了 `gate === "Proposal / Approval"`，结果是建品提议在产生它的会话里根本不显示。
   const conversationDecisions = pending.filter(
-    (decision) =>
-      conversation &&
-      decision.conversationId === conversation.id &&
-      decision.gate !== "Proposal / Approval"
+    (decision) => conversation && decision.conversationId === conversation.id
   );
   const copyThread = useCallback(async () => {
     if (!conversation || messages.length === 0) return;
@@ -925,11 +955,20 @@ export default function KernClient({ model }: { model: StudioModel }) {
     async (decision: Decision, choice: Decision["options"][number], givenReason?: string) => {
       if (decisionBusy) return;
 
+      // 稍后处理 ≠ 决策：不发任何请求，只在本会话内折叠成待办提示；
+      // 服务端状态仍是「待你确认」，一个字节的业务数据都没写。
       if (choice.kind === "defer") {
-        setResolved((current) => ({ ...current, [decision.id]: choice.label }));
+        persistDeferred(Array.from(new Set([...deferredDecisions, decision.id])));
         return;
       }
 
+      // 每次重新提交先清掉上一次的失败提示，避免错误提示与成功态并存。
+      setDecisionError((current) => {
+        if (!current[decision.id]) return current;
+        const next = { ...current };
+        delete next[decision.id];
+        return next;
+      });
       let reason: string | null = null;
       if (choice.kind === "reject") {
         reason = givenReason ?? null;
@@ -939,6 +978,8 @@ export default function KernClient({ model }: { model: StudioModel }) {
           return;
         }
       }
+      // 记住这次的选择与理由：失败后「重试」原样重放，幂等键不变，因此不会二次写入。
+      attemptsRef.current[decision.id] = { choice, reason };
 
       const view = viewRef.current;
       setDecisionBusy(decision.id);
@@ -965,7 +1006,9 @@ export default function KernClient({ model }: { model: StudioModel }) {
         if (!response.ok) throw new Error(data.message || "处理失败");
 
         setResolved((current) => ({ ...current, [decision.id]: choice.label }));
+        persistDeferred(deferredDecisions.filter((id) => id !== decision.id));
         router.refresh();
+        // 请求期间切了会话：结果只落库，不把回执串到另一个会话的消息流里。
         if (viewRef.current !== view) return;
         setMessages((current) => [
           ...current,
@@ -987,9 +1030,12 @@ export default function KernClient({ model }: { model: StudioModel }) {
           },
         ]);
       } catch (error) {
+        // 请求期间切了会话：失败提示同样不能串到另一个会话。
         if (viewRef.current !== view) return;
         const message =
           error instanceof Error ? error.message : "处理失败，请刷新后重试";
+        // 卡片保持可见（不标记已处理、不假报成功），错误与重试交给 CheckIn 展示。
+        setDecisionError((current) => ({ ...current, [decision.id]: message }));
         setMessages((current) => [
           ...current,
           {
@@ -1005,7 +1051,17 @@ export default function KernClient({ model }: { model: StudioModel }) {
         setDecisionBusy(null);
       }
     },
-    [decisionBusy, router]
+    [decisionBusy, deferredDecisions, persistDeferred, router]
+  );
+
+  /** 失败后重试：原样重放上一次的选择与理由，幂等键不变，所以不会二次写入。 */
+  const retryDecision = useCallback(
+    (decision: Decision) => {
+      const attempt = attemptsRef.current[decision.id];
+      if (!attempt) return;
+      void resolve(decision, attempt.choice, attempt.reason ?? undefined);
+    },
+    [resolve]
   );
 
   const pickConversation = useCallback(
@@ -1256,6 +1312,11 @@ export default function KernClient({ model }: { model: StudioModel }) {
                     d={decision}
                     onOpenSource={openSource}
                     onResolve={resolve}
+                    busy={decisionBusy === decision.id}
+                    error={decisionError[decision.id] ?? null}
+                    onRetry={() => retryDecision(decision)}
+                    deferred={deferredDecisions.includes(decision.id)}
+                    onRestore={() => persistDeferred(deferredDecisions.filter((id) => id !== decision.id))}
                   />
                 ))}
                 {sending || processing ? <Working text={processing || "正在保存消息…"} since={processing ? processingSince : null} /> : null}

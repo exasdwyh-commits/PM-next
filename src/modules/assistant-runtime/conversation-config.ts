@@ -22,8 +22,10 @@ export interface KernConversationRuntimeConfig {
    * 授权档位：
    * - `auto`（默认）：常规协作，需要用户拍板的地方照常问。
    * - `full`：草稿细节与方案取舍由 Kern 自行决定，补全的细节以「假设」标注。
+   *   只放宽「要不要回问」：业务执行确认仍由服务端治理决定，全委托不代替用户在既有确认入口批准
+   *   （例：新建产品提议仍然停在待确认，见 capabilities/product-write.ts 与 proposal-executor.ts）。
    * 业务执行状态以服务端结果为准，需要确认的操作仍走确认流程。
-   * 此字段不改变工具、权限或业务执行授权。
+   * 此字段不改变工具、权限或业务执行授权；不放宽任何工具、权限或治理边界。
    */
   delegationMode: KernDelegationMode;
   /**

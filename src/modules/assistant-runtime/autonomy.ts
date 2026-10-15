@@ -140,12 +140,30 @@ export function assessChatProposalAutonomy(input: {
   });
 }
 
+/**
+ * 对话里必须经用户显式确认才会落库的动作。**与风险分级正交**：
+ * 这里不是把风险调高——CREATE_PRODUCT 的风险画像仍然是
+ * COMPENSATABLE / AUTO（见 PROPOSAL_AUTONOMY_PROFILES）——
+ * 而是业务要求「确认之前不创建产品」：建产品会连带产生初始版本与项目，
+ * 用户要先看到整理出来的内容再决定。
+ * 因此单独登记，不写进风险画像，也不产生新的风险原因。
+ */
+export const CHAT_CONFIRMATION_REQUIRED_ACTIONS: ReadonlySet<string> = new Set([
+  "CREATE_PRODUCT",
+]);
+
+export function requiresChatUserConfirmation(actionType: string): boolean {
+  return CHAT_CONFIRMATION_REQUIRED_ACTIONS.has(actionType);
+}
+
 /** Compatibility helper for the current proposal executor. */
 export function shouldAutoApplyChatProposal(input: {
   intent: string;
   actionType: string;
   targetResolved?: boolean;
 }): boolean {
+  // 用户确认要求优先于自动执行：风险判定不变，但对话侧不自动落库。
+  if (requiresChatUserConfirmation(input.actionType)) return false;
   return assessChatProposalAutonomy(input).decision === "AUTO";
 }
 

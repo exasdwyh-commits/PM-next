@@ -4,6 +4,7 @@ import { OrgRole } from "@prisma/client";
 import prisma from "../src/shared/db";
 import { assertTestDatabaseSafety } from "./test-safety";
 import { createKernConversation, sendDepartmentAssistantMessage } from "../src/modules/assistant-runtime";
+import { applyProposal } from "../src/modules/advisor/proposals";
 
 async function main() {
   if (!process.env.TEST_DATABASE_URL) {
@@ -62,9 +63,24 @@ async function main() {
       ].join("\n")
     );
 
-    assert.equal(second.proposal, null, "明确的新产品指令不应要求用户二次确认");
+    // 建产品会连带产生初始版本与项目，业务要求「确认之前不创建产品」：
+    // 信息齐全后停在待确认并返回提议，等用户在既有确认入口批准。
+    assert.ok(second.proposal, "明确的新产品指令应先停在待确认并返回提议");
+    assert.equal(second.proposal!.actionType, "CREATE_PRODUCT");
+
+    const pendingProposal = await prisma.actionProposal.findUniqueOrThrow({
+      where: { id: second.proposal!.proposalId },
+      select: { status: true },
+    });
+    assert.equal(pendingProposal.status, "PENDING_CONFIRMATION", "确认前提议应停在待确认");
+    const beforeCount = await prisma.product.count({ where: { organizationId: org.id } });
+    assert.equal(beforeCount, 0, "确认前不应创建产品");
 
     console.log("▶ K2 explicit CREATE_PRODUCT is applied once and binds the original conversation");
+    await applyProposal(session, second.proposal!.proposalId, {
+      idempotencyKey: `kern-cont:${tag}:approve`,
+      reason: "Kern continuity test approve",
+    });
     const productProposal = await prisma.actionProposal.findFirstOrThrow({
       where: {
         conversationId: conversation.id,
@@ -134,7 +150,7 @@ async function main() {
       "明确字段修改应通过版本化业务命令直接应用"
     );
 
-    console.log("✅ Kern 新产品 → 自动执行 → 原会话继续工作的主链连续");
+    console.log("✅ Kern 新产品 → 待确认 → 批准写入 → 原会话继续工作的主链连续");
   } finally {
     await prisma.auditEvent.deleteMany({ where: { actorId: user.id } }).catch(() => {});
     await prisma.idempotencyRecord.deleteMany({ where: { actorId: user.id } }).catch(() => {});
