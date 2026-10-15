@@ -14,7 +14,7 @@ import { advanceProductRndProgram, decideAutoRetry, nextAdvanceFailure } from "@
 import { EXECUTOR_STRATEGIES } from "@/modules/product-rnd/executor-strategies";
 import { resumeResearchRun } from "@/modules/research/research-run";
 import { runDueSchedules } from "@/modules/schedule/service";
-import { appendAgentTaskConversationReturn } from "@/modules/workforce/conversation-return";
+import { appendAgentTaskConversationReturn, recoverAgentTaskConversationReturns } from "@/modules/workforce/conversation-return";
 import { finishAgentTask, startAgentTask } from "@/modules/workforce/service";
 import { hasWorkerHandlers, registerWorkerHandlers } from "@/modules/worker/registry";
 import { MISSION_NODE_SCHEMA, readMissionNodeContext, runMissionNodeAgent } from "./generic-executor";
@@ -30,6 +30,7 @@ export function registerKernWorkerHandlers(): void {
       startAgentTask,
       finishAgentTask,
       appendConversationReturn: appendAgentTaskConversationReturn,
+      recoverConversationReturns: recoverAgentTaskConversationReturns,
     },
     conversations: { runPending: runPendingKernMessages, runPendingTick: runPendingKernMessagesTick },
     research: { resumeRun: resumeResearchRun },

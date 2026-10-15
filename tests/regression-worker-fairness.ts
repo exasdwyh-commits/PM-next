@@ -314,7 +314,10 @@ async function makeAgent(orgId: string, maxConcurrentTasks: number) {
 }
 
 async function makeTask(orgId: string, agentId: string, goal: string, priority = 0) {
-  return prisma.agentTask.create({ data: { organizationId: orgId, agentId, goal, priority } });
+  // Fairness scenarios require already-due work, not a DB/app clock boundary.
+  // A database-default timestamp can be ahead of the immediate JS discovery
+  // cutoff; one tick would then never see B even though it becomes due later.
+  return prisma.agentTask.create({ data: { organizationId: orgId, agentId, goal, priority, availableAt: new Date(0) } });
 }
 
 async function makeChat(orgId: string, session: SessionContext, title: string) {

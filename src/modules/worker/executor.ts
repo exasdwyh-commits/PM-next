@@ -206,7 +206,7 @@ export async function executeAgentTask(
     await handlers.lifecycle.finishAgentTask(session, task.id, {
       runId: started.run.id, outcome: outcome.kind, reason: outcome.reason ?? null, resultSummary: outcome.summary,
       executor: { token, dataGaps: outcome.dataGaps,
-        result: { ...outcome.result, agentCode: task.agent.code, outcome: outcome.kind, summary: outcome.summary, finishedAt: new Date().toISOString() },
+        result: { ...outcome.result, runId: started.run.id, agentCode: task.agent.code, outcome: outcome.kind, summary: outcome.summary, finishedAt: new Date().toISOString() },
         state: { attempts: priorAttempts + 1, lastError: null, nextRetryAt: null, lastOutcome: outcome.kind, finishedAt: new Date().toISOString() },
       },
     });

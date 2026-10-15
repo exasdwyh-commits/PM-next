@@ -69,6 +69,19 @@ async function recoverOrphansThrottled(organizationId: string | undefined, resul
     result.errors += 1;
     (result.notes ??= []).push(`recovery: ${errorMessage(error)}`);
   }
+  // Separate failure boundary: receipt catch-up must still run when orphan
+  // recovery fails, and must not count as newly executed task/model work.
+  try {
+    const recover = workerHandlers().lifecycle.recoverConversationReturns;
+    if (recover) {
+      const r = await recover({ organizationId });
+      result.errors += r.errors;
+      if (r.scanned) (result.notes ??= []).push(`receipts created=${r.created} skipped=${r.skipped} errors=${r.errors}`);
+    }
+  } catch (error) {
+    result.errors += 1;
+    (result.notes ??= []).push(`receipt-recovery: ${errorMessage(error)}`);
+  }
 }
 
 // ---------------------------------------------------------------------------
