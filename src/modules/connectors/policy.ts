@@ -1,8 +1,9 @@
 /**
  * KX-31 · 连接器策略（纯函数）
  * ============================
- * - 读写分类：MCP annotations.readOnlyHint=true → 读；destructiveHint=true → 写；
- *   没有标注时按名字前缀猜测（get/list/search/read/query/fetch/describe），其余一律当写。宁可误判为写。
+ * - 读写分类（U01）：destructiveHint=true → 写（与 readOnlyHint=true 冲突时也按写）；
+ *   只有服务端显式声明 readOnlyHint=true 才算读；未声明一律当写。
+ *   名称前缀不参与权限判定：get_/list_ 开头的工具照样可能有副作用，未审核工具不能默认可信只读。
  * - 默认：读工具启用，写工具停用。写工具要由用户在连接器设置里显式打开，
  *   打开后映射到受保护能力 external.send，每次调用仍需审批凭据（ToolBroker 强制）。
  */
@@ -25,13 +26,12 @@ export const READ_CAPABILITY = "connector.read";
 export const WRITE_CAPABILITY = "external.send";
 export const MAX_CONNECTOR_TOOLS = 64;
 
-const READ_PREFIX = /^(get|list|search|read|query|fetch|describe|find|lookup|view|show|count|stat)[_\-.A-Z]/i;
-
 export function classifyTool(t: McpTool): ToolEffect {
   const a = t.annotations ?? {};
-  if (a.readOnlyHint === true) return "read";
-  if (a.destructiveHint === true || a.readOnlyHint === false) return "write";
-  return READ_PREFIX.test(t.name) || /^(get|list|search|read|query|fetch)$/i.test(t.name) ? "read" : "write";
+  // 破坏性声明优先：readOnlyHint 与 destructiveHint 同时为 true 是自相矛盾的声明，按写处理。
+  if (a.destructiveHint === true) return "write";
+  // 只认显式只读声明；名称前缀、缺省标注都不能让工具变成默认启用的读工具。
+  return a.readOnlyHint === true ? "read" : "write";
 }
 
 export function toToolSpecs(tools: McpTool[], previous: ConnectorToolSpec[] = []): ConnectorToolSpec[] {
