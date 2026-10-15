@@ -28,12 +28,12 @@
 .rb-bars-mini { display: grid; gap: 6px; margin-top: 8px; }
 .rb-bars-mini div { display: grid; grid-template-columns: 60px 1fr; gap: 8px; align-items: center; font-size: 12px; }
 .rb-bars-mini i { height: 6px; background: #2563eb; border-radius: 999px; display: block; }
-.rb-dec-lead { padding: 12px; border: 1px solid #cfe0fd; background: #eaf1fe; border-radius: 12px; display: grid; gap: 6px; }
+.rb-dec-lead { padding: 12px; border: 1px solid var(--info-line); background: var(--info-bg); border-radius: 12px; display: grid; gap: 6px; }
 .rb-other-lead { font-size: 12px; color: #999; padding: 8px; background: var(--surface-soft); border-radius: 8px; }
 .rb-call-lead { padding: 10px 12px; border-radius: 10px; border: 1px solid #e7e9ef; background: var(--surface-soft); display: grid; gap: 4px; font-size: 12px; }
 .rb-call-lead strong { font-size: 13px; }
 .rb-call-lead p { margin: 0; color: var(--ink-soft); line-height: 1.6; }
-.rb-call-lead.info { border-color: #cfe0fd; background: #eaf1fe; }
+.rb-call-lead.info { border-color: var(--info-line); background: var(--info-bg); }
 .rb-call-lead.ok { border-color: #bfe6d4; background: var(--ok-bg); }
 .rb-call-lead.warn { border-color: #f2ddb6; background: var(--warn-bg); }
 .rb-call-lead.blocked { border-color: #f6cdc8; background: var(--block-bg); }
@@ -45,7 +45,7 @@
 .rb-table-full { width: 100%; border-collapse: collapse; font-size: 13px; }
 .rb-table-full th { background: var(--surface-soft); padding: 8px 12px; font-size: 11px; text-transform: uppercase; color: var(--ink-muted); text-align: left; border-bottom: 1px solid #e7e9ef; }
 .rb-table-full td { padding: 8px 12px; border-bottom: 1px solid #f0f2f6; }
-.rb-table-full tr.pick { background: #eaf1fe; }
+.rb-table-full tr.pick { background: var(--info-bg); }
 .rb-table-full .num { text-align: right; font-variant-numeric: tabular-nums; }
 .badge.fact { background: var(--ok-bg); color: var(--ok); padding: 2px 6px; border-radius: 99px; font-size: 10px; }
 .badge.inference { background: var(--warn-bg); color: var(--warn); padding: 2px 6px; border-radius: 99px; font-size: 10px; }
@@ -53,16 +53,16 @@
 .rb-checklist-full { display: grid; gap: 10px; }
 .rb-check-item { border: 1px solid #e7e9ef; border-radius: 10px; padding: 12px; }
 .rb-check-h { display: flex; gap: 8px; align-items: center; }
-.rb-check-h span { width: 20px; height: 20px; background: #eaf1fe; color: #1d4ed8; border-radius: 6px; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+.rb-check-h span { width: 20px; height: 20px; background: var(--info-bg); color: var(--info-ink); border-radius: 6px; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
 .rb-check-grid { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--ink-muted); margin-top: 6px; }
 .rb-timeline-full { display: grid; gap: 0; padding-left: 20px; border-left: 1px solid #e7e9ef; }
 .rb-tl-item { display: grid; gap: 2px; padding: 10px 0; border-bottom: 1px solid #f0f2f6; }
-.rb-tl-item .when { font-size: 11px; font-weight: 700; color: #1d4ed8; }
+.rb-tl-item .when { font-size: 11px; font-weight: 700; color: var(--info-ink); }
 .rb-qa-full { display: grid; gap: 8px; }
 .rb-qa-row { display: grid; grid-template-columns: auto 1fr; gap: 10px; padding: 10px 12px; border: 1px solid #e7e9ef; border-radius: 8px; }
 .rb-ev-full { display: grid; gap: 8px; }
 .rb-ev-item { display: grid; grid-template-columns: auto 1fr; gap: 10px; padding: 10px; border: 1px solid #e7e9ef; border-radius: 8px; }
-.rb-ev-item .n { width: 20px; height: 20px; background: #eaf1fe; color: #1d4ed8; border-radius: 6px; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+.rb-ev-item .n { width: 20px; height: 20px; background: var(--info-bg); color: var(--info-ink); border-radius: 6px; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
 .rb-progress-full { border: 1px solid #e7e9ef; border-radius: 10px; overflow: hidden; }
 .rb-progress-h { display: flex; gap: 10px; padding: 10px 12px; background: var(--surface-soft); align-items: center; }
 .rb-progress-h .track { flex: 1; height: 6px; background: #e7e9ef; border-radius: 999px; overflow: hidden; }
@@ -71,7 +71,10 @@
 .rb-progress-full .dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; margin-top: 6px; }
 .rb-call { padding: 12px 14px; border-radius: 10px; border: 1px solid #e7e9ef; background: var(--surface-soft); display: grid; gap: 4px; font-size: 13px; }
 .rb-call p { margin: 0; color: var(--ink-soft); line-height: 1.6; }
-.rb-call.info { border-color: #cfe0fd; background: #eaf1fe; }
+.rb-call.info { border-color: var(--info-line); background: var(--info-bg); }
+/* 浅蓝底上 --ink-soft(#64748B) 实测仅 4.19:1（低于 AA 4.5，暗态 5.22 但明态不达标）；
+   info 正文统一 --info-ink：明态 #1D4ED8/#EAF1FE = 5.91:1，暗态 #B7B2FF/#1D1E3A = 8.33:1。 */
+.rb-call-lead.info p, .rb-call.info p { color: var(--info-ink); }
 .rb-call.ok { border-color: #bfe6d4; background: var(--ok-bg); }
 .rb-call.warn { border-color: #f2ddb6; background: var(--warn-bg); }
 .rb-call.blocked { border-color: #f6cdc8; background: var(--block-bg); }
@@ -79,12 +82,14 @@
 .rb-unknown-item { display: grid; grid-template-columns: auto 1fr; gap: 10px; padding: 10px 12px; border: 1px dashed #e7e9ef; border-radius: 8px; font-size: 13px; }
 .rb-unknown-item .q { width: 20px; height: 20px; border-radius: 50%; border: 1.5px dashed #9ca3af; color: var(--ink-muted); display: grid; place-items: center; font-size: 11px; font-weight: 700; }
 .rb-unknown-item small { display: block; color: var(--ink-muted); font-size: 12px; margin-top: 2px; }
-.rb-dec { border: 1px solid #cfe0fd; background: #eaf1fe; border-radius: 12px; padding: 14px; display: grid; gap: 10px; }
+.rb-dec { border: 1px solid var(--info-line); background: var(--info-bg); border-radius: 12px; padding: 14px; display: grid; gap: 10px; }
 .rb-dec-head { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; }
-.rb-dec-head .conf { font-size: 11px; color: #1d4ed8; background: var(--surface); border-radius: 999px; padding: 2px 8px; }
+.rb-dec-head .conf { font-size: 11px; color: var(--info-ink); background: var(--surface); border-radius: 999px; padding: 2px 8px; }
 .rb-dec-cols { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
-.rb-dec-cols b { font-size: 12px; color: #1d4ed8; }
-.rb-dec-cols ul { margin: 4px 0 0; padding-left: 16px; font-size: 12px; line-height: 1.6; color: #374151; }
+.rb-dec-cols b { font-size: 12px; color: var(--info-ink); }
+/* 前景必须与 --info-bg 配对（浏览器实测：固定 #374151 在暗态 info 底上仅 1.57:1）；
+   --ink-2 明态 #334155 / 暗态 #CBD1DC，两态在 info 底上均 ≥8:1。 */
+.rb-dec-cols ul { margin: 4px 0 0; padding-left: 16px; font-size: 12px; line-height: 1.6; color: var(--ink-2); }
 .rb-unsupported { padding: 12px 14px; border: 1px dashed #e7e9ef; border-radius: 10px; color: var(--ink-muted); font-size: 12px; display: grid; gap: 2px; }
 .rb-unsupported strong { color: #374151; }
 
@@ -99,7 +104,7 @@
 .rb-table-sales th { background: #0f1116; color: white; padding: 8px 12px; text-align: left; font-size: 11px; }
 .rb-table-sales td { padding: 8px 12px; border-bottom: 1px solid #f0f2f6; }
 .rb-table-sales tr.pick { background: var(--ok-bg); font-weight: 600; }
-.rb-sales-chart { border: 1px solid #e7e9ef; border-radius: 12px; padding: 14px; display: grid; gap: 10px; background: linear-gradient(180deg, #eaf1fe, white); }
+.rb-sales-chart { border: 1px solid #e7e9ef; border-radius: 12px; padding: 14px; display: grid; gap: 10px; background: linear-gradient(180deg, var(--info-bg), var(--surface)); }
 .rb-bars-sales { display: grid; gap: 8px; }
 .rb-bars-sales .bar { display: grid; grid-template-columns: 60px 1fr auto; gap: 8px; align-items: center; font-size: 12px; }
 .rb-bars-sales .track { height: 8px; background: var(--surface-soft); border-radius: 999px; overflow: hidden; }
