@@ -5,6 +5,7 @@ import {
   buildProjectArchitectureGraph,
   extractStaticImports,
   listUnmappedSourceFiles,
+  projectAreaPrefixes,
   toArchifyArchitectureSpec,
   type ProjectSourceFile,
 } from "../src/modules/visual-intelligence/project-map-builder";
@@ -148,6 +149,86 @@ assert.equal(archify.connections.length, graph.edges.length);
 assert.ok(
   archify.components.every((component) => component.sources?.length),
   "every project-map area should preserve source evidence"
+);
+
+// ===========================================================================
+// AREAS 归属唯一性（2026-10-14 事故固化）
+// ===========================================================================
+//
+// 事故形态：两个会话各自往 AREAS 的相邻但不同锚点补登同一批文件，git 按行合并
+// 把两份都留下 —— 无冲突标记、覆盖率仍 100%、节点数不变，**测试全绿而数据已坏**。
+// 唯一的暴露窗口是「将来有人重排 AREAS 时该文件静默换区」，diff 里看不出这个意图。
+//
+// 因此把三条不变量钉死：
+//   ① 区内不得重复登记同一前缀（重复登记即死数据，今天不改变行为但会掩盖未来的重排意图）；
+//   ② 跨区不得重复登记同一前缀（`AREAS.find()` 首个匹配胜出 → 后来的那条永远够不到）；
+//   ③ 不得被更早的区的更宽前缀遮蔽（顺序即语义：`src/app/api/` 若排到
+//      `src/app/api/conversations/` 前面，后者的细分归属会整体失效）。
+//
+// 判据只依赖 prefixes 本身，不依赖仓库内恰好有哪些文件 —— 否则「某个前缀暂时没文件命中」
+// 会让守卫假绿，正是这次事故能潜伏的原因。
+const areaPrefixes = projectAreaPrefixes();
+assert.ok(areaPrefixes.length > 0, "AREAS must not be empty");
+
+const duplicateAreaIds = areaPrefixes
+  .map((area) => area.id)
+  .filter((id, index, all) => all.indexOf(id) !== index);
+assert.deepEqual(duplicateAreaIds, [], `areas 的 id 必须唯一（重复：${duplicateAreaIds.join(", ")}）`);
+
+const emptyPrefixAreas = areaPrefixes.filter((area) => area.prefixes.length === 0).map((area) => area.id);
+assert.deepEqual(emptyPrefixAreas, [], `每个 area 至少要有一个 prefix（空 prefixes 的区：${emptyPrefixAreas.join(", ")}）`);
+
+const intraAreaDuplicates: string[] = [];
+for (const area of areaPrefixes) {
+  const seen = new Set<string>();
+  for (const prefix of area.prefixes) {
+    if (seen.has(prefix)) intraAreaDuplicates.push(`${area.id} → ${prefix}`);
+    seen.add(prefix);
+  }
+}
+assert.deepEqual(
+  intraAreaDuplicates,
+  [],
+  [
+    "同一个 area 内不得重复登记同一 prefix（这是 2026-10-14 静默合并的直接产物）：",
+    ...intraAreaDuplicates,
+    "修法：删掉重复的那一条，而不是调整顺序。",
+  ].join("\n")
+);
+
+const prefixOwners = new Map<string, string[]>();
+for (const area of areaPrefixes) {
+  for (const prefix of area.prefixes) prefixOwners.set(prefix, [...(prefixOwners.get(prefix) ?? []), area.id]);
+}
+const crossAreaDuplicates = [...prefixOwners.entries()]
+  .filter(([, ids]) => ids.length > 1)
+  .map(([prefix, ids]) => `${prefix} → ${ids.join(" / ")}`);
+assert.deepEqual(
+  crossAreaDuplicates,
+  [],
+  [
+    "同一 prefix 不得登记进两个 area（AREAS.find() 首个匹配胜出，后来的那条永远不可达）：",
+    ...crossAreaDuplicates,
+  ].join("\n")
+);
+
+const flatPrefixes = areaPrefixes.flatMap((area, index) => area.prefixes.map((prefix) => ({ index, area: area.id, prefix })));
+const shadowed: string[] = [];
+for (const later of flatPrefixes) {
+  for (const earlier of flatPrefixes) {
+    if (earlier.index === later.index) continue; // 区内顺序不影响 areaFor 的结果（同区 some(any)）
+    if (earlier.index < later.index && earlier.prefix !== later.prefix && later.prefix.startsWith(earlier.prefix)) {
+      shadowed.push(`${later.prefix}（${later.area}）被更早的 ${earlier.prefix}（${earlier.area}）遮蔽`);
+    }
+  }
+}
+assert.deepEqual(
+  shadowed,
+  [],
+  [
+    "更宽的前缀不得排在更窄的前缀之前 —— 顺序即语义，被遮蔽的细分归属会整体失效：",
+    ...shadowed.slice(0, 10),
+  ].join("\n")
 );
 
 console.log(

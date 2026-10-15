@@ -298,6 +298,21 @@ function areaFor(filePath: string): Area | null {
   );
 }
 
+/**
+ * 只读快照：暴露 AREAS 的 id / prefixes，供守卫断言**归属唯一性**。
+ *
+ * 2026-10-14 事故：两个会话各自往 AREAS 的**相邻但不同锚点**补登同一批未归属文件
+ * （`src/app/reports/`、`src/middleware.ts` 等）。git 按行合并，两份都留下 ——
+ * **没有冲突标记、合并静默成功**，而 `areaFor()` 用 `AREAS.find()` 首个匹配胜出，
+ * 于是「重复登记今天不改变行为、但重排顺序就会静默换区」。
+ * 既有守卫抓不到它：覆盖率仍 100%、节点数不变，测试照绿。
+ *
+ * 这里只导出快照、不导出 AREAS 本体：调用方拿不到可写引用，避免出现「运行时改地图」这种用法。
+ */
+export function projectAreaPrefixes(): Array<{ id: string; prefixes: string[] }> {
+  return AREAS.map((area) => ({ id: area.id, prefixes: [...area.prefixes] }));
+}
+
 export function listUnmappedSourceFiles(files: ProjectSourceFile[]): string[] {
   return files
     .map((file) => clean(file.path))
