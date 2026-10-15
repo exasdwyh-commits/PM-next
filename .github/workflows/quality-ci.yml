@@ -39,6 +39,7 @@ jobs:
       - run: npm run test:frontend-v3
       - run: npm run test:healthcare-innovation
       - run: npm run test:report-format
+      - run: npm run test:report-quality
       - run: npm run test:token-usage
       - run: npm run test:desktop-runtime
       - run: npm run test:kern-project-map

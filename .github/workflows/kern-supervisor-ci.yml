@@ -55,6 +55,11 @@ on:
       - "tests/regression-worker-r2-boundaries.ts"
       - "tests/regression-worker-r3-boundaries.ts"
       - "tests/regression-worker-fairness.ts"
+      - "tests/kern-report-quality.test.ts"
+      - "tests/kern-report-delivery-gate.test.ts"
+      - "tests/kern-report-edit.test.ts"
+      - "tests/kern-report-edit-wiring.test.ts"
+      - "tests/kern-report-poster.test.ts"
       - "src/modules/worker/scheduler.ts"
       - "src/modules/worker/fair-queue.ts"
       - ".github/workflows/kern-supervisor-ci.yml"
@@ -113,6 +118,11 @@ on:
       - "tests/regression-worker-r2-boundaries.ts"
       - "tests/regression-worker-r3-boundaries.ts"
       - "tests/regression-worker-fairness.ts"
+      - "tests/kern-report-quality.test.ts"
+      - "tests/kern-report-delivery-gate.test.ts"
+      - "tests/kern-report-edit.test.ts"
+      - "tests/kern-report-edit-wiring.test.ts"
+      - "tests/kern-report-poster.test.ts"
       - "src/modules/worker/scheduler.ts"
       - "src/modules/worker/fair-queue.ts"
       - ".github/workflows/kern-supervisor-ci.yml"
@@ -195,5 +205,7 @@ jobs:
       - run: npm run test:kern-readiness
       - run: npm run test:kern-brief
       - run: npm run test:kern-takeaway
+      - run: npm run test:report-quality
+      - run: npm run test:report-edit-wiring
       - run: npm run test:workforce
       - run: npm run test:golden-org
