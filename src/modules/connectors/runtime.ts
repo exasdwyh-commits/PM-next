@@ -12,7 +12,7 @@ import { computeActionHash } from "@/modules/governance/action-hash";
 import type { KernTool, ToolResult } from "@/modules/kern-contracts";
 import { redactSecrets } from "@/modules/vault/crypto";
 import { McpHttpClient, type McpTransport } from "./mcp-client";
-import { READ_CAPABILITY, exposedToolName, inputHintFromSchema, resultToText, type ConnectorToolSpec } from "./policy";
+import { READ_CAPABILITY, exposedToolName, inputHintFromSchema, normalizeStoredSpecs, resultToText, type ConnectorToolSpec } from "./policy";
 
 export type ConnectorRecord = {
   id: string;
@@ -67,7 +67,7 @@ export function connectorTools(connectors: ConnectorRecord[], deps: ConnectorRun
   };
   const out: KernTool[] = [];
   for (const c of connectors) {
-    const enabled = c.tools.filter((t) => t.enabled);
+    const enabled = normalizeStoredSpecs(c.tools).filter((t) => t.enabled);
     if (!enabled.length) continue;
     const host = new URL(c.url).host.toLowerCase();
     // 每个连接器一个 broker：只登记已启用的工具；授权器只放行它们声明的能力。

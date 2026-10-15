@@ -45,6 +45,39 @@ export const READ_CAPABILITY = "connector.read";
 export const WRITE_CAPABILITY = "external.send";
 export const MAX_CONNECTOR_TOOLS = 64;
 
+/**
+ * 安全读取持久化快照：升级不能依赖用户先点击刷新。
+ * 旧快照没有 basis，无法证明其 read 是显式声明而非名称推断，因此先降为写并停用。
+ * 已明确启用的写工具保留开关，但能力始终由当前策略重建，不能信任旧 capability。
+ * 纯投影、不修改原记录；设置页和执行器共用，同一结果可安全重复规范化。
+ */
+export function normalizeStoredSpecs(value: unknown): ConnectorToolSpec[] {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, MAX_CONNECTOR_TOOLS).flatMap((raw): ConnectorToolSpec[] => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+    const t = raw as Record<string, unknown>;
+    if (typeof t.name !== "string" || !t.name.trim()) return [];
+    const trustedRead = t.effect === "read" && t.basis === "declared-read" && t.capability === READ_CAPABILITY;
+    const effect: ToolEffect = trustedRead ? "read" : "write";
+    const downgraded = !trustedRead && t.effect !== "write";
+    const enabled = t.enabled === true && !downgraded;
+    const basis: ToolTrustBasis = trustedRead ? "declared-read"
+      : t.basis === "declared-write" || t.basis === "conflict" ? t.basis : "undeclared";
+    const reconfirm = enabled ? null : downgraded && t.enabled === true
+      ? "旧工具快照缺少有效的只读依据或权限字段不一致，已按写入处理并停用。请刷新工具列表核对声明；重新允许后，每次调用仍需你确认。"
+      : typeof t.reconfirm === "string" ? t.reconfirm : null;
+    return [{
+      name: t.name,
+      title: typeof t.title === "string" ? t.title : t.name,
+      description: typeof t.description === "string" ? t.description : "",
+      effect, enabled, basis, reconfirm,
+      capability: trustedRead ? READ_CAPABILITY : WRITE_CAPABILITY,
+      inputSchema: t.inputSchema && typeof t.inputSchema === "object" && !Array.isArray(t.inputSchema)
+        ? t.inputSchema as Record<string, unknown> : null,
+    }];
+  });
+}
+
 export function trustBasis(t: McpTool): ToolTrustBasis {
   const a = t.annotations ?? {};
   // 破坏性声明优先：readOnlyHint 与 destructiveHint 同时为 true 是自相矛盾的声明，按写处理。

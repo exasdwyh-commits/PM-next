@@ -16,6 +16,7 @@ import {
   exposedToolName,
   inputHintFromSchema,
   isConnectorAccess,
+  normalizeStoredSpecs,
   refreshSpecs,
   resultToText,
   toToolSpecs,
@@ -174,6 +175,100 @@ function record(): ConnectorRecord {
   specs.find((s) => s.name === "send_email")!.enabled = true;
   return { id: "c1", name: "Mock 商店", slug: "mock_shop", url: `http://${base}/mcp`, tools: specs };
 }
+
+test("U04：快照升级保守、幂等、不修改原数据，现代只读和显式写授权保持可用", () => {
+  const [modernRead] = toToolSpecs([TOOLS[0]]);
+  const [modernWrite] = toToolSpecs([TOOLS[2]]);
+  const legacyRead = { ...modernRead };
+  delete legacyRead.basis;
+  const legacyWrite = { ...modernWrite, enabled: true, capability: "connector.read" };
+  delete legacyWrite.basis;
+  const original = [modernRead, { ...modernRead, name: "paused", enabled: false }, legacyRead, legacyWrite];
+  const before = JSON.stringify(original);
+  const normalized = normalizeStoredSpecs(original);
+  assert.equal(JSON.stringify(original), before);
+  assert.deepEqual(normalized.map((t) => [t.effect, t.enabled, t.capability]), [
+    ["read", true, "connector.read"], ["read", false, "connector.read"],
+    ["write", false, "external.send"], ["write", true, "external.send"],
+  ]);
+  assert.match(normalized[2].reconfirm ?? "", /旧工具快照.*停用/);
+  assert.match(normalized[2].reconfirm ?? "", /每次调用仍需你确认/);
+  assert.equal(normalized[3].reconfirm, null);
+  assert.deepEqual(normalizeStoredSpecs(normalized), normalized, "读取投影可以安全重复执行");
+});
+
+test("U05：无效或相互矛盾的存储字段不升级为默认只读", () => {
+  const [read] = toToolSpecs([TOOLS[0]]);
+  for (const changed of [
+    { basis: undefined }, { basis: "conflict" }, { basis: "other" },
+    { capability: "external.send" }, { capability: undefined }, { effect: undefined },
+  ]) {
+    const [t] = normalizeStoredSpecs([{ ...read, ...changed }]);
+    assert.deepEqual([t.effect, t.enabled, t.capability], ["write", false, "external.send"]);
+  }
+  for (const value of [null, {}, "[]", 1]) assert.deepEqual(normalizeStoredSpecs(value), []);
+  assert.deepEqual(normalizeStoredSpecs([null, [], {}, { name: " " }]), []);
+  const [invalid] = normalizeStoredSpecs([{ name: "get_bad", effect: "write", enabled: "true", inputSchema: [], title: 1 }]);
+  assert.equal(invalid.enabled, false, "字符串 true 不能变成授权");
+  assert.equal(invalid.title, "get_bad");
+  assert.equal(invalid.inputSchema, null);
+  assert.equal(normalizeStoredSpecs(Array.from({ length: 100 }, () => read)).length, 64);
+});
+
+test("U06：升级后只读档不启用旧工具，显式重开仍按写逐次审批", () => {
+  const [read] = toToolSpecs([TOOLS[0]]);
+  delete read.basis;
+  const upgraded = normalizeStoredSpecs([read]);
+  assert.equal(accessOf(upgraded), "off");
+  assert.equal(applyAccess(upgraded, "read")[0].enabled, false);
+  const reopened = normalizeStoredSpecs(applyAccess(upgraded, "interact"));
+  assert.deepEqual([reopened[0].effect, reopened[0].enabled, reopened[0].capability, reopened[0].reconfirm],
+    ["write", true, "external.send", null]);
+  const refreshed = refreshSpecs([TOOLS[0]], upgraded);
+  assert.equal(refreshed[0].enabled, false, "刷新声明不能悄悄重开已关闭的连接器");
+  assert.equal(refreshed[0].basis, "declared-read");
+});
+
+test("U07：服务端读取与运行时都使用安全投影，不只修刷新入口", () => {
+  const service = fs.readFileSync(path.join(process.cwd(), "src/modules/connectors/index.ts"), "utf8");
+  const runtime = fs.readFileSync(path.join(process.cwd(), "src/modules/connectors/runtime.ts"), "utf8");
+  assert.match(service, /const specsOf[^\n]*normalizeStoredSpecs\(r\.tools\)/);
+  assert.match(runtime, /normalizeStoredSpecs\(c\.tools\)\.filter/);
+});
+
+test("U02：未刷新旧快照也不能继续以只读权限运行", () => {
+  const legacy = { ...record(), tools: [{
+    name: "list_orders", title: "旧订单工具", description: "", effect: "read" as const,
+    enabled: true, capability: "connector.read", inputSchema: null,
+  }] };
+  let requests = 0;
+  const tools = connectorTools([legacy], {
+    owner: { userId: "u1", organizationId: "o1" },
+    transport: async () => { requests += 1; throw new Error("不应访问网络"); },
+    taskRef: "m1", runId: "r1",
+  });
+  assert.equal(tools.length, 0, "缺少只读分类依据的旧快照必须先停用，不等待用户刷新");
+  assert.equal(requests, 0);
+  assert.equal(legacy.tools[0].enabled, true, "安全读取不得原地修改调用方的快照");
+});
+
+test("U03：已启用写工具的旧 capability 不能绕过审批", async () => {
+  calls.length = 0;
+  const c = record();
+  const write = c.tools.find((t) => t.name === "send_email")!;
+  write.capability = "connector.read";
+  const blocked: string[] = [];
+  const tools = connectorTools([c], {
+    owner: { userId: "u1", organizationId: "o1" }, transport: transport(),
+    inject: async () => ({ headers: { Authorization: TOKEN }, secrets: [TOKEN] }),
+    taskRef: "m1", runId: "r1",
+    onBlocked: ({ capability }) => void blocked.push(capability),
+  });
+  const result = await tools.find((t) => t.name.endsWith("send_email"))!.run({ to: "a@b.com" }, { organizationId: "o1" });
+  assert.equal(result.ok, false, "写工具必须按当前策略重新绑定受保护能力");
+  assert.deepEqual(blocked, ["external.send"]);
+  assert.deepEqual(calls, [], "即使快照字段不一致，模拟外部服务也不能收到写调用");
+});
 
 test("CN4：只读调用经 broker 执行，凭证注入，结果带来源", async () => {
   const injected: string[] = [];
