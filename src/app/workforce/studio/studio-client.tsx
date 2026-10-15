@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { WorkforceStudioData } from "@/modules/workforce/studio";
 import { labelAgentRunStatus, labelAgentTaskStatus } from "@/shared/status-labels";
+import { createUuid } from "@/shared/uuid";
 
 type Agent = WorkforceStudioData["agents"][number];
 type Task = WorkforceStudioData["tasks"][number];
@@ -162,7 +163,7 @@ export default function StudioClient({ initial }: { initial: WorkforceStudioData
 
   async function send() {
     if (sendingRef.current || !restored) return;
-    const work = pending ?? { conversationId: crypto.randomUUID(), clientMessageId: crypto.randomUUID(), text: draft.trim(), accepted: false };
+    const work = pending ?? { conversationId: createUuid(), clientMessageId: createUuid(), text: draft.trim(), accepted: false };
     if (!work.text || work.accepted) return;
     try { localStorage.setItem(storageKey, JSON.stringify(work)); }
     catch { setSendError("浏览器无法保存交办回执，请打开 Kern 对话交办，以便刷新后继续查看。"); return; }

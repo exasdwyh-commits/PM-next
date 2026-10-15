@@ -1,6 +1,7 @@
 "use client";
 
 import { executiveReportCitations, isExecutiveReportCitation } from "@/shared/executive-report-citation";
+import { createUuid } from "@/shared/uuid";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -817,7 +818,7 @@ export default function KernClient({ model }: { model: StudioModel }) {
     const draftKey = conversationId ?? "new";
     const storedPending = pendingSendRef.current ?? loadPending(draftKey);
     const request: PendingSend = storedPending?.text === text ? storedPending : {
-      clientMessageId: crypto.randomUUID(), conversationId: conversationId ?? crypto.randomUUID(), text,
+      clientMessageId: createUuid(), conversationId: conversationId ?? createUuid(), text,
       attachmentIds: [...attachmentIdsRef.current],
     };
     request.attachmentIds ??= [...attachmentIdsRef.current];
