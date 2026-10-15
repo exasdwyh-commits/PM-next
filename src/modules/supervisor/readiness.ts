@@ -17,7 +17,16 @@ export interface MissionReadiness {
 }
 
 /** Read configuration and current admission conditions; never call an external provider. */
-export async function getMissionReadiness(session: SessionContext, plan: MissionPlan): Promise<MissionReadiness> {
+export async function getMissionReadiness(
+  session: SessionContext,
+  plan: MissionPlan,
+  /**
+   * Task-level intent, decided from the original request rather than from the
+   * assembled plan text. Omitted → falls back to scanning plan.goal, which is
+   * only safe when the plan is known not to carry clarifying answers.
+   */
+  intent?: { competitorResearch?: boolean },
+): Promise<MissionReadiness> {
   const codes = [...new Set(["hermes_pm", ...plan.nodes.map(n => n.agentCode)])];
   const [agents, beats, usage, models] = await Promise.all([
     prisma.agent.findMany({ where: { organizationId: session.organizationId, code: { in: codes } }, select: { code: true, status: true } }),
@@ -26,7 +35,8 @@ export async function getMissionReadiness(session: SessionContext, plan: Mission
     Promise.all(plan.nodes.map(async n => ({ key: n.key, ready: await isMissionNodeModelReady(session.organizationId, n.agentCode, n.taskClass) }))),
   ]);
   const blockers: MissionReadiness["blockers"] = [];
-  if (detectCompetitorResearch(plan.goal) && !competitorSubject(plan.goal)) blockers.push({ code: "INPUT", message: "请先填写要调研的品牌或产品" });
+  const competitorResearch = intent?.competitorResearch ?? detectCompetitorResearch(plan.goal);
+  if (competitorResearch && !competitorSubject(plan.goal)) blockers.push({ code: "INPUT", message: "请先填写要调研的品牌或产品" });
   const active = new Set(agents.filter(a => a.status === "ACTIVE").map(a => a.code));
   const absent = codes.filter(code => !active.has(code));
   if (absent.length) blockers.push({ code: "TEAM", message: "计划所需团队成员未初始化或已停用，请在团队设置中检查" });
@@ -35,7 +45,7 @@ export async function getMissionReadiness(session: SessionContext, plan: Mission
   // 目标里自带链接时，只要能读到网页就不算缺资料：本机直连（KERN_WEB_FETCH）或爬取服务（KX-53）任一生效即可。
   const canOpenPages = process.env.KERN_WEB_FETCH !== "off" || getWebCrawl() !== null;
   const suppliedPages = /https?:\/\//i.test(plan.goal) && canOpenPages;
-  if (detectCompetitorResearch(plan.goal) && !getWebSearch() && !suppliedPages) blockers.push({ code: "SEARCH", message: "竞品调研需要网页检索，请配置检索服务或提供资料链接" });
+  if (competitorResearch && !getWebSearch() && !suppliedPages) blockers.push({ code: "SEARCH", message: "竞品调研需要网页检索，请配置检索服务或提供资料链接" });
   if ((usage.limits.missionsPerMonth !== null && usage.used.missions >= usage.limits.missionsPerMonth)
     || (usage.limits.modelCallsPerMonth !== null && usage.used.modelCalls >= usage.limits.modelCallsPerMonth)) {
     blockers.push({ code: "USAGE", message: "已达到本部署的月度安全上限，请联系管理员调整" });

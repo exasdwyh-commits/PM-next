@@ -3,6 +3,29 @@ import test from "node:test";
 import { answerText, buildBriefPlan, buildClarifyQuestions, estimateBrief, isUsableMemoryAnswer } from "../src/modules/supervisor/brief";
 import { buildNewProductMissionPlan } from "../src/modules/supervisor/plan";
 import { chunkForReplay, demoOutput } from "../src/modules/supervisor/demo";
+import { competitorResearchIntent, competitorSubject } from "../src/modules/supervisor/competitor-brief";
+
+test("competitor intent comes from the request, not from the concatenated constraints", () => {
+  // A constraint that merely says 竞品 must not turn a normal brief into a competitor study.
+  assert.equal(competitorResearchIntent("开发宠物饮水机", "主要卖给谁：竞品公司的目标用户"), false);
+  assert.equal(competitorResearchIntent("我想开发一个新产品：便携咖啡机", "主要卖给谁：城市年轻白领"), false);
+
+  // An explicit opt-out outranks any keyword hit.
+  assert.equal(competitorResearchIntent("开发宠物饮水机", "优先走什么渠道：线下门店，暂不做竞品调研"), false);
+  assert.equal(competitorResearchIntent("我想开发便携咖啡机，顺便看看竞品", "优先走什么渠道：线下门店，暂时不需要竞品研究"), false);
+
+  // A real competitor mission stays one, and the brand added while clarifying is
+  // still usable as the research subject.
+  assert.equal(competitorResearchIntent("调研一下智能水杯的竞品", "调研对象：某品牌"), true);
+  assert.equal(competitorSubject("调研一下智能水杯的竞品\n\n已确认的约束：\n- 调研对象：某品牌"), "某品牌");
+
+  // The plan goal still carries the answer, but it no longer defines the intent.
+  const qs = buildClarifyQuestions("NEW_PRODUCT", "开发宠物饮水机", []);
+  qs[2].answer = { optionId: null, text: "线下门店，暂不做竞品调研" };
+  const plan = buildBriefPlan({ goal: "开发宠物饮水机", playbook: "NEW_PRODUCT", questions: qs });
+  assert.match(plan.goal, /线下门店，暂不做竞品调研/, "the answer is still a constraint");
+  assert.doesNotMatch(plan.goal, /调研默认范围/, "but it does not make it a competitor mission");
+});
 
 test("clarify questions only for NEW_PRODUCT, memory maps to the right question", () => {
   assert.deepEqual(buildClarifyQuestions("GENERIC", "g", []), []);

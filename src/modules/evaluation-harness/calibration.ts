@@ -34,6 +34,13 @@ export type BacktestAlignment =
   | "FALSE_POSITIVE"
   | "FALSE_NEGATIVE"
   | "ABSTAINED"
+  /**
+   * The advice was "keep validating cheaply", and a validation actually ran.
+   * Whether that validation then succeeded or failed says nothing about whether
+   * the judgement was sound — a cheap test that fails early is the advice
+   * working, not a misprediction. Counted separately from prediction accuracy.
+   */
+  | "VALIDATION_EXECUTED"
   | "INCONCLUSIVE"
   | "IDENTITY_MISMATCH"
   | "UNVERIFIED_OUTCOME";
@@ -70,7 +77,11 @@ function isOutcomeVerified(outcome: VerifiedProductOutcome): boolean {
 }
 
 function isPositiveVerdict(verdict: PotentialVerdict): boolean {
-  return verdict === "VALIDATE" || verdict === "PRIORITIZE_FOR_VALIDATION";
+  // VALIDATE is deliberately excluded: it recommends a cheap validation, it does
+  // not predict that the product will succeed. Treating it as a positive
+  // prediction turns "test it cheaply" followed by a failed test into a
+  // FALSE_POSITIVE — i.e. it scores good stop-loss advice as a wrong call.
+  return verdict === "PRIORITIZE_FOR_VALIDATION";
 }
 
 function isNegativeVerdict(verdict: PotentialVerdict): boolean {
@@ -113,6 +124,17 @@ export function evaluatePredictionAgainstOutcome(
       alignment: "ABSTAINED",
       comparable: true,
       reason: "系统选择补证而非下注；记录结果用于后续评估 abstention 质量",
+    };
+  }
+
+  if (record.prediction.verdict === "VALIDATE") {
+    return {
+      alignment: "VALIDATION_EXECUTED",
+      comparable: true,
+      reason:
+        record.outcome.outcome === "SUCCESS"
+          ? "建议做低成本验证，验证已执行且结果为正：计入验证决策质量，不作为预测准确性样本"
+          : "建议做低成本验证，验证已执行但未通过：低成本试错、及时止损本身就是该建议生效，不能据此判定判断错误",
     };
   }
 
@@ -164,6 +186,7 @@ export interface BacktestSummary {
   falsePositive: number;
   falseNegative: number;
   abstained: number;
+  validationExecuted: number;
   inconclusive: number;
   identityMismatch: number;
   unverifiedOutcome: number;
@@ -179,6 +202,7 @@ export function summarizeBacktests(
     falsePositive: 0,
     falseNegative: 0,
     abstained: 0,
+    validationExecuted: 0,
     inconclusive: 0,
     identityMismatch: 0,
     unverifiedOutcome: 0,
@@ -198,6 +222,8 @@ export function summarizeBacktests(
       summary.falseNegative += 1;
     } else if (result.alignment === "ABSTAINED") {
       summary.abstained += 1;
+    } else if (result.alignment === "VALIDATION_EXECUTED") {
+      summary.validationExecuted += 1;
     } else if (result.alignment === "IDENTITY_MISMATCH") {
       summary.identityMismatch += 1;
     } else if (result.alignment === "UNVERIFIED_OUTCOME") {
