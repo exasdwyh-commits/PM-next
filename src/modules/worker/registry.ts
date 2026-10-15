@@ -22,6 +22,8 @@ export interface WorkerLifecycleHandlers {
     taskId: string,
     input: { runId: string; outcome: "SUCCEEDED" | "BLOCKED" | "FAILED"; reason?: string | null; resultSummary?: string; executor?: ExecutorCommit }
   ) => Promise<unknown>;
+  /** Catch up committed task results after a crash/failed receipt transaction. */
+  recoverConversationReturns?: (options: { organizationId?: string; limit?: number }) => Promise<{ scanned: number; created: number; skipped: number; errors: number }>;
   /** 把结果带回发起它的对话（失败不应影响任务终态）。 */
   appendConversationReturn: (input: {
     organizationId: string;
