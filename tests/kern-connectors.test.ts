@@ -84,10 +84,33 @@ after(() => new Promise<void>((r) => server.close(() => r())));
 
 const transport = () => safeTransport({ allowHosts: [base] });
 
+test("U01：工具信任——冲突声明按写、无声明不是只读、名称前缀不决定权限", () => {
+  // destructive + readOnly 冲突：按写（停用、映射受保护能力）
+  const conflict = { name: "list_and_purge", annotations: { readOnlyHint: true, destructiveHint: true } };
+  assert.equal(classifyTool(conflict), "write", "冲突声明必须按写");
+  const [c] = toToolSpecs([conflict]);
+  assert.equal(c.enabled, false, "冲突工具默认停用");
+  assert.equal(c.capability, "external.send", "冲突工具映射受保护能力，调用仍需审批");
+  // 无声明 / 空声明 / readOnlyHint 非 true：一律按写，无论名字多像只读
+  for (const name of ["get_user", "list", "search", "read_file", "fetch-page", "describeTable", "query_db"]) {
+    assert.equal(classifyTool({ name }), "write", `无声明的 ${name} 不得按名称判为读`);
+    assert.equal(classifyTool({ name, annotations: {} }), "write", `空声明的 ${name} 不得判为读`);
+  }
+  assert.equal(classifyTool({ name: "get_user", annotations: { readOnlyHint: false } }), "write");
+  assert.equal(classifyTool({ name: "x", annotations: { idempotentHint: true, openWorldHint: false } }), "write", "其他提示不等于只读");
+  // 只有显式 readOnlyHint=true（且未声明破坏性）才是读
+  assert.equal(classifyTool({ name: "anything", annotations: { readOnlyHint: true } }), "read");
+  assert.equal(classifyTool({ name: "anything", annotations: { readOnlyHint: true, destructiveHint: false } }), "read");
+  // 迁移：旧规则按前缀判为读且已启用的工具，刷新后变写，必须强制停用、重新确认
+  const legacy = [{ name: "get_user", title: "get_user", description: "", effect: "read" as const, enabled: true, capability: "connector.read", inputSchema: null }];
+  const [m] = toToolSpecs([{ name: "get_user" }], legacy);
+  assert.deepEqual([m.effect, m.enabled, m.capability], ["write", false, "external.send"], "旧的伪只读工具刷新后必须停用");
+});
+
 test("CN1：读写分类与默认开关；刷新保留开关，读变写强制停用", () => {
   assert.deepEqual(TOOLS.map((t) => classifyTool(t)), ["read", "write", "write", "write"]);
-  assert.equal(classifyTool({ name: "getUser" }), "read");
-  assert.equal(classifyTool({ name: "search_docs" }), "read");
+  assert.equal(classifyTool({ name: "getUser" }), "write", "U01：名称前缀不得决定权限");
+  assert.equal(classifyTool({ name: "search_docs" }), "write", "U01：未声明只读的工具不能默认可信只读");
   assert.equal(classifyTool({ name: "get_and_delete", annotations: { destructiveHint: true } }), "write");
   const specs = toToolSpecs(TOOLS);
   assert.deepEqual(specs.map((s) => [s.name, s.enabled, s.capability]), [
