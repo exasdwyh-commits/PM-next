@@ -21,6 +21,9 @@ import { beatWorker, markWorkerStopped } from "../src/modules/worker/heartbeat";
 import { executorLoopOnce, reconcileLoopOnce } from "../src/modules/supervisor/worker-runtime";
 import { setMissionModelInvokerForTest } from "../src/modules/supervisor/generic-executor";
 import { buildNewProductMissionPlan } from "../src/modules/supervisor/plan";
+import { loadMissionReport } from "../src/modules/supervisor/takeaway";
+import { readReportContentArtifact, reportContentStore } from "../src/modules/supervisor/report-content-store";
+import { assessMissionReportQuality } from "../src/modules/supervisor/report-quality";
 import { getKernMissionStatus, launchKernMission } from "../src/modules/supervisor/service";
 
 const NL = String.fromCharCode(10);
@@ -62,7 +65,7 @@ const EDIT_SYSTEM_MARK = "你是研究报告编辑";
 const FIXED_MARK = "验证计划与待决策";
 const ORIGINAL_MARK = "## 产品定位";
 
-async function runMissionOnce(mode: "adopt" | "reject") {
+async function runMissionOnce(mode: "adopt" | "reject" | "invalid-content" | "topic-reject") {
   await assertTestDatabaseSafety(prisma);
   const tag = randomUUID();
   const org = await prisma.organization.create({ data: { code: `EDITW_${tag}`, name: "Report edit wiring" } });
@@ -80,6 +83,9 @@ async function runMissionOnce(mode: "adopt" | "reject") {
   };
   let editCalls = 0;
   let modelCalls = 0;
+  let contentCalls = 0;
+  const subject = "红参胶原蛋白肽女士奶粉";
+  const summary = `先做小批验证「${subject}」（推断）。`;
   try {
     await bootstrapDefaultWorkforce(session);
     await beatWorker({ organizationId: org.id, loops: ["executor"], startedAt: new Date() }, true);
@@ -88,7 +94,24 @@ async function runMissionOnce(mode: "adopt" | "reject") {
       const system = messages.find((message) => message.role === "system")?.content ?? "";
       if (system.includes(EDIT_SYSTEM_MARK)) {
         editCalls++;
-        return { text: mode === "adopt" ? FIXED_CONCLUSION : "改好了。", provenance: { stub: true } };
+        return { text: mode === "reject" ? "改好了。" : FIXED_CONCLUSION, provenance: { stub: true } };
+      }
+      if (system.includes("你是报告内容提炼 Agent")) {
+        contentCalls++;
+        const body = JSON.parse(messages.find(m => m.role === "user")!.content).conclusion as string;
+        return { text: mode === "invalid-content" ? "{}" : JSON.stringify({ subject, title: `新产品：${subject}`, summary,
+          risks: body.includes("原料价格波动") ? ["原料价格波动会影响毛利。"] : [],
+          unknowns: body.includes("UNKNOWN") ? ["UNKNOWN：代工报价（需要 3 家工厂询价）"] : [], decisions: [], actions: [summary] }), provenance: { stub: true } };
+      }
+      if (system.includes("你是报告交付审校 Agent")) {
+        contentCalls++;
+        const row = await prisma.artifact.findFirst({ where: { organizationId: org.id, type: "MISSION_REPORT_CONTENT" } });
+        assert.ok(row, "审校前必须已有真实 Artifact 草稿，不是只在内存拼模板");
+        assert.equal(JSON.parse(row.content).status, "DRAFT");
+        const preview = JSON.parse(messages.find(m => m.role === "user")!.content).preview;
+        assert.equal(preview.title, `新产品：${subject}`);
+        return { text: JSON.stringify({ topicMatch: mode !== "topic-reject", goalQuote: subject, bodyQuote: summary,
+          title: subject, summary, note: mode === "topic-reject" ? "Agent明确拒绝主题错配" : "Agent测试替身：匹配，未做独立事实核验", layout: { density: "compact", summaryLines: 3 } }), provenance: { stub: true } };
       }
       // QA 必须给出可解析的判定，否则综合节点会被跳过（SYNTHESIS_SKIPPED）。
       if (agentCode === "qa_verifier") {
@@ -112,9 +135,9 @@ async function runMissionOnce(mode: "adopt" | "reject") {
     const synth = await prisma.agentTask.findFirst({
       where: { organizationId: org.id, agent: { code: "hermes_pm" } },
       orderBy: { createdAt: "desc" },
-      select: { contextSnapshot: true },
+      select: { id: true, contextSnapshot: true },
     });
-    const snap = synth?.contextSnapshot as { executorResult?: { output?: unknown } } | null;
+    const snap = synth?.contextSnapshot as { executorResult?: { output?: unknown; contentArtifactId?: string; contentInputVersion?: string; contentStatus?: string } } | null;
     if (process.env.DEBUG_WIRING === "1") {
       const st = await getKernMissionStatus(session, mission.missionTaskId);
       console.log(`[debug] 结局=${JSON.stringify(st.outcome)} 节点=${st.nodes.map((n) => `${n.key}/${n.kind}/${n.status}`).join(" ")}`);
@@ -122,7 +145,30 @@ async function runMissionOnce(mode: "adopt" | "reject") {
       console.log(`[debug] 模型调用=${modelCalls} 编辑调用=${editCalls}`);
     }
     const finalStatus = await getKernMissionStatus(session, mission.missionTaskId);
+    const loaded = await loadMissionReport(session, mission.missionTaskId);
+    assert.ok(snap?.executorResult?.contentArtifactId, "executorResult must publish only the current content artifact reference");
+    const artifactId = snap.executorResult.contentArtifactId;
+    const inputVersion = snap.executorResult.contentInputVersion!;
+    const stored = await readReportContentArtifact(org.id, artifactId, mission.missionTaskId, synth!.id, inputVersion);
+    assert.ok(stored, "真实数据库可读回本任务内容");
+    assert.equal(stored.source.body, loaded.conclusion);
+    assert.equal(stored.source.originalBody, DRAFT_CONCLUSION, "有界编辑前的原始综合稿也必须落库保留");
+    assert.equal(await readReportContentArtifact(randomUUID(), artifactId, mission.missionTaskId, synth!.id, inputVersion), null, "跨组织猜中有效ID也不能读");
+    assert.equal(await readReportContentArtifact(org.id, artifactId, randomUUID(), synth!.id, inputVersion), null, "同组织不同任务不能串用");
+    assert.equal(await readReportContentArtifact(org.id, artifactId, mission.missionTaskId, randomUUID(), inputVersion), null, "重跑节点不能沿用旧产物");
+    assert.equal(await readReportContentArtifact(org.id, artifactId, mission.missionTaskId, synth!.id, "changed"), null, "正文/来源指纹变更即失效");
+    await assert.rejects(loadMissionReport({ ...session, userId: randomUUID() }, mission.missionTaskId), "同组织非请求者不能读取任务");
+    const staleStore = reportContentStore({ taskId: synth!.id, organizationId: org.id, token: "old-lease" }, mission.missionTaskId, inputVersion);
+    await assert.rejects(staleStore.store.write(stored), /取消|接管|过期/, "过期执行器不能覆盖 Artifact");
+    const expected = mode === "invalid-content" ? "FAILED" : mode === "topic-reject" ? "REJECTED" : "READY";
+    assert.equal(stored.status, expected);
+    assert.equal(loaded.contentStatus, expected, "GET只读落库状态，不重跑模型");
+    if (expected === "READY") {
+      assert.equal(loaded.title, subject);
+      assert.equal(contentCalls, 2, "一次提炼、一次审校，有界两次");
+    } else if (expected === "REJECTED") assert.equal(assessMissionReportQuality(loaded).status, "BLOCKED");
     return {
+      contentStatus: loaded.contentStatus,
       editCalls,
       outcomeStatus: finalStatus.outcome?.status ?? null,
       output: typeof snap?.executorResult?.output === "string" ? snap.executorResult.output : "",
@@ -159,6 +205,17 @@ test("编辑结果畸形：保留原稿，任务照常完成，不兜底成已�
   assert.ok(!output.includes(FIXED_MARK), "畸形编辑结果不能被采用");
   assert.ok(output.includes(ORIGINAL_MARK), `应保留原稿，实际产出：${output.slice(0, 200)}`);
   assert.doesNotMatch(output, /已核实/, "任何情况下都不能把没修好的内容写成已核实");
+});
+
+test("内容提炼畸形：真实Artifact落库失败状态，GET不伪称成品", async () => {
+  const result = await runMissionOnce("invalid-content");
+  assert.equal(result.contentStatus, "FAILED");
+  assert.equal(result.outcomeStatus, "COMPLETED", "研究执行完成与成品内容审校状态分开");
+});
+
+test("Agent主题审校拒绝：真实持久化REJECTED并阻断交付", async () => {
+  const result = await runMissionOnce("topic-reject");
+  assert.equal(result.contentStatus, "REJECTED");
 });
 
 test.after(async () => {

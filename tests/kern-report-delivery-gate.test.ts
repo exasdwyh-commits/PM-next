@@ -1,3 +1,6 @@
+import * as sharedQualityStore from "../src/shared/report-quality-store";
+import * as compatibilityQualityStore from "../src/modules/supervisor/report-quality-store";
+import { withReviewedContent } from "./helpers/report-content-fixture";
 /**
  * 研究报告交付门禁回归（R1·report-quality/v1 · 交付侧）
  *
@@ -12,7 +15,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
-import { assessMissionReportQuality, reportContentVersion } from "../src/modules/supervisor/report-quality";
+import { assessMissionReportQuality, reportContentVersion, REPORT_QUALITY_VERSION } from "../src/modules/supervisor/report-quality";
 import { planMissionDelivery } from "../src/modules/supervisor/report-delivery";
 import { attachQuality, readQuality } from "../src/modules/supervisor/report-quality-store";
 import { reportTitle, type MissionReport } from "../src/modules/supervisor/report-format";
@@ -46,7 +49,7 @@ const SOURCES: MissionReport["researchSources"] = [
 ];
 
 function mk(over: Partial<MissionReport> = {}): MissionReport {
-  return {
+  const report = {
     playbook: "NEW_PRODUCT",
     missionTaskId: "mission/ok",
     title: reportTitle(SHOT_GOAL),
@@ -64,6 +67,7 @@ function mk(over: Partial<MissionReport> = {}): MissionReport {
     meta: baseMeta,
     ...over,
   } as MissionReport;
+  return withReviewedContent(report, !report.demo);
 }
 
 test("可交付报告：三态与交付计划都不加戳、不加状态块", () => {
@@ -231,3 +235,31 @@ test("历史报告重新判定后写入当前状态与问题清单，不沿用�
   assert.ok((stored?.issues.length ?? 0) > 0, "问题清单要随状态一起存档，界面才说得清原因");
 });
 
+
+test("shared-store: compatibility path re-exports the only implementation", () => {
+  assert.equal(compatibilityQualityStore.attachQuality, sharedQualityStore.attachQuality);
+  assert.equal(compatibilityQualityStore.readQuality, sharedQualityStore.readQuality);
+});
+test("shared-store: migration preserves the candidate v2 schema, never downgrades to donor v1", () => {
+  assert.equal(sharedQualityStore.REPORT_QUALITY_SCHEMA_VERSION, "report-quality/v2");
+  assert.equal(REPORT_QUALITY_VERSION, sharedQualityStore.REPORT_QUALITY_SCHEMA_VERSION);
+  const q = { status: "DRAFT_UNVERIFIED" as const, version: "same-content", issues: [] };
+  const content = sharedQualityStore.attachQuality("{}", q);
+  const parsed = JSON.parse(content); parsed.quality.schemaVersion = "report-quality/v1";
+  assert.equal(sharedQualityStore.readQuality(JSON.stringify(parsed)), null);
+  assert.equal(sharedQualityStore.readQuality(content, "changed-content"), null);
+});
+test("shared-store: reader and writer agree without losing existing payload", () => {
+  const quality = assessMissionReportQuality(mk());
+  const original = { body: "keep original", sources: ["one"], unknowns: ["keep gap"] };
+  const saved = attachQuality(JSON.stringify(original), quality, new Date("2026-10-15T00:00:00Z"));
+  assert.deepEqual(readQuality(saved), sharedQualityStore.readQuality(saved));
+  assert.equal(readQuality(saved)?.status, quality.status);
+  const parsed = JSON.parse(saved); delete parsed.quality; assert.deepEqual(parsed, original);
+});
+test("shared-store: pure shared module never imports supervisor or a database", () => {
+  const source = fs.readFileSync("src/shared/report-quality-store.ts", "utf8");
+  assert.doesNotMatch(source, /from\s+["']@\/(?:modules|shared\/db)/);
+  assert.equal(sharedQualityStore.readQuality("not JSON"), null);
+  assert.equal(sharedQualityStore.readQuality("{}"), null);
+});

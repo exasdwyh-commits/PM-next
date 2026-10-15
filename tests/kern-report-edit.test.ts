@@ -1,3 +1,4 @@
+import { withReviewedContent } from "./helpers/report-content-fixture";
 /**
  * 有界编辑步骤回归（R1·report-quality/v1 · 编辑）。
  *
@@ -44,7 +45,7 @@ const SOURCES: MissionReport["researchSources"] = [
 ];
 
 function mk(over: Partial<MissionReport> = {}): MissionReport {
-  return {
+  const report = {
     playbook: "NEW_PRODUCT",
     missionTaskId: "mission/edit",
     title: reportTitle(SHOT_GOAL),
@@ -62,6 +63,7 @@ function mk(over: Partial<MissionReport> = {}): MissionReport {
     meta: baseMeta,
     ...over,
   } as MissionReport;
+  return withReviewedContent(report, !report.demo);
 }
 
 /** 造一份「待补证草稿」：有一处无依据数字。 */
@@ -108,7 +110,8 @@ test("补齐有效：重校后问题减少即采用", async () => {
   const fixed = `${OK_CONCLUSION}\n- 复购率约 22%（推断，来源：某平台 2026Q3 抽样 1200 份）。`;
   const out = await autoFixMissionReport({ report, quality, call: async () => ({ text: fixed }) });
   assert.equal(out.applied, true);
-  assert.ok(out.quality.issues.length < quality.issues.length);
+  assert.ok(!out.quality.issues.some(issue => issue.rule === "R-NUMBER"));
+  assert.ok(out.quality.issues.some(issue => issue.rule === "R-PRESENTATION"), "正文修改使旧审校失效，仍需最终 Agent 审校");
   assert.match(out.note, /已采用/);
 });
 
@@ -198,3 +201,22 @@ test("编辑请求里带研究对象与问题清单，不给模型自由发挥�
   assert.match(joined, /只输出修改后的完整报告正文/);
 });
 
+
+test("boundary: already cancelled edit performs zero model calls", async () => {
+  const { report, quality } = draftReport(), controller = new AbortController(); controller.abort(); let calls = 0;
+  await assert.rejects(autoFixMissionReport({ report, quality, signal: controller.signal, call: async () => { calls++; return { text: OK_CONCLUSION }; } }));
+  assert.equal(calls, 0);
+});
+for (const mode of ["synchronous", "microtask"] as const) test(`boundary: ${mode} cancellation at model resolution cannot apply an edit`, async () => {
+  const { report, quality } = draftReport(), controller = new AbortController(); let calls = 0;
+  await assert.rejects(autoFixMissionReport({ report, quality, signal: controller.signal, call: async () => {
+    calls++; if (mode === "synchronous") controller.abort(); else queueMicrotask(() => controller.abort());
+    return { text: OK_CONCLUSION };
+  } }));
+  assert.equal(calls, 1);
+});
+test("boundary: an edit model ignoring cancellation still times out without applying", async () => {
+  const { report, quality } = draftReport(); let calls = 0;
+  const result = await autoFixMissionReport({ report, quality, timeoutMs: 5, call: async () => { calls++; return new Promise(() => {}); } });
+  assert.equal(calls, 1); assert.equal(result.applied, false); assert.equal(result.conclusion, report.conclusion);
+});

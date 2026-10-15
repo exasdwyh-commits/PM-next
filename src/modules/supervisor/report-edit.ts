@@ -55,7 +55,7 @@ export function buildEditMessages(report: MissionReport, issues: ReportQualityIs
       role: "user",
       content: [
         `需求：${report.goal}`,
-        `研究对象：${reportSubject(report.goal) ?? report.title}`,
+        `研究对象：${reportSubject(report.goal, report.content) ?? report.title}`,
         "",
         "待补齐的问题清单：",
         checklist,
@@ -65,13 +65,6 @@ export function buildEditMessages(report: MissionReport, issues: ReportQualityIs
       ].join("\n"),
     },
   ];
-}
-
-/** 主题漂移：编辑后正文里找不到研究对象的核心词（尾 2 / 尾 3 字）。 */
-function drifted(subject: string, body: string): boolean {
-  if (!subject) return false;
-  const cores = [subject.slice(-2), subject.slice(-3)].filter((core) => core.length >= 2);
-  return cores.length > 0 && !cores.some((core) => body.includes(core));
 }
 
 export async function autoFixMissionReport(input: {
@@ -84,6 +77,7 @@ export async function autoFixMissionReport(input: {
   const { report, quality, call, signal } = input;
   const timeoutMs = input.timeoutMs ?? REPORT_EDIT_TIMEOUT_MS;
   const original = report.conclusion ?? "";
+  signal?.throwIfAborted();
 
   const keep = (attempted: boolean, note: string): ReportEditOutcome => ({
     attempted,
@@ -102,26 +96,40 @@ export async function autoFixMissionReport(input: {
   if (fixable.length === 0) return keep(false, "没有可自动补齐的问题，保留原稿。");
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
   const onAbort = () => controller.abort();
-  signal?.addEventListener("abort", onAbort);
+  let onStop = () => {};
+  // Subscribe before invoking a model that may cancel synchronously or ignore the signal.
+  const stopped = new Promise<{ timeout: true }>((resolve) => {
+    onStop = () => resolve({ timeout: true });
+    controller.signal.addEventListener("abort", onStop, { once: true });
+  });
+  const timer = setTimeout(onAbort, timeoutMs);
+  signal?.addEventListener("abort", onAbort, { once: true });
+  if (signal?.aborted) onAbort();
   try {
+    signal?.throwIfAborted();
     const out = await Promise.race([
-      call(buildEditMessages(report, fixable), { signal: controller.signal }),
-      new Promise<{ timeout: true }>((resolve) => controller.signal.addEventListener("abort", () => resolve({ timeout: true }))),
+      Promise.resolve().then(() => {
+        signal?.throwIfAborted(); controller.signal.throwIfAborted();
+        return call(buildEditMessages(report, fixable), { signal: controller.signal });
+      }),
+      stopped,
     ]);
-    if ("timeout" in out) return keep(true, `自动补齐超时（${timeoutMs}ms），保留原稿与待补证状态。`);
+    signal?.throwIfAborted();
+    if (controller.signal.aborted || "timeout" in out) return keep(true, `自动补齐超时（${timeoutMs}ms），保留原稿与待补证状态。`);
     if ("unavailable" in out) return keep(true, `模型不可用：${out.unavailable}`);
 
     const edited = (out.text ?? "").trim();
     if (!edited) return keep(true, "编辑返回空内容，保留原稿。");
     if (edited.length < original.length * 0.6) return keep(true, "编辑结果明显短于原稿，判定为畸形响应，保留原稿。");
-    const subject = reportSubject(report.goal);
-    if (subject && drifted(subject, edited)) return keep(true, "编辑结果偏离研究对象，保留原稿。");
+    const subject = reportSubject(report.goal, report.content);
+    if (subject && !edited.includes(subject)) return keep(true, "编辑结果偏离研究对象，保留原稿。");
 
-    const next = assessMissionReportQuality({ ...report, conclusion: edited });
+    // Any body rewrite invalidates the prior semantic review. The final content Agent must review again.
+    const next = assessMissionReportQuality({ ...report, conclusion: edited, content: undefined, contentStatus: "MISSING" });
     if (next.status === "BLOCKED") return keep(true, "编辑后反而阻断，保留原稿。");
-    const improved = next.issues.length < quality.issues.length || next.status === "DELIVERABLE";
+    const count = (q: ReportQuality) => q.issues.filter(issue => issue.rule !== "R-PRESENTATION").length;
+    const improved = count(next) < count(quality) || next.status === "DELIVERABLE";
     if (!improved) return keep(true, "编辑后问题没有减少，不采用。");
 
     return {
@@ -132,10 +140,12 @@ export async function autoFixMissionReport(input: {
       note: `自动补齐已采用：问题 ${quality.issues.length} → ${next.issues.length} 条，状态 ${quality.status} → ${next.status}。`,
     };
   } catch (error) {
+    signal?.throwIfAborted();
     return keep(true, `自动补齐异常：${error instanceof Error ? error.message : String(error)}`);
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener("abort", onAbort);
+    controller.signal.removeEventListener("abort", onStop);
   }
 }
 

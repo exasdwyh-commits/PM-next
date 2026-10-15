@@ -1,3 +1,4 @@
+import { withReviewedContent } from "./helpers/report-content-fixture";
 /**
  * 研究报告质量门禁回归（R1·report-quality/v1）。
  *
@@ -31,7 +32,7 @@ const baseMeta: MissionReport["meta"] = { tasksCreated: 6, maxTasks: 12, memorie
 
 /** 截图里那份报告：需求是奶粉，演示脚本给的是海苔。 */
 function haitaiDemoReport(): MissionReport {
-  return {
+  return withReviewedContent({
     playbook: "NEW_PRODUCT",
     missionTaskId: "mission/haitai",
     title: reportTitle(SHOT_GOAL),
@@ -56,12 +57,12 @@ function haitaiDemoReport(): MissionReport {
     ],
     researchSources: [],
     meta: baseMeta,
-  };
+  }, false);
 }
 
 /** 一份满足主题、契约、约束、缺口要求的报告。 */
 function compliantReport(): MissionReport {
-  return {
+  return withReviewedContent({
     playbook: "NEW_PRODUCT",
     missionTaskId: "mission/ok",
     title: reportTitle(SHOT_GOAL),
@@ -98,13 +99,15 @@ function compliantReport(): MissionReport {
       { sourceId: "s1", eventId: "e1", title: "来源", url: "https://example.com/a", fetchedAt: "2026-10-14T01:00:00Z", sourceKind: "FETCHED_PAGE", contentHash: "h", snapshot: "body", truncated: false },
     ],
     meta: baseMeta,
-  };
+  });
 }
 
-test("截图里的整句提问被抽成研究主题，而不是直接当标题", () => {
-  assert.equal(reportSubject(SHOT_GOAL), "红参胶原蛋白肽女士奶粉");
-  assert.equal(reportTitle(SHOT_GOAL), "红参胶原蛋白肽女士奶粉");
-  assert.doesNotMatch(reportTitle(SHOT_GOAL), /其实|我们想|预算|大概/);
+test("语义主题只读 Agent 产物；未处理的旧需求不再用正则猜标题", () => {
+  const content = compliantReport().content;
+  assert.equal(reportSubject(SHOT_GOAL, content), "红参胶原蛋白肽女士奶粉");
+  assert.equal(reportTitle(SHOT_GOAL, content), "红参胶原蛋白肽女士奶粉");
+  assert.equal(reportSubject(SHOT_GOAL), null);
+  assert.equal(reportTitle(SHOT_GOAL), "研究报告");
 });
 
 test("需求里的约束被读出来：人群、预算、主推要素都不丢", () => {
@@ -173,7 +176,7 @@ test("海报与卡片引用绑定同一个质量状态", () => {
   const poster = buildMissionPoster(report, quality);
   assert.equal(poster.quality?.status, "BLOCKED");
   assert.equal(poster.verificationStatus, "BLOCKED_BY_QUALITY");
-  assert.equal(poster.title, `${report.title}（演示） · 新产品研究报告`);
+  assert.equal(poster.title, "研究报告（演示） · 待审校草稿");
   assert.equal(missionPosterCitation(poster, report.missionTaskId).qualityStatus, "BLOCKED");
 });
 

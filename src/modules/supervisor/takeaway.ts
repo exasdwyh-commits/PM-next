@@ -28,6 +28,9 @@ import {
   type MissionReport,
 } from "./report-format";
 
+import { reportContentInputVersion, validateReportContentDraft, reviewReportContent } from "./report-content-agent";
+import { readReportContentArtifact } from "./report-content-store";
+
 export async function loadMissionReport(session: SessionContext, missionTaskId: string): Promise<MissionReport> {
   const status = await getKernMissionStatus(session, missionTaskId);
   const taskIds = status.nodes.map((n) => n.taskId).filter((id): id is string => !!id);
@@ -43,7 +46,9 @@ export async function loadMissionReport(session: SessionContext, missionTaskId: 
   const out = (n: (typeof status.nodes)[number]) => (n.taskId ? outputOf.get(n.taskId) : undefined) ?? n.summary ?? null;
   const synth = status.nodes.find((n) => n.kind === "SYNTHESIS");
   const conclusion = synth ? out(synth) : null;
-  return {
+  const synthesisResult = (tasks.find(t => t.id === synth?.taskId)?.contextSnapshot as {
+    executorResult?: { originalOutput?: unknown; contentArtifactId?: unknown; contentInputVersion?: unknown } } | null)?.executorResult;
+  const report: MissionReport = {
     missionTaskId: status.missionTaskId,
     playbook: status.playbook,
     title: reportTitle(status.goal),
@@ -54,6 +59,7 @@ export async function loadMissionReport(session: SessionContext, missionTaskId: 
     createdAt: status.createdAt,
     constraints: parseConstraints(status.goal),
     conclusion,
+    ...(typeof synthesisResult?.originalOutput === "string" ? { originalConclusion: synthesisResult.originalOutput } : {}),
     researchSources: status.demo ? [] : uniqueMissionSources(collectMissionSources(await loadMissionSourceEvents(session.organizationId, missionTaskId))),
     decision: extractDecision(conclusion),
     recommendation: extractRecommendation(conclusion),
@@ -68,6 +74,31 @@ export async function loadMissionReport(session: SessionContext, missionTaskId: 
       humanGates: status.humanGates,
     },
   };
+  if (status.playbook === "NEW_PRODUCT") {
+    report.contentStatus = "MISSING";
+    // Authorization above is requester-scoped. A guessed Artifact id is never a lookup authority.
+    const result = synthesisResult;
+    const inputVersion = reportContentInputVersion(report);
+    if (synth?.taskId && typeof result?.contentArtifactId === "string" && result.contentInputVersion === inputVersion) {
+      const content = await readReportContentArtifact(session.organizationId, result.contentArtifactId, missionTaskId, synth.taskId, inputVersion);
+      if (content) {
+        try {
+          if (content.source.goal !== report.goal || content.source.body !== report.conclusion || content.source.originalBody !== (report.originalConclusion ?? report.conclusion)) throw new Error("Stored source snapshot mismatch");
+          // Revalidate stored shape and all source anchors before handing it to a template.
+          if (content.status === "READY" || content.status === "DRAFT" || content.status === "REJECTED") validateReportContentDraft(content, report);
+          if (content.status === "READY") {
+            const checked = reviewReportContent(content, { ...content.review, title: content.title, summary: content.summary, layout: content.layout }, report);
+            if (checked.status !== "READY") throw new Error("Invalid publication review");
+          }
+          report.content = content;
+          report.contentStatus = content.status;
+          report.contentArtifactId = result.contentArtifactId;
+          if (content.status === "READY") report.title = reportTitle(report.goal, content);
+        } catch { report.contentStatus = "FAILED"; }
+      }
+    }
+  }
+  return report;
 }
 
 export type TakeawayTarget = "product" | "work-item";
@@ -138,7 +169,7 @@ export async function proposeMissionTakeaway(session: SessionContext, opts: Take
   // CREATE_PRODUCT requires the five intake fields; every value comes from the
   // user's own answers or the mission's conclusion — never a placeholder.
   const fields = {
-    name: report.recommendation ?? report.title.replace(/^我想(开发|做)一个新产品[：:，,]?\s*/, "").slice(0, 60),
+    name: report.recommendation ?? report.title.slice(0, 60),
     coreIdea: conclusionLead(report.conclusion),
     targetAudience: answerFor(report, /卖给谁|人群|用户/) ?? goalAudience(report.goal) ?? stepLead(report, "opportunity", /目标用户|人群/),
     coreSellingPoints: stepLead(report, "opportunity", /卖点|价值主张|差异化/) ?? conclusionLead(report.conclusion, 80),

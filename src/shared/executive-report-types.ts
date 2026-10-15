@@ -1,3 +1,5 @@
+import type { ReportContentDocument } from "./report-content";
+
 /**
  * 管理报告的「面向负责人的结构化视图」契约。
  *
@@ -198,8 +200,12 @@ export interface ExecutiveReportQuality {
 }
 
 export interface ExecutiveReportPayload {
+  contentStatus?: ReportContentDocument["status"] | "MISSING";
+  presentation?: ReportContentDocument["layout"];
   /** Personal NEW_PRODUCT mission: keep its full original synthesis, not a fabricated artifact. */
   researchBody?: string;
+  /** Pre-edit synthesis is preserved separately; never mistaken for the reviewed final body. */
+  originalResearchBody?: string;
   researchSources?: { id: string; title: string; url: string; fetchedAt: string }[];
   summary?: string | null;
   verificationStatus?: string | null;

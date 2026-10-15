@@ -48,6 +48,9 @@ import { loadMissionSourceEvents, collectMissionSources, uniqueMissionSources } 
 import { autoFixMissionReport } from "./report-edit";
 import { assessMissionReportQuality } from "./report-quality";
 import { parseConstraints, reportTitle, type MissionReport } from "./report-format";
+import { produceReportContent, reportContentInputVersion } from "./report-content-agent";
+import { reportContentStore } from "./report-content-store";
+import type { ReportContentStatus } from "@/shared/report-content";
 import { getWebSearch } from "./web-search";
 import { getWebCrawl } from "./web-crawl";
 import { getMetasoReader } from "./metaso";
@@ -769,6 +772,7 @@ export const runMissionNodeAgent: ExecutorStrategy = async (context): Promise<Ex
   // 报告编辑步骤（有界自动补齐）：只对新产品研究报告的综合结论生效，最多一次。
   // 编辑失败一律保留原稿，由交付层按三态呈现——绝不把没修好的内容兜底成「已核实」。
   let output = normalized;
+  let contentRef: { contentArtifactId?: string; contentStatus?: ReportContentStatus; contentInputVersion?: string; originalOutput?: string } = {};
   // 任务快照里没有 goal 字段（需求原文在根任务的 goal 列），计划里带着一份，用它判主题与约束。
   const snap = parentSnap as { plan?: { playbook?: unknown; goal?: unknown } } | null;
   const playbook = typeof snap?.plan?.playbook === "string" ? snap.plan.playbook : null;
@@ -812,6 +816,27 @@ export const runMissionNodeAgent: ExecutorStrategy = async (context): Promise<Ex
       },
     });
     if (edit.applied) output = normalizeReply(edit.conclusion).text || edit.conclusion;
+    // No unguarded writes: the runtime provides the lease and every Artifact transaction fences it.
+    if (!isDemo && context.leaseToken) {
+      const finalReport = { ...draft, conclusion: output, originalConclusion: normalized };
+      const inputVersion = reportContentInputVersion(finalReport);
+      const { id, store } = reportContentStore({ taskId: context.task.id, organizationId: context.session.organizationId,
+        token: context.leaseToken, runId: context.task.runId }, node.missionTaskId, inputVersion);
+      const content = await produceReportContent({ report: finalReport, nodeTaskId: context.task.id, store,
+        signal: context.signal, assertActive: context.assertActive,
+        call: async (messages, signal) => {
+          const response = await invoker({ organizationId: context.session.organizationId, agentRunId: context.task.runId,
+            agentCode: task.agent.code, taskClass: node.taskClass, messages, signal, beforeAttempt: context.assertActive });
+          return "unavailable" in response ? { unavailable: response.unavailable } : { text: response.text };
+        },
+      });
+      contentRef = { contentArtifactId: id, contentStatus: content.status, contentInputVersion: inputVersion, originalOutput: normalized };
+      await emit([{ type: "node.tool", payload: { tool: "report_content", ok: content.status === "READY",
+        latencyMs: Date.now() - startedAt, ...(content.status === "READY" ? {} : { error: content.note }) } }]);
+    } else {
+      contentRef = { contentStatus: "FAILED" };
+    }
+
     if (edit.attempted) {
       await emit([
         {
@@ -834,6 +859,7 @@ export const runMissionNodeAgent: ExecutorStrategy = async (context): Promise<Ex
       kind: "MISSION_NODE_OUTPUT",
       nodeKey: node.nodeKey,
       output,
+      ...contentRef,
       ...out.provenance,
       // 信号从原文提取：规范化可能改写判定行（KX-54 条件跳过依赖它）
       signals: extractNodeSignals(text),

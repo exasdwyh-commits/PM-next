@@ -18,7 +18,7 @@ export function reportStatusLabel(status?: string | null) {
 }
 
 function readable(text?: string | null) {
-  return (text ?? "").replace(/READY_FOR_HUMAN_REVIEW|BLOCKED_BY_QA/g, reportStatusLabel);
+  return (text ?? "").replace(/READY_FOR_HUMAN_REVIEW|BLOCKED_BY_QA/g, reportStatusLabel).replace(/\bUNKNOWN\b/gi, "待验证");
 }
 
 function ClaimBadge({ kind }: { kind?: string | null }) {
@@ -91,7 +91,7 @@ export function ReportV3({ report, reviewStatus, embedded = false, controls, chi
   </>;
   const refs = (label: string, items?: string[]) => items?.length ? <div><b>{label}</b><div className="refs">{items.map((ref, i) => <code key={i}>{ref}</code>)}</div></div> : null;
 
-  return <article ref={root} className="rv3" data-embedded={embedded} data-testid="executive-report" data-report-version="muse-v3">
+  return <article ref={root} className="rv3" data-density={report.presentation?.density === "compact" ? "compact" : "comfortable"} data-embedded={embedded} data-testid="executive-report" data-report-version="muse-v3">
     <header className="topbar"><div className="wrap">
       <a className="brand" href="/muse">Kern<span>报告</span></a><span className="sp" />
       <a className="btn btn-ghost" href={`#${id("src")}`}>查看来源</a>
@@ -102,7 +102,7 @@ export function ReportV3({ report, reviewStatus, embedded = false, controls, chi
       <h1>{mainTitle}</h1><p className="sub">{detailTitle}</p>
       <div className="dek"><strong>{conclusions.length ? `已汇总 ${conclusions.length} 条依据。` : "尚无可对外引用的结论。"}</strong>
         {unknowns.length} 个未闭合项{report.verificationStatus ? `，${reportStatusLabel(report.verificationStatus)}。` : "。"}
-        <span className="go">{readable(report.summary) || "查看下方证据与缺口，再决定下一步。"}</span>
+        <span className="go" style={{ display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: report.presentation?.summaryLines === 3 ? 3 : report.presentation?.summaryLines === 5 ? 5 : 4, overflow: "hidden", maxWidth: report.presentation?.density === "compact" ? "60ch" : "75ch", marginBlock: report.presentation?.density === "compact" ? "0.25rem" : "0.75rem", lineHeight: report.presentation?.summaryLines === 3 ? 1.5 : report.presentation?.summaryLines === 5 ? 1.8 : 1.65 }}>{readable(report.summary) || "查看下方证据与缺口，再决定下一步。"}</span>
       </div>
       <p className="meta">{report.createdAt && <span>生成于 <b>{fmtDateTime(report.createdAt)}</b></span>}
         <span>已汇总 <b>{notes.length}</b> 条执行说明 · <b>{provenance?.sourceRefs.length ?? 0}</b> 条来源引用 · <b>{conclusions.length}</b> 条依据</span>
@@ -135,9 +135,9 @@ export function ReportV3({ report, reviewStatus, embedded = false, controls, chi
       <section className="block" id={id("d")}>{heading("D", "待补资料与未核实项", "以下内容仍缺输入或证据，补齐后可继续核验。")}
         <div className="filterbar" role="group" aria-label="按缺口类型筛选">{(["all", "input", "agent"] as const).map(key => <button type="button" className={`chip${filter === key ? " on" : ""}`} aria-pressed={filter === key} key={key} onClick={() => setFilter(key)}>{key === "all" ? "全部" : key === "input" ? "输入缺口" : "Agent 阻塞"}<span className="n">{key === "all" ? gaps.length : gaps.filter(g => g.kind === key).length}</span></button>)}</div>
         <div className="gap-grid">{gaps.map(g => {
-          const split = g.text.match(/^(.{1,80}?)[：:]\s*([\s\S]+)$/);
+          const split = readable(g.text).match(/^(.{1,80}?)[：:]\s*([\s\S]+)$/);
           return <div className="card unknown gap-card" key={g.index} hidden={filter !== "all" && filter !== g.kind}>
-            <div className="card-hd"><span className="id">D{g.index + 1}</span><span className="badge unknown">待验证</span></div><div className="grow"><p className="gap-kind">{g.kind === "agent" ? "Agent 阻塞" : "输入缺口"}</p>{split && <p className="t">{split[1]}</p>}<p className="gap-text">{split?.[2] ?? g.text}</p></div>
+            <div className="card-hd"><span className="id">D{g.index + 1}</span><span className="badge unknown">待验证</span></div><div className="grow"><p className="gap-kind">{g.kind === "agent" ? "Agent 阻塞" : "输入缺口"}</p>{split && <p className="t">{split[1]}</p>}<p className="gap-text">{split?.[2] ?? readable(g.text)}</p></div>
           </div>;
         })}</div>{!gaps.length && <div className="empty">报告未登记未核实项。</div>}
         {onOpenEvidence && <button className="btn btn-solid host-actions" onClick={onOpenEvidence}>补充证据</button>}
@@ -147,6 +147,7 @@ export function ReportV3({ report, reviewStatus, embedded = false, controls, chi
       </div></section>
       {report.researchBody !== undefined ? <section className="block" id={id("spec")}>{heading("RESEARCH", "完整研究分析", "保留原始汇总的全部章节、标注与来源；执行完成不代表所有判断已核实。") }
         <div className="research-prose"><Prose text={report.researchBody} /></div>
+        {report.originalResearchBody && <details className="exec"><summary>查看编辑前原始综合稿（留档，非审校定稿）</summary><div className="research-prose"><Prose text={report.originalResearchBody} /></div></details>}
       </section> : <section className="block" id={id("spec")}>{heading("SPEC", "专业明细", "规格、成本与验证各项的资料状态。")}
         {SECTION_NAMES.map(([key, fallback]) => { const s = deep?.sections.find(s => s.key === key); return <div className="spec-row" key={key}><span className="n">{fallback.slice(0, 1)}</span><div className="body"><div className="t">{(s?.title ?? fallback).replace(/^[①-⑨]\s*/, "")}</div><p>{s?.gap ?? (s?.ready ? "已有内容，来源与核验情况请查看对应明细。" : "资料尚未登记，请补充该项输入与来源后更新报告。")}</p></div><span className={`st ${s?.ready ? "done" : "todo"}`}>{s?.ready ? "有内容" : "待补资料"}</span></div>; })}
         {deep?.spec && <details className="exec"><summary>产品定义与规格 · {deep.spec.title ?? "明细"}</summary><div className="rows">

@@ -1,3 +1,5 @@
+import type { ReportContentDocument, ReportContentStatus } from "@/shared/report-content";
+
 /**
  * Pure helpers for turning a finished mission into take-away artifacts.
  * No server imports: used by the workspace UI (decision card) and by the
@@ -29,10 +31,14 @@ export type MissionReport = {
   createdAt: string;
   constraints: { question: string; answer: string }[];
   conclusion: string | null;
+  originalConclusion?: string;
   decision: string | null;
   recommendation: string | null;
   steps: ReportStep[];
   researchSources?: ReportSource[];
+  content?: ReportContentDocument;
+  contentStatus?: ReportContentStatus | "MISSING";
+  contentArtifactId?: string;
   meta: {
     tasksCreated: number;
     maxTasks: number;
@@ -56,40 +62,14 @@ export function goalHeadline(goal: string): string {
   return goal.split("\n")[0].trim() || goal.trim();
 }
 
-/** 需求开头的对话语气与请求词：它们是沟通，不是报告主题。 */
-const GOAL_OPENING =
-  /^(?:\s*(?:好|嗯|嗨|你好|在吗|其实|那个|就是|是这样|我想|我们想|我打算|我们打算|我要|我们要|帮我|帮我们|麻烦|请|看一下|看看))+[，,、\s]*/;
-
-/** 「想开发一款 X」里的动作词。 */
-const GOAL_ACTION =
-  /(?:开发|做|推出|打造|上线|立项|制作|研究|调研|分析)\s*(?:一[款个种套份]?|新的|一个|一款|一份)?\s*/;
-
-/** 主题在需求里的自然边界：标点，或"主打/目标/预算"这类修饰语。 */
-const GOAL_BOUNDARY =
-  /[，,。；;！!？?\n]|(?:主打|面向|针对|目标|预算|价格|渠道|人群|卖点|定位|成本|周期|大概|主要)/;
-
-/**
- * 报告主题：从需求里读出研究对象（如「红参胶原蛋白肽女士奶粉」），
- * 而不是把整句提问当标题。读不出研究对象时返回 null，由调用方决定退路。
- */
-export function reportSubject(goal: string): string | null {
-  const first = (goal ?? "").replace(/\r/g, "").split("\n")[0].trim();
-  if (!first) return null;
-  const body = first.replace(GOAL_OPENING, "");
-  const action = GOAL_ACTION.exec(body);
-  const rest = action ? body.slice(action.index + action[0].length) : body;
-  const subject = rest.split(GOAL_BOUNDARY)[0].trim().replace(/[的]$/, "");
-  if (subject.length < 2 || subject.length > 40) return null;
-  return subject;
+/** Subject is authored by the Agent, never mechanically inferred from a sentence. */
+export function reportSubject(_goal: string, content?: Pick<ReportContentDocument, "subject">): string | null {
+  return content?.subject || null;
 }
 
-/** 报告标题：优先研究对象；读不出时退回首句（去掉开场语气）并限长。 */
-export function reportTitle(goal: string): string {
-  const subject = reportSubject(goal);
-  if (subject) return subject;
-  const first = (goal ?? "").replace(/\r/g, "").split("\n")[0].trim().replace(GOAL_OPENING, "");
-  const head = first.split(/[。；;！!？?]/)[0].trim() || goalHeadline(goal);
-  return head.length > 40 ? `${head.slice(0, 40)}…` : head;
+/** Historical/unprocessed reports are explicit drafts, not guessed product names. */
+export function reportTitle(_goal: string, content?: Pick<ReportContentDocument, "title">): string {
+  return content?.title || "研究报告";
 }
 
 /**
