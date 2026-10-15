@@ -18,6 +18,7 @@ import {
   accessOf,
   applyAccess,
   connectorSlug,
+  normalizeStoredSpecs,
   refreshSpecs,
   toToolSpecs,
   type ConnectorAccess,
@@ -72,7 +73,7 @@ export type ConnectorView = {
 
 type Row = { id: string; name: string; slug: string; url: string; tools: Prisma.JsonValue; lastError: string | null; refreshedAt: Date | null; createdAt: Date };
 
-const specsOf = (r: Row): ConnectorToolSpec[] => (Array.isArray(r.tools) ? (r.tools as unknown as ConnectorToolSpec[]) : []);
+const specsOf = (r: Row): ConnectorToolSpec[] => normalizeStoredSpecs(r.tools);
 
 function view(r: Row): ConnectorView {
   return {
@@ -195,6 +196,7 @@ export async function setConnectorTool(session: Owner, id: string, tool: string,
   const spec = specs.find((t) => t.name === tool);
   if (!spec) throw new UnprocessableEntityError(`没有名为 ${tool} 的工具`);
   spec.enabled = enabled;
+  if (enabled) spec.reconfirm = null;
   const updated = await prisma.kernConnector.update({ where: { id }, data: { tools: specs as unknown as Prisma.InputJsonValue } });
   await prisma.auditEvent.create({
     data: {

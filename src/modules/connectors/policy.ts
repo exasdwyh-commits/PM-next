@@ -1,14 +1,30 @@
 /**
  * KX-31 · 连接器策略（纯函数）
  * ============================
- * - 读写分类：MCP annotations.readOnlyHint=true → 读；destructiveHint=true → 写；
- *   没有标注时按名字前缀猜测（get/list/search/read/query/fetch/describe），其余一律当写。宁可误判为写。
+ * - 读写分类（U01）：destructiveHint=true → 写（与 readOnlyHint=true 冲突时也按写）；
+ *   只有服务端显式声明 readOnlyHint=true 才算读；未声明一律当写。
+ *   名称前缀不参与权限判定：get_/list_ 开头的工具照样可能有副作用，未审核工具不能默认可信只读。
  * - 默认：读工具启用，写工具停用。写工具要由用户在连接器设置里显式打开，
  *   打开后映射到受保护能力 external.send，每次调用仍需审批凭据（ToolBroker 强制）。
  */
 import type { McpCallResult, McpTool } from "./mcp-client";
 
 export type ToolEffect = "read" | "write";
+/**
+ * U01：分类依据，随工具快照保存，界面据此向用户解释「为什么按写入处理」。
+ * - declared-read：服务端显式声明 readOnlyHint=true（且未声明破坏性）
+ * - declared-write：服务端声明 destructiveHint=true 或 readOnlyHint=false
+ * - conflict：同时声明只读与破坏性（自相矛盾，按写）
+ * - undeclared：没有只读声明（按写；名称不参与判定）
+ */
+export type ToolTrustBasis = "declared-read" | "declared-write" | "conflict" | "undeclared";
+
+/** 工具从「读」改判为「写」而被强制停用时给用户的说明。不提供「自行标记为只读」的旁路：重新允许后仍按写入逐次审批。 */
+export function reconfirmReason(basis: ToolTrustBasis): string {
+  if (basis === "conflict") return "服务端同时声明了只读和破坏性，声明自相矛盾，已按写入处理并停用。需要时可重新允许，每次调用仍需你确认。";
+  if (basis === "declared-write") return "服务端已将该工具声明为写入（非只读），已停用。需要时可重新允许，每次调用仍需你确认。";
+  return "服务端没有声明该工具只读；按工具信任规则，名称不能决定权限，已按写入处理并停用。需要时可重新允许，每次调用仍需你确认。";
+}
 
 export type ConnectorToolSpec = {
   name: string;
@@ -19,28 +35,74 @@ export type ConnectorToolSpec = {
   /** 写工具映射的受保护能力；读工具为 connector.read。 */
   capability: string;
   inputSchema: Record<string, unknown> | null;
+  /** U01：分类依据（旧快照可能缺省）。 */
+  basis?: ToolTrustBasis;
+  /** U01：因读变写被强制停用的说明；工具仍停用时保留，重新允许或恢复为读后清除。 */
+  reconfirm?: string | null;
 };
 
 export const READ_CAPABILITY = "connector.read";
 export const WRITE_CAPABILITY = "external.send";
 export const MAX_CONNECTOR_TOOLS = 64;
 
-const READ_PREFIX = /^(get|list|search|read|query|fetch|describe|find|lookup|view|show|count|stat)[_\-.A-Z]/i;
+/**
+ * 安全读取持久化快照：升级不能依赖用户先点击刷新。
+ * 旧快照没有 basis，无法证明其 read 是显式声明而非名称推断，因此先降为写并停用。
+ * 已明确启用的写工具保留开关，但能力始终由当前策略重建，不能信任旧 capability。
+ * 纯投影、不修改原记录；设置页和执行器共用，同一结果可安全重复规范化。
+ */
+export function normalizeStoredSpecs(value: unknown): ConnectorToolSpec[] {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, MAX_CONNECTOR_TOOLS).flatMap((raw): ConnectorToolSpec[] => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+    const t = raw as Record<string, unknown>;
+    if (typeof t.name !== "string" || !t.name.trim()) return [];
+    const trustedRead = t.effect === "read" && t.basis === "declared-read" && t.capability === READ_CAPABILITY;
+    const effect: ToolEffect = trustedRead ? "read" : "write";
+    const downgraded = !trustedRead && t.effect !== "write";
+    const enabled = t.enabled === true && !downgraded;
+    const basis: ToolTrustBasis = trustedRead ? "declared-read"
+      : t.basis === "declared-write" || t.basis === "conflict" ? t.basis : "undeclared";
+    const reconfirm = enabled ? null : downgraded && t.enabled === true
+      ? "旧工具快照缺少有效的只读依据或权限字段不一致，已按写入处理并停用。请刷新工具列表核对声明；重新允许后，每次调用仍需你确认。"
+      : typeof t.reconfirm === "string" ? t.reconfirm : null;
+    return [{
+      name: t.name,
+      title: typeof t.title === "string" ? t.title : t.name,
+      description: typeof t.description === "string" ? t.description : "",
+      effect, enabled, basis, reconfirm,
+      capability: trustedRead ? READ_CAPABILITY : WRITE_CAPABILITY,
+      inputSchema: t.inputSchema && typeof t.inputSchema === "object" && !Array.isArray(t.inputSchema)
+        ? t.inputSchema as Record<string, unknown> : null,
+    }];
+  });
+}
+
+export function trustBasis(t: McpTool): ToolTrustBasis {
+  const a = t.annotations ?? {};
+  // 破坏性声明优先：readOnlyHint 与 destructiveHint 同时为 true 是自相矛盾的声明，按写处理。
+  if (a.destructiveHint === true) return a.readOnlyHint === true ? "conflict" : "declared-write";
+  // 只认显式只读声明；名称前缀、缺省标注都不能让工具变成默认启用的读工具。
+  if (a.readOnlyHint === true) return "declared-read";
+  return a.readOnlyHint === false ? "declared-write" : "undeclared";
+}
 
 export function classifyTool(t: McpTool): ToolEffect {
-  const a = t.annotations ?? {};
-  if (a.readOnlyHint === true) return "read";
-  if (a.destructiveHint === true || a.readOnlyHint === false) return "write";
-  return READ_PREFIX.test(t.name) || /^(get|list|search|read|query|fetch)$/i.test(t.name) ? "read" : "write";
+  return trustBasis(t) === "declared-read" ? "read" : "write";
 }
 
 export function toToolSpecs(tools: McpTool[], previous: ConnectorToolSpec[] = []): ConnectorToolSpec[] {
   const prev = new Map(previous.map((p) => [p.name, p]));
   return tools.slice(0, MAX_CONNECTOR_TOOLS).map((t) => {
-    const effect = classifyTool(t);
+    const basis = trustBasis(t);
+    const effect: ToolEffect = basis === "declared-read" ? "read" : "write";
     const old = prev.get(t.name);
     // 刷新时保留用户的开关；但工具从读变成写时强制停用，需要重新确认。
-    const enabled = old && !(old.effect === "read" && effect === "write") ? old.enabled : effect === "read";
+    const forced = !!old && old.effect === "read" && effect === "write";
+    const enabled = old && !forced ? old.enabled : effect === "read";
+    // 不静默停用：被强制停用的已启用工具记下原因；仍停用的写工具沿用原因；重新允许或恢复为读后清除。
+    const reconfirm =
+      old && forced ? (old.enabled ? reconfirmReason(basis) : null) : old && effect === "write" && !old.enabled ? old.reconfirm ?? null : null;
     return {
       name: t.name,
       title: (t.annotations?.title ?? t.name).slice(0, 80),
@@ -49,6 +111,8 @@ export function toToolSpecs(tools: McpTool[], previous: ConnectorToolSpec[] = []
       enabled,
       capability: effect === "read" ? READ_CAPABILITY : WRITE_CAPABILITY,
       inputSchema: t.inputSchema && typeof t.inputSchema === "object" ? t.inputSchema : null,
+      basis,
+      reconfirm,
     };
   });
 }
