@@ -18,6 +18,7 @@ import { extractMarkedClaims } from "./claims";
 import { buildNewProductConclusionContract, SPECIALIST_EVIDENCE_RULE } from "./report-contract";
 import { KERN_REPLY_FORMAT_PROMPT, normalizeReply } from "@/modules/assistant-runtime/reply-format";
 import { appendMissionEvents, type MissionEventInput } from "./events";
+import { truncateUpstreamForPrompt } from "./handoff";
 import {
   assembleCompressedHistory,
   missionKeepRecentUpstream,
@@ -34,6 +35,7 @@ import {
   DEFAULT_TOOL_OUTPUT_LIMIT,
   DEFAULT_TOOL_TIMEOUT_MS,
   runToolLoop,
+  stripToolRequestNoise,
   toolInstructions,
   toolSchemasFor,
   toolsFor,
@@ -360,12 +362,13 @@ export async function buildMissionNodeMessages(input: {
       .then((a) => a.summaryBlock)
       .catch(() => null);
   }
+  // GTM 尾部保护：不得静默掐头去尾。保留头部与尾部（渠道建议与验证动作常在尾部），截断处显式标记。
   const upstream = [upstreamSummaryBlock, recentUpstreamNodes.length
     ? recentUpstreamNodes
         .map(
           (u) =>
             `### ${u.key}（${u.agentCode}，${u.status}）\n${
-              u.summary ? u.summary.slice(0, 3000) : u.status === "SUCCEEDED" ? "(无摘要)" : "该部分未能完成 → 视为 UNKNOWN"
+              u.summary ? truncateUpstreamForPrompt(u.summary) : u.status === "SUCCEEDED" ? "(无摘要)" : "该部分未能完成 → 视为 UNKNOWN"
             }`
         )
         .join("\n\n")
@@ -674,7 +677,12 @@ export const runMissionNodeAgent: ExecutorStrategy = async (context): Promise<Ex
     };
   }
 
-  const text = out.text.trim();
+  const rawText = out.text.trim();
+  // 复读防护（非工具节点）：上游摘要里可能带着被复读的工具请求行，这里同样剔除；
+  // 工具循环路径已在 runToolLoop 内剔除，不重复处理。
+  const text = useTools
+    ? rawText
+    : (() => { const cleaned = stripToolRequestNoise(rawText); return cleaned === null ? rawText : cleaned; })();
   const normalized = node.kind === "QA" ? text : normalizeReply(text).text;
   const incomplete: ToolLoopIncomplete | null =
     "incomplete" in out

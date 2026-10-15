@@ -225,6 +225,21 @@ export const AUTHZ_MATRIX: RouteSpec[] = [
   },
   {
     path: "/api/conversations/{id}/attachments/{attachmentId}",
+    method: "GET",
+    authz: "下载会话材料：仅本人会话，同组织其他人及跨组织均拒绝",
+    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
+    ownerGate: [200, 404],
+  },
+  {
+    path: "/api/conversations/{id}/attachments/{attachmentId}",
+    method: "PATCH",
+    authz: "设置长期检索或重试索引：登录且本人会话，已发送材料禁止修改",
+    expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },
+    ownerGate: [200, 404],
+    body: { indexForSearch: true },
+  },
+  {
+    path: "/api/conversations/{id}/attachments/{attachmentId}",
     method: "DELETE",
     authz: "撤下尚未发出的材料：仅本人会话，他人一律 404",
     expect: { anon: [401], foreign: [404], outsider: [404], viewer: [404] },

@@ -62,6 +62,9 @@ const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
+  // 需求方 2026-10-13：隐藏开发模式左下角的 Next 徽标/工具指示器，日常使用碍事。
+  // 只影响 next dev；构建错误仍会输出到终端，页面报错时全屏错误遮罩照常出现。
+  devIndicators: false,
   experimental: {
     optimizePackageImports: ["docx", "exceljs", "pptxgenjs", "jszip", "@prisma/client"],
   },

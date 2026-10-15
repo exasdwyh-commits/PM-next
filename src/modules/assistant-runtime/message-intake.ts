@@ -51,6 +51,14 @@ export async function acceptKernMessage(
     if (existing) {
       const message = await tx.message.findUnique({ where: { id: existing.inputMessageId! } });
       if (message?.content !== content) throw new ConflictError("这个消息标识已用于另一条内容");
+      const bound = await tx.conversationAttachment.findMany({
+        where: { conversationId, organizationId: session.organizationId, messageId: message.id },
+        select: { id: true },
+      });
+      const requested = new Set(attachmentIds);
+      if (bound.length !== requested.size || bound.some(row => !requested.has(row.id))) {
+        throw new ConflictError("这个消息标识已用于另一组附件，请重新发送");
+      }
       return { execution: view(existing), message: message!, replayed: true };
     }
     if (conversation.archivedAt) throw new ConflictError("会话已归档，请恢复后发送");

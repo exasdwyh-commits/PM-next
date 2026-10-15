@@ -492,6 +492,64 @@ export function parseToolCall(text: string): ParsedToolCall | null {
   return null;
 }
 
+/**
+ * 文本协议串台防护：模型偶尔把会话里序列化过的工具请求（一行 {"tool":…,"input":{…}}
+ * 加 %timeout 分隔）复读进最终答复。这些不是结论内容，却会原样进入节点产出，
+ * 被 QA/综合引用后在报告里显示成「工具调用代码」。剔除规则（保守，宁可漏剔不误伤）：
+ * - 独立成行的 `%timeout`；
+ * - 整行是一个可解析 JSON、且形状为 {tool|name: 标识符, input|arguments|parameters: 对象}；
+ * - ```kern-tool 围栏（正常路径走不到这里——带围栏的文本会被 parseToolCall 识别为请求）。
+ * 其它 ```/~~~ 代码块原样保留：答案里引用 JSON 示例、数据表格是合法内容。
+ * 返回 null 表示未发现复读（答复原样有效）；否则返回剔除后的文本（可能为空串）。
+ */
+export function stripToolRequestNoise(text: string): string | null {
+  const isToolFence = (info: string) => info.trim().split(/\s+/)[0] === "kern-tool";
+  const kept: string[] = [];
+  let removed = false;
+  let fence: string | null = null; // 当前代码块围栏标记（``` 或 ~~~）
+  let fenceIsTool = false;
+  for (const line of text.split("\n")) {
+    const closing = /^\s*(```|~~~)\s*$/.exec(line);
+    if (fence) {
+      if (closing && closing[1] === fence) {
+        if (!fenceIsTool) kept.push(line);
+        fence = null;
+        fenceIsTool = false;
+        continue;
+      }
+      if (fenceIsTool) removed = true;
+      else kept.push(line);
+      continue;
+    }
+    const open = /^\s*(```|~~~)(.*)$/.exec(line);
+    if (open) {
+      fence = open[1];
+      fenceIsTool = isToolFence(open[2] ?? "");
+      if (fenceIsTool) removed = true;
+      else kept.push(line);
+      continue;
+    }
+    const trimmed = line.trim();
+    if (/^%+timeout$/i.test(trimmed)) { removed = true; continue; }
+    if (isToolRequestLine(trimmed)) { removed = true; continue; }
+    kept.push(line);
+  }
+  if (fenceIsTool) removed = true; // 未闭合的工具围栏：其后内容按复读处理
+  if (!removed) return null;
+  return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function isToolRequestLine(t: string): boolean {
+  if (!t.startsWith("{") || !t.endsWith("}")) return false;
+  let raw: Record<string, unknown>;
+  try { raw = JSON.parse(t) as Record<string, unknown>; } catch { return false; }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
+  const tool = typeof raw.tool === "string" ? raw.tool : typeof raw.name === "string" ? raw.name : "";
+  if (!/^[a-z][a-z0-9_-]{1,63}$/i.test(tool)) return false;
+  const input = raw.input ?? raw.arguments ?? raw.parameters;
+  return !!input && typeof input === "object" && !Array.isArray(input);
+}
+
 export interface ToolCallRecord {
   step: number;
   tool: string;
@@ -705,7 +763,22 @@ export async function runToolLoop(input: {
       }));
     } else {
       const p = parseToolCall(out.text);
-      if (!p) return finish({ ...out, toolCalls: calls });
+      if (!p) {
+        // 复读防护：模型把会话里的工具请求原样抄进最终答复时，剔除这些噪声行再交付；
+        // 剔除后为空 = 这一轮其实没有结论，仍回喂要求直接给最终结论（不新增计费调用之外的事）。
+        const cleaned = stripToolRequestNoise(out.text);
+        if (cleaned !== null) {
+          if (cleaned) return finish({ ...out, text: cleaned, toolCalls: calls });
+          if (step > maxSteps) {
+            return budgetBlocked("BUDGET_STEPS",
+              `步数预算已用完（${maxSteps} 步），模型仍在复读工具请求，尚未形成可交付结果。可以缩小任务范围或提高步数预算后重跑这一步。`);
+          }
+          messages.push({ role: "assistant", content: out.text });
+          messages.push({ role: "user", content: "上面复读的是历史工具请求，不是结论。请直接输出最终结论（不要再输出工具请求）。" });
+          continue;
+        }
+        return finish({ ...out, toolCalls: calls });
+      }
       parsed = "error" in p
         ? [{ id: `text_${step}`, tool: "invalid", input: {}, error: p.error }]
         : [{ id: `text_${step}`, tool: p.tool, input: p.input }];

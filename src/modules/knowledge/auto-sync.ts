@@ -16,6 +16,7 @@
 import fs from "fs";
 import path from "path";
 import prisma from "@/shared/db";
+import { KnowledgeSourceKind } from "@prisma/client";
 import { getOrCreateSystemPrincipalSession } from "@/modules/identity/system-principal";
 import { scanMarkdownFiles, syncKnowledgeSource } from "./sync";
 
@@ -58,7 +59,13 @@ export async function probeKnowledgeDrift(source: {
   organizationId: string;
   rootPath: string;
   lastSyncAt: Date | null;
+  kind?: KnowledgeSourceKind;
 }): Promise<DriftProbe> {
+  // 附件虚拟源没有可扫描的磁盘子树：目录文件数与附件文档数永远对不上，
+  // 探测必然误判为漂移。这里直接声明无变化，附件索引只走附件编排层维护。
+  if (source.kind === KnowledgeSourceKind.CONVERSATION_UPLOAD) {
+    return { changed: false, reason: "附件来源不参与目录漂移探测", fileCount: 0, latestMtimeMs: 0 };
+  }
   if (!fs.existsSync(source.rootPath)) {
     return { changed: false, reason: "目录不存在", fileCount: 0, latestMtimeMs: 0 };
   }
@@ -111,9 +118,12 @@ export async function syncDriftedKnowledgeSources(
   const result: AutoSyncResult = { scanned: 0, acted: 0, skipped: 0, errors: 0 };
   const notes: string[] = [];
 
+  // 按 kind 排除附件虚拟源：它的文档以附件记录为逻辑集合，不在任何磁盘目录里，
+  // 连探测都不该跑（文件数判据必然误判），更不能进 syncKnowledgeSource。
   const sources = await prisma.knowledgeSource.findMany({
     where: {
       enabled: true,
+      kind: { not: KnowledgeSourceKind.CONVERSATION_UPLOAD },
       ...(options.organizationId ? { organizationId: options.organizationId } : {}),
     },
     select: { id: true, organizationId: true, rootPath: true, lastSyncAt: true, name: true },

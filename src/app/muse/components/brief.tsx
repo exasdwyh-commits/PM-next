@@ -139,6 +139,7 @@ export function BriefCard({ messageId, missionAttached = false }: { messageId: s
       <Card className="m-brief">
         <CardHead icon={<I.spark />} title="开工前确认几件事" aside={<Tag>{answered}/{brief.questions.length}</Tag>} />
         <div className="m-card-body">
+          <p className="m-brief-intro">先选最接近的方向，每题也可以直接补充。暂不确定的交给团队研究，不会作为已确认约束。</p>
           {brief.questions.map((q, qi) => {
             const d = draft[q.id];
             const remembered = q.remembered && d && !d.optionId && d.text === q.remembered.text && !editing[q.id];
@@ -164,6 +165,7 @@ export function BriefCard({ messageId, missionAttached = false }: { messageId: s
                           role="radio"
                           aria-checked={d?.optionId === o.id}
                           className="m-opt"
+                          disabled={!!busy}
                           onClick={() => setDraft((x) => ({ ...x, [q.id]: { optionId: o.id, text: "" } }))}
                         >
                           {o.label}
@@ -172,10 +174,10 @@ export function BriefCard({ messageId, missionAttached = false }: { messageId: s
                     </div>
                     <input
                       className="m-q-other"
-                      placeholder="或者直接写…"
+                      placeholder="其他人群、具体预算或渠道组合，都可以直接写…"
                       aria-label={q.text}
                       required={q.required}
-                      maxLength={200}
+                      maxLength={300}
                       value={d && !d.optionId ? d.text : ""}
                       onChange={(e) => setDraft((x) => ({ ...x, [q.id]: { optionId: null, text: e.target.value } }))}
                     />

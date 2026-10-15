@@ -4,6 +4,7 @@ import { RunMode } from "@prisma/client";
 import { recallForPrompt } from "@/modules/memory";
 import { recallRolePreference } from "@/modules/memory/role-preference";
 import { inferRoleFromText } from "./role-intelligence";
+import { conversationProductGoal } from "./product-goal";
 import prisma from "@/shared/db";
 import { NotFoundError, UnprocessableEntityError } from "@/shared/errors";
 import type { SessionContext } from "@/modules/identity/session";
@@ -101,6 +102,7 @@ export async function executeKernConversationTurn(
     select: { role: true, content: true },
   });
 
+  const productDevelopmentGoal = conversationProductGoal(text, [...plannerHistoryRows].reverse());
   const intentRouting = await resolveKernIntent(session, {
     conversationId,
     text,
@@ -645,6 +647,7 @@ export async function executeKernConversationTurn(
     runId: run.id,
     failed,
     intent,
+    productDevelopmentGoal,
     message: assistantMsg,
     proposal: result.proposal ?? null,
     modelRunId,

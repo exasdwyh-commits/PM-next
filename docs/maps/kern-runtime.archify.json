@@ -16,13 +16,39 @@
   },
   "components": [
     {
+      "id": "demo-surfaces",
+      "type": "frontend",
+      "label": "Demonstration Surfaces",
+      "sublabel": "Explicit demo routes; source presence does not establish production use.",
+      "row": 0,
+      "col": 0,
+      "sources": [
+        {
+          "path": "src/app/demo-beautified/page.tsx",
+          "label": "src/app/demo-beautified/page.tsx"
+        },
+        {
+          "path": "src/app/demo-beautified-advanced/page.tsx",
+          "label": "src/app/demo-beautified-advanced/page.tsx"
+        },
+        {
+          "path": "src/app/demo-cost-modular/page.tsx",
+          "label": "src/app/demo-cost-modular/page.tsx"
+        }
+      ]
+    },
+    {
       "id": "chat-ui",
       "type": "frontend",
       "label": "Kern Chat",
       "sublabel": "Conversation-first user surface.",
-      "row": 0,
+      "row": 1,
       "col": 0,
       "sources": [
+        {
+          "path": "src/app/muse/briefing-summary.ts",
+          "label": "src/app/muse/briefing-summary.ts"
+        },
         {
           "path": "src/app/muse/components/ask-card.tsx",
           "label": "src/app/muse/components/ask-card.tsx"
@@ -30,10 +56,6 @@
         {
           "path": "src/app/muse/components/brief.tsx",
           "label": "src/app/muse/components/brief.tsx"
-        },
-        {
-          "path": "src/app/muse/components/conclusion-decisions.tsx",
-          "label": "src/app/muse/components/conclusion-decisions.tsx"
         }
       ]
     },
@@ -42,7 +64,7 @@
       "type": "frontend",
       "label": "Management Workbench",
       "sublabel": "Products, projects, tasks, evidence and audit management.",
-      "row": 1,
+      "row": 2,
       "col": 0,
       "sources": [
         {
@@ -68,16 +90,16 @@
       "col": 1,
       "sources": [
         {
-          "path": "src/app/api/conversations/[id]/messages/route.ts",
-          "label": "src/app/api/conversations/[id]/messages/route.ts"
+          "path": "src/app/api/conversations/route.ts",
+          "label": "src/app/api/conversations/route.ts"
         },
         {
-          "path": "src/app/api/conversations/[id]/route.ts",
-          "label": "src/app/api/conversations/[id]/route.ts"
+          "path": "src/app/api/conversations/[id]/attachments/route.ts",
+          "label": "src/app/api/conversations/[id]/attachments/route.ts"
         },
         {
-          "path": "src/app/api/conversations/[id]/runtime-config/route.ts",
-          "label": "src/app/api/conversations/[id]/runtime-config/route.ts"
+          "path": "src/app/api/conversations/[id]/attachments/[attachmentId]/route.ts",
+          "label": "src/app/api/conversations/[id]/attachments/[attachmentId]/route.ts"
         }
       ]
     },
@@ -94,12 +116,12 @@
           "label": "src/app/api/advisor/challenge/route.ts"
         },
         {
-          "path": "src/app/api/agent-runs/[runId]/cancel/route.ts",
-          "label": "src/app/api/agent-runs/[runId]/cancel/route.ts"
+          "path": "src/app/api/agent-runs/route.ts",
+          "label": "src/app/api/agent-runs/route.ts"
         },
         {
-          "path": "src/app/api/agent-runs/[runId]/route.ts",
-          "label": "src/app/api/agent-runs/[runId]/route.ts"
+          "path": "src/app/api/agent-runs/[runId]/cancel/route.ts",
+          "label": "src/app/api/agent-runs/[runId]/cancel/route.ts"
         }
       ]
     },
@@ -134,16 +156,16 @@
       "col": 3,
       "sources": [
         {
+          "path": "src/modules/assistant-runtime/capabilities/active-push.ts",
+          "label": "src/modules/assistant-runtime/capabilities/active-push.ts"
+        },
+        {
           "path": "src/modules/assistant-runtime/capabilities/catalog.ts",
           "label": "src/modules/assistant-runtime/capabilities/catalog.ts"
         },
         {
           "path": "src/modules/assistant-runtime/capabilities/challenge.ts",
           "label": "src/modules/assistant-runtime/capabilities/challenge.ts"
-        },
-        {
-          "path": "src/modules/assistant-runtime/capabilities/contracts.ts",
-          "label": "src/modules/assistant-runtime/capabilities/contracts.ts"
         }
       ]
     },
@@ -156,16 +178,16 @@
       "col": 2,
       "sources": [
         {
+          "path": "src/modules/assistant-runtime/attachments.ts",
+          "label": "src/modules/assistant-runtime/attachments.ts"
+        },
+        {
           "path": "src/modules/assistant-runtime/autonomy.ts",
           "label": "src/modules/assistant-runtime/autonomy.ts"
         },
         {
           "path": "src/modules/assistant-runtime/collaboration-planner.ts",
           "label": "src/modules/assistant-runtime/collaboration-planner.ts"
-        },
-        {
-          "path": "src/modules/assistant-runtime/context-builder.ts",
-          "label": "src/modules/assistant-runtime/context-builder.ts"
         }
       ]
     },
@@ -208,8 +230,8 @@
           "label": "src/modules/model-control/service.ts"
         },
         {
-          "path": "src/modules/model-gateway/gateway.ts",
-          "label": "src/modules/model-gateway/gateway.ts"
+          "path": "src/modules/model-gateway/aux-slots.ts",
+          "label": "src/modules/model-gateway/aux-slots.ts"
         }
       ]
     },
@@ -274,8 +296,8 @@
           "label": "src/modules/desktop-runtime/contracts.ts"
         },
         {
-          "path": "src/modules/desktop-runtime/index.ts",
-          "label": "src/modules/desktop-runtime/index.ts"
+          "path": "src/modules/desktop-runtime/extended-actions.ts",
+          "label": "src/modules/desktop-runtime/extended-actions.ts"
         }
       ]
     },
@@ -310,16 +332,16 @@
       "col": 5,
       "sources": [
         {
+          "path": "src/modules/research/citation-lineage.ts",
+          "label": "src/modules/research/citation-lineage.ts"
+        },
+        {
           "path": "src/modules/research/evidence-claims.ts",
           "label": "src/modules/research/evidence-claims.ts"
         },
         {
           "path": "src/modules/research/market-research.ts",
           "label": "src/modules/research/market-research.ts"
-        },
-        {
-          "path": "src/modules/research/opportunity-analysis.ts",
-          "label": "src/modules/research/opportunity-analysis.ts"
         }
       ]
     },
@@ -332,16 +354,16 @@
       "col": 5,
       "sources": [
         {
+          "path": "src/modules/cost-engine/bom-import.ts",
+          "label": "src/modules/cost-engine/bom-import.ts"
+        },
+        {
           "path": "src/modules/cost-engine/budget-variance.ts",
           "label": "src/modules/cost-engine/budget-variance.ts"
         },
         {
           "path": "src/modules/cost-engine/channel.ts",
           "label": "src/modules/cost-engine/channel.ts"
-        },
-        {
-          "path": "src/modules/cost-engine/cost-total.ts",
-          "label": "src/modules/cost-engine/cost-total.ts"
         }
       ]
     },
@@ -442,16 +464,16 @@
       "col": 6,
       "sources": [
         {
-          "path": "src/modules/automation-trace/index.ts",
-          "label": "src/modules/automation-trace/index.ts"
+          "path": "src/modules/artifacts/protocol.ts",
+          "label": "src/modules/artifacts/protocol.ts"
         },
         {
-          "path": "src/modules/automation-trace/service.ts",
-          "label": "src/modules/automation-trace/service.ts"
+          "path": "src/modules/artifacts/rich-blocks.ts",
+          "label": "src/modules/artifacts/rich-blocks.ts"
         },
         {
-          "path": "src/modules/autopilot/index.ts",
-          "label": "src/modules/autopilot/index.ts"
+          "path": "src/modules/artifacts/service.ts",
+          "label": "src/modules/artifacts/service.ts"
         }
       ]
     },
@@ -482,16 +504,16 @@
       "col": 7,
       "sources": [
         {
+          "path": "src/components/app-shell-nav.tsx",
+          "label": "src/components/app-shell-nav.tsx"
+        },
+        {
           "path": "src/components/app-shell.tsx",
           "label": "src/components/app-shell.tsx"
         },
         {
           "path": "src/components/automation-trace.tsx",
           "label": "src/components/automation-trace.tsx"
-        },
-        {
-          "path": "src/components/challenge-report-card.tsx",
-          "label": "src/components/challenge-report-card.tsx"
         }
       ]
     }
@@ -596,6 +618,20 @@
       "variant": "default"
     },
     {
+      "id": "import-assistant-runtime-desktop-runtime",
+      "from": "assistant-runtime",
+      "to": "desktop-runtime",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-assistant-runtime-domain-data",
+      "from": "assistant-runtime",
+      "to": "domain-data",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
       "id": "import-assistant-runtime-governance",
       "from": "assistant-runtime",
       "to": "governance",
@@ -627,6 +663,13 @@
       "id": "import-assistant-runtime-platform-services",
       "from": "assistant-runtime",
       "to": "platform-services",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-assistant-runtime-research",
+      "from": "assistant-runtime",
+      "to": "research",
       "label": "代码依赖",
       "variant": "default"
     },
@@ -736,6 +779,13 @@
       "variant": "default"
     },
     {
+      "id": "import-chat-ui-capability-registry",
+      "from": "chat-ui",
+      "to": "capability-registry",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
       "id": "import-chat-ui-governance",
       "from": "chat-ui",
       "to": "governance",
@@ -799,6 +849,13 @@
       "variant": "default"
     },
     {
+      "id": "import-cost-engine-shared-kernel",
+      "from": "cost-engine",
+      "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
       "id": "import-decision-intelligence-persistence",
       "from": "decision-intelligence",
       "to": "persistence",
@@ -815,6 +872,27 @@
     {
       "id": "import-decision-intelligence-shared-kernel",
       "from": "decision-intelligence",
+      "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-demo-surfaces-chat-ui",
+      "from": "demo-surfaces",
+      "to": "chat-ui",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-demo-surfaces-cost-engine",
+      "from": "demo-surfaces",
+      "to": "cost-engine",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-demo-surfaces-shared-kernel",
+      "from": "demo-surfaces",
       "to": "shared-kernel",
       "label": "代码依赖",
       "variant": "default"
@@ -1030,6 +1108,13 @@
       "variant": "default"
     },
     {
+      "id": "import-platform-api-assistant-runtime",
+      "from": "platform-api",
+      "to": "assistant-runtime",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
       "id": "import-platform-api-capability-registry",
       "from": "platform-api",
       "to": "capability-registry",
@@ -1061,6 +1146,13 @@
       "id": "import-platform-api-evidence",
       "from": "platform-api",
       "to": "evidence",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-platform-api-kern-router",
+      "from": "platform-api",
+      "to": "kern-router",
       "label": "代码依赖",
       "variant": "default"
     },
@@ -1205,6 +1297,13 @@
       "variant": "default"
     },
     {
+      "id": "import-research-domain-data",
+      "from": "research",
+      "to": "domain-data",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
       "id": "import-research-persistence",
       "from": "research",
       "to": "persistence",
@@ -1222,6 +1321,27 @@
       "id": "import-research-shared-kernel",
       "from": "research",
       "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-shared-kernel-assistant-runtime",
+      "from": "shared-kernel",
+      "to": "assistant-runtime",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-shared-kernel-chat-ui",
+      "from": "shared-kernel",
+      "to": "chat-ui",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-shared-kernel-cost-engine",
+      "from": "shared-kernel",
+      "to": "cost-engine",
       "label": "代码依赖",
       "variant": "default"
     },
@@ -1271,6 +1391,13 @@
       "id": "import-supervisor-domain-data",
       "from": "supervisor",
       "to": "domain-data",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-supervisor-evidence",
+      "from": "supervisor",
+      "to": "evidence",
       "label": "代码依赖",
       "variant": "default"
     },
@@ -1387,6 +1514,13 @@
       "variant": "default"
     },
     {
+      "id": "import-work-engine-supervisor",
+      "from": "work-engine",
+      "to": "supervisor",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
       "id": "import-work-engine-worker",
       "from": "work-engine",
       "to": "worker",
@@ -1446,6 +1580,13 @@
       "id": "import-workbench-shared-kernel",
       "from": "workbench",
       "to": "shared-kernel",
+      "label": "代码依赖",
+      "variant": "default"
+    },
+    {
+      "id": "import-workbench-supervisor",
+      "from": "workbench",
+      "to": "supervisor",
       "label": "代码依赖",
       "variant": "default"
     },

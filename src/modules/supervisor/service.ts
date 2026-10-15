@@ -22,6 +22,7 @@ import {
   type MissionState,
 } from "./plan";
 import { estimateMissionProgress } from "./plan";
+import { missionDependencyKeys, missionOutputText } from "./handoff";
 import { MISSION_NODE_SCHEMA, type MissionNodeContext } from "./generic-executor";
 import { appendMissionEventsTx, type MissionEventInput } from "./events";
 import { checkTaskContract } from "./contract";
@@ -258,11 +259,11 @@ export async function advanceKernMission(session: SessionContext, missionTaskId:
       const status = childStatusToNode(child.status);
       if (status === "ACTIVE") continue;
       ns.status = status;
-      ns.summary = child.runs[0]?.outputSummary ?? null;
       ns.reason = child.blockedReason ?? null;
       const exec = (child.contextSnapshot as Record<string, unknown> | null)?.executorResult as
         | Record<string, unknown>
         | undefined;
+      ns.summary = missionOutputText(exec, child.runs[0]?.outputSummary ?? null);
       ns.qa = exec?.kind === "MISSION_QA" ? ((exec.verdict as MissionQaVerdict) ?? null) : null;
       ns.signals = Array.isArray(exec?.signals) ? (exec.signals as MissionNodeState["signals"]) : [];
       log.push({ at: now(), event: `NODE_${status}`, detail: key });
@@ -358,7 +359,7 @@ export async function advanceKernMission(session: SessionContext, missionTaskId:
           kind: node.kind,
           objective: node.objective,
           taskClass: node.taskClass,
-          upstream: node.dependsOn.map((d) => ({
+          upstream: missionDependencyKeys(plan.nodes, node.key).map((d) => ({
             key: d,
             agentCode: plan.nodes.find((n) => n.key === d)?.agentCode ?? "unknown",
             status: state.nodes[d].status,

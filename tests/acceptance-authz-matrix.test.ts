@@ -102,7 +102,7 @@ const MARK = CROSS_TENANT_MARKER;
 // +2 路由 / +3 方法：对话附件 /api/conversations/{id}/attachments（GET·POST）与
 //   /api/conversations/{id}/attachments/{attachmentId}（DELETE）。
 const BASELINE_ROUTES = 129;
-const BASELINE_METHODS = 191;
+const BASELINE_METHODS = 193;
 
 let passed = 0;
 const failures: string[] = [];
