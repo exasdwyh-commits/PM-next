@@ -90,7 +90,9 @@ async function main() {
     console.log("▶ T1 report: full outputs, decision, recommendation");
     const report = await loadMissionReport(session, missionId);
     assert.equal(report.outcome, "COMPLETED");
-    assert.equal(report.title, "我想开发一个新产品：便携咖啡机");
+    // 标题契约：Agent 撰写的内容标题优先；未产出带标题的内容文档时落显式草稿标记，
+    // 不从 goal 机械猜测首行。
+    assert.equal(report.title, "研究报告");
     assert.equal(report.recommendation, "随行冷萃杯");
     assert.equal(report.decision, "是否投入约 ¥60k 做 4 周验证。");
     const market = report.steps.find((s) => s.key === "market")!;

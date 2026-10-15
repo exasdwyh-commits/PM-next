@@ -19,11 +19,16 @@ export function testIsolationProbeUrl(testUrl: string, guardUrl: string): string
 
 export function isConnectPermissionDenied(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
-  const e = error as { errorCode?: unknown; code?: unknown; message?: unknown; meta?: { code?: unknown; message?: unknown } };
+  const e = error as { name?: unknown; errorCode?: unknown; code?: unknown; message?: unknown; meta?: { code?: unknown; message?: unknown } };
   // Prisma's structured database-access denial, not authentication/unreachable/not-found.
   if (e.errorCode === "P1010" || e.code === "P1010") return true;
   // SQLSTATE 42501 alone is broader than CONNECT (e.g. schema/table permissions).
   const deniedDatabase = (message: unknown) => typeof message === "string" && /permission denied for database\b/i.test(message);
-  return (e.code === "42501" && deniedDatabase(e.message)) ||
-    (e.code === "P2010" && e.meta?.code === "42501" && deniedDatabase(e.meta.message));
+  if ((e.code === "42501" && deniedDatabase(e.message)) ||
+      (e.code === "P2010" && e.meta?.code === "42501" && deniedDatabase(e.meta.message))) return true;
+  // Prisma 6.19.x raises a connection-level FATAL (e.g. CONNECT revoked) as
+  // PrismaClientInitializationError: no errorCode/code/cause, SQLSTATE 42501 lives only in the
+  // message text. Judging by code alone never matches, which fails the guard closed on a
+  // correctly isolated database. The name check keeps auth/network failures unclassified.
+  return e.name === "PrismaClientInitializationError" && deniedDatabase(e.message);
 }

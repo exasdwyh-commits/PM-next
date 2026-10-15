@@ -30,6 +30,24 @@ const denied = [
 test("isolation proof: explicit database permission denials accepted", () => {
   for (const e of denied) assert.equal(proof.isConnectPermissionDenied(e), true);
 });
+// Prisma 6.19.x raises connection-level FATAL as PrismaClientInitializationError: no
+// errorCode/code/cause, SQLSTATE 42501 only in the message. Regression: the predicate used
+// to require a code, so a correctly isolated database failed the guard closed.
+const prismaInitDenied = {
+  name: "PrismaClientInitializationError",
+  message: 'Error in PostgreSQL connection: Error querying the database: db error: FATAL: permission denied for database "kern_dev"',
+  clientVersion: "6.19.3",
+  errorCode: undefined,
+  code: undefined,
+};
+test("isolation proof: PrismaClientInitializationError with a database denial is accepted", () => {
+  assert.equal(proof.isConnectPermissionDenied(prismaInitDenied), true);
+});
+test("isolation proof: PrismaClientInitializationError without a database denial still fails closed", () => {
+  for (const message of ["server closed the connection unexpectedly", "Can't reach database server at db.invalid:5432"]) {
+    assert.equal(proof.isConnectPermissionDenied({ name: "PrismaClientInitializationError", message }), false);
+  }
+});
 for (const code of ["P1000", "P1001", "P1003", "P1008", "3D000", "28P01"]) {
   test(`isolation proof: ${code} is NOT evidence of CONNECT denial`, () => {
     assert.equal(proof.isConnectPermissionDenied({ errorCode: code }), false);
@@ -89,5 +107,9 @@ test("actual guard: a different guard host cannot be silently replaced", async (
 });
 test("actual guard: explicit permission denial succeeds without opening a real connection", async () => {
   const logs = await actualGuard(denied[0]);
+  assert(logs.some(args => String(args[0]).includes("校验通过")));
+});
+test("actual guard: real Prisma 6.19.x connection denial succeeds without opening a real connection", async () => {
+  const logs = await actualGuard(prismaInitDenied);
   assert(logs.some(args => String(args[0]).includes("校验通过")));
 });
