@@ -363,32 +363,28 @@
 /* ───────── executive report card（对话里的纸页缩略图） ───────── */
 .kxr-report {
   display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 20px; padding: 18px;
-  border-radius: 14px; border: 1px solid var(--m-hairline); background: var(--kxr-card);
+  border-radius: 14px; border: 1px solid var(--m-hairline); background: var(--kxr-card); color: var(--m-ink);
   box-shadow: 0 4px 18px color-mix(in srgb, var(--m-ink) 4%, transparent);
   transition: border-color .2s ease;
 }
 .kxr-report:hover { border-color: var(--m-accent-line); }
 .kxr-report-thumb {
   position: relative; display: block; width: 112px; height: 142px; overflow: hidden; border-radius: 7px;
-  border: 1px solid var(--m-hairline); background: #f2f0ea; cursor: pointer;
+  border: 1px solid var(--m-hairline); background: var(--m-surface-sunk); cursor: pointer;
 }
-.muse[data-theme="dark"] .kxr-report-thumb { background: #24211d; }
 .kxr-report-frame {
   position: absolute; left: 0; top: 0; width: 1024px; height: 1296px; border: 0;
   transform: scale(.109375); transform-origin: 0 0; pointer-events: none;
 }
 .kxr-report-cover {
   position: absolute; inset: 0; display: grid; align-content: start; gap: 12px; padding: 14px 10px;
-  background: #fbfaf8; color: #b44a26;
+  background: var(--m-surface-2); color: var(--m-accent-ink);
 }
-.kxr-report-cover-mark { font: 600 20px/1.2 Georgia, serif; letter-spacing: -.5px; border-bottom: 1px solid #e7e2d8; padding-bottom: 10px; }
+.kxr-report-cover-mark { font: 600 20px/1.2 Georgia, serif; letter-spacing: -.5px; border-bottom: 1px solid var(--m-hairline); padding-bottom: 10px; }
 .kxr-report-cover-title {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden;
-  font-size: 10px; line-height: 1.7; color: #48423a;
+  font-size: 10px; line-height: 1.7; color: var(--m-ink-2);
 }
-.muse[data-theme="dark"] .kxr-report-cover { background: #24211d; color: #efa58a; }
-.muse[data-theme="dark"] .kxr-report-cover-mark { border-color: #484136; }
-.muse[data-theme="dark"] .kxr-report-cover-title { color: #bcb4a7; }
 .kxr-report-veil { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 70%, #1c1a1708); }
 .kxr-report-actions .kxr-btn[data-v="primary"] { background: #b44a26; color: #fff; }
 .kxr-report-actions .kxr-btn[data-v="primary"]:hover { background: #9d3f1f; }
@@ -396,10 +392,11 @@
 .kxr-report-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; }
 .kxr-report-kind { color: var(--m-ink-3); font-size: 10px; font-weight: 500; letter-spacing: .5px; }
 .kxr-report-title { margin: 0; min-width: 0; font-size: 16px; font-weight: 600; line-height: 1.6; letter-spacing: -.2px; overflow-wrap: anywhere; }
-.kxr-report-ver, .kxr-report-status { color: var(--m-ink-4); font-size: 11px; }
+/* 小字也需要正文级对比度；--m-ink-4 在明/暗卡面上仅约 2.56 / 3.94。 */
+.kxr-report-ver, .kxr-report-status { color: var(--m-ink-3); font-size: 11px; }
 /* 质量门禁状态：未通过 / 待补证时，卡片自己先说清，不用点进去才知道。 */
-.kxr-report-quality { font-size: 11px; letter-spacing: .5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--m-warn); background: var(--m-warn-wash); color: var(--m-warn); }
-.kxr-report-quality[data-status="BLOCKED"] { border-color: var(--m-bad); background: var(--m-bad-wash); color: var(--m-bad); }
+.kxr-report-quality { font-size: 11px; letter-spacing: .5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--m-warn); background: var(--m-warn-wash); color: var(--m-ink-2); }
+.kxr-report-quality[data-status="BLOCKED"] { border-color: var(--m-bad); background: var(--m-bad-wash); color: var(--m-ink-2); }
 .kxr-report-summary {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
   margin: 0; color: var(--m-ink-2); font-size: 12px; line-height: 1.8;

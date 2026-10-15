@@ -45,13 +45,13 @@ export function MissionConclusionRich({
 
   const fallback = (
     <div className="mission-conclusion-rich" data-role={role} style={{ borderColor: catInfo.color } as any}>
-      <div className="conclusion-header" style={{ background: catInfo.gradient }}>
+      <div className="conclusion-header">
         <div>
-          <span className="eyebrow" style={{ background: catInfo.color, color: "white" }}>{catInfo.icon} {catInfo.name} · 任务结论 · {role === "leadership" ? "领导" : role === "product" ? "研发" : role === "sales" ? "销售" : "默认"}视角 · 富可视化</span>
+          <span className="eyebrow">{catInfo.icon} {catInfo.name} · 任务结论 · {role === "leadership" ? "领导" : role === "product" ? "研发" : role === "sales" ? "销售" : "默认"}视角 · 富可视化</span>
           <h3>任务结论 · {missionId.slice(0, 8)}</h3>
           <small>Kern智能统筹 · {catInfo.name}专用 · 富可视化 · 15组件+8动效</small>
         </div>
-        <div className="category-badge" style={{ background: catInfo.color, color: "white" }}>{catInfo.icon} {catInfo.name}</div>
+        <div className="category-badge">{catInfo.icon} {catInfo.name}</div>
       </div>
       <Prose text={text} />
       {role === "leadership" && (
@@ -76,8 +76,8 @@ export function MissionConclusionRich({
 
   return (
     <div className="mission-conclusion-rich-wrapper" style={{ borderColor: catInfo.color } as any}>
-      <div className="conclusion-meta-bar" style={{ background: catInfo.gradient, borderBottom: `2px solid ${catInfo.color}` }}>
-        <span style={{ background: catInfo.color, color: "white", padding: "2px 8px", borderRadius: 99, fontSize: 10 }}>{catInfo.icon} {catInfo.name} · 富可视化</span>
+      <div className="conclusion-meta-bar">
+        <span className="conclusion-category">{catInfo.icon} {catInfo.name} · 富可视化</span>
         <small>{role}视角 · Kern调度 · {catInfo.name}专用</small>
       </div>
       <ResponseRoleBased envelope={envelope} defaultDensity={density} fallback={fallback}

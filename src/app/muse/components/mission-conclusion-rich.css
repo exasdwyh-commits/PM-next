@@ -1,17 +1,20 @@
-.mission-conclusion-rich { display: grid; gap: 14px; padding: 16px; border: 2px solid #e7e9ef; border-radius: 16px; background: var(--surface); animation: fadeInUp 0.4s ease-out both; }
-.mission-conclusion-rich-wrapper { border: 2px solid #e7e9ef; border-radius: 16px; overflow: hidden; background: var(--surface); animation: fadeInUp 0.4s ease-out both; }
-.conclusion-header { display: flex; justify-content: space-between; gap: 12px; padding: 14px; border-radius: 12px; flex-wrap: wrap; align-items: flex-start; }
+/* 品类色只留在外框/装饰线；承载文字的面与字始终成对跟随主题。
+   pack 的固定浅色 gradient + 暗态浅字曾使标题/元信息降至约 1:1。 */
+.mission-conclusion-rich { display: grid; gap: 14px; padding: 16px; border: 2px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--ink); animation: fadeInUp 0.4s ease-out both; }
+.mission-conclusion-rich-wrapper { border: 2px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--surface); color: var(--ink); animation: fadeInUp 0.4s ease-out both; }
+.conclusion-header { display: flex; justify-content: space-between; gap: 12px; padding: 14px; border-radius: 12px; flex-wrap: wrap; align-items: flex-start; background: var(--surface-soft); color: var(--ink); }
 .conclusion-header h3 { margin: 6px 0 2px; font-size: 14px; }
-.conclusion-header small { font-size: 10px; color: var(--ink-muted); }
-.eyebrow { display: inline-block; padding: 3px 8px; border-radius: 99px; font-size: 10px; font-weight: 700; }
-.category-badge { padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; }
-.boss-summary { padding: 12px; background: var(--surface-soft); border-radius: 10px; display: grid; gap: 6px; animation: fadeInUp 0.3s ease-out 0.1s both; }
+.conclusion-header small { font-size: 10px; color: var(--ink-2); }
+.mission-conclusion-rich .eyebrow { display: inline-block; padding: 3px 8px; border-radius: 99px; font-size: 10px; font-weight: 700; background: var(--surface); color: var(--ink-2); border: 1px solid var(--line); }
+.mission-conclusion-rich .category-badge { padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; background: var(--surface); color: var(--ink-2); border: 1px solid var(--line); }
+.boss-summary { padding: 12px; background: var(--surface-soft); color: var(--ink); border-radius: 10px; display: grid; gap: 6px; animation: fadeInUp 0.3s ease-out 0.1s both; }
 .boss-summary strong { font-size: 12px; }
-.boss-summary p { margin: 0; font-size: 11px; line-height: 1.5; color: var(--ink-soft); }
-.selling-points { padding: 12px; background: linear-gradient(135deg, var(--surface), var(--surface-soft)); border: 1px solid #e7e9ef; border-radius: 10px; display: grid; gap: 6px; }
+.boss-summary p { margin: 0; font-size: 11px; line-height: 1.5; color: var(--ink-2); }
+.selling-points { padding: 12px; background: linear-gradient(135deg, var(--surface), var(--surface-soft)); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; display: grid; gap: 6px; }
 .selling-points strong { font-size: 12px; }
-.selling-points p { margin: 0; font-size: 11px; color: var(--ink-soft); }
-.conclusion-meta-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; font-size: 11px; }
+.selling-points p { margin: 0; font-size: 11px; color: var(--ink-2); }
+.conclusion-meta-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 12px; font-size: 11px; background: var(--surface-soft); color: var(--ink-2); border-bottom: 1px solid var(--line); }
+.conclusion-meta-bar .conclusion-category { padding: 2px 8px; border-radius: 99px; font-size: 10px; background: var(--surface); color: var(--ink-2); border: 1px solid var(--line); }
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
 /* 降动画降级：本文件内的入场/装饰动画在 reduced-motion 下压平。
