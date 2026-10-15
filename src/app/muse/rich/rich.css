@@ -397,6 +397,9 @@
 .kxr-report-kind { color: var(--m-ink-3); font-size: 10px; font-weight: 500; letter-spacing: .5px; }
 .kxr-report-title { margin: 0; min-width: 0; font-size: 16px; font-weight: 600; line-height: 1.6; letter-spacing: -.2px; overflow-wrap: anywhere; }
 .kxr-report-ver, .kxr-report-status { color: var(--m-ink-4); font-size: 11px; }
+/* 质量门禁状态：未通过 / 待补证时，卡片自己先说清，不用点进去才知道。 */
+.kxr-report-quality { font-size: 11px; letter-spacing: .5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--m-warn); background: var(--m-warn-wash); color: var(--m-warn); }
+.kxr-report-quality[data-status="BLOCKED"] { border-color: var(--m-bad); background: var(--m-bad-wash); color: var(--m-bad); }
 .kxr-report-summary {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
   margin: 0; color: var(--m-ink-2); font-size: 12px; line-height: 1.8;

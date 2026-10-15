@@ -57,13 +57,13 @@ export function MissionConclusionRich({
       {role === "leadership" && (
         <div className="boss-summary" style={{ borderLeft: `3px solid ${catInfo.color}` }}>
           <strong>💡 老板一句话结论</strong>
-          <p>{text.slice(0, 120) || "任务已完成，可推进下一阶段"} · {catInfo.name}专用</p>
+          <p>{text.slice(0, 120) || "任务已结束，结论待你复核"} · {catInfo.name}专用</p>
         </div>
       )}
       {role === "sales" && (
         <div className="selling-points">
           <strong>💎 销售卖点 · {catInfo.name}</strong>
-          <p>任务结论已核实，{catInfo.name}卖点突出，可直接用于客户沟通 · Kern已提炼</p>
+          <p>任务结论尚未独立核验；确认依据与缺口后再对外沟通 · Kern已整理</p>
         </div>
       )}
     </div>

@@ -213,3 +213,35 @@
  .rv3 .wrap{max-width:100%;padding:0}
  .rv3 .spec-row,.rv3 .src,.rv3 .erow{break-inside:avoid}
 }
+
+/* Original mission analysis uses the same safe Markdown renderer, scoped to this poster. */
+.rv3 .research-prose { background: var(--paper, #fffdf8); padding: clamp(18px, 4vw, 36px); border: 1px solid var(--line, #e7e2d8); border-radius: 12px; overflow-wrap: anywhere; }
+.rv3 .research-prose .m-prose { font-size: 15px; line-height: 1.9; color: inherit; }
+.rv3 .research-prose .m-h[data-l="2"] { font-size: 24px; margin: 32px 0 14px; letter-spacing: -.5px; }
+.rv3 .research-prose .m-h:first-child { margin-top: 0; }
+.rv3 .research-prose .m-h[data-l="3"] { font-size: 18px; margin: 24px 0 10px; }
+.rv3 .research-prose p { margin: 10px 0; }
+.rv3 .research-prose a, .rv3 .research-source-list a { color: #b44a26; text-decoration: underline; text-underline-offset: 3px; }
+.rv3 .research-prose table { border-collapse: collapse; width: 100%; min-width: 480px; font-size: 13px; }
+.rv3 .research-prose th, .rv3 .research-prose td { border-bottom: 1px solid #e7e2d8; text-align: left; padding: 10px 12px; }
+.rv3 .research-prose .m-table-wrap { overflow-x: auto; }
+.rv3 .research-prose pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f2f0ea; padding: 16px; border-radius: 8px; }
+.rv3 .research-prose blockquote { border-left: 3px solid #b44a26; margin: 16px 0; padding: 8px 18px; background: #f2f0ea; }
+.rv3 .research-prose .m-tagline { display: inline-block; font-size: 11px; border-radius: 4px; padding: 1px 6px; background: #f2f0ea; color: #655b50; }
+.rv3 .research-source-list { padding-left: 20px; line-height: 1.7; }
+.rv3 .research-source-list li { margin-bottom: 14px; overflow-wrap: anywhere; }
+@media print { .rv3 .research-prose { padding: 0; border: 0; }.rv3 .research-prose .m-h[data-l="2"] { break-after: avoid; }.rv3 .research-prose .m-table-wrap { overflow: visible; } }
+
+/* 质量门禁横幅：报告未通过或待补证时，在正文之前先说清状态与补齐方式。 */
+.rv3 .qgate{border:1px solid var(--amber-line);border-left:4px solid var(--amber-tx);
+  background:var(--amber-bg);border-radius:0 var(--r) var(--r) 0;padding:18px 22px;margin:18px 0 0}
+.rv3 .qgate[data-status="BLOCKED"]{border-color:var(--accent-line);border-left-color:var(--accent);background:var(--accent-soft)}
+.rv3 .qgate-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.rv3 .qgate-hd strong{font-size:15.5px;color:var(--ink)}
+.rv3 .qgate-badge{font-size:12px;letter-spacing:1px;padding:3px 11px;border-radius:999px;
+  border:1.5px solid var(--amber-line);background:var(--paper);color:var(--amber-tx);white-space:nowrap}
+.rv3 .qgate[data-status="BLOCKED"] .qgate-badge{border-color:var(--accent-line);color:var(--accent)}
+.rv3 .qgate-list{margin:0;padding-left:18px;font-size:13.5px;color:var(--ink)}
+.rv3 .qgate-list li{margin:6px 0}
+.rv3 .qgate-fix{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+@media print{.rv3 .qgate{break-inside:avoid}}

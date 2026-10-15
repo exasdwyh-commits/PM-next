@@ -162,7 +162,7 @@ test("role report components contain no fabricated demo numbers", () => {
   }
 });
 
-test("deep report view renders UNKNOWN placeholders and three-state badges", () => {
+test("deep report view renders unverified placeholders and three-state badges", () => {
   const require = createRequire(import.meta.url);
   require.extensions[".css"] = () => {};
   const { ReportV3 } = require("../src/components/report-v3.tsx") as typeof import("../src/components/report-v3");
@@ -185,7 +185,9 @@ test("deep report view renders UNKNOWN placeholders and three-state badges", () 
   assert.match(html, /未核实规格/);
   assert.match(html, />事实</);
   assert.match(html, />推断 \/ 估算</);
-  assert.match(html, />UNKNOWN</);
+  // 三态角标必须是中文：未核实项标「待验证」，界面不再裸露英文 UNKNOWN。
+  assert.match(html, />待验证</);
+  assert.doesNotMatch(html, /class="badge unknown">UNKNOWN</);
   assert.equal((html.match(/class="spec-row"/g) ?? []).length, 9, "缺省时仍显示全部九个专业段");
   assert.match(html, /1 完成/);
   assert.match(html, /1 阻塞 \/ 未完成/);

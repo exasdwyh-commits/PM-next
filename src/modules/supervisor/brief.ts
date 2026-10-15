@@ -98,8 +98,14 @@ const Q_AUDIENCE: Omit<BriefQuestion, "remembered" | "answer"> = {
   why: "决定市场研究和机会判断看哪群人",
   options: [
     { id: "young-pro", label: "城市年轻白领" },
-    { id: "family", label: "家庭 / 宝妈" },
+    { id: "family", label: "家庭 / 育儿人群" },
+    { id: "student", label: "学生 / 年轻消费者" },
+    { id: "active", label: "运动 / 健康管理人群" },
+    { id: "senior", label: "中老年 / 银发人群" },
+    { id: "premium", label: "高品质 / 高消费人群" },
+    { id: "professional", label: "专业从业者 / 垂直圈层" },
     { id: "smb", label: "中小企业（B2B）" },
+    { id: "enterprise", label: "大型企业 / 机构采购" },
     { id: "open", label: "还没想好，让团队研究" },
   ],
 };
@@ -108,10 +114,12 @@ const Q_BUDGET: Omit<BriefQuestion, "remembered" | "answer"> = {
   text: "首轮验证的预算大概多少？",
   why: "决定验证计划的规模和成本假设",
   options: [
-    { id: "lt10", label: "10 万以内，快速验证" },
+    { id: "lt3", label: "3 万以内，轻量试水" },
+    { id: "lt10", label: "3–10 万，样品与小规模测试" },
     { id: "10-50", label: "10–50 万" },
-    { id: "gt50", label: "50 万以上" },
-    { id: "open", label: "先不设限" },
+    { id: "gt50", label: "50–100 万，系统验证" },
+    { id: "gt100", label: "100 万以上，规模化准备" },
+    { id: "open", label: "预算待定，先评估验证成本" },
   ],
 };
 const Q_CHANNEL: Omit<BriefQuestion, "remembered" | "answer"> = {
@@ -120,8 +128,14 @@ const Q_CHANNEL: Omit<BriefQuestion, "remembered" | "answer"> = {
   why: "决定上市策略和竞品范围",
   options: [
     { id: "online", label: "线上电商 / 内容平台" },
+    { id: "content", label: "内容种草 / 直播电商" },
+    { id: "private", label: "私域 / 社群 / 会员订阅" },
+    { id: "dtc", label: "品牌官网 / 独立站（DTC）" },
     { id: "offline", label: "线下零售" },
+    { id: "specialist", label: "专业门店 / 服务机构" },
+    { id: "distributor", label: "经销 / 代理 / 批发" },
     { id: "b2b", label: "企业客户直销" },
+    { id: "omni", label: "线上线下协同" },
     { id: "open", label: "让团队建议" },
   ],
 };

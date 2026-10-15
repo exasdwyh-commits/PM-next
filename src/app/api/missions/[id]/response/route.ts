@@ -6,17 +6,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/modules/identity/session";
 import { validate } from "@/modules/response-format/validate";
-import { missionResponseEnvelope } from "@/modules/supervisor";
+import { missionResponsePresentation } from "@/modules/supervisor/response";
 import { handleApiError } from "@/shared/api-handler";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(req);
     const { id } = await params;
-    const envelope = await missionResponseEnvelope(session, id);
+    const { envelope, poster, citation } = await missionResponsePresentation(session, id);
     const issues = validate(envelope);
     return NextResponse.json(
-      { envelope, issues, renderable: !issues.some((i) => i.level === "error") },
+      { envelope, poster, citation, issues, renderable: !issues.some((i) => i.level === "error") },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (error) {

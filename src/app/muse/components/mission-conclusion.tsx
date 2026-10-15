@@ -14,6 +14,10 @@ import { ResponseRoleBased } from "../response/response-role-based";
 import { Prose } from "./prose";
 import { MissionConclusionRich } from "./mission-conclusion-rich";
 import "./mission-conclusion-rich.css";
+import { ReportV3 } from "@/components/report-v3";
+import type { ExecutiveReportPayload } from "@/shared/executive-report-types";
+import type { ExecutiveReportCitation } from "@/shared/executive-report-citation";
+import { ReportCard } from "../rich/report-card";
 import { useRole } from "@/components/role-context";
 import { useConclusionDecisions } from "./conclusion-decisions";
 
@@ -54,12 +58,41 @@ export function MissionConclusionOriginal({
 }
 
 
-export function MissionConclusion(props: any) {
+type ConclusionProps = {
+  missionId: string;
+  text: string;
+  density?: "summary" | "full";
+  showAsk?: boolean;
+};
+
+/** Historical completed mission citations also resolve through this reader. */
+export function MissionConclusion(props: ConclusionProps) {
   const { source } = useRole();
-  // useRole 在无 Provider 时返回 default 兜底，不会抛异常，
-  // 因此这里必须在顶层无条件调用，不能包在 try/catch 里（条件调用 Hook 会破坏渲染）
-  if (source !== "default") {
-    return <MissionConclusionRich {...props} />;
+  const [presentation, setPresentation] = useState<{ id: string; poster: ExecutiveReportPayload | null; citation: ExecutiveReportCitation | null } | null>(null);
+  const [errorId, setErrorId] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/missions/${encodeURIComponent(props.missionId)}/response`, { cache: "no-store", signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw new Error(String(response.status));
+        return response.json();
+      })
+      .then(data => { if (!controller.signal.aborted) {
+        setPresentation({ id: props.missionId, poster: data.poster ?? null, citation: data.citation ?? null });
+        setErrorId(null);
+      } })
+      .catch(() => { if (!controller.signal.aborted) setErrorId(props.missionId); });
+    return () => controller.abort();
+  }, [props.missionId, retry]);
+
+  if (errorId === props.missionId) return <p className="m-hint" role="status">报告暂时无法读取。<button type="button" className="m-link" onClick={() => { setErrorId(null); setRetry(value => value + 1); }}>重试</button></p>;
+  if (presentation?.id !== props.missionId) return <p className="m-hint" role="status">正在读取研究报告…</p>;
+  if (presentation.poster && presentation.citation) {
+    return props.density === "full"
+      ? <ReportV3 report={presentation.poster} embedded />
+      : <ReportCard citation={presentation.citation} />;
   }
-  return <MissionConclusionOriginal {...props} />;
+  // Generic missions retain their established response/decision presentation.
+  return source !== "default" ? <MissionConclusionRich {...props} /> : <MissionConclusionOriginal {...props} />;
 }
