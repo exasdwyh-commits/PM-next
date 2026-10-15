@@ -178,7 +178,8 @@ export function lintReply(text: string): ReplyIssue[] {
   const plain = prose.join("").replace(/[#>*`|\-\s]/g, "");
   const headings = prose.filter((l) => /^#{2,3}\s/.test(l));
   if (headings.length && plain.length < 180) issues.push("headings-on-short");
-  if (prose.filter((l) => /^##\s/.test(l)).length > 6) issues.push("too-many-sections");
+  // 与规范第 2 条一致：长回复「不超过 5 节」，超过即计为待修问题。
+  if (prose.filter((l) => /^##\s/.test(l)).length > 5) issues.push("too-many-sections");
   if (prose.filter((l) => /^>\s*\[!/.test(l)).length > 2) issues.push("too-many-callouts");
   if (prose.some((l) => hasEmoji(l))) issues.push("emoji");
   if (findBannedPhrase(prose.join("\n"))) issues.push("banned-phrase");

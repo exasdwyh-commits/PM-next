@@ -241,6 +241,20 @@ export async function sendDepartmentAssistantMessage(
       });
     } catch (error: unknown) {
       missionError = error instanceof Error ? error.message : String(error);
+      // 失败必须让用户看见：否则用户以为我会牵头，实际没有计划生成、也不知道该重试还是换说法。
+      try {
+        const base = responseMessage.content ?? "";
+        const note =
+          "另外说明一下：我这边没能生成这项工作的计划，所以先不牵头，也没有消耗额度。你可以换个说法再说一遍目标，或直接告诉我下一步想先做什么。";
+        if (!base.includes("没能生成这项工作的计划")) {
+          responseMessage = await updateMessage({
+            where: { id: result.message.id },
+            data: { content: `${base}\n\n——\n${note}` },
+          });
+        }
+      } catch {
+        // 回执本身失败不阻断主流程：missionError 已进 routingReceipt。
+      }
     }
   }
 
@@ -261,8 +275,10 @@ export async function sendDepartmentAssistantMessage(
       });
 
       if (specialistDispatch) {
+        // 名称取实际派发的 Agent，不要把专家写死在文案里。
+        const expertName = specialistDispatch.agentName || specialistDispatch.agentCode;
         const dispatchNote = [
-          "Kern 协作路由：已将这条低风险技术请求交给 Tech Architect。",
+          `Kern 协作路由：已将这条低风险技术请求交给 ${expertName}。`,
           `当前任务状态：${specialistDispatch.status}。专家完成后，回执会自动追加到本会话。`,
         ].join("\n");
         const originalContent = result.message.content;
@@ -282,7 +298,7 @@ export async function sendDepartmentAssistantMessage(
               {
                 kind: "agent-task",
                 ref: specialistDispatch.taskId,
-                title: "Tech Architect · " + specialistDispatch.status,
+                title: `${expertName} · ${specialistDispatch.status}`,
               },
             ] as Prisma.InputJsonValue,
           },
@@ -291,6 +307,20 @@ export async function sendDepartmentAssistantMessage(
     } catch (error: unknown) {
       specialistDispatchError =
         error instanceof Error ? error.message : String(error);
+      // 同样要让用户看见：派发没成功意味着专家并没有接手，用户不应以为事情在推进。
+      try {
+        const base = responseMessage.content ?? "";
+        const note =
+          "我本来要把这件事交给对应的专家去办，但派发没有成功，所以先没有开工、也没有消耗额度。你可以再说一遍，或告诉我先做哪一步。";
+        if (!base.includes("派发没有成功")) {
+          responseMessage = await updateMessage({
+            where: { id: result.message.id },
+            data: { content: `${base}\n\n——\n${note}` },
+          });
+        }
+      } catch {
+        // 回执本身失败不阻断主流程：specialistDispatchError 已进 routingReceipt。
+      }
     }
   }
 

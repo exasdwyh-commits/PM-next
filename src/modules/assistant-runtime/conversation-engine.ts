@@ -56,6 +56,17 @@ import { sanitizeRichFences } from "@/modules/artifacts/rich-blocks";
 import { buildArtifactPromptContext, persistReplyArtifacts } from "@/modules/artifacts/service";
 import { buildKernContextLayers } from "./context-layers";
 
+/**
+ * 失败原因是否适合直接展示给用户。
+ *
+ * 技术异常（Prisma / 网关 / fetch）的原文是英文堆栈，直出正文既读不懂也会
+ * 泄漏内部实现；业务异常携带的是中文提示，应当照常透出。诊断原文一律留在
+ * ToolCall.errorReason 里供排查，不因此丢失。
+ */
+function userFacingFailureReason(reason: string): string | null {
+  return /[\u4e00-\u9fff]/.test(reason) ? reason : null;
+}
+
 /** Model text → (artifacts pulled out first, so HTML never meets the Markdown harness) → normalised Markdown with validated kern-ui blocks. */
 export function formatModelReply(raw: string): { reply: NormalizedReply; artifacts: ExtractedArtifact[]; richIssues: string[] } {
   const extracted = extractArtifacts(raw);
@@ -107,7 +118,7 @@ export async function executeKernConversationTurn(
     conversationId,
     text,
     productBound: Boolean(conversation.productId),
-    history: plannerHistoryRows.reverse(),
+    history: [...plannerHistoryRows].reverse(),
     signal: options?.execution?.signal, beforeAttempt: options?.execution?.assertActive, agentRunId: options?.runId,
   });
   const intent = intentRouting.intent;
@@ -294,6 +305,8 @@ export async function executeKernConversationTurn(
 
   let historyTurns = 0;
   let conversationHistory: { role: string; content: string }[] = [];
+  // 降级本身是对的（不阻塞对话），但必须留痕：否则「模型像失忆一样作答」时无从排查。
+  const degradations: string[] = [];
   let replyFormat: NormalizedReply | null = null;
   let replyArtifacts: ExtractedArtifact[] = [];
   let richIssues: string[] = [];
@@ -313,8 +326,9 @@ export async function executeKernConversationTurn(
       ),
     }));
     historyTurns = conversationHistory.length;
-  } catch {
+  } catch (error: unknown) {
     conversationHistory = [];
+    degradations.push(`conversationHistory: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   // C3：历史装配改为「近期原文 + 远期滚动摘要」。
@@ -328,7 +342,10 @@ export async function executeKernConversationTurn(
     cache: rollingSummaryCache,
     // C7：真实摘要位经统一网关记账（aux 档位）所需的组织 id
     organizationId: session.organizationId,
-  }).catch(() => null);
+  }).catch((error: unknown) => {
+    degradations.push(`historyCompression: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  });
   const promptHistory = compressedHistory?.recent ?? conversationHistory;
   const historySummaryBlock = compressedHistory?.summaryBlock ?? null;
 
@@ -399,7 +416,10 @@ export async function executeKernConversationTurn(
       currentMessageId: options?.execution?.inputMessageId ?? null,
       explicitSkillIds: runtimeSelection.config.capabilityPackIds ?? null,
       projectId: null,
-    }).catch(() => null);
+    }).catch((error: unknown) => {
+      degradations.push(`contextLayers: ${error instanceof Error ? error.message : String(error)}`);
+      return null;
+    });
     const capabilityPrompt = contextLayers?.capabilityPrompt ?? "";
     const knowledgePrompt = contextLayers?.knowledgePrompt ?? "";
     const attachmentPrompt = contextLayers?.attachmentPrompt ?? "";
@@ -512,9 +532,14 @@ export async function executeKernConversationTurn(
     options?.execution?.signal.throwIfAborted();
     failed = true;
     errorReason = error instanceof Error ? error.message : "工具执行失败";
+    // 用户侧只给可读说明；技术原文（Prisma / 网关堆栈等英文文本）留在
+    // ToolCall.errorReason 供诊断，不直出正文。
+    const shownReason = userFacingFailureReason(errorReason);
     result = {
       toolKey: "none",
-      text: `执行失败：${errorReason}`,
+      text: shownReason
+        ? `这一步没有执行成功，我先不给结论：${shownReason}`
+        : "这一步没有执行成功，我先不给结论，也不会拿不完整的东西凑数。可以换个说法再说一遍，或告诉我具体要做哪一件事。",
       citations: [],
     };
   }
@@ -535,6 +560,8 @@ export async function executeKernConversationTurn(
         ...(replyFormat
           ? { replyFormat: { version: KERN_REPLY_FORMAT_VERSION, fixed: replyFormat.fixed, issues: replyFormat.issues, richIssues, artifacts: replyArtifacts.map((a) => ({ key: a.key, complete: a.complete, error: a.error, bytes: a.html.length })) } }
           : {}),
+        // 静默降级清单：对话照常返回，但这些环节没有按理想路径工作。
+        ...(degradations.length ? { degradations } : {}),
       } as any,
       status: failed ? "FAILED" : "SUCCEEDED",
       errorReason,
@@ -553,14 +580,19 @@ export async function executeKernConversationTurn(
 
   const header = modelOutputUsed
     ? ""
-    : llmAttempted
-      ? "（模型调用失败，本轮已安全回落到确定性工具结果）\n\n"
-      : gatewayPolicy && !gatewayReady
-        ? "（模型策略已配置但暂无启用的候选 Profile，本轮使用确定性工具结果）\n\n"
-        : "（本轮未接入语言模型，以下为受治理 capability 返回的真实数据）\n\n";
+    : failed
+      // 执行失败时不能套用「未接入语言模型」那类说明——那会把失败说成降级。
+      ? "（这一步没有执行成功，下面不是完整结论）\n\n"
+      : llmAttempted
+        ? "（模型调用失败，这次按已有数据给你结论）\n\n"
+        : gatewayPolicy && !gatewayReady
+          ? "（模型策略还没有可启用的候选，这次按已有数据给你结论）\n\n"
+          : "（这次按已有数据直接给你结论）\n\n";
 
+  // 挑战报告是本轮的新产出，追加在既有引用之后——不要整体替换，否则来源/产物引用会丢。
   const citationsWithReport: unknown[] = result.challengeReport
     ? [
+        ...result.citations,
         {
           kind: "challenge-report",
           ref: ctx.productId,
@@ -579,7 +611,7 @@ export async function executeKernConversationTurn(
       })
     : { content: header + result.text, citations: [] };
 
-  const assistantMsg = await tx.message.create({
+  const createdMessage = await tx.message.create({
     data: {
       id: assistantMessageId,
       conversationId,
@@ -626,7 +658,7 @@ export async function executeKernConversationTurn(
       modelId: llmModelId,
       finishedAt,
       durationMs,
-      outputMessageId: assistantMsg.id,
+      outputMessageId: createdMessage.id,
       errorReason,
       usageJson: usageJson as any,
       costStatus: "unknown",
@@ -643,7 +675,7 @@ export async function executeKernConversationTurn(
     },
   });
 
-    return assistantMsg;
+    return createdMessage;
   });
 
   return {

@@ -54,9 +54,9 @@ export default function DemoDailyAssistantPage() {
           <strong>当前:</strong> {active} · {category} · 角色自适应 👔领导/🔬研发/💼销售 · 4类专用 · 富可视化18组件+8动效 · 3秒首屏 · Kern智能统筹
         </div>
 
-        {active === "daily" && <DailyBriefingRich data={mockDailyData} onAction={(a) => console.log("action", a)} />}
-        {active === "product" && <ProductRndCockpitRich project={{ title: mockDailyData.projectTitle }} category={category} onOptimize={() => console.log("optimize")} />}
-        {active === "marketing" && <MarketingLandingRich category={category} productName={mockDailyData.projectTitle.replace("项目", "")} onExport={(f: unknown) => console.log("export", f)} />}
+        {active === "daily" && <DailyBriefingRich data={mockDailyData} onAction={() => {}} />}
+        {active === "product" && <ProductRndCockpitRich project={{ title: mockDailyData.projectTitle }} category={category} onOptimize={() => {}} />}
+        {active === "marketing" && <MarketingLandingRich category={category} productName={mockDailyData.projectTitle.replace("项目", "")} onExport={() => {}} />}
       </div>
     </RoleProvider>
   );
