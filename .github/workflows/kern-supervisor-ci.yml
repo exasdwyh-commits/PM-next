@@ -60,6 +60,19 @@ on:
       - "tests/kern-report-edit.test.ts"
       - "tests/kern-report-edit-wiring.test.ts"
       - "tests/kern-report-poster.test.ts"
+      - "tests/kern-report-content-agent.test.ts"
+      - "tests/model-gateway-routing.test.ts"
+      - "tests/test-safety.ts"
+      - "tests/test-isolation-proof.test.ts"
+      - "tests/report-ci-wiring.test.cjs"
+      - "scripts/run-test.ts"
+      - "scripts/check-test-isolation.ts"
+      - "scripts/lib/test-isolation-proof.ts"
+      - "src/shared/report-quality-store.ts"
+      - "tests/flow-zoom-guard.test.ts"
+      - "tests/flow-zoom-render.test.ts"
+      - "tests/kern-execution-flow.test.ts"
+      - "tests/role-callout-radius-guard.test.ts"
       - "src/modules/worker/scheduler.ts"
       - "src/modules/worker/fair-queue.ts"
       - ".github/workflows/kern-supervisor-ci.yml"
@@ -123,6 +136,19 @@ on:
       - "tests/kern-report-edit.test.ts"
       - "tests/kern-report-edit-wiring.test.ts"
       - "tests/kern-report-poster.test.ts"
+      - "tests/kern-report-content-agent.test.ts"
+      - "tests/model-gateway-routing.test.ts"
+      - "tests/test-safety.ts"
+      - "tests/test-isolation-proof.test.ts"
+      - "tests/report-ci-wiring.test.cjs"
+      - "scripts/run-test.ts"
+      - "scripts/check-test-isolation.ts"
+      - "scripts/lib/test-isolation-proof.ts"
+      - "src/shared/report-quality-store.ts"
+      - "tests/flow-zoom-guard.test.ts"
+      - "tests/flow-zoom-render.test.ts"
+      - "tests/kern-execution-flow.test.ts"
+      - "tests/role-callout-radius-guard.test.ts"
       - "src/modules/worker/scheduler.ts"
       - "src/modules/worker/fair-queue.ts"
       - ".github/workflows/kern-supervisor-ci.yml"
@@ -174,7 +200,10 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -c "REVOKE CONNECT ON DATABASE hermes_dev_guard FROM PUBLIC"
 
       - run: npx prisma generate
+      - run: npm run test:ci-contracts
       - run: npm run typecheck
+      - name: Validate test isolation before migrations
+        run: npm run test:db-isolation
       - run: npx prisma migrate deploy
       - run: npm run test:local-login
       - run: npm run test:response-format
@@ -206,6 +235,8 @@ jobs:
       - run: npm run test:kern-brief
       - run: npm run test:kern-takeaway
       - run: npm run test:report-quality
+      - run: npm run test:flow-zoom
+      - run: npm run test:role-callout-radius
       - run: npm run test:report-edit-wiring
       - run: npm run test:workforce
       - run: npm run test:golden-org
