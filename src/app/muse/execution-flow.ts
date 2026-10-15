@@ -3,6 +3,30 @@ import { buildLanes, NODE_LABEL, nodeLabel, toolInputPreview, type MissionEvent,
 export const FLOW_NODE = { width: 232, height: 146, column: 304, row: 180, padding: 32 };
 export const FLOW_GOAL = { width: 190, height: 116, offset: 246 };
 export type FlowPosition = { key: string; x: number; y: number; rank: number };
+export type FlowCamera = { scale: number; x: number; y: number };
+/** 默认视图的可读下限：节点标题 13px × .78 ≈ 10.1px（≥10px 可读线）；窄屏沿用首提交以来的 .86。 */
+export const FLOW_LEGIBLE_SCALE = { wide: .78, narrow: .86, narrowBelow: 480 };
+
+/**
+ * 默认相机（用户未手动缩放/平移时）：先按视口高度适配，再夹到可读下限；水平方向对准锚点
+ * 所在列（运行中 = 当前活动节点，已结束 = 最后一个步骤，拟定中 = 第一个步骤），并夹在已展示范围内。
+ * 「整图塞进视口」不再是默认——9 节点计划会被压到 0.33（标题 4.3px）；全景交给 minimap 与手动缩放。
+ */
+export function flowDefaultCamera(input: { size: { width: number; height: number }; layoutHeight: number; shownWidth: number; anchor?: { x: number; y: number } | null }): FlowCamera {
+  const { size, shownWidth, anchor } = input;
+  const layoutHeight = Math.max(1, input.layoutHeight);
+  const floor = size.width < FLOW_LEGIBLE_SCALE.narrowBelow ? FLOW_LEGIBLE_SCALE.narrow : FLOW_LEGIBLE_SCALE.wide;
+  const scale = Math.min(1, Math.max(floor, (size.height - 24) / layoutHeight));
+  // 装得下就居中；装不下就把锚点中心推到视口中心，再夹住，不露出画布之外的空白。
+  const place = (span: number, extent: number, at: number | undefined) => extent <= span
+    ? (span - extent) / 2
+    : at === undefined ? 0 : Math.min(0, Math.max(span - extent, span / 2 - at * scale));
+  return {
+    scale,
+    x: place(size.width, shownWidth * scale, anchor ? anchor.x + FLOW_NODE.width / 2 : undefined),
+    y: place(size.height, layoutHeight * scale, anchor ? anchor.y + FLOW_NODE.height / 2 : undefined),
+  };
+}
 
 /** Titles describe recorded work; the specialist remains a secondary label. */
 export function flowNodeTitle(node: MissionNodeView) {

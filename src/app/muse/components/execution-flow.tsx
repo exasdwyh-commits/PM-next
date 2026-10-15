@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { agentLabel, nodeLabel, reasonLabel, type MissionEvent, type MissionStatusView } from "../mission-timeline";
-import { FLOW_GOAL, FLOW_NODE, flowExcerpt, flowIsRunning, flowNodeDetails, flowNodeState, flowNodeSummary, flowNodeTitle, flowSourceUrl, layoutExecutionFlow, revealedFlowKeys } from "../execution-flow";
+import { FLOW_GOAL, FLOW_NODE, flowDefaultCamera, flowExcerpt, flowIsRunning, flowNodeDetails, flowNodeState, flowNodeSummary, flowNodeTitle, flowSourceUrl, layoutExecutionFlow, revealedFlowKeys } from "../execution-flow";
 import { I } from "./kit";
 import { Prose } from "./prose";
 import "./execution-flow.css";
@@ -30,10 +30,11 @@ export function ExecutionFlow({ status, events = [], connected = true, activity 
   const shownWidth = Math.max(FLOW_GOAL.width + FLOW_NODE.padding * 2, ...positions.filter(position => revealed.has(position.key)).map(position => position.x + FLOW_NODE.width + FLOW_NODE.padding));
   const goalY = (layout.height - FLOW_GOAL.height) / 2;
   const selected = status.nodes.find(node => node.key === selectedKey);
-  const fitScale = Math.min(1, Math.max(size.width < 480 ? .86 : .72, Math.min((size.width - 24) / shownWidth, (size.height - 24) / layout.height)));
-  const fitted = { scale: fitScale, x: (size.width - shownWidth * fitScale) / 2, y: (size.height - layout.height * fitScale) / 2 };
-  const camera = view ?? fitted;
   const activeNodes = status.nodes.filter(node => flowNodeState(node, status).tone === "active");
+  // 默认相机：可读优先（fit-to-height，夹到 ≥.78）并对准当前列；锚点口径与「定位当前步骤」按钮一致。
+  const anchorKey = activeNodes[0]?.key ?? (status.status === "DRAFT" ? nodes[0]?.key : nodes.at(-1)?.key);
+  const fitted = flowDefaultCamera({ size, layoutHeight: layout.height, shownWidth, anchor: positions.find(item => item.key === anchorKey) });
+  const camera = view ?? fitted;
   const running = flowIsRunning(status, connected) && visible && activeNodes.length > 0;
   const current = activity ?? (activeNodes.length ? activeNodes.map(flowNodeTitle).join("、") : status.outcome ? "执行已结束" : status.paused ? "已暂停" : "等待下一步执行");
   const hidden = status.nodes.length - nodes.length;
@@ -160,6 +161,7 @@ export function ExecutionFlow({ status, events = [], connected = true, activity 
             setView({ ...camera, x: size.width / 2 - x * camera.scale, y: size.height / 2 - y * camera.scale });
             if (event.detail === 0) setView(null);
           }}><svg viewBox={`0 0 ${worldWidth} ${layout.height}`} preserveAspectRatio="none" aria-hidden="true"><rect className="m-flow-map-goal" x={FLOW_NODE.padding} y={goalY} width={FLOW_GOAL.width} height={FLOW_GOAL.height} rx="10" />{positions.map(position => <rect key={position.key} data-flow-state={flowNodeState(status.nodes.find(node => node.key === position.key)!, status).tone} opacity={revealed.has(position.key) ? 1 : .25} x={position.x} y={position.y} width={FLOW_NODE.width} height={FLOW_NODE.height} rx="10" />)}<rect className="m-flow-map-window" x={Math.max(0, -camera.x / camera.scale)} y={Math.max(0, -camera.y / camera.scale)} width={Math.min(worldWidth, size.width / camera.scale)} height={Math.min(layout.height, size.height / camera.scale)} /></svg></button> : null}
+          {overflow && !view && status.nodes.length ? <span className="m-flow-pan-hint" aria-hidden="true">可拖动画布 · 点击全景定位</span> : null}
           {!status.nodes.length ? <p className="m-flow-empty">还没有可展示的执行步骤。</p> : null}
         </div>
         {layout.unresolved.length ? <p className="m-flow-warning">部分步骤的依赖存在循环，无法确定执行顺序。</p> : null}

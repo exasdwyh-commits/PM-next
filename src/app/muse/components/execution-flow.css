@@ -144,3 +144,6 @@
 }
 .m-flow-wires g[data-done] .m-flow-origin-wire { stroke: color-mix(in srgb, var(--m-ok) 42%, var(--m-hairline)); stroke-dasharray: none; }
 .m-flow-wires g[data-flowing] .m-flow-origin-wire { stroke: var(--m-accent-line); stroke-dasharray: none; }
+/* 默认相机只保证「可读 + 对准当前列」，其余靠拖拽/全景——贴片明说可拖；用户一旦拖动或缩放（view 非空）即消失。 */
+.m-flow-pan-hint { position: absolute; left: 12px; bottom: 12px; padding: 4px 9px; border: 1px solid var(--m-hairline-2); border-radius: 999px; background: var(--m-surface); color: var(--m-ink-3); font-size: 10px; line-height: 14px; white-space: nowrap; pointer-events: none; box-shadow: 0 2px 7px color-mix(in srgb, var(--m-ink) 5%, transparent); animation: m-flow-appear .3s .4s ease backwards; }
+@media (max-width: 640px) { .m-flow-pan-hint { left: 10px; bottom: 10px; } }
