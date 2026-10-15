@@ -14,6 +14,7 @@ import type { ResponseEnvelope } from "@/modules/response-format/types";
 import { loadMissionSourceEvents } from "./research-sources";
 import { loadMissionReport } from "./takeaway";
 import { buildMissionPoster, missionPosterCitation } from "./report-poster";
+import { assessMissionReportQuality } from "./report-quality";
 
 export async function missionResponseEnvelope(session: SessionContext, missionTaskId: string): Promise<ResponseEnvelope> {
   return (await missionResponsePresentation(session, missionTaskId)).envelope;
@@ -40,7 +41,9 @@ export async function missionResponsePresentation(session: SessionContext, missi
     quota,
     researchSources: report.researchSources ?? [],
   });
-  const poster = report.playbook === "NEW_PRODUCT" && report.outcome === "COMPLETED" && report.conclusion
-    ? buildMissionPoster(report) : null;
+  // 质量门禁先于投影：不合格的结论不直接当正式报告发出去（状态随引用一起给前端）。
+  const quality = report.playbook === "NEW_PRODUCT" && report.outcome === "COMPLETED" && report.conclusion
+    ? assessMissionReportQuality(report) : null;
+  const poster = quality ? buildMissionPoster(report, quality) : null;
   return { envelope, poster, citation: poster ? missionPosterCitation(poster, missionTaskId) : null };
 }

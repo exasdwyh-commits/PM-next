@@ -3,6 +3,7 @@ import type { ExecutiveReportPayload } from "@/shared/executive-report-types";
 import type { ExecutiveReportCitation } from "@/shared/executive-report-citation";
 import { conclusionLead, resolveSourceMarkers, type MissionReport } from "./report-format";
 import { stripToolRequestNoise } from "./tools";
+import type { ReportQuality } from "./report-quality";
 
 /** 交付前最后一道复读防护：历史任务正文里已存下的工具请求行，打开报告时也应干净。 */
 function clean(body: string): string {
@@ -25,7 +26,7 @@ function riskItems(text: string): string[] {
 }
 
 /** Keep the entire original Markdown, including unrecognized sections and fenced code. */
-export function buildMissionPoster(report: MissionReport): ExecutiveReportPayload {
+export function buildMissionPoster(report: MissionReport, quality?: ReportQuality): ExecutiveReportPayload {
   const sources = report.demo ? [] : report.researchSources ?? [];
   const text = clean(resolveSourceMarkers(report.conclusion ?? "", sources));
   const unknowns = [...new Set([text, ...report.steps.map(step => step.output ?? "")]
@@ -36,7 +37,8 @@ export function buildMissionPoster(report: MissionReport): ExecutiveReportPayloa
     title: `${report.title}${report.demo ? "（演示）" : ""} · 新产品研究报告`,
     createdAt: report.createdAt,
     summary,
-    verificationStatus: "READY_FOR_HUMAN_REVIEW",
+    verificationStatus: quality?.status === "BLOCKED" ? "BLOCKED_BY_QUALITY" : "READY_FOR_HUMAN_REVIEW",
+    quality: quality ?? null,
     // Never turn a model's self-declared FACT, QA PASS, or a captured URL into verified evidence.
     conclusions: summary ? [{ claim: summary, claimKind: "INFERENCE", verificationRefs: [] }] : [],
     unknowns,
@@ -54,6 +56,7 @@ export function missionPosterCitation(report: ExecutiveReportPayload, missionId:
   return {
     kind: "mission-report", ref: missionId, title: report.title ?? "新产品研究报告",
     summary: report.summary,
+    ...(report.quality ? { qualityStatus: report.quality.status } : {}),
     stats: {
       conclusions: report.conclusions?.length ?? 0,
       verified: 0,

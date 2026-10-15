@@ -23,8 +23,8 @@ import {
   extractDecision,
   extractRecommendation,
   goalAudience,
-  goalHeadline,
   parseConstraints,
+  reportTitle,
   type MissionReport,
 } from "./report-format";
 
@@ -46,7 +46,7 @@ export async function loadMissionReport(session: SessionContext, missionTaskId: 
   return {
     missionTaskId: status.missionTaskId,
     playbook: status.playbook,
-    title: goalHeadline(status.goal),
+    title: reportTitle(status.goal),
     goal: status.goal,
     status: status.status,
     outcome: status.outcome?.status ?? null,
