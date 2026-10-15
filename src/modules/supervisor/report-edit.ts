@@ -18,6 +18,7 @@ import { reportSubject, type MissionReport } from "./report-format";
 /** 编辑用的模型通道：与任务节点同一条模型通路，由执行器传入。 */
 export type ReportEditCall = (
   messages: { role: "system" | "user"; content: string }[],
+  opts?: { signal?: AbortSignal },
 ) => Promise<{ text: string } | { unavailable: string }>;
 
 /** 可以自动补齐的规则；其余（主题、演示）需要重跑而不是改写。 */
@@ -106,7 +107,7 @@ export async function autoFixMissionReport(input: {
   signal?.addEventListener("abort", onAbort);
   try {
     const out = await Promise.race([
-      call(buildEditMessages(report, fixable)),
+      call(buildEditMessages(report, fixable), { signal: controller.signal }),
       new Promise<{ timeout: true }>((resolve) => controller.signal.addEventListener("abort", () => resolve({ timeout: true }))),
     ]);
     if ("timeout" in out) return keep(true, `自动补齐超时（${timeoutMs}ms），保留原稿与待补证状态。`);

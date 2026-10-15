@@ -117,11 +117,16 @@ async function runMissionOnce(mode: "adopt" | "reject") {
     const snap = synth?.contextSnapshot as { executorResult?: { output?: unknown } } | null;
     if (process.env.DEBUG_WIRING === "1") {
       const st = await getKernMissionStatus(session, mission.missionTaskId);
-      console.log(`[debug] 结局=${JSON.stringify(st.outcome)} 节点=${st.nodes.map((n) => `${n.nodeKey}/${n.kind}/${n.status}`).join(" ")}`);
+      console.log(`[debug] 结局=${JSON.stringify(st.outcome)} 节点=${st.nodes.map((n) => `${n.key}/${n.kind}/${n.status}`).join(" ")}`);
       console.log(`[debug] 综合产出=${String((synth?.contextSnapshot as { executorResult?: { output?: unknown } } | null)?.executorResult?.output ?? "").slice(0, 120)}`);
       console.log(`[debug] 模型调用=${modelCalls} 编辑调用=${editCalls}`);
     }
-    return { editCalls, output: typeof snap?.executorResult?.output === "string" ? snap.executorResult.output : "" };
+    const finalStatus = await getKernMissionStatus(session, mission.missionTaskId);
+    return {
+      editCalls,
+      outcomeStatus: finalStatus.outcome?.status ?? null,
+      output: typeof snap?.executorResult?.output === "string" ? snap.executorResult.output : "",
+    };
   } finally {
     setMissionModelInvokerForTest(null);
     await markWorkerStopped();
@@ -130,7 +135,6 @@ async function runMissionOnce(mode: "adopt" | "reject") {
     await prisma.organization.delete({ where: { id: org.id } });
   }
 }
-
 test("接线守卫：执行器在综合结论定稿处调用有界编辑，且只对新产品研究报告生效", () => {
   const src = fs.readFileSync(new URL("../src/modules/supervisor/generic-executor.ts", import.meta.url), "utf8");
   assert.match(src, /autoFixMissionReport/, "执行器必须调用有界编辑");
@@ -142,14 +146,16 @@ test("接线守卫：执行器在综合结论定稿处调用有界编辑，且�
 });
 
 test("编辑后更好：真实任务链里采用补齐后的正文（生产调用接线）", async () => {
-  const { editCalls, output } = await runMissionOnce("adopt");
-  assert.ok(editCalls >= 1, `应真的调用一次编辑模型，实际 ${editCalls} 次`);
+  const { editCalls, outcomeStatus, output } = await runMissionOnce("adopt");
+  assert.equal(editCalls, 1, `有界编辑应当恰好调用一次模型，实际 ${editCalls} 次`);
+  assert.equal(outcomeStatus, "COMPLETED", "采用补齐正文后任务应当正常完成");
   assert.ok(output.includes(FIXED_MARK), `综合结论应采用补齐后的正文，实际产出：${output.slice(0, 200)}`);
 });
 
 test("编辑结果畸形：保留原稿，任务照常完成，不兜底成已核实", async () => {
-  const { editCalls, output } = await runMissionOnce("reject");
-  assert.ok(editCalls >= 1, `应尝试一次编辑，实际 ${editCalls} 次`);
+  const { editCalls, outcomeStatus, output } = await runMissionOnce("reject");
+  assert.equal(editCalls, 1, `畸形分支也应当恰好尝试一次编辑，实际 ${editCalls} 次`);
+  assert.equal(outcomeStatus, "COMPLETED", "畸形编辑结果也应当保留原稿并正常完成");
   assert.ok(!output.includes(FIXED_MARK), "畸形编辑结果不能被采用");
   assert.ok(output.includes(ORIGINAL_MARK), `应保留原稿，实际产出：${output.slice(0, 200)}`);
   assert.doesNotMatch(output, /已核实/, "任何情况下都不能把没修好的内容写成已核实");

@@ -112,18 +112,30 @@ test("补齐有效：重校后问题减少即采用", async () => {
   assert.match(out.note, /已采用/);
 });
 
-test("超时：保留原稿与待补证状态", async () => {
+test("超时：保留原稿与待补证状态，且取消信号贯通到底层调用", async () => {
   const { report, quality } = draftReport();
+  let sawSignal = false;
+  let signalAborted = false;
   const out = await autoFixMissionReport({
     report,
     quality,
     timeoutMs: 30,
-    call: () => new Promise(() => {}),
+    call: (_messages, opts) => {
+      sawSignal = opts?.signal instanceof AbortSignal;
+      opts?.signal?.addEventListener("abort", () => {
+        signalAborted = true;
+      });
+      return new Promise(() => {});
+    },
   });
   assert.equal(out.attempted, true);
   assert.equal(out.applied, false);
   assert.equal(out.conclusion, report.conclusion);
   assert.match(out.note, /超时/);
+  assert.equal(sawSignal, true, "编辑超时必须把 AbortSignal 传给底层模型调用");
+  // 超时触发 abort 后，底层调用应当能观察到取消。
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(signalAborted, true, "超时后底层调用的 signal 应当被 abort");
 });
 
 test("空响应：不采用", async () => {

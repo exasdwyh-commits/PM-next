@@ -788,8 +788,18 @@ export const runMissionNodeAgent: ExecutorStrategy = async (context): Promise<Ex
       report: draft,
       quality: assessMissionReportQuality(draft),
       signal: context.signal,
-      call: async (messages) => {
-        const out = await call(messages.map((m) => ({ role: m.role, content: m.content })));
+      call: async (messages, opts) => {
+        await context.assertActive?.();
+        (opts?.signal ?? context.signal)?.throwIfAborted();
+        const out = await invoker({
+          organizationId: context.session.organizationId,
+          agentRunId: context.task.runId,
+          agentCode: task.agent.code,
+          taskClass: node.taskClass,
+          messages: messages.map((m) => ({ role: m.role, content: m.content })),
+          signal: opts?.signal ?? context.signal,
+          beforeAttempt: context.assertActive,
+        });
         return "unavailable" in out ? { unavailable: out.unavailable } : { text: out.text };
       },
     });
