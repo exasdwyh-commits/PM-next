@@ -23,6 +23,62 @@ import {
   parseWorkItemTask,
 } from "../intent-grammar";
 
+import { labelActionProposalStatus } from "@/shared/status-labels";
+
+/**
+ * 幂等命中既有提议时，按提议的真实状态生成反馈。
+ *
+ * 状态只取代码中已有的 ActionProposalStatus（DRAFT / PENDING_CONFIRMATION /
+ * APPLIED / REJECTED / SUPERSEDED / EXPIRED），不新增状态；默认分支也不假设
+ * 「待确认」或「已创建」，只如实说明本次没有创建产品。
+ * APPLIED 只说存在执行记录，不承诺产品、版本、项目现在仍全部存在。
+ */
+export function intakeProposalFeedback(status: string | null | undefined): {
+  headline: string;
+  detail: string;
+} {
+  switch (status) {
+    case "PENDING_CONFIRMATION":
+      return {
+        headline:
+          "尚未创建产品，也没有生成初始版本和项目：等待你批准写入。",
+        detail:
+          "确认入口是本页提议卡上的「批准写入」；确认后服务端会再查一次权限与版本，通过后一次性建好产品、初始版本 v1 和对应项目。",
+      };
+    case "APPLIED":
+      return {
+        headline: "此前的新建提议已执行，本次未重复创建。",
+        detail:
+          "我这里只有当时的执行记录，没有重新核验产品、版本与项目现在是否仍全部存在；要确认当前结果，请打开工作台上的对应对象。",
+      };
+    case "REJECTED":
+      return {
+        headline: "此前提议已被拒绝，本次未创建产品。",
+        detail: "拒绝是既有治理流程的结果，我不替你跳过；需要继续时请明确告诉我你的决定。",
+      };
+    case "SUPERSEDED":
+      return {
+        headline: "此前提议已被替代，本次未创建产品。",
+        detail: "替代是既有治理流程的结果，我不替你跳过；需要继续时请明确告诉我你的决定。",
+      };
+    case "EXPIRED":
+      return {
+        headline: "此前提议已过期，本次未创建产品。",
+        detail: "过期是既有治理流程的结果，我不替你跳过；需要继续时请明确告诉我你的决定。",
+      };
+    case "DRAFT":
+      return {
+        headline: "此前提议仍是草稿，尚未进入确认流程，本次未创建产品。",
+        detail: "草稿还没有被提交确认，我不替你推进；需要继续时请明确告诉我你的决定。",
+      };
+    default:
+      return {
+        headline: `此前提议当前状态为「${labelActionProposalStatus(status)}」，本次未创建产品。`,
+        detail: "我没有按「待确认」或「已创建」来假设它；需要继续时请明确告诉我你的决定。",
+      };
+  }
+}
+
 export const handleProductWriteCapability: KernCapabilityHandler = async (
   session: SessionContext,
   intent: KernCapabilityIntent,
@@ -125,7 +181,7 @@ export const handleProductWriteCapability: KernCapabilityHandler = async (
             "",
             missing.map((f) => `${f.label}：`).join("\n"),
             "",
-            "补齐后我会生成受治理的新建产品动作；低风险内部动作直接执行，命中受保护 Gate 才会再问你。",
+            "补齐后会整理成待确认提议；你批准写入后，才会创建产品、初始版本和项目。",
           ].join("\n"),
           citations: [],
         };
@@ -151,6 +207,9 @@ export const handleProductWriteCapability: KernCapabilityHandler = async (
         rationale: `来自本会话对话内容整理，五项均为用户原话`,
       });
 
+      // 幂等命中时按提议真实状态反馈：已执行就不能再说「尚未创建」。
+      const feedback = intakeProposalFeedback(created.status);
+
       return {
         toolKey: "advisor.proposeProduct",
         text: [
@@ -159,7 +218,8 @@ export const handleProductWriteCapability: KernCapabilityHandler = async (
           INTAKE_FIELDS.map((f) => `- ${f.label}：${draft[f.key]}`).join("\n"),
           "",
           created.created ? "" : "（命中幂等：同样内容的提议此前已生成，未重复创建）",
-          "通过风险策略后会一次建好产品、初始版本 v1 和对应项目；只有受保护动作才停在人工 Gate。",
+          feedback.headline,
+          feedback.detail,
           "价格、目标成本、剂型规格、禁用项这些没提到的，会如实记为未知，不会替你编一个数。",
         ]
           .filter((x) => x !== "")

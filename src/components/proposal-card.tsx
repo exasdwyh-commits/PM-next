@@ -4,6 +4,7 @@ import React from "react";
 import { Badge, cx } from "@/components/ui";
 import Icon from "@/components/icons";
 import { fmtDateTime } from "@/shared/datetime";
+import { PROPOSAL_ACTION_LABEL, summarizeProposal } from "@/shared/proposal-summary";
 
 /**
  * 顾问提议卡片（蓝图 §5.3：提议 → 权限和版本检查 → 用户确认 → 业务命令 → 回执）
@@ -52,11 +53,10 @@ const STATUS_TONE: Record<string, "ok" | "warn" | "danger" | "neutral" | "info">
   EXPIRED: "neutral",
 };
 
-const ACTION_LABEL: Record<string, string> = {
-  CREATE_WORK_ITEM: "创建内部工作项",
-  UPDATE_FIELD: "修改产品方案字段",
-  CREATE_REVISION: "创建产品新版本",
-};
+/** 动作名统一取共享模块：与 Muse 提议卡用同一套措辞，不另立一份。 */
+function actionLabelOf(actionType: string): string {
+  return PROPOSAL_ACTION_LABEL[actionType] ?? actionType;
+}
 
 /** 同步、确定性的短指纹：用于把"确认说明"纳入幂等键 */
 function fnv1a(input: string): string {
@@ -114,8 +114,17 @@ function describe(proposal: ProposalCardData): { headline: string; rows: { k: st
     };
   }
 
+  // 建品提议：批准前必须看清五项内容，不能只剩一句「新建产品」。
+  if (proposal.actionType === "CREATE_PRODUCT") {
+    const { lines } = summarizeProposal("CREATE_PRODUCT", proposal.payloadJson);
+    return {
+      headline: `新建产品并立项：${text(p.name)}`,
+      rows: lines.map((line) => ({ k: line.k, v: line.v })),
+    };
+  }
+
   return {
-    headline: ACTION_LABEL[proposal.actionType] ?? proposal.actionType,
+    headline: actionLabelOf(proposal.actionType),
     rows: [{ k: "载荷", v: <code className="muted-line">{JSON.stringify(p)}</code> }],
   };
 }
@@ -136,6 +145,10 @@ export default function ProposalCard({
   const [receipt, setReceipt] = React.useState<any>(receiptProp ?? null);
   const [showReject, setShowReject] = React.useState(false);
   const [rejectReason, setRejectReason] = React.useState("");
+  /** 「稍后处理」：只在本页折叠，不写数据库、不改提议状态 */
+  const [deferred, setDeferred] = React.useState(false);
+  /** 上一次提交的动作，供失败后原样重试（沿用同一幂等键，不会二次写入） */
+  const [lastAction, setLastAction] = React.useState<"confirm" | "reject" | null>(null);
 
   // useState 只在挂载时取初值：若父级在本卡片已挂载之后才写回执
   // （确认后列表刷新，卡片从「待确认」区挪到「决策记录」区），本地 state 不会自动跟上。
@@ -151,6 +164,7 @@ export default function ProposalCard({
     if (busy || !pending) return;
     setBusy(true);
     setErr(null);
+    setLastAction("confirm");
     try {
       // 幂等键 = 提议 id + 确认说明指纹：重复点击命中同一条回执，
       // 改了说明则是另一个请求（服务端会因提议已应用而返回既有回执，不二次写入）。
@@ -179,6 +193,7 @@ export default function ProposalCard({
     }
     setBusy(true);
     setErr(null);
+    setLastAction("reject");
     try {
       const res = await fetch(`/api/proposals/${proposal.id}/reject`, {
         method: "POST",
@@ -201,7 +216,7 @@ export default function ProposalCard({
     <div className={cx("hermes-row", pending && "is-selected")} style={{ display: "block" }}>
       <div className="hermes-row-head">
         <span className="hermes-row-title">
-          <Icon name="nodes" size={14} /> {ACTION_LABEL[proposal.actionType] ?? proposal.actionType}
+          <Icon name="nodes" size={14} /> {actionLabelOf(proposal.actionType)}
         </span>
         <Badge tone={STATUS_TONE[proposal.status] ?? "info"}>
           {STATUS_LABEL[proposal.status] ?? proposal.status}
@@ -231,18 +246,49 @@ export default function ProposalCard({
       </p>
 
       {err && (
-        <div className="hermes-banner is-danger" style={{ marginTop: 10 }}>
-          {err}
+        <div className="hermes-banner is-danger" style={{ marginTop: 10 }} data-testid="proposal-card-error">
+          <div>{err}</div>
+          <div style={{ marginTop: 6 }}>
+            <button
+              type="button"
+              className="hermes-outline-btn"
+              data-testid="proposal-card-retry"
+              disabled={busy}
+              onClick={() => (lastAction === "reject" ? reject() : confirm())}
+            >
+              {busy ? "重试中…" : "重试"}
+            </button>
+            <span className="hermes-note" style={{ marginLeft: 8 }}>
+              提议仍是待确认，没有写入任何业务数据。
+            </span>
+          </div>
         </div>
       )}
 
-      {pending && (
+      {pending && deferred && (
+        <div className="hermes-banner" style={{ marginTop: 10 }} data-testid="proposal-card-deferred">
+          <div>已推迟处理：提议仍是「待你确认」，不会自动执行，也不等于拒绝；业务数据一个都没写。</div>
+          <button
+            type="button"
+            className="hermes-outline-btn"
+            style={{ marginTop: 6 }}
+            data-testid="proposal-card-restore"
+            disabled={busy}
+            onClick={() => setDeferred(false)}
+          >
+            继续处理
+          </button>
+        </div>
+      )}
+
+      {pending && !deferred && (
         <div className="hermes-form-grid" style={{ marginTop: 12 }}>
           <label className="hermes-label">
             确认说明（写入审计；建议写明依据，便于日后追溯）
             <input
               className="hermes-input"
               value={reason}
+              disabled={busy}
               onChange={(e) => setReason(e.target.value)}
               placeholder="例如：已与渠道确认，按新价格预期再跑一轮"
             />
@@ -254,6 +300,7 @@ export default function ProposalCard({
               <input
                 className="hermes-input"
                 value={rejectReason}
+                disabled={busy}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="例如：当前证据不足，暂不修改方案"
               />
@@ -270,11 +317,23 @@ export default function ProposalCard({
                 {busy ? "提交中…" : "确认拒绝"}
               </button>
             ) : (
-              <button className="hermes-primary-btn" onClick={confirm} disabled={busy}>
+              <button className="hermes-primary-btn" onClick={confirm} disabled={busy} data-testid="proposal-card-confirm">
                 <Icon name="arrow" size={15} />
                 {busy ? "应用中…" : "确认并应用"}
               </button>
             )}
+            <button
+              type="button"
+              className="hermes-outline-btn"
+              data-testid="proposal-card-defer"
+              disabled={busy}
+              onClick={() => {
+                setDeferred(true);
+                setShowReject(false);
+              }}
+            >
+              稍后处理
+            </button>
           </div>
         </div>
       )}

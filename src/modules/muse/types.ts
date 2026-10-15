@@ -76,6 +76,10 @@ export interface Decision {
   evidence: EvidenceRef[];
   dueLabel: string;
   raisedBy: string;
+  /** 提议内容摘要：确认前必须能看清「将要写入什么」，只有标题等于让用户盲批。 */
+  summary?: string[];
+  /** 证据为空时的提示：不同来源的提议依据不同，不能一律说「没有任何依据」。 */
+  emptyEvidenceHint?: string;
 }
 
 export type MessageBlock =
@@ -111,7 +115,7 @@ export interface ConversationRuntimeConfig {
   capabilityKeys: string[] | null;
   /** 文件式能力包 id（`<域>.<名称>`）；null = 不限，走自动识别。 */
   capabilityPackIds: string[] | null;
-  /** 授权档位：auto 常规协作；full 自行决定草稿细节与方案取舍，业务操作仍按确认要求执行。 */
+  /** 授权档位：auto 常规协作；full 自行决定草稿细节与方案取舍，业务操作仍按确认要求执行（全委托不代替用户在提议卡上批准）。 */
   delegationMode: "auto" | "full";
 }
 
