@@ -152,5 +152,7 @@ test("MP11：不可撤回的操作接入长按确认（取消任务、受保护�
   const ws = fs.readFileSync(path.join(process.cwd(), "src/app/muse/components/mission-workspace.tsx"), "utf8");
   assert.match(ws, /<HoldToConfirm[^>]*hint="按住取消任务"/);
   const turn = fs.readFileSync(path.join(process.cwd(), "src/app/muse/components/turn.tsx"), "utf8");
-  assert.match(turn, /d\.gate && o\.kind === "approve" \? \(\s*<HoldToConfirm/);
+  // 批准按钮可包一层 data-testid 容器（真实指针事件/自动化定位用），
+  // 关键是 gate 批准分支必须落到 HoldToConfirm（长按确认），不能退回单击按钮。
+  assert.match(turn, /d\.gate && o\.kind === "approve" \? \([\s\S]{0,120}?<HoldToConfirm/);
 });
