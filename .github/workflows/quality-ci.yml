@@ -50,3 +50,27 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
+
+  report-theme-contrast:
+    # T19：报告卡/结论卡在明暗 × 三角色 × 多宽度下的真实组件对比度探针（离线渲染，不需要数据库）。
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:report-theme-contrast
+      - name: Upload theme contrast evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-theme-contrast
+          path: outputs/block-1-theme/fixed/
+          if-no-files-found: ignore
