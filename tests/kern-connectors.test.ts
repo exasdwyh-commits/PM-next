@@ -3,7 +3,9 @@
  * 走真实的 safeFetch 传输（allowHosts 放行本机端口），而不是替身。
  */
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import http from "node:http";
+import path from "node:path";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 import { McpHttpClient, parseRpcResponse, safeTransport } from "../src/modules/connectors/mcp-client";
@@ -105,6 +107,24 @@ test("U01：工具信任——冲突声明按写、无声明不是只读、名�
   const legacy = [{ name: "get_user", title: "get_user", description: "", effect: "read" as const, enabled: true, capability: "connector.read", inputSchema: null }];
   const [m] = toToolSpecs([{ name: "get_user" }], legacy);
   assert.deepEqual([m.effect, m.enabled, m.capability], ["write", false, "external.send"], "旧的伪只读工具刷新后必须停用");
+  // 合规优化：不静默停用——记录依据与原因；不提供「自行标记为只读」的旁路
+  assert.equal(m.basis, "undeclared");
+  assert.match(m.reconfirm ?? "", /没有声明该工具只读/, "强制停用必须给出原因");
+  assert.match(m.reconfirm ?? "", /每次调用仍需你确认/, "重新允许后仍逐次审批");
+  const [kept] = toToolSpecs([{ name: "get_user" }], [m]);
+  assert.equal(kept.enabled, false);
+  assert.equal(kept.reconfirm, m.reconfirm, "仍停用时原因保留，不会在下次刷新时消失");
+  const [allowed] = toToolSpecs([{ name: "get_user" }], [{ ...kept, enabled: true }]);
+  assert.deepEqual([allowed.effect, allowed.enabled, allowed.capability, allowed.reconfirm], ["write", true, "external.send", null], "用户重新允许：仍是写工具（逐次审批），原因清除");
+  const [quiet] = toToolSpecs([{ name: "get_user" }], [{ ...legacy[0], enabled: false }]);
+  assert.equal(quiet.reconfirm, null, "本来就停用的工具不打扰用户");
+  const [back] = toToolSpecs([{ name: "get_user", annotations: { readOnlyHint: true } }], [kept]);
+  assert.deepEqual([back.effect, back.basis, back.reconfirm], ["read", "declared-read", null], "服务端补上只读声明后恢复为读，原因清除");
+  assert.equal(c.basis, "conflict");
+  assert.match(toToolSpecs([conflict], [{ ...legacy[0], name: "list_and_purge" }])[0].reconfirm ?? "", /自相矛盾/);
+  // 界面必须把原因展示给用户（停用状态下）
+  const sheets = fs.readFileSync(path.join(process.cwd(), "src/app/muse/components/sheets.tsx"), "utf8");
+  assert.match(sheets, /!t\.enabled && t\.reconfirm \? <p[^>]*data-testid="conn-tool-reconfirm"/);
 });
 
 test("CN1：读写分类与默认开关；刷新保留开关，读变写强制停用", () => {
