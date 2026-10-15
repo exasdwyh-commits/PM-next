@@ -190,11 +190,9 @@ export function CheckIn({
           {d.options.map((o, i) =>
             // 触及受保护动作（gate）的批准不可撤回：用长按确认防误触（默认 600ms）。
             d.gate && o.kind === "approve" ? (
-              <span key={o.id} data-testid="checkin-approve">
-                <HoldToConfirm v="primary" hint={`按住${o.label}`} disabled={busy} onConfirm={() => onResolve(d, o)}>
-                  {o.label}
-                </HoldToConfirm>
-              </span>
+              <HoldToConfirm key={o.id} testId="checkin-approve" v="primary" hint={`按住${o.label}`} disabled={busy} onConfirm={() => onResolve(d, o)}>
+                {o.label}
+              </HoldToConfirm>
             ) : (
               <Btn
                 key={o.id}

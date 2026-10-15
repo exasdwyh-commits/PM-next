@@ -165,7 +165,7 @@ async function main() {
   };
   const card = (id: string) => page.locator(`[data-decision-id="${id}"]`);
   const holdApprove = async (proposalId: string, ms: number) => {
-    const btn = card(proposalId).locator('[data-testid="checkin-approve"] button').first();
+    const btn = card(proposalId).locator('button[data-testid="checkin-approve"]').first();
     await btn.scrollIntoViewIfNeeded();
     await btn.hover();
     await page.waitForTimeout(150);
