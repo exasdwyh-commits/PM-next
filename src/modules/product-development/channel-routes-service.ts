@@ -31,6 +31,7 @@ import {
   type PotentialGateInput,
   type ProductPotentialAssessment,
 } from "./potential-assessment";
+import { compileProductPotentialInput } from "./potential-compiler";
 import { labelChannelRuleRecordStatus, labelChannelSpecRouteStatus } from "@/shared/status-labels";
 
 const KEY_RE = /^[a-z0-9][a-z0-9_-]{1,63}$/;
@@ -974,6 +975,128 @@ export async function evaluateAndSaveChannelRoute(
   });
 }
 
+/** 参与证据指纹的证据行（只取指纹需要的字段）。 */
+interface FingerprintEvidenceRow {
+  id: string;
+  hash: string;
+  nature: string;
+  verifyStatus: string;
+  validationStatus: string;
+  infoDate: Date | null;
+  channel: string | null;
+  productRef: string | null;
+}
+
+/**
+ * 潜力评估落库（两个入口共用）。
+ *
+ * 为什么要抽出来：`ASSESS_POTENTIAL`（维度由调用方手填）与
+ * `ASSESS_POTENTIAL_FROM_EVIDENCE`（维度由 potential-compiler 从证据编译）
+ * 必须写同一张表、同一套快照与审计字段，否则两条路径的结果不可比、不可回溯。
+ * 判定本身仍由 `assessProductPotential` 在调用方算好后传入，这里不重算。
+ */
+async function persistPotentialAssessment(params: {
+  session: SessionContext;
+  productId: string;
+  versionId: string;
+  route: { id: string; routeKey: string } | null;
+  dimensions: PotentialDimensionInput[];
+  gates: PotentialGateInput[];
+  marketValidationVerified: boolean;
+  assessment: ProductPotentialAssessment;
+  evidenceRows: FingerprintEvidenceRow[];
+  /** 审计 details 里标记维度来源，便于事后区分「手填」与「编译」。 */
+  dimensionSource: "MANUAL" | "EVIDENCE_COMPILER";
+}) {
+  const { session, productId, versionId, route, assessment } = params;
+
+  const fingerprint = evidenceFingerprint({
+    productVersionId: versionId,
+    channelRouteId: route?.id || null,
+    evidence: params.evidenceRows.map((evidence) => ({
+      id: evidence.id,
+      hash: evidence.hash,
+      nature: evidence.nature,
+      verifyStatus: evidence.verifyStatus,
+      validationStatus: evidence.validationStatus,
+      infoDate: evidence.infoDate?.toISOString() || null,
+      channel: evidence.channel,
+      productRef: evidence.productRef,
+    })),
+  });
+
+  return prisma.$transaction(async (tx) => {
+    const previous = await tx.potentialAssessmentRecord.findFirst({
+      where: {
+        organizationId: session.organizationId,
+        productVersionId: versionId,
+        ...(route
+          ? {
+              channelRoute: {
+                productVersionId: versionId,
+                routeKey: route.routeKey,
+              },
+            }
+          : { channelRouteId: null }),
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const created = await tx.potentialAssessmentRecord.create({
+      data: {
+        organizationId: session.organizationId,
+        productVersionId: versionId,
+        channelRouteId: route?.id || null,
+        ruleVersion: PRODUCT_POTENTIAL_RULE_VERSION,
+        dimensionSnapshot: params.dimensions as unknown as Prisma.InputJsonValue,
+        gateSnapshot: params.gates as unknown as Prisma.InputJsonValue,
+        evidenceFingerprint: fingerprint,
+        marketValidationVerified: params.marketValidationVerified,
+        verdict: assessment.verdict,
+        diagnosticIndex: assessment.diagnosticIndex,
+        coverageRatio: assessment.coverageRatio,
+        verifiedCoverageRatio: assessment.verifiedCoverageRatio,
+        confidenceBand: assessment.confidenceBand,
+        reasons: assessment.reasons as Prisma.InputJsonValue,
+        blockers: assessment.blockers as unknown as Prisma.InputJsonValue,
+        unknownGates:
+          assessment.unknownGates as unknown as Prisma.InputJsonValue,
+        supersedesId: previous?.id || null,
+        createdById: session.userId,
+      },
+    });
+
+    await createAuditEventInTx(tx, {
+      actorId: session.userId,
+      action: "PRODUCT_POTENTIAL_ASSESSED",
+      objectType: "PotentialAssessmentRecord",
+      objectId: created.id,
+      summary: `保存产品潜力评估：${assessment.verdict}`,
+      details: {
+        productId,
+        productVersionId: versionId,
+        channelRouteId: route?.id || null,
+        verdict: assessment.verdict,
+        diagnosticIndex: assessment.diagnosticIndex,
+        coverageRatio: assessment.coverageRatio,
+        verifiedCoverageRatio: assessment.verifiedCoverageRatio,
+        confidenceBand: assessment.confidenceBand,
+        marketValidationVerified: params.marketValidationVerified,
+        dimensionSource: params.dimensionSource,
+        evidenceFingerprint: fingerprint,
+        supersedesId: previous?.id || null,
+      } as Prisma.InputJsonValue,
+    });
+
+    return {
+      record: created,
+      assessment,
+      marketValidationVerified: params.marketValidationVerified,
+      evidenceFingerprint: fingerprint,
+    };
+  });
+}
+
 export async function assessAndSaveProductPotential(
   session: SessionContext,
   productId: string,
@@ -1078,90 +1201,193 @@ export async function assessAndSaveProductPotential(
     marketValidationVerified,
   });
 
-  const fingerprint = evidenceFingerprint({
-    productVersionId: version.id,
-    channelRouteId: route?.id || null,
-    evidence: evidenceRows.map((evidence) => ({
-      id: evidence.id,
-      hash: evidence.hash,
-      nature: evidence.nature,
-      verifyStatus: evidence.verifyStatus,
-      validationStatus: evidence.validationStatus,
-      infoDate: evidence.infoDate?.toISOString() || null,
-      channel: evidence.channel,
-      productRef: evidence.productRef,
-    })),
+  return persistPotentialAssessment({
+    session,
+    productId,
+    versionId: version.id,
+    route: route ? { id: route.id, routeKey: route.routeKey } : null,
+    dimensions,
+    gates,
+    marketValidationVerified,
+    assessment,
+    evidenceRows,
+    dimensionSource: "MANUAL",
   });
+}
 
-  return prisma.$transaction(async (tx) => {
-    const previous = await tx.potentialAssessmentRecord.findFirst({
-      where: {
-        organizationId: session.organizationId,
-        productVersionId: version.id,
-        ...(route
-          ? {
-              channelRoute: {
-                productVersionId: version.id,
-                routeKey: route.routeKey,
-              },
-            }
-          : { channelRouteId: null }),
-      },
-      orderBy: { createdAt: "desc" },
-    });
+/**
+ * 从证据编译产品潜力（P0-1）。
+ *
+ * 与 `ASSESS_POTENTIAL` 的差别只有一处：**维度不再由调用方手填**，而是
+ * `compileProductPotentialInput` 从该项目已落库的 Evidence / EvidenceClaim
+ * 按 7 维 rubric 确定性编译出来。门槛、路线、市场验证口径全部复用既有实现。
+ *
+ * 返回里额外带上编译轨迹（每个维度的 evidenceIds / claimIds / missingEvidence、
+ * 模板假设、证据缺口、防火墙拦截记录），供界面与补证循环消费。
+ *
+ * 注意：`validatePotentialDimensionEvidence` 仍然会跑一遍。编译层已按同一口径
+ * （路线级 CHANNEL_FIT 只看该渠道证据）产出，两者不应互相矛盾；若真的抛错，
+ * 说明编译器与校验器口径出现分歧，属于必须立刻暴露的缺陷，不做静默降级。
+ */
+export async function assessAndSaveProductPotentialFromEvidence(
+  session: SessionContext,
+  productId: string,
+  input: Record<string, unknown>
+) {
+  await requireProductRole(session, productId, PRODUCT_WRITE_ROLES);
 
-    const created = await tx.potentialAssessmentRecord.create({
-      data: {
-        organizationId: session.organizationId,
-        productVersionId: version.id,
-        channelRouteId: route?.id || null,
-        ruleVersion: PRODUCT_POTENTIAL_RULE_VERSION,
-        dimensionSnapshot: dimensions as unknown as Prisma.InputJsonValue,
-        gateSnapshot: gates as unknown as Prisma.InputJsonValue,
-        evidenceFingerprint: fingerprint,
-        marketValidationVerified,
-        verdict: assessment.verdict,
-        diagnosticIndex: assessment.diagnosticIndex,
-        coverageRatio: assessment.coverageRatio,
-        verifiedCoverageRatio: assessment.verifiedCoverageRatio,
-        confidenceBand: assessment.confidenceBand,
-        reasons: assessment.reasons as Prisma.InputJsonValue,
-        blockers: assessment.blockers as unknown as Prisma.InputJsonValue,
-        unknownGates:
-          assessment.unknownGates as unknown as Prisma.InputJsonValue,
-        supersedesId: previous?.id || null,
-        createdById: session.userId,
-      },
-    });
+  const version = await loadProductVersion(
+    session,
+    productId,
+    optionalText(input.productVersionId, 120)
+  );
+  const userGates = parseGates(input.gates);
 
-    await createAuditEventInTx(tx, {
-      actorId: session.userId,
-      action: "PRODUCT_POTENTIAL_ASSESSED",
-      objectType: "PotentialAssessmentRecord",
-      objectId: created.id,
-      summary: `保存产品潜力评估：${assessment.verdict}`,
-      details: {
+  const routeId = optionalText(input.channelRouteId, 120);
+  const route = routeId
+    ? await prisma.channelSpecRoute.findFirst({
+        where: {
+          id: routeId,
+          organizationId: session.organizationId,
+          productVersionId: version.id,
+          status: { not: ChannelSpecRouteStatus.SUPERSEDED },
+        },
+        include: {
+          channelRuleProfile: {
+            select: {
+              status: true,
+              channelKey: true,
+              label: true,
+              effectiveFrom: true,
+              effectiveUntil: true,
+            },
+          },
+        },
+      })
+    : null;
+
+  if (routeId && !route) {
+    throw new NotFoundError("Channel route not found");
+  }
+
+  // 编译需要断言原文，所以这里比 ASSESS_POTENTIAL 多取 source 与 claims。
+  const evidenceRows = await prisma.evidence.findMany({
+    where: {
+      project: {
         productId,
-        productVersionId: version.id,
-        channelRouteId: route?.id || null,
-        verdict: assessment.verdict,
-        diagnosticIndex: assessment.diagnosticIndex,
-        coverageRatio: assessment.coverageRatio,
-        verifiedCoverageRatio: assessment.verifiedCoverageRatio,
-        confidenceBand: assessment.confidenceBand,
-        marketValidationVerified,
-        evidenceFingerprint: fingerprint,
-        supersedesId: previous?.id || null,
-      } as Prisma.InputJsonValue,
-    });
-
-    return {
-      record: created,
-      assessment,
-      marketValidationVerified,
-      evidenceFingerprint: fingerprint,
-    };
+        organizationId: session.organizationId,
+      },
+    },
+    select: {
+      id: true,
+      source: true,
+      hash: true,
+      nature: true,
+      verifyStatus: true,
+      validationStatus: true,
+      infoDate: true,
+      channel: true,
+      productRef: true,
+      claims: {
+        select: { id: true, fieldKey: true, kind: true, value: true },
+        orderBy: { id: "asc" },
+      },
+    },
+    orderBy: { id: "asc" },
   });
+
+  const routeChannel = route
+    ? {
+        channelKey: route.channelRuleProfile.channelKey,
+        label: route.channelRuleProfile.label,
+      }
+    : null;
+
+  const routeTokens = routeChannel
+    ? new Set([
+        ...normalizedChannelTokens(routeChannel.channelKey),
+        ...normalizedChannelTokens(routeChannel.label),
+      ])
+    : null;
+
+  const systemGates = route
+    ? buildChannelHardGates({
+        route: {
+          feasible: route.feasible,
+          ruleStatusSnapshot: route.ruleStatusSnapshot,
+          ruleVersionSnapshot: route.ruleVersionSnapshot,
+        },
+        currentRuleStatus: route.channelRuleProfile.status,
+        currentRuleEffective: isChannelRuleEffectiveAt(
+          route.channelRuleProfile
+        ),
+      })
+    : [];
+
+  const gates = mergeSystemGates(userGates, systemGates);
+
+  const marketValidationVerified = deriveMarketValidationVerified({
+    evidence: evidenceRows,
+    routeChannel,
+  });
+
+  const compiled = compileProductPotentialInput({
+    evidence: evidenceRows.map((row) => ({
+      id: row.id,
+      source: row.source,
+      nature: row.nature,
+      verifyStatus: row.verifyStatus,
+      validationStatus: row.validationStatus,
+      channel: row.channel,
+      claims: row.claims.map((claim) => ({
+        id: claim.id,
+        fieldKey: claim.fieldKey,
+        kind: claim.kind,
+        value: claim.value,
+      })),
+    })),
+    gates,
+    marketValidationVerified,
+    // 复用同一份渠道名归一化口径，避免编译层与校验层判定分歧。
+    matchesRouteChannel: routeTokens
+      ? (evidenceChannel) =>
+          normalizedChannelTokens(evidenceChannel).some((token) =>
+            routeTokens.has(token)
+          )
+      : undefined,
+  });
+
+  // 防御性复核：编译产物必须能过既有的证据校验（口径分歧要立刻暴露）。
+  validatePotentialDimensionEvidence(
+    compiled.input.dimensions,
+    evidenceRows,
+    routeChannel
+  );
+
+  const assessment = assessProductPotential(compiled.input);
+
+  const saved = await persistPotentialAssessment({
+    session,
+    productId,
+    versionId: version.id,
+    route: route ? { id: route.id, routeKey: route.routeKey } : null,
+    dimensions: compiled.input.dimensions,
+    gates,
+    marketValidationVerified,
+    assessment,
+    evidenceRows,
+    dimensionSource: "EVIDENCE_COMPILER",
+  });
+
+  return {
+    ...saved,
+    compiled: {
+      dimensions: compiled.dimensions,
+      gaps: compiled.gaps,
+      templateAssumptions: compiled.templateAssumptions,
+      firewallRejections: compiled.firewallRejections,
+    },
+  };
 }
 
 

@@ -10,18 +10,22 @@
 
 import { AnalysisDimensionKey } from "@prisma/client";
 import { SCORE_DIMENSION_LABELS } from "@/shared/status-labels";
+import {
+  SCORECARD_DIMENSION_ORDER,
+  SCORECARD_DIMENSION_WEIGHTS,
+} from "@/shared/score-dimensions";
 
 export const SCORE_RULE_VERSION = "v1";
 
-/** 起始权重（百分比，合计 100）。蓝图 §4.4 的提案值。 */
-export const DIMENSION_WEIGHTS: Record<AnalysisDimensionKey, number> = {
-  DEMAND_VALUE: 25,
-  DIFFERENTIATION: 20,
-  UNIT_ECONOMICS: 20,
-  COMPANY_FIT: 15,
-  DELIVERY_FEASIBILITY: 10,
-  LAUNCH_READINESS: 10,
-};
+/**
+ * 起始权重（百分比，合计 100）。蓝图 §4.4 的提案值。
+ *
+ * 唯一来源在 `@/shared/score-dimensions`：那份是零依赖模块，客户端组件直接 import；
+ * 这里只做类型收窄后 re-export，**不要再抄第二份字面量**
+ * （历史上前端曾手抄一份，两处不同步会让同一产品显示两个综合分）。
+ */
+export const DIMENSION_WEIGHTS: Record<AnalysisDimensionKey, number> =
+  SCORECARD_DIMENSION_WEIGHTS;
 
 /**
  * 维度中文标签：唯一来源在 `src/shared/status-labels.ts`。
@@ -32,12 +36,7 @@ export const DIMENSION_WEIGHTS: Record<AnalysisDimensionKey, number> = {
 export const DIMENSION_LABELS: Record<AnalysisDimensionKey, string> = SCORE_DIMENSION_LABELS;
 
 export const DIMENSION_ORDER: AnalysisDimensionKey[] = [
-  "DEMAND_VALUE",
-  "DIFFERENTIATION",
-  "UNIT_ECONOMICS",
-  "COMPANY_FIT",
-  "DELIVERY_FEASIBILITY",
-  "LAUNCH_READINESS",
+  ...SCORECARD_DIMENSION_ORDER,
 ];
 
 /** 覆盖率低于该阈值即为「暂评」，不允许进入可直接排序的完整榜 */

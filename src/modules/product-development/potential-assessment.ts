@@ -41,6 +41,14 @@ export interface PotentialDimensionInput {
   evidenceState: PotentialEvidenceState;
   rationale: string;
   sourceRefs: string[];
+  /**
+   * 可追溯性（P0-1）：由 `potential-compiler` 产出时填写，手工入参可省略。
+   * 都是可选字段，保持向后兼容——旧调用方不必改，正式判定也不读它们。
+   */
+  evidenceIds?: string[];
+  claimIds?: string[];
+  missingEvidence?: string[];
+  updatedAt?: string;
 }
 
 export interface PotentialGateInput {
