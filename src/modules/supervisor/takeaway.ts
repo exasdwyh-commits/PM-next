@@ -9,6 +9,9 @@
  *
  * Demo missions can be exported (clearly labelled) but never proposed:
  * demo data must not reach business tables.
+ *
+ * 质量门禁：与导出一致（见 takeawayGate）。BLOCKED 的结论不能带走；
+ * 待补证草稿放行，但确认卡上会带状态戳与问题清单。
  */
 import prisma from "@/shared/db";
 import type { SessionContext } from "@/modules/identity/session";
@@ -23,10 +26,15 @@ import {
   extractDecision,
   extractRecommendation,
   goalAudience,
-  goalHeadline,
   parseConstraints,
+  reportTitle,
   type MissionReport,
 } from "./report-format";
+
+import { reportContentInputVersion, validateReportContentDraft, reviewReportContent } from "./report-content-agent";
+import { readReportContentArtifact } from "./report-content-store";
+import { planMissionDelivery } from "./report-delivery";
+import { REPORT_QUALITY_LABEL, type ReportQuality } from "./report-quality";
 
 export async function loadMissionReport(session: SessionContext, missionTaskId: string): Promise<MissionReport> {
   const status = await getKernMissionStatus(session, missionTaskId);
@@ -43,10 +51,12 @@ export async function loadMissionReport(session: SessionContext, missionTaskId: 
   const out = (n: (typeof status.nodes)[number]) => (n.taskId ? outputOf.get(n.taskId) : undefined) ?? n.summary ?? null;
   const synth = status.nodes.find((n) => n.kind === "SYNTHESIS");
   const conclusion = synth ? out(synth) : null;
-  return {
+  const synthesisResult = (tasks.find(t => t.id === synth?.taskId)?.contextSnapshot as {
+    executorResult?: { originalOutput?: unknown; contentArtifactId?: unknown; contentInputVersion?: unknown } } | null)?.executorResult;
+  const report: MissionReport = {
     missionTaskId: status.missionTaskId,
     playbook: status.playbook,
-    title: goalHeadline(status.goal),
+    title: reportTitle(status.goal),
     goal: status.goal,
     status: status.status,
     outcome: status.outcome?.status ?? null,
@@ -54,6 +64,7 @@ export async function loadMissionReport(session: SessionContext, missionTaskId: 
     createdAt: status.createdAt,
     constraints: parseConstraints(status.goal),
     conclusion,
+    ...(typeof synthesisResult?.originalOutput === "string" ? { originalConclusion: synthesisResult.originalOutput } : {}),
     researchSources: status.demo ? [] : uniqueMissionSources(collectMissionSources(await loadMissionSourceEvents(session.organizationId, missionTaskId))),
     decision: extractDecision(conclusion),
     recommendation: extractRecommendation(conclusion),
@@ -68,6 +79,31 @@ export async function loadMissionReport(session: SessionContext, missionTaskId: 
       humanGates: status.humanGates,
     },
   };
+  if (status.playbook === "NEW_PRODUCT") {
+    report.contentStatus = "MISSING";
+    // Authorization above is requester-scoped. A guessed Artifact id is never a lookup authority.
+    const result = synthesisResult;
+    const inputVersion = reportContentInputVersion(report);
+    if (synth?.taskId && typeof result?.contentArtifactId === "string" && result.contentInputVersion === inputVersion) {
+      const content = await readReportContentArtifact(session.organizationId, result.contentArtifactId, missionTaskId, synth.taskId, inputVersion);
+      if (content) {
+        try {
+          if (content.source.goal !== report.goal || content.source.body !== report.conclusion || content.source.originalBody !== (report.originalConclusion ?? report.conclusion)) throw new Error("Stored source snapshot mismatch");
+          // Revalidate stored shape and all source anchors before handing it to a template.
+          if (content.status === "READY" || content.status === "DRAFT" || content.status === "REJECTED") validateReportContentDraft(content, report);
+          if (content.status === "READY") {
+            const checked = reviewReportContent(content, { ...content.review, title: content.title, summary: content.summary, layout: content.layout }, report);
+            if (checked.status !== "READY") throw new Error("Invalid publication review");
+          }
+          report.content = content;
+          report.contentStatus = content.status;
+          report.contentArtifactId = result.contentArtifactId;
+          if (content.status === "READY") report.title = reportTitle(report.goal, content);
+        } catch { report.contentStatus = "FAILED"; }
+      }
+    }
+  }
+  return report;
 }
 
 export type TakeawayTarget = "product" | "work-item";
@@ -77,16 +113,51 @@ export type TakeawayOptions = {
   target: TakeawayTarget;
 };
 
+/**
+ * 带走与导出共用的质量口径（R1·report-quality/v1）。
+ *
+ * 导出（/api/missions/[id]/export）早就走 planMissionDelivery：BLOCKED 直接 409，
+ * 待补证草稿放行但标题带状态戳、正文带问题清单。「带走结论」此前完全没看质量，
+ * 是唯一能把研究对象错配、演示冒充这类结论写进业务表的通路 —— 两者必须同一个口径。
+ *
+ * - blocked：非空即拒绝，文案直接给用户看（逐条问题）。
+ * - pendingNote：待补证草稿的提示戳，拼进确认卡上的 rationale；
+ *   与导出的「标题带戳」等价 —— 放行，但用户在看到问题清单的前提下确认。
+ */
+export function takeawayGate(report: MissionReport): { blocked: string | null; pendingNote: string; quality: ReportQuality | null } {
+  const plan = planMissionDelivery(report);
+  if (plan.blocked) return { blocked: plan.blockedReason, pendingNote: "", quality: plan.quality };
+  const pending = plan.quality && plan.quality.status !== "DELIVERABLE" ? plan.quality : null;
+  const pendingNote = pending
+    ? `［${REPORT_QUALITY_LABEL[pending.status]}，还需补证${pending.issues.length ? `：${pending.issues.map((issue) => `${issue.where}：${issue.detail}`).join("；")}` : ""}］`
+    : "";
+  return { blocked: null, pendingNote, quality: plan.quality };
+}
+
 /** What the UI can offer for this mission (and why not, when it can't). */
 export async function takeawayOptions(session: SessionContext, missionTaskId: string) {
   const status = await getKernMissionStatus(session, missionTaskId);
   const project = await boundProject(session, status.conversationId);
-  const blocked = status.demo ? "演示运行的数据不会写入业务，不能带走。" : status.outcome?.status !== "COMPLETED" ? "任务完成后才能带走结论。" : null;
+  let blocked = status.demo ? "演示运行的数据不会写入业务，不能带走。" : status.outcome?.status !== "COMPLETED" ? "任务完成后才能带走结论。" : null;
+  let quality: ReportQuality | null = null;
+  // 便宜的前置判据都过了才付质量判定的代价（loadMissionReport 会读节点产出与来源事件）。
+  if (!blocked) {
+    const gate = takeawayGate(await loadMissionReport(session, missionTaskId));
+    quality = gate.quality;
+    if (gate.blocked) blocked = gate.blocked;
+  }
   return {
     blocked,
     product: !blocked && !project,
     workItem: !blocked && !!project,
     project: project ? { id: project.id, title: project.title } : null,
+    quality: quality
+      ? {
+          status: quality.status,
+          label: REPORT_QUALITY_LABEL[quality.status],
+          issues: quality.issues.map((issue) => ({ where: issue.where, detail: issue.detail, fix: issue.fix })),
+        }
+      : null,
   };
 }
 
@@ -112,9 +183,12 @@ export async function proposeMissionTakeaway(session: SessionContext, opts: Take
   const report = await loadMissionReport(session, opts.missionTaskId);
   if (report.demo) throw new UnprocessableEntityError("演示运行的数据不会写入业务，不能带走。先用真实运行得出结论。");
   if (report.outcome !== "COMPLETED" || !report.conclusion) throw new ConflictError("任务完成、形成结论后才能带走。");
+  // 与导出（/api/missions/[id]/export）同一个门禁口径，见 takeawayGate。
+  const gate = takeawayGate(report);
+  if (gate.blocked) throw new UnprocessableEntityError(gate.blocked);
   const status = await getKernMissionStatus(session, opts.missionTaskId);
   const conversationId = status.conversationId ?? null;
-  const rationale = `来自 Kern 任务「${report.title}」的结论${report.decision ? `；待你决定：${report.decision.slice(0, 120)}` : ""}`;
+  const rationale = `来自 Kern 任务「${report.title}」的结论${gate.pendingNote}${report.decision ? `；待你决定：${report.decision.slice(0, 120)}` : ""}`;
 
   if (opts.target === "work-item") {
     const project = await boundProject(session, conversationId);
@@ -138,7 +212,7 @@ export async function proposeMissionTakeaway(session: SessionContext, opts: Take
   // CREATE_PRODUCT requires the five intake fields; every value comes from the
   // user's own answers or the mission's conclusion — never a placeholder.
   const fields = {
-    name: report.recommendation ?? report.title.replace(/^我想(开发|做)一个新产品[：:，,]?\s*/, "").slice(0, 60),
+    name: report.recommendation ?? report.title.slice(0, 60),
     coreIdea: conclusionLead(report.conclusion),
     targetAudience: answerFor(report, /卖给谁|人群|用户/) ?? goalAudience(report.goal) ?? stepLead(report, "opportunity", /目标用户|人群/),
     coreSellingPoints: stepLead(report, "opportunity", /卖点|价值主张|差异化/) ?? conclusionLead(report.conclusion, 80),

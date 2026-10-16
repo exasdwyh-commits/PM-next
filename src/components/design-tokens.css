@@ -146,9 +146,12 @@
 }
 
 .btn-beautified.primary {
-  background: var(--color-ink);
-  color: white;
-  border-color: var(--color-ink);
+  /* 底必须是「恒定深色」：--color-ink 指向 --ink/--k-ink，暗色主题下翻成浅色，
+     配固定白字即浅底浅字（与本文件 58 行同源事故）。--deep 在暗色块里刻意不覆盖，
+     --on-dark 恒为 #fff，故品类变体（--cat-* 底 + 反白字）行为不变。 */
+  background: var(--deep);
+  color: var(--on-dark);
+  border-color: var(--deep);
   box-shadow: var(--shadow-sm);
 }
 

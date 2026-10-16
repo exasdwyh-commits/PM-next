@@ -3,7 +3,9 @@
  * 走真实的 safeFetch 传输（allowHosts 放行本机端口），而不是替身。
  */
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import http from "node:http";
+import path from "node:path";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 import { McpHttpClient, parseRpcResponse, safeTransport } from "../src/modules/connectors/mcp-client";
@@ -84,10 +86,51 @@ after(() => new Promise<void>((r) => server.close(() => r())));
 
 const transport = () => safeTransport({ allowHosts: [base] });
 
+test("U01：工具信任——冲突声明按写、无声明不是只读、名称前缀不决定权限", () => {
+  // destructive + readOnly 冲突：按写（停用、映射受保护能力）
+  const conflict = { name: "list_and_purge", annotations: { readOnlyHint: true, destructiveHint: true } };
+  assert.equal(classifyTool(conflict), "write", "冲突声明必须按写");
+  const [c] = toToolSpecs([conflict]);
+  assert.equal(c.enabled, false, "冲突工具默认停用");
+  assert.equal(c.capability, "external.send", "冲突工具映射受保护能力，调用仍需审批");
+  // 无声明 / 空声明 / readOnlyHint 非 true：一律按写，无论名字多像只读
+  for (const name of ["get_user", "list", "search", "read_file", "fetch-page", "describeTable", "query_db"]) {
+    assert.equal(classifyTool({ name }), "write", `无声明的 ${name} 不得按名称判为读`);
+    assert.equal(classifyTool({ name, annotations: {} }), "write", `空声明的 ${name} 不得判为读`);
+  }
+  assert.equal(classifyTool({ name: "get_user", annotations: { readOnlyHint: false } }), "write");
+  assert.equal(classifyTool({ name: "x", annotations: { idempotentHint: true, openWorldHint: false } }), "write", "其他提示不等于只读");
+  // 只有显式 readOnlyHint=true（且未声明破坏性）才是读
+  assert.equal(classifyTool({ name: "anything", annotations: { readOnlyHint: true } }), "read");
+  assert.equal(classifyTool({ name: "anything", annotations: { readOnlyHint: true, destructiveHint: false } }), "read");
+  // 迁移：旧规则按前缀判为读且已启用的工具，刷新后变写，必须强制停用、重新确认
+  const legacy = [{ name: "get_user", title: "get_user", description: "", effect: "read" as const, enabled: true, capability: "connector.read", inputSchema: null }];
+  const [m] = toToolSpecs([{ name: "get_user" }], legacy);
+  assert.deepEqual([m.effect, m.enabled, m.capability], ["write", false, "external.send"], "旧的伪只读工具刷新后必须停用");
+  // 合规优化：不静默停用——记录依据与原因；不提供「自行标记为只读」的旁路
+  assert.equal(m.basis, "undeclared");
+  assert.match(m.reconfirm ?? "", /没有声明该工具只读/, "强制停用必须给出原因");
+  assert.match(m.reconfirm ?? "", /每次调用仍需你确认/, "重新允许后仍逐次审批");
+  const [kept] = toToolSpecs([{ name: "get_user" }], [m]);
+  assert.equal(kept.enabled, false);
+  assert.equal(kept.reconfirm, m.reconfirm, "仍停用时原因保留，不会在下次刷新时消失");
+  const [allowed] = toToolSpecs([{ name: "get_user" }], [{ ...kept, enabled: true }]);
+  assert.deepEqual([allowed.effect, allowed.enabled, allowed.capability, allowed.reconfirm], ["write", true, "external.send", null], "用户重新允许：仍是写工具（逐次审批），原因清除");
+  const [quiet] = toToolSpecs([{ name: "get_user" }], [{ ...legacy[0], enabled: false }]);
+  assert.equal(quiet.reconfirm, null, "本来就停用的工具不打扰用户");
+  const [back] = toToolSpecs([{ name: "get_user", annotations: { readOnlyHint: true } }], [kept]);
+  assert.deepEqual([back.effect, back.basis, back.reconfirm], ["read", "declared-read", null], "服务端补上只读声明后恢复为读，原因清除");
+  assert.equal(c.basis, "conflict");
+  assert.match(toToolSpecs([conflict], [{ ...legacy[0], name: "list_and_purge" }])[0].reconfirm ?? "", /自相矛盾/);
+  // 界面必须把原因展示给用户（停用状态下）
+  const sheets = fs.readFileSync(path.join(process.cwd(), "src/app/muse/components/sheets.tsx"), "utf8");
+  assert.match(sheets, /!t\.enabled && t\.reconfirm \? <p[^>]*data-testid="conn-tool-reconfirm"/);
+});
+
 test("CN1：读写分类与默认开关；刷新保留开关，读变写强制停用", () => {
   assert.deepEqual(TOOLS.map((t) => classifyTool(t)), ["read", "write", "write", "write"]);
-  assert.equal(classifyTool({ name: "getUser" }), "read");
-  assert.equal(classifyTool({ name: "search_docs" }), "read");
+  assert.equal(classifyTool({ name: "getUser" }), "write", "U01：名称前缀不得决定权限");
+  assert.equal(classifyTool({ name: "search_docs" }), "write", "U01：未声明只读的工具不能默认可信只读");
   assert.equal(classifyTool({ name: "get_and_delete", annotations: { destructiveHint: true } }), "write");
   const specs = toToolSpecs(TOOLS);
   assert.deepEqual(specs.map((s) => [s.name, s.enabled, s.capability]), [

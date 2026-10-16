@@ -1,3 +1,5 @@
+import type { ReportContentDocument, ReportContentStatus } from "@/shared/report-content";
+
 /**
  * Pure helpers for turning a finished mission into take-away artifacts.
  * No server imports: used by the workspace UI (decision card) and by the
@@ -29,10 +31,14 @@ export type MissionReport = {
   createdAt: string;
   constraints: { question: string; answer: string }[];
   conclusion: string | null;
+  originalConclusion?: string;
   decision: string | null;
   recommendation: string | null;
   steps: ReportStep[];
   researchSources?: ReportSource[];
+  content?: ReportContentDocument;
+  contentStatus?: ReportContentStatus | "MISSING";
+  contentArtifactId?: string;
   meta: {
     tasksCreated: number;
     maxTasks: number;
@@ -54,6 +60,33 @@ export function resolveSourceMarkers(text: string, sources: ReportSource[]): str
 /** First line of the goal — the brief appends "已确认的约束" below it. */
 export function goalHeadline(goal: string): string {
   return goal.split("\n")[0].trim() || goal.trim();
+}
+
+/** Subject is authored by the Agent, never mechanically inferred from a sentence. */
+export function reportSubject(_goal: string, content?: Pick<ReportContentDocument, "subject">): string | null {
+  return content?.subject || null;
+}
+
+/** Historical/unprocessed reports are explicit drafts, not guessed product names. */
+export function reportTitle(_goal: string, content?: Pick<ReportContentDocument, "title">): string {
+  return content?.title || "研究报告";
+}
+
+/**
+ * 需求里的显式约束（人群 / 预算 / 主推要素），供质量门禁检查"约束有没有落进报告"。
+ * 只认写得出来的短语，读不出的需求返回空数组，不做推测。
+ */
+export function goalConstraintPhrases(goal: string): { kind: string; text: string }[] {
+  const text = (goal ?? "").replace(/\r/g, "");
+  const out: { kind: string; text: string }[] = [];
+  const push = (kind: string, value: string | undefined) => {
+    const v = value?.trim();
+    if (v && v.length >= 2 && v.length <= 24) out.push({ kind, text: v });
+  };
+  push("人群", /(?:目标)?人群[：:]?\s*([^，,。；;\n]{2,24})/.exec(text)?.[1] ?? /(\d{1,2}\s*[-–~到]\s*\d{1,2}\s*岁[^，,。；;\n]{0,8})/.exec(text)?.[1]);
+  push("预算", /预算[^，,。；;\n]{0,16}?([\d.]+\s*(?:万元|万|元|块))/.exec(text)?.[1]);
+  push("主推要素", /(?:主打|主推|采用|使用|核心是)([^，,。；;\n]{2,24})/.exec(text)?.[1]);
+  return out;
 }
 
 /** "- 问题：答案" lines under "已确认的约束：". */

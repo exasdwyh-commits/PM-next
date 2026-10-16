@@ -14,7 +14,7 @@
 .kpi small { font-size: 11px; color: var(--ink-muted); }
 .ov-action { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 12px 0; }
 .ov-action-item { background: var(--surface-soft); padding: 10px 12px; border-radius: 10px; display: grid; gap: 4px; }
-.ov-action-item span { font-size: 11px; color: var(--ink-faint); font-weight: 600; text-transform: uppercase; }
+.ov-action-item span { font-size: 11px; color: var(--ink-2); font-weight: 600; text-transform: uppercase; }
 .ov-action-item p { margin: 0; font-size: 13px; font-weight: 500; }
 .ov-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .ov-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }

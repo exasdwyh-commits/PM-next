@@ -13,7 +13,8 @@
  *      显示给用户），这在换租户时是功能性回退，必须在测试期拦下，而不是等运行时兜底。
  *   4. 词表改为**从全部 pack 动态汇总**，不再依赖手写数组，避免「新 pack 加了词但没进词表」。
  *
- * ⚠️ 不要为了让本守卫转绿而放宽匹配或扩大豁免。违规只能通过把行业词下沉到 pack 来消除。
+ * ⚠️ 不要为了让本守卫转绿而放宽匹配或扩大整文件豁免。租户语义必须下沉到 pack；
+ * 非租户语义只能使用下方带理由、到期日、精确声明与精确词集的限域白名单。
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -106,11 +107,36 @@ const EXEMPT: Record<string, { why: string; expires: string }> = {
 };
 
 /**
+ * 非租户语义的限域白名单：只允许指定文件中指定声明里的指定词。
+ * 若同一行新增其他行业词，主扫描仍会报错；声明移动、词消失或到期也会由下方反向断言报错。
+ */
+const NON_TENANT_LINE_ALLOWLIST: Record<string, Array<{
+  lineIncludes: string;
+  words: readonly string[];
+  why: string;
+  expires: string;
+}>> = {
+  "src/modules/assistant-runtime/product-goal.ts": [{
+    lineIncludes: "const DEVELOPMENT = /",
+    words: ["保健", "食品"],
+    why: "通用产品研发意图匹配器：这些词与饮料、设备、软件、应用并列，只识别产品目标，不表达当前租户品类。",
+    expires: "2026-12-31",
+  }],
+};
+
+function isAllowedNonTenantUsage(rel: string, line: string, word: string): boolean {
+  return NON_TENANT_LINE_ALLOWLIST[rel]?.some(
+    (entry) => line.includes(entry.lineIncludes) && entry.words.includes(word),
+  ) ?? false;
+}
+
+/**
  * 豁免条数基线：**只减不增**。
  * 新增一条豁免 = 新增一笔技术债，必须先清偿一笔旧的。
  * 清空豁免的唯一正当路径是把内容下沉到 pack（见 R7 demo 隔离路线）。
  */
 const EXEMPT_BASELINE = 7;
+const NON_TENANT_ALLOWLISTED_WORD_BASELINE = 2;
 
 test("src 产品代码不含租户行业词（只能放在 packs/，豁免清单除外）", () => {
   const W = words();
@@ -120,13 +146,14 @@ test("src 产品代码不含租户行业词（只能放在 packs/，豁免清单
     const rel = path.relative(process.cwd(), f).split(path.sep).join("/");
     const lines = fs.readFileSync(f, "utf8").split(/\r?\n/);
     lines.forEach((l, i) => {
-      const w = W.find((x) => l.includes(x));
-      if (!w) return;
+      const matchingWords = W.filter((x) => l.includes(x));
+      if (!matchingWords.length) return;
       if (Object.hasOwn(EXEMPT, rel)) {
         exempted.set(rel, (exempted.get(rel) ?? 0) + 1);
         return;
       }
-      hits.push(`${rel}:${i + 1} 「${w}」`);
+      const w = matchingWords.find((word) => !isAllowedNonTenantUsage(rel, l, word));
+      if (w) hits.push(`${rel}:${i + 1} 「${w}」`);
     });
   }
   const ex = [...exempted.entries()].map(([f, n]) => `  ${f}（${n} 行）`).join("\n");
@@ -152,6 +179,26 @@ test("豁免清单无腐化：每条都真实存在、理由充分、且仍含�
     const hit = fs.readFileSync(abs, "utf8").split(/\r?\n/).some((l) => W.find((x) => l.includes(x)));
     if (!hit) noLongerHit.push(`${rel} —— 已不再含行业词，应移出豁免清单`);
   }
+  for (const [rel, entries] of Object.entries(NON_TENANT_LINE_ALLOWLIST)) {
+    const abs = path.join(process.cwd(), rel);
+    if (!fs.existsSync(abs)) { stale.push(`${rel} —— 文件已不存在`); continue; }
+    const lines = fs.readFileSync(abs, "utf8").split(/\r?\n/);
+    for (const entry of entries) {
+      if (entry.why.trim().length < 20) {
+        stale.push(`${rel} [${entry.lineIncludes}] —— why 不足 20 字，无法作为白名单依据`);
+        continue;
+      }
+      const matchingLines = lines.filter((line) => line.includes(entry.lineIncludes));
+      if (matchingLines.length !== 1) {
+        stale.push(`${rel} [${entry.lineIncludes}] —— 应精确命中 1 行，实际 ${matchingLines.length} 行`);
+        continue;
+      }
+      const missingWords = entry.words.filter((word) => !W.includes(word) || !matchingLines[0].includes(word));
+      if (missingWords.length) {
+        noLongerHit.push(`${rel} [${entry.lineIncludes}] —— 词已不再命中，应移出白名单：${missingWords.join("、")}`);
+      }
+    }
+  }
   assert.deepEqual(stale, [], `豁免清单失效：\n  ${stale.join("\n  ")}`);
   assert.deepEqual(
     noLongerHit,
@@ -160,7 +207,7 @@ test("豁免清单无腐化：每条都真实存在、理由充分、且仍含�
   );
 });
 
-test("豁免必须带到期日，且已过期的豁免直接失败", () => {
+test("豁免与限域白名单必须带到期日，且已过期时直接失败", () => {
   const problems: string[] = [];
   const today = new Date().toISOString().slice(0, 10);
   for (const [rel, entry] of Object.entries(EXEMPT)) {
@@ -172,20 +219,40 @@ test("豁免必须带到期日，且已过期的豁免直接失败", () => {
       problems.push(`${rel} —— 豁免已于 ${entry.expires} 到期（今天 ${today}），请复核后处理`);
     }
   }
+  for (const [rel, entries] of Object.entries(NON_TENANT_LINE_ALLOWLIST)) {
+    for (const entry of entries) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(entry.expires)) {
+        problems.push(`${rel} [${entry.lineIncludes}] —— expires 不是 YYYY-MM-DD：${entry.expires}`);
+        continue;
+      }
+      if (entry.expires < today) {
+        problems.push(`${rel} [${entry.lineIncludes}] —— 白名单已于 ${entry.expires} 到期（今天 ${today}），请复核后处理`);
+      }
+    }
+  }
   assert.deepEqual(
     problems,
     [],
-    `豁免到期检查未通过：\n  ${problems.join("\n  ")}\n` +
-      `正确做法：把该页面的行业词下沉到 pack，然后整条移除豁免；不要直接续期。`,
+    `豁免/白名单到期检查未通过：\n  ${problems.join("\n  ")}\n` +
+      `正确做法：重新判断命中是否仍属非租户语义；租户语义下沉到 pack，非租户语义重证后更新。`,
   );
 });
 
-test("豁免条数只减不增：不得超过基线", () => {
+test("豁免与限域白名单条数只减不增：不得超过基线", () => {
   const n = Object.keys(EXEMPT).length;
   assert.ok(
     n <= EXEMPT_BASELINE,
     `豁免条数 ${n} 超过基线 ${EXEMPT_BASELINE}。` +
       `新增豁免等于新增技术债：请先下沉并移除一条旧的，再新增。`,
+  );
+  const allowlistedWordN = Object.values(NON_TENANT_LINE_ALLOWLIST).reduce(
+    (sum, entries) => sum + entries.reduce((entrySum, entry) => entrySum + entry.words.length, 0),
+    0,
+  );
+  assert.ok(
+    allowlistedWordN <= NON_TENANT_ALLOWLISTED_WORD_BASELINE,
+    `限域白名单词数 ${allowlistedWordN} 超过基线 ${NON_TENANT_ALLOWLISTED_WORD_BASELINE}。` +
+      `新增前必须证明命中属于非租户语义，并先移除一个旧白名单词。`,
   );
 });
 

@@ -916,7 +916,9 @@
 .m-lane-obj i, .m-kv-tight i { font-style: normal; color: var(--m-ink-4); margin-right: 8px; }
 .m-attempt { display: grid; gap: 8px; padding-top: 8px; border-top: 1px dashed var(--m-hairline); }
 .m-attempt h4 { margin: 0; font-size: var(--m-t-xs); font-weight: 600; color: var(--m-ink-3); }
-.m-kv-tight { font-size: var(--m-t-xs) !important; row-gap: 4px !important; }
+/* 原本带 important 标记，已移除：同特异性 (0,1,0) 的 .m-kv 在第 355 行（更早），
+   元素同时挂 m-kv 与 m-kv-tight，源码顺序即已胜出，无需提权 */
+.m-kv-tight { font-size: var(--m-t-xs); row-gap: 4px; }
 .m-cite { display: inline-block; margin-right: 8px; }
 .m-cite a { color: var(--m-accent-ink); }
 .m-lane-out { max-height: 340px; overflow: auto; padding: 10px 12px; border-radius: var(--m-r-sm); background: var(--m-surface-sunk); font-size: var(--m-t-sm); }

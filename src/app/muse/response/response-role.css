@@ -146,7 +146,8 @@
 .rb-ask .why { font-size: 12px; color: var(--ink-2); margin: 0; line-height: 1.6; }
 .rb-ask .opts { display: grid; gap: 8px; }
 .rb-ask .opt { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); text-align: left; display: grid; gap: 2px; }
-.rb-failed { padding: 16px; background: var(--block-bg); border: 1px solid var(--block-line); border-radius: 12px; color: var(--ink); }
+/* 失败态属 block 档提示框，圆角跟随下方四档同一配方的 10px（此前 12px 与配方声明不一致）。 */
+.rb-failed { padding: 16px; background: var(--block-bg); border: 1px solid var(--block-line); border-radius: 10px; color: var(--ink); }
 
 /* 提示框（info / ok / warn / block）四档同一配方：10px 圆角、1px 同色系细边、3px 左色条、同色系浅底；
    档位只换 --info/--ok/--warn/--block 这一组色。层级：标题 13px/700 --ink，正文 --ink-2 行高 1.65。

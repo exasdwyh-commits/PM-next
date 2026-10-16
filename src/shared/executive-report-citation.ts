@@ -8,6 +8,8 @@
  * 卡片需要的 headline 数字直接随引用落库，客户端不必再为缩略图多发一次请求。
  */
 
+import type { ExecutiveReportQualityStatus } from "./executive-report-types";
+
 export const EXECUTIVE_REPORT_CITATION_KIND = "executive-report";
 
 export interface ExecutiveReportCitationStats {
@@ -27,6 +29,8 @@ export interface ExecutiveReportCitation {
   reviewStatus?: string;
   summary?: string | null;
   stats?: ExecutiveReportCitationStats;
+  /** 质量门禁状态：卡片据此显示「可交付 / 待补证草稿 / 未通过」。 */
+  qualityStatus?: ExecutiveReportQualityStatus;
 }
 
 function isStat(value: unknown): value is number {
@@ -80,6 +84,7 @@ export function executiveReportCitations(citations: unknown[]): ExecutiveReportC
       ...(typeof raw.reviewStatus === "string" ? { reviewStatus: raw.reviewStatus } : {}),
       ...(typeof raw.summary === "string" || raw.summary === null ? { summary: raw.summary } : {}),
       ...(raw.stats ? { stats: raw.stats } : {}),
+      ...(typeof raw.qualityStatus === "string" ? { qualityStatus: raw.qualityStatus } : {}),
     });
   }
   return [...reports.values()];

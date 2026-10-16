@@ -6,7 +6,7 @@ import { recallRolePreference } from "@/modules/memory/role-preference";
 import { inferRoleFromText } from "./role-intelligence";
 import { conversationProductGoal } from "./product-goal";
 import prisma from "@/shared/db";
-import { NotFoundError, UnprocessableEntityError } from "@/shared/errors";
+import { NotFoundError, UnprocessableEntityError, userFacingFailureReason } from "@/shared/errors";
 import type { SessionContext } from "@/modules/identity/session";
 import {
   ADVISOR_LLM_SYSTEM_PROMPT_VERSION,
@@ -55,6 +55,11 @@ import { KERN_RICH_PROMPT, describeMarkers, extractArtifacts, readArtifactCitati
 import { sanitizeRichFences } from "@/modules/artifacts/rich-blocks";
 import { buildArtifactPromptContext, persistReplyArtifacts } from "@/modules/artifacts/service";
 import { buildKernContextLayers } from "./context-layers";
+
+/**
+ * 失败原因是否适合直接展示给用户 —— 已收口到 `@/shared/errors`，
+ * 与后台执行路径（message-worker）共用同一判据，避免两处口径漂移。
+ */
 
 /** Model text → (artifacts pulled out first, so HTML never meets the Markdown harness) → normalised Markdown with validated kern-ui blocks. */
 export function formatModelReply(raw: string): { reply: NormalizedReply; artifacts: ExtractedArtifact[]; richIssues: string[] } {
@@ -107,7 +112,7 @@ export async function executeKernConversationTurn(
     conversationId,
     text,
     productBound: Boolean(conversation.productId),
-    history: plannerHistoryRows.reverse(),
+    history: [...plannerHistoryRows].reverse(),
     signal: options?.execution?.signal, beforeAttempt: options?.execution?.assertActive, agentRunId: options?.runId,
   });
   const intent = intentRouting.intent;
@@ -294,6 +299,8 @@ export async function executeKernConversationTurn(
 
   let historyTurns = 0;
   let conversationHistory: { role: string; content: string }[] = [];
+  // 降级本身是对的（不阻塞对话），但必须留痕：否则「模型像失忆一样作答」时无从排查。
+  const degradations: string[] = [];
   let replyFormat: NormalizedReply | null = null;
   let replyArtifacts: ExtractedArtifact[] = [];
   let richIssues: string[] = [];
@@ -313,8 +320,9 @@ export async function executeKernConversationTurn(
       ),
     }));
     historyTurns = conversationHistory.length;
-  } catch {
+  } catch (error: unknown) {
     conversationHistory = [];
+    degradations.push(`conversationHistory: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   // C3：历史装配改为「近期原文 + 远期滚动摘要」。
@@ -328,7 +336,10 @@ export async function executeKernConversationTurn(
     cache: rollingSummaryCache,
     // C7：真实摘要位经统一网关记账（aux 档位）所需的组织 id
     organizationId: session.organizationId,
-  }).catch(() => null);
+  }).catch((error: unknown) => {
+    degradations.push(`historyCompression: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  });
   const promptHistory = compressedHistory?.recent ?? conversationHistory;
   const historySummaryBlock = compressedHistory?.summaryBlock ?? null;
 
@@ -399,20 +410,26 @@ export async function executeKernConversationTurn(
       currentMessageId: options?.execution?.inputMessageId ?? null,
       explicitSkillIds: runtimeSelection.config.capabilityPackIds ?? null,
       projectId: null,
-    }).catch(() => null);
+    }).catch((error: unknown) => {
+      degradations.push(`contextLayers: ${error instanceof Error ? error.message : String(error)}`);
+      return null;
+    });
     const capabilityPrompt = contextLayers?.capabilityPrompt ?? "";
     const knowledgePrompt = contextLayers?.knowledgePrompt ?? "";
     const attachmentPrompt = contextLayers?.attachmentPrompt ?? "";
     // 授权档位：全委托时把「自己拍板、不再追问」写进口径，并强制把补全的假设标出来。
     // 只改表达与决策口径，不放宽任何工具/权限/治理边界。
+    // 全委托只放开「方案取舍与草稿细节要不要再问」；业务执行确认由服务端治理决定，
+    // 提示词不能替服务端宣布「已执行」。
     const delegationPrompt =
       runtimeSelection.config.delegationMode === "full"
         ? [
             "## 全委托模式（本轮已由用户授权）",
-            "- 用户已把本轮的取舍权交给你：不要再回问确认，直接按你判断的最佳方案产出。",
+            "- 用户已把本轮的取舍权交给你：草稿细节与方案取舍不必回问，直接按你判断的最佳方案产出。",
             "- 缺失的细节可以自行补全，但每处补全必须以「假设：」显式标注；不得把假设写成既定事实或来源事实。",
             "- 这与证据纪律不冲突：有据的写有据，没据的按上面标注，不得为了「完整」而编造来源。",
-            "- 本模式不放宽工具、权限或治理授权，只改变是否停下来征求确认。",
+            "- 方案取舍与草稿细节由你决定；业务执行状态以服务端结果为准。服务端返回待确认时，说明尚未执行，并引导使用已有确认入口。",
+            "- 本模式不放宽工具、权限或治理授权。",
           ].join("\n")
         : "";
     // One output contract for the model: reply-format (in basePersona) + kern-rich/v1 (KERN_RICH_PROMPT).
@@ -509,9 +526,14 @@ export async function executeKernConversationTurn(
     options?.execution?.signal.throwIfAborted();
     failed = true;
     errorReason = error instanceof Error ? error.message : "工具执行失败";
+    // 用户侧只给可读说明；技术原文（Prisma / 网关堆栈等英文文本）留在
+    // ToolCall.errorReason 供诊断，不直出正文。
+    const shownReason = userFacingFailureReason(errorReason);
     result = {
       toolKey: "none",
-      text: `执行失败：${errorReason}`,
+      text: shownReason
+        ? `这一步没有执行成功，我先不给结论：${shownReason}`
+        : "这一步没有执行成功，我先不给结论，也不会拿不完整的东西凑数。可以换个说法再说一遍，或告诉我具体要做哪一件事。",
       citations: [],
     };
   }
@@ -532,6 +554,8 @@ export async function executeKernConversationTurn(
         ...(replyFormat
           ? { replyFormat: { version: KERN_REPLY_FORMAT_VERSION, fixed: replyFormat.fixed, issues: replyFormat.issues, richIssues, artifacts: replyArtifacts.map((a) => ({ key: a.key, complete: a.complete, error: a.error, bytes: a.html.length })) } }
           : {}),
+        // 静默降级清单：对话照常返回，但这些环节没有按理想路径工作。
+        ...(degradations.length ? { degradations } : {}),
       } as any,
       status: failed ? "FAILED" : "SUCCEEDED",
       errorReason,
@@ -550,14 +574,19 @@ export async function executeKernConversationTurn(
 
   const header = modelOutputUsed
     ? ""
-    : llmAttempted
-      ? "（模型调用失败，本轮已安全回落到确定性工具结果）\n\n"
-      : gatewayPolicy && !gatewayReady
-        ? "（模型策略已配置但暂无启用的候选 Profile，本轮使用确定性工具结果）\n\n"
-        : "（本轮未接入语言模型，以下为受治理 capability 返回的真实数据）\n\n";
+    : failed
+      // 执行失败时不能套用「未接入语言模型」那类说明——那会把失败说成降级。
+      ? "（这一步没有执行成功，下面不是完整结论）\n\n"
+      : llmAttempted
+        ? "（模型调用失败，这次按已有数据给你结论）\n\n"
+        : gatewayPolicy && !gatewayReady
+          ? "（模型策略还没有可启用的候选，这次按已有数据给你结论）\n\n"
+          : "（这次按已有数据直接给你结论）\n\n";
 
+  // 挑战报告是本轮的新产出，追加在既有引用之后——不要整体替换，否则来源/产物引用会丢。
   const citationsWithReport: unknown[] = result.challengeReport
     ? [
+        ...result.citations,
         {
           kind: "challenge-report",
           ref: ctx.productId,
@@ -576,7 +605,7 @@ export async function executeKernConversationTurn(
       })
     : { content: header + result.text, citations: [] };
 
-  const assistantMsg = await tx.message.create({
+  const createdMessage = await tx.message.create({
     data: {
       id: assistantMessageId,
       conversationId,
@@ -623,7 +652,7 @@ export async function executeKernConversationTurn(
       modelId: llmModelId,
       finishedAt,
       durationMs,
-      outputMessageId: assistantMsg.id,
+      outputMessageId: createdMessage.id,
       errorReason,
       usageJson: usageJson as any,
       costStatus: "unknown",
@@ -640,7 +669,7 @@ export async function executeKernConversationTurn(
     },
   });
 
-    return assistantMsg;
+    return createdMessage;
   });
 
   return {

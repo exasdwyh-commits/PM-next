@@ -121,42 +121,21 @@ pairs.sort((a, b) => a.key.localeCompare(b.key));
  * 而不是只写「已知问题」——登记表一旦变成收容所，守卫就失去意义。
  */
 const REGISTERED: Record<string, { status: "suspect" | "accepted"; why: string }> = {
-  // ---- suspect：表面/文字令牌（随主题翻明暗）或半透明白底 + 固定字 —— 与用户截图同类 ----
-  "src/app/muse/response/response-role.css :: .rb-other-lead": {
-    status: "suspect",
-    why: "--surface-soft 随主题翻转，固定 #999 在暗色底上对比度不足；PR#89 修的是同文件的 info 族，此处为同族残留",
-  },
-  "src/app/muse/response/response-role.css :: .rb-dec-head .conf": {
-    status: "suspect",
-    why: "--surface 随主题翻转，固定 #1d4ed8 在暗色底上偏暗；与 PR#89 的 4 处 #1d4ed8 文字站点同源，属同一批待修",
-  },
+  // ---- 2026-10-16 存量清零记录（条目已删除，此处留修法依据，不是登记表）----
+  // 已修（底与字改为两边同走令牌，守卫不再命中）：
+  //   response-role.css :: .rb-other-lead / .rb-dec-head .conf —— CSS 侧早已改完，登记表未同步
+  //   design-tokens.css :: .btn-beautified.primary —— 底 --color-ink（暗色翻浅）→ --deep，字 white → --on-dark
+  //   executive-report-role.css :: .err-role / .err-table-full th / .err-stats / .err-sales-script p
+  //     —— 半透明白底 rgba(255,255,255,.x) / rgba(241,245,250,.x) → --er-surface-2 / --er-sunk
+
+  // 改判（未改 CSS；底所在令牌在容器上局部写死，不随主题翻转 → 底恒深，固定反白字恒可读）
   "src/app/muse/response/response-v2.css :: .kr2-view-switch button.is-active": {
-    status: "suspect",
-    why: "--k-ink 是文字令牌（明态深、暗态浅），被当作选中态底色；固定 white 字在暗色下贴浅底",
-  },
-  "src/components/design-tokens.css :: .btn-beautified.primary": {
-    status: "suspect",
-    why: "--color-ink 同为文字令牌作底，固定 white 字 → 与 .kr2-view-switch 同型",
-  },
-  "src/components/executive-report-role.css :: .err-role": {
-    status: "suspect",
-    why: "半透明白底 rgba(255,255,255,.62) + --er-ink 令牌字：暗色下白雾底叠在深色页面上、字却已翻浅，对比度双向恶化",
-  },
-  "src/components/executive-report-role.css :: .err-table-full th": {
-    status: "suspect",
-    why: "半透明白底 rgba(241,245,250,.9) + --er-ink-3 令牌字，与 .err-role 同型",
-  },
-  "src/components/executive-report-role.css :: .err-stats": {
-    status: "suspect",
-    why: "半透明白底 rgba(241,245,250,.85) + --er-ink-3 令牌字，与 .err-role 同型",
-  },
-  "src/components/executive-report-role.css :: .err-sales-script p": {
-    status: "suspect",
-    why: "半透明白底 rgba(241,245,250,.85) + --er-ink-2 令牌字，与 .err-role 同型",
+    status: "accepted",
+    why: "--k-ink 不是全局令牌，而是在 .kr2-response 上局部写死 #0f1116（response-v2.css:3），本文件无 prefers-color-scheme 块，元素自身声明优先于 :root 继承 → 底恒深。与 .ws .ws-primary 同类",
   },
   "src/components/report-v3.css :: .rv3 .chip.on": {
-    status: "suspect",
-    why: "--ink 是文字令牌（暗态翻浅）作底，固定近白 #F6F1E6 字 → 暗色下浅底浅字",
+    status: "accepted",
+    why: "--ink 在 .rv3 上局部写死 #1C1A17（report-v3.css:4），本文件全文无 prefers-color-scheme 块 → 底恒深，固定 #F6F1E6 字恒可读。与 .m-planlist 同类",
   },
 
   // ---- accepted：语义实色底 + 固定反白/反深（结构稳定；未逐条实测对比度）----

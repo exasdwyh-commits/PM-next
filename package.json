@@ -85,6 +85,9 @@
     "test:home-experience": "node --import tsx --test tests/kern-home-experience.test.ts",
     "test:healthcare-innovation": "node --import tsx --test tests/healthcare-innovation.test.ts tests/report-format.test.ts tests/token-usage.test.ts tests/product-version-specs.test.ts",
     "test:report-format": "node --import tsx --test tests/report-format.test.ts",
+    "test:report-content": "node --import tsx --test tests/kern-report-content-agent.test.ts",
+    "test:report-quality": "node --import tsx --test tests/kern-report-quality.test.ts tests/kern-report-delivery-gate.test.ts tests/kern-report-edit.test.ts tests/kern-report-poster.test.ts tests/kern-report-content-agent.test.ts",
+    "test:report-edit-wiring": "tsx scripts/run-test.ts tests/kern-report-edit-wiring.test.ts",
     "test:token-usage": "node --import tsx --test tests/token-usage.test.ts",
     "test:form-input-validation": "tsx scripts/run-test.ts tests/regression-form-input-validation.ts",
     "test:launch-owner-candidates": "tsx scripts/run-test.ts tests/regression-launch-owner-candidates.ts",
@@ -97,7 +100,8 @@
     "test:mobile-layout": "node scripts/run-sh.js -c \"OUTPUT_DIR=/tmp/kern-mobile-layout bash scripts/acc-server.sh --port 3220 3221 tests/ui-mobile-conditional-layout.ts\"",
     "test:visual-intelligence": "tsx tests/regression-kern-visual-intelligence.ts",
     "test:kern-autonomy": "node --import tsx --test tests/kern-autonomy-policy.test.ts tests/kern-protected-actions.test.ts",
-    "test:source-guards": "node --import tsx --test tests/datetime-format.test.ts tests/status-labels.test.ts tests/kern-honest-events.test.ts tests/cost-calculator.test.ts tests/scripts-local-bin.test.ts tests/motion-contract.test.ts tests/motion-primitives.test.ts tests/motion-p0.test.ts tests/motion-p1.test.ts tests/architecture-layers.test.ts tests/prompt-prefix.test.ts tests/authz-route-coverage.test.ts tests/css-syntax.test.ts tests/response-role-blocks.test.ts tests/prepare-test-database.test.ts tests/any-budget.test.ts tests/vocabulary-contract.test.ts tests/css-theme-pairing.test.ts",
+    "test:source-guards": "node --import tsx --test tests/datetime-format.test.ts tests/status-labels.test.ts tests/kern-honest-events.test.ts tests/cost-calculator.test.ts tests/scripts-local-bin.test.ts tests/motion-contract.test.ts tests/motion-primitives.test.ts tests/motion-p0.test.ts tests/motion-p1.test.ts tests/architecture-layers.test.ts tests/prompt-prefix.test.ts tests/authz-route-coverage.test.ts tests/css-syntax.test.ts tests/response-role-blocks.test.ts tests/prepare-test-database.test.ts tests/any-budget.test.ts tests/vocabulary-contract.test.ts tests/css-theme-pairing.test.ts tests/error-user-facing.test.ts",
+    "test:report-theme-contrast": "node tests/ui-integrated-report-theme.cjs",
     "test:regression-units": "node --import tsx --test tests/kern-capability-directory.test.ts tests/kern-task-contract.test.ts tests/kern-mission-metrics.test.ts tests/kern-weekly-review.test.ts tests/kern-intent-router.test.ts tests/kern-usage.test.ts tests/kern-worker-supervision.test.ts tests/kern-schedule.test.ts tests/kern-playbook.test.ts tests/kern-connectors.test.ts tests/kern-notify.test.ts tests/kern-library.test.ts tests/kern-attention-feed.test.ts tests/kern-vault.test.ts tests/kern-office-export.test.ts tests/kern-condition-skip.test.ts tests/kern-progress.test.ts tests/kern-safe-fetch.test.ts tests/kern-web-crawl.test.ts tests/kern-tool-loop.test.ts tests/tool-call-formats.test.ts tests/kern-model-contracts.test.ts tests/regression-professional-analysis-integration.test.ts tests/acceptance-professional-analysis.test.ts tests/product-rnd-advance-retry.test.ts tests/regression-brief-snapshot.test.ts tests/regression-cost-scenarios.test.ts tests/regression-cost-ui-scenarios.test.ts tests/regression-advisor-context.test.ts tests/regression-advisor-runs.test.ts tests/regression-professional-analysis.test.ts tests/regression-professional-analysis-proposals.test.ts tests/regression-scientific-evidence-source.test.ts tests/kern-capability-skill-registry.test.ts tests/kern-capability-resolver.test.ts tests/kern-knowledge-layer.test.ts tests/kern-capability-audit.test.ts tests/kern-capability-constraints.test.ts tests/kern-capability-resolver-eval.test.ts tests/kern-office-roundtrip.test.ts tests/kern-conversation-tool-loop.test.ts tests/kern-history-compression.test.ts tests/kern-knowledge-hardening.test.ts tests/kern-research-tiers.test.ts tests/file-intake.test.ts",
     "test:kern-project-map": "tsx tests/kern-project-map.ts",
     "test:kern-runtime-architecture": "node --import tsx --test tests/kern-runtime-architecture.test.ts",
@@ -114,7 +118,7 @@
     "test:kern-schedule": "tsx scripts/run-test.ts tests/regression-kern-schedule.ts",
     "test:kern-playbook": "tsx scripts/run-test.ts tests/regression-kern-playbook.ts",
     "test:kern-worker-recovery": "tsx scripts/run-test.ts tests/regression-kern-worker-recovery.ts",
-    "test:kern-supervisor-plan": "node --import tsx --test tests/kern-supervisor-plan.test.ts tests/kern-mission-controls.test.ts tests/kern-mission-timeline.test.ts tests/kern-brief.test.ts tests/kern-report.test.ts tests/kern-reply-format.test.ts tests/kern-attention.test.ts tests/kern-prose.test.ts tests/kern-memory.test.ts tests/kern-memory-dedupe.test.ts tests/kern-new-product-report-contract.test.ts tests/kern-execution-flow.test.ts tests/kern-report-poster.test.ts tests/kern-golden-replay.test.ts",
+    "test:kern-supervisor-plan": "node --import tsx --test tests/kern-supervisor-plan.test.ts tests/kern-mission-controls.test.ts tests/kern-mission-timeline.test.ts tests/kern-brief.test.ts tests/kern-report.test.ts tests/kern-reply-format.test.ts tests/kern-attention.test.ts tests/kern-prose.test.ts tests/kern-memory.test.ts tests/kern-memory-dedupe.test.ts tests/kern-new-product-report-contract.test.ts tests/kern-execution-flow.test.ts tests/kern-report-poster.test.ts tests/kern-report-content-agent.test.ts tests/kern-golden-replay.test.ts",
     "kern:set-plan": "tsx scripts/kern-set-plan.ts",
     "test:kern-supervisor": "tsx scripts/run-test.ts tests/regression-kern-supervisor.ts",
     "test:kern-execution-delivery": "tsx scripts/run-test.ts tests/regression-kern-execution-delivery.ts",
@@ -145,7 +149,11 @@
     "test:model-execution-facts": "tsx scripts/run-test.ts tests/regression-model-execution-facts.ts",
     "test:worker-review-probes": "tsx scripts/run-test.ts tests/regression-worker-review-probes.ts",
     "test:worker-r2-boundaries": "tsx scripts/run-test.ts tests/regression-worker-r2-boundaries.ts",
-    "test:worker-r3-boundaries": "tsx scripts/run-test.ts tests/regression-worker-r3-boundaries.ts"
+    "test:worker-r3-boundaries": "tsx scripts/run-test.ts tests/regression-worker-r3-boundaries.ts",
+    "test:ci-contracts": "node --import tsx --test tests/test-isolation-proof.test.ts tests/report-ci-wiring.test.cjs",
+    "test:db-isolation": "tsx scripts/run-test.ts scripts/check-test-isolation.ts",
+    "test:flow-zoom": "node --import tsx --test tests/flow-zoom-guard.test.ts tests/flow-zoom-render.test.ts tests/kern-execution-flow.test.ts",
+    "test:role-callout-radius": "node --import tsx --test tests/role-callout-radius-guard.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

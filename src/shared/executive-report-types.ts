@@ -1,3 +1,5 @@
+import type { ReportContentDocument } from "./report-content";
+
 /**
  * 管理报告的「面向负责人的结构化视图」契约。
  *
@@ -177,12 +179,38 @@ export interface ExecutiveReportDeep {
   sections: ExecutiveReportDeepSection[];
 }
 
+/**
+ * 报告质量门禁的判定结果（R1·report-quality/v1）。
+ * 放在 shared：服务端评估与客户端展示必须共用同一份契约，字段一改两边就漂移。
+ */
+export type ExecutiveReportQualityStatus = "DELIVERABLE" | "DRAFT_UNVERIFIED" | "BLOCKED";
+
+export interface ExecutiveReportQualityIssue {
+  rule: string;
+  where: string;
+  detail: string;
+  fix: string;
+}
+
+export interface ExecutiveReportQuality {
+  status: ExecutiveReportQualityStatus;
+  /** 内容指纹：内容改了，旧判定不再适用。 */
+  version: string;
+  issues: ExecutiveReportQualityIssue[];
+}
+
 export interface ExecutiveReportPayload {
+  contentStatus?: ReportContentDocument["status"] | "MISSING";
+  presentation?: ReportContentDocument["layout"];
   /** Personal NEW_PRODUCT mission: keep its full original synthesis, not a fabricated artifact. */
   researchBody?: string;
+  /** Pre-edit synthesis is preserved separately; never mistaken for the reviewed final body. */
+  originalResearchBody?: string;
   researchSources?: { id: string; title: string; url: string; fetchedAt: string }[];
   summary?: string | null;
   verificationStatus?: string | null;
+  /** 质量门禁判定（R1·report-quality/v1）：卡片与报告页据此显示交付状态。 */
+  quality?: ExecutiveReportQuality | null;
   conclusions?: ExecutiveReportConclusion[];
   unknowns?: string[];
   risks?: string[];

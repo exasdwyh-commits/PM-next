@@ -1,3 +1,4 @@
+import { withReviewedContent } from "./helpers/report-content-fixture";
 import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
@@ -6,14 +7,14 @@ import { missionPosterPath } from "../src/shared/executive-report-citation";
 import type { MissionReport } from "../src/modules/supervisor/report-format";
 import { buildClarifyQuestions, answerText, buildBriefPlan } from "../src/modules/supervisor/brief";
 
-const report: MissionReport = {
+const report: MissionReport = withReviewedContent({
   playbook: "NEW_PRODUCT", missionTaskId: "mission/test", title: "便携咖啡机", goal: "开发便携咖啡机",
   status: "SUCCEEDED", outcome: "COMPLETED", demo: false, createdAt: "2026-10-13T00:00:00Z",
   constraints: [], conclusion: "## 结论摘要\n**结论与建议**：先验证通勤需求（推断）[source:s1]\n\n## 风险评估\n- 成本缺少报价\n\n## 验证计划与待决策\nUNKNOWN：实际报价（需要 供应商询价）\n\n```text\n## code heading\n```\n\n最终尾注不可丢失",
   decision: "是否开展样品测试", recommendation: "先验证通勤需求", steps: [{ key: "market", label: "市场", agent: "研究员", status: "SUCCEEDED", output: "（事实）需求稳定 [source:s1]\nUNKNOWN：实际报价（需要 供应商询价）" }],
   researchSources: [{ sourceId: "s1", eventId: "e1", title: "真实来源", url: "https://example.com/research", fetchedAt: "2026-10-13T01:00:00Z", sourceKind: "FETCHED_PAGE", contentHash: "hash", snapshot: "body", truncated: false }],
   meta: { tasksCreated: 1, maxTasks: 12, memoriesUsed: [], successCriteria: [], humanGates: [] },
-};
+}, true, "便携咖啡机");
 
 test("Mission poster preserves every original section, code fence, trailing text and source markers", () => {
   const poster = buildMissionPoster(report);
@@ -40,7 +41,7 @@ test("Unknowns are retained and deduplicated without discarding their remediatio
 });
 
 test("Demo sources never leak into the real evidence list", () => {
-  const poster = buildMissionPoster({ ...report, demo: true });
+  const poster = buildMissionPoster({ ...report, demo: true, content: undefined, contentStatus: "MISSING" });
   assert.deepEqual(poster.researchSources, []);
   assert.deepEqual(poster.provenance?.sourceRefs, []);
   assert.match(poster.unknowns![0], /演示数据/);

@@ -420,3 +420,76 @@ test("Model Gateway：cooldown 后模型恢复成功会清零 failure streak", a
   assert.equal(snapshot?.consecutiveFailures, 0);
   assert.equal(snapshot?.cooldownUntilMs, null);
 });
+
+// No database or network: exercise the real gateway loop with deterministic providers.
+function admissionFixture(options: {
+  primary?: () => Promise<never>;
+  quota?: () => Promise<void>;
+  sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
+  single?: boolean;
+} = {}) {
+  const registry = new ModelRegistry();
+  registry.registerProfile(agnes); registry.registerProfile(gpt);
+  const calls: string[] = [];
+  for (const profile of [agnes, gpt]) registry.registerProvider({
+    provider: profile.provider,
+    async execute(selected) {
+      calls.push(selected.id);
+      if (selected.id === agnes.id && options.primary) return options.primary();
+      return { text: "ok", modelId: selected.modelId };
+    },
+  });
+  const health = new InMemoryModelHealthStore();
+  const gateway = new ModelGateway(registry, health, Date.now, options.sleep ?? (async () => {}), options.quota);
+  const policy: ModelPolicy = {
+    id: "admission-boundaries", version: "1", taskClass: "QUICK_RESEARCH",
+    candidates: (options.single ? [agnes] : [agnes, gpt]).map((p, i) => ({ profileId: p.id, priority: i + 1 })),
+    requiredCapabilities: ["TEXT"], cloudAllowed: true,
+    failurePolicy: { failureThreshold: 2, cooldownMs: 10_000, rateLimitRetries: 1, rateLimitMaxWaitMs: 20_000 },
+  };
+  return { calls, health, gateway, policy };
+}
+
+for (const mode of ["pre-cancel", "admission-lease", "quota-cancel", "quota-lease"] as const) {
+  test(`admission boundary: ${mode} prevents transport, fallback and false provider penalty`, async () => {
+    const controller = new AbortController(); let active = mode !== "admission-lease";
+    const fixture = admissionFixture({ quota: async () => {
+      if (mode === "quota-cancel") controller.abort();
+      if (mode === "quota-lease") active = false;
+    } });
+    if (mode === "pre-cancel") controller.abort();
+    await assert.rejects(fixture.gateway.execute(fixture.policy, {
+      taskClass: "QUICK_RESEARCH", messages: [{ role: "user", content: "test" }], signal: controller.signal,
+      beforeAttempt: async () => { if (!active) throw new Error("lease lost"); },
+    }), mode.endsWith("cancel") ? { name: "AbortError" } : /lease lost/);
+    assert.deepEqual(fixture.calls, []);
+    for (const profile of [agnes, gpt]) assert.equal((await fixture.health.get(profile.id))?.consecutiveFailures ?? 0, 0);
+  });
+}
+
+test("admission boundary: losing lease between fallback attempts forbids a second transport", async () => {
+  let active = true;
+  const fixture = admissionFixture({ primary: async () => {
+    active = false; throw new ModelProviderError("temporary timeout", "TIMEOUT");
+  } });
+  await assert.rejects(fixture.gateway.execute(fixture.policy, {
+    taskClass: "QUICK_RESEARCH", messages: [{ role: "user", content: "test" }],
+    beforeAttempt: async () => { if (!active) throw new Error("lease lost"); },
+  }), /lease lost/);
+  assert.deepEqual(fixture.calls, [agnes.id]);
+  assert.equal((await fixture.health.get(gpt.id))?.consecutiveFailures ?? 0, 0);
+});
+
+test("admission boundary: losing lease during rate-limit wait forbids retry transport", async () => {
+  let active = true; let waits = 0;
+  const fixture = admissionFixture({ single: true,
+    primary: async () => { throw new ModelProviderError("429 rate limit", "RATE_LIMIT", 429); },
+    sleep: async () => { waits += 1; active = false; },
+  });
+  await assert.rejects(fixture.gateway.execute(fixture.policy, {
+    taskClass: "QUICK_RESEARCH", messages: [{ role: "user", content: "test" }],
+    beforeAttempt: async () => { if (!active) throw new Error("lease lost"); },
+  }), /lease lost/);
+  assert.equal(waits, 1);
+  assert.deepEqual(fixture.calls, [agnes.id]);
+});

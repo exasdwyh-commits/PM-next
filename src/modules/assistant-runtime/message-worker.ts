@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import prisma from "@/shared/db";
+import { userFacingFailureReason } from "@/shared/errors";
 import { PROCESS_WORKER_ID, isWorkerAlive } from "@/modules/worker/heartbeat";
 import { lockRunExecutionTx, watchRunExecution, type RunExecutionGuard } from "@/modules/worker/run-claim";
 import { discoverMessageCandidates, markServed } from "@/modules/worker/fair-queue";
@@ -39,7 +40,11 @@ async function failMessage(guard: RunExecutionGuard, reason: string) {
     await tx.$queryRaw`SELECT id FROM "AgentRun" WHERE id = ${guard.runId} FOR UPDATE`;
     const run = await tx.agentRun.findFirst({ where: { id: guard.runId, organizationId: guard.organizationId, executionToken: guard.token, status: "RUNNING" } });
     if (!run?.conversationId) return;
-    const text = `这条消息未能完整处理：${reason}\n\n请先核对已产生的结果或操作，再决定是否发送新的请求。`;
+    // 后台路径此前把 error.message 原样写进正文 —— Prisma / 网关的英文堆栈会直出给用户。
+    // 与同步路径（conversation-engine）共用同一个判据：中文业务提示照常透出，
+    // 英文技术原文只留在 AgentRun.errorReason 供排查。
+    const shown = userFacingFailureReason(reason) ?? "后台处理时遇到了技术问题，这次请求没有完成。";
+    const text = `这条消息未能完整处理：${shown}\n\n请先核对已产生的结果或操作，再决定是否发送新的请求。`;
     const message = run.outputMessageId
       ? await (async () => {
           const previous = await tx.message.findUniqueOrThrow({ where: { id: run.outputMessageId! } });

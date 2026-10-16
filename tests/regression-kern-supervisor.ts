@@ -105,7 +105,10 @@ async function main() {
     assert.ok(seen.indexOf("opportunity") > seen.indexOf("market"), "dependency order respected");
     assert.equal(seen.filter((k) => k === "opportunity").length, 2, "opportunity re-delegated once");
     assert.equal(seen.filter((k) => k === "market").length, 1, "unaffected nodes are not re-run");
-    assert.equal(seen.at(-1), "synthesis");
+    // synthesis 之后仍会在同一任务租约内跑报告内容流水线（produceReportContent + 审校），
+    // 那些调用不是 DAG 节点：断言收窄为「最后一个 DAG 节点是 synthesis」。
+    const dagNodes = new Set(status.nodes.map((n) => n.key));
+    assert.equal(seen.filter((k) => dagNodes.has(k)).at(-1), "synthesis", "synthesis is the last DAG node");
     const delegations = await prisma.agentDelegation.count({ where: { parentTaskId: launched.missionTaskId } });
     assert.equal(delegations, status.tasksCreated - 1, "every non-Kern node has delegation lineage");
     console.log(`  ✔ ${status.tasksCreated} child tasks, 1 QA revision round, synthesis last`);
@@ -187,13 +190,18 @@ async function main() {
     assert.equal(rem.mission, null);
     assert.match(rem.message.content, /记住了/);
     const prompts: string[] = [];
+    const promptKeys: string[] = [];
     setMissionModelInvokerForTest(async ({ messages }) => {
       prompts.push(messages.map((m) => m.content).join("\n"));
+      promptKeys.push(/## 你的任务（([^）]+)）/.exec(messages[messages.length - 1].content)?.[1] ?? "?");
       return { text: JSON.stringify({ verdict: "PASS", summary: "ok", issues: [] }), provenance: { stub: true } };
     });
     await launchKernMission(session, { plan: buildNewProductMissionPlan("第三个产品"), conversationId: chat.id, sourceRunId: "run3-" + tag });
     await drain(org.id);
-    assert.ok(prompts.length > 0 && prompts.every((p) => p.includes("只做跨境电商")), "preference injected into every node");
+    // synthesis 之后的内容流水线（提炼/审校）输入只有 goal+conclusion，按设计不带用户记忆
+    // （其系统提示要求逐字摘自 conclusion、不新增事实）。记忆经 DAG 节点注入即算到达工作流。
+    const nodePrompts = prompts.filter((_, i) => promptKeys[i] !== "?");
+    assert.ok(nodePrompts.length > 0 && nodePrompts.every((p) => p.includes("只做跨境电商")), "preference injected into every node");
     console.log("  ✔ memory written, stored and injected");
 
     console.log("▶ S8 plan quota: over-limit work is refused honestly, chat still answers");

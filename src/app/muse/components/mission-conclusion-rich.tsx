@@ -45,25 +45,25 @@ export function MissionConclusionRich({
 
   const fallback = (
     <div className="mission-conclusion-rich" data-role={role} style={{ borderColor: catInfo.color } as any}>
-      <div className="conclusion-header" style={{ background: catInfo.gradient }}>
+      <div className="conclusion-header">
         <div>
-          <span className="eyebrow" style={{ background: catInfo.color, color: "white" }}>{catInfo.icon} {catInfo.name} · 任务结论 · {role === "leadership" ? "领导" : role === "product" ? "研发" : role === "sales" ? "销售" : "默认"}视角 · 富可视化</span>
+          <span className="eyebrow">{catInfo.icon} {catInfo.name} · 任务结论 · {role === "leadership" ? "领导" : role === "product" ? "研发" : role === "sales" ? "销售" : "默认"}视角 · 富可视化</span>
           <h3>任务结论 · {missionId.slice(0, 8)}</h3>
           <small>Kern智能统筹 · {catInfo.name}专用 · 富可视化 · 15组件+8动效</small>
         </div>
-        <div className="category-badge" style={{ background: catInfo.color, color: "white" }}>{catInfo.icon} {catInfo.name}</div>
+        <div className="category-badge">{catInfo.icon} {catInfo.name}</div>
       </div>
       <Prose text={text} />
       {role === "leadership" && (
         <div className="boss-summary" style={{ borderLeft: `3px solid ${catInfo.color}` }}>
           <strong>💡 老板一句话结论</strong>
-          <p>{text.slice(0, 120) || "任务已完成，可推进下一阶段"} · {catInfo.name}专用</p>
+          <p>{text.slice(0, 120) || "任务已结束，结论待你复核"} · {catInfo.name}专用</p>
         </div>
       )}
       {role === "sales" && (
         <div className="selling-points">
           <strong>💎 销售卖点 · {catInfo.name}</strong>
-          <p>任务结论已核实，{catInfo.name}卖点突出，可直接用于客户沟通 · Kern已提炼</p>
+          <p>任务结论尚未独立核验；确认依据与缺口后再对外沟通 · Kern已整理</p>
         </div>
       )}
     </div>
@@ -76,8 +76,8 @@ export function MissionConclusionRich({
 
   return (
     <div className="mission-conclusion-rich-wrapper" style={{ borderColor: catInfo.color } as any}>
-      <div className="conclusion-meta-bar" style={{ background: catInfo.gradient, borderBottom: `2px solid ${catInfo.color}` }}>
-        <span style={{ background: catInfo.color, color: "white", padding: "2px 8px", borderRadius: 99, fontSize: 10 }}>{catInfo.icon} {catInfo.name} · 富可视化</span>
+      <div className="conclusion-meta-bar">
+        <span className="conclusion-category">{catInfo.icon} {catInfo.name} · 富可视化</span>
         <small>{role}视角 · Kern调度 · {catInfo.name}专用</small>
       </div>
       <ResponseRoleBased envelope={envelope} defaultDensity={density} fallback={fallback}

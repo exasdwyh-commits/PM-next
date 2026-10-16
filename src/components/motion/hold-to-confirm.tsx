@@ -18,6 +18,7 @@ export function HoldToConfirm({
   disabled,
   holdMs = MOTION.maxDuration,
   hint = "按住确认",
+  testId,
 }: {
   children?: React.ReactNode;
   onConfirm: () => void;
@@ -26,6 +27,8 @@ export function HoldToConfirm({
   disabled?: boolean;
   holdMs?: number;
   hint?: string;
+  /** 透传到 <button> 的 data-testid，供 E2E 定位；不影响行为 */
+  testId?: string;
 }) {
   const fill = useRef<HTMLSpanElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -70,6 +73,7 @@ export function HoldToConfirm({
       data-v={v}
       data-size={size}
       data-holding={holding ? "" : undefined}
+      data-testid={testId}
       disabled={disabled}
       aria-describedby={hintId}
       onPointerDown={(e) => {

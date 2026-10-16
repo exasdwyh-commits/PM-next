@@ -41,7 +41,7 @@ export {
   type MissionBrief,
 } from "./brief";
 export { missionResponseEnvelope } from "./response";
-export { loadMissionReport, proposeMissionTakeaway, takeawayOptions, type TakeawayTarget } from "./takeaway";
+export { loadMissionReport, proposeMissionTakeaway, takeawayOptions, takeawayGate, type TakeawayTarget } from "./takeaway";
 export { LIBRARY_FORMATS, libraryItem, listLibrary, normalizeLibraryQuery, type LibraryItem } from "./library";
 export * from "./report-format";
 export { computeMissionMetrics, aggregatePlaybookMetrics, automationEligibility } from "./metrics";

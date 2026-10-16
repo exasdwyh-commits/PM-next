@@ -4,6 +4,7 @@ import { OrgRole } from "@prisma/client";
 import prisma from "../src/shared/db";
 import { assertTestDatabaseSafety } from "./test-safety";
 import { createKernConversation, sendDepartmentAssistantMessage } from "../src/modules/assistant-runtime";
+import { applyProposal } from "../src/modules/advisor/proposals";
 
 async function main() {
   if (!process.env.TEST_DATABASE_URL) {
@@ -62,9 +63,28 @@ async function main() {
       ].join("\n")
     );
 
-    assert.equal(second.proposal, null, "明确的新产品指令不应要求用户二次确认");
+    // 契约（intake 确认门，与风险分级正交）：CREATE_PRODUCT 在对话里不自动落库——
+    // 建产品连带初始版本与项目，用户先看到整理出来的内容再决定。明确指令整理成
+    // PENDING_CONFIRMATION 提议，等既有确认入口批准后才写业务数据。
+    assert.equal(second.proposal?.actionType, "CREATE_PRODUCT", "明确的新产品指令整理成待确认提议");
+    assert.equal(second.proposal?.created, true);
+    assert.equal(
+      (
+        await prisma.actionProposal.findUniqueOrThrow({
+          where: { id: second.proposal!.proposalId },
+          select: { status: true },
+        })
+      ).status,
+      "PENDING_CONFIRMATION",
+      "确认之前不创建产品",
+    );
 
     console.log("▶ K2 explicit CREATE_PRODUCT is applied once and binds the original conversation");
+    // 用户在既有确认入口批准：与服务端确认同一路径，此后才写业务数据。
+    const receipt = await applyProposal(session, second.proposal!.proposalId, {
+      idempotencyKey: `kern-continuity-${tag}`,
+    });
+    assert.ok(receipt);
     const productProposal = await prisma.actionProposal.findFirstOrThrow({
       where: {
         conversationId: conversation.id,

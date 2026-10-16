@@ -11,6 +11,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import { loadEnvFiles } from "../src/shared/env";
+import { isConnectPermissionDenied, testIsolationProbeUrl } from "../scripts/lib/test-isolation-proof";
 
 loadEnvFiles();
 
@@ -63,20 +64,27 @@ export async function assertTestDatabaseSafety(client: PrismaClient = testPrisma
     process.exit(1);
   }
 
-  const devDbName = new URL(guardUrl.replace("postgresql://", "http://")).pathname.replace("/", "");
-  const devUrlWithTestCreds = TEST_DATABASE_URL.replace(
-    /(\/\/[^/]+\/)[^?]+/,
-    `$1${devDbName}`
-  );
+  let devUrlWithTestCreds: string;
+  try {
+    devUrlWithTestCreds = testIsolationProbeUrl(TEST_DATABASE_URL, guardUrl);
+  } catch {
+    console.error("隔离未验证：guard 必须指向同一 PostgreSQL 端点上不同的非测试库；拒绝猜测或替换主机。");
+    process.exit(1);
+  }
+  const devDbName = decodeURIComponent(new URL(devUrlWithTestCreds).pathname.slice(1));
 
   let devConnectionBlocked = false;
   let devError = "";
   const probe = new PrismaClient({ datasources: { db: { url: devUrlWithTestCreds } } });
   try {
     await probe.$queryRaw`SELECT 1`;
-  } catch (error: any) {
+  } catch (error: unknown) {
+    if (!isConnectPermissionDenied(error)) {
+      console.error("隔离未验证：未取得明确的数据库 CONNECT 权限拒绝；认证失败、网络异常、超时或库不存在都不能证明隔离。");
+      process.exit(1);
+    }
     devConnectionBlocked = true;
-    devError = String(error.message || error).split("\n").pop() ?? "";
+    devError = "CONNECT permission denied";
   } finally {
     await probe.$disconnect().catch(() => {});
   }

@@ -13,6 +13,7 @@ export interface KernSpecialistDispatchResult {
   created: boolean;
   taskId: string;
   agentCode: string;
+  agentName: string;
   status: AgentTaskStatus;
   triggerRef: string;
 }
@@ -54,7 +55,7 @@ export async function enqueueKernSpecialistDispatch(input: {
         code: readiness.agentCode,
         status: AgentLifecycleStatus.ACTIVE,
       },
-      select: { id: true, code: true },
+      select: { id: true, code: true, name: true },
     }),
     prisma.agentRun.findFirst({
       where: {
@@ -94,6 +95,7 @@ export async function enqueueKernSpecialistDispatch(input: {
       created: false,
       taskId: existing.id,
       agentCode: agent.code,
+      agentName: agent.name,
       status: existing.status,
       triggerRef,
     };
@@ -126,6 +128,7 @@ export async function enqueueKernSpecialistDispatch(input: {
       created: true,
       taskId: task.id,
       agentCode: agent.code,
+      agentName: agent.name,
       status: task.status,
       triggerRef,
     };
@@ -145,6 +148,7 @@ export async function enqueueKernSpecialistDispatch(input: {
           created: false,
           taskId: replay.id,
           agentCode: agent.code,
+          agentName: agent.name,
           status: replay.status,
           triggerRef,
         };

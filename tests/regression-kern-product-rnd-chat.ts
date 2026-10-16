@@ -246,9 +246,10 @@ async function main() {
     assert.match(reportReply.message.content, /当前方案可以继续验证，但法规边界与供应报价仍需补证/);
     // 交付形态：对话里只回 headline 数字 + 报告页链接 + 结构化引用，全文不贴进对话
     // （见 src/shared/executive-report-citation.ts 顶部说明）。
+    // 缺口计数走中文（与 ReportV3 的 readable() 同一口径）：业务使用者不该在正文里看到裸英文 UNKNOWN。
     assert.match(
       reportReply.message.content,
-      /依据 1 条（已核实 1 条）· 风险 1 项 · UNKNOWN 1 项 · 待决策 1 项/
+      /依据 1 条（已核实 1 条）· 风险 1 项 · 待验证 1 项 · 待决策 1 项/
     );
     assert.match(
       reportReply.message.content,

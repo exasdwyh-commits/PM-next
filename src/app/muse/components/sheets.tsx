@@ -539,7 +539,7 @@ export function VaultSheet({ onClose }: { onClose: () => void }) {
   );
 }
 
-type ConnTool = { name: string; title: string; description: string; effect: "read" | "write"; enabled: boolean };
+type ConnTool = { name: string; title: string; description: string; effect: "read" | "write"; enabled: boolean; basis?: "declared-read" | "declared-write" | "conflict" | "undeclared"; reconfirm?: string | null };
 type ConnAccess = "off" | "read" | "interact" | "custom";
 type ConnItem = { id: string; name: string; url: string; host: string; tools: ConnTool[]; access?: ConnAccess; lastError: string | null; refreshedAt: string | null };
 
@@ -632,12 +632,13 @@ export function ConnectorSheet({ onClose }: { onClose: () => void }) {
             </div>
             {c.lastError ? <p className="m-sheet-inline-error">上次刷新失败：{c.lastError}</p> : null}
             {c.tools.length ? <details className="m-conn-tools">
-              <summary onClick={toggleDetails}><span>工具清单</span><span className="m-sheet-meta">{c.tools.filter(t => t.enabled).length} / {c.tools.length} 已启用</span><span className="m-sheet-disclosure" aria-hidden>⌄</span></summary>
+              <summary onClick={toggleDetails}><span>工具清单</span><span className="m-sheet-meta">{c.tools.filter(t => t.enabled).length} / {c.tools.length} 已启用{c.tools.some(t => !t.enabled && t.reconfirm) ? " · 有工具需重新确认" : ""}</span><span className="m-sheet-disclosure" aria-hidden>⌄</span></summary>
             <ul className="m-mem">
               {c.tools.map((t) => (
                 <li key={t.name} data-pinned={t.enabled || undefined}>
-                  <div className="m-sheet-card-head"><strong>{t.title}</strong><Tag tone={t.effect === "read" ? "neutral" : "accent"}>{t.effect === "read" ? "读取" : "写入"}</Tag></div>
+                  <div className="m-sheet-card-head"><strong>{t.title}</strong><Tag tone={t.effect === "read" ? "neutral" : "accent"}>{t.effect === "read" ? "读取" : "写入"}</Tag>{t.basis === "undeclared" ? <Tag tone="neutral">未声明只读</Tag> : t.basis === "conflict" ? <Tag tone="accent">声明冲突</Tag> : null}</div>
                   {t.description ? <p className="m-sheet-meta">{t.description}</p> : null}
+                  {!t.enabled && t.reconfirm ? <p className="m-sheet-meta" role="note" data-testid="conn-tool-reconfirm">需要重新确认：{t.reconfirm}</p> : null}
                   <div className="m-mem-acts">
                     <button type="button" disabled={busy} {...rowState(`tool:${c.id}:${t.name}`)} onClick={() => void patch(c.id, { tool: t.name, enabled: !t.enabled }, `tool:${c.id}:${t.name}`)}>
                       {t.enabled ? "停用" : t.effect === "write" ? "允许（每次仍需确认）" : "启用"}
