@@ -6,7 +6,7 @@ import { recallRolePreference } from "@/modules/memory/role-preference";
 import { inferRoleFromText } from "./role-intelligence";
 import { conversationProductGoal } from "./product-goal";
 import prisma from "@/shared/db";
-import { NotFoundError, UnprocessableEntityError } from "@/shared/errors";
+import { NotFoundError, UnprocessableEntityError, userFacingFailureReason } from "@/shared/errors";
 import type { SessionContext } from "@/modules/identity/session";
 import {
   ADVISOR_LLM_SYSTEM_PROMPT_VERSION,
@@ -57,15 +57,9 @@ import { buildArtifactPromptContext, persistReplyArtifacts } from "@/modules/art
 import { buildKernContextLayers } from "./context-layers";
 
 /**
- * 失败原因是否适合直接展示给用户。
- *
- * 技术异常（Prisma / 网关 / fetch）的原文是英文堆栈，直出正文既读不懂也会
- * 泄漏内部实现；业务异常携带的是中文提示，应当照常透出。诊断原文一律留在
- * ToolCall.errorReason 里供排查，不因此丢失。
+ * 失败原因是否适合直接展示给用户 —— 已收口到 `@/shared/errors`，
+ * 与后台执行路径（message-worker）共用同一判据，避免两处口径漂移。
  */
-function userFacingFailureReason(reason: string): string | null {
-  return /[\u4e00-\u9fff]/.test(reason) ? reason : null;
-}
 
 /** Model text → (artifacts pulled out first, so HTML never meets the Markdown harness) → normalised Markdown with validated kern-ui blocks. */
 export function formatModelReply(raw: string): { reply: NormalizedReply; artifacts: ExtractedArtifact[]; richIssues: string[] } {

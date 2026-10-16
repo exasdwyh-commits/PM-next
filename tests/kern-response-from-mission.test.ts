@@ -85,6 +85,47 @@ test("extractList 支持列表与行内两种写法", () => {
   assert.deepEqual(extractList("没有这一节", /主要风险/), []);
 });
 
+test("extractList 不把标题行当条目（`## 风险评估` 不得产出「## 评估」）", () => {
+  // 回归：标题行被剥掉关键词后只剩残片，曾作为第一条内容进入决策卡。
+  assert.deepEqual(extractList("## 风险评估\n", /主要风险|风险/), []);
+  assert.deepEqual(
+    extractList("## 风险评估\n- 主要失败路径：复购不足（推断）\n- 缓解：先做 3 个月复购观察（推断）", /主要风险|风险/),
+    ["主要失败路径：复购不足（推断）", "缓解：先做 3 个月复购观察（推断）"],
+    "标题行不占位，后面的条目照常取到"
+  );
+});
+
+test("extractList 去掉条目句末标点（行内分号拆出的项也不留句号）", () => {
+  assert.deepEqual(extractList("**结论与建议**：进入验证阶段（推断）；先做最小验证再投产（推断）。", /结论与建议/), [
+    "进入验证阶段（推断）",
+    "先做最小验证再投产（推断）",
+  ]);
+});
+
+test("风险节只有标题、没有条目时降级为 ANSWER，不谎称 CONCLUSION", () => {
+  const env = envelopeFromMission(
+    baseReport({
+      conclusion: [
+        "## 结论：推荐做「随行冷萃杯」",
+        "",
+        "**结论与建议**",
+        "- 200 元价位带做 3 分钟冷萃，差异化清楚",
+        "",
+        "**反对理由**",
+        "- 供应链尚未询价",
+        "",
+        "## 风险评估",
+        "",
+      ].join("\n"),
+    }),
+    OPTS
+  );
+  assert.equal(env.kind, "ANSWER", "空风险节不得生成决策卡");
+  assert.equal(env.blocks.some((b) => b.type === "decision"), false);
+  assert.equal(env.confidence, "LOW");
+  assert.deepEqual(validate(env), []);
+});
+
 test("extractUnknowns 丢弃写不出 needs 的条目", () => {
   const ok = extractUnknowns([
     { key: "a", label: "", agent: "", status: "SUCCEEDED", output: "UNKNOWN：复购率（需要尼尔森数据）" },

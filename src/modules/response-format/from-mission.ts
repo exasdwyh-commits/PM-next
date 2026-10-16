@@ -34,7 +34,16 @@ export function extractList(conclusion: string | null | undefined, heading: RegE
   const out: string[] = [];
   // 行内形式：**主要风险**：a；b；c
   const head = lines[at];
-  const inline = head.replace(heading, "").replace(/^[\s*_：:）)]+/, "").trim();
+  // 命中行若是标题（`## 风险评估`），它本身**不是条目**：剥掉关键词后只剩「## 评估」
+  // 这类残片，收进去既污染决策卡，又会让 hasDecision 的空节判据失效
+  // （空风险节也凑出 length>0 → 生成决策卡、并把 kind 谎称 CONCLUSION）。
+  const inline = /^\s*#{1,6}\s/.test(head)
+    ? ""
+    : head
+        .replace(heading, "")
+        .replace(/^\s*#{1,6}\s*/, "")
+        .replace(/^[\s*_：:）)]+/, "")
+        .trim();
   if (inline) out.push(...inline.split(/[；;]\s*/).filter(Boolean));
 
   for (const l of lines.slice(at + 1)) {
@@ -44,7 +53,11 @@ export function extractList(conclusion: string | null | undefined, heading: RegE
     if (m) out.push(m[1].trim().replace(/\*\*/g, ""));
     else if (out.length && l.trim() === "") break;
   }
-  return out.filter((x) => x.length > 0).slice(0, 8);
+  // 统一收尾：去句末标点（句号/分号），并剔除标题残片——两者都是"看起来有内容"的空壳。
+  return out
+    .map((x) => x.trim().replace(/[。；;]\s*$/, ""))
+    .filter((x) => x.length > 0 && !/^#{1,6}\s/.test(x))
+    .slice(0, 8);
 }
 
 /** UNKNOWN 行 → 缺口清单。写不出"需要什么"的条目会被丢弃（R10 不接受空 needs）。 */
@@ -146,8 +159,11 @@ export function envelopeFromMission(r: MissionReport, opts: FromMissionOptions):
 
   if (unknowns.length) blocks.push({ type: "unknown", full: true, items: unknowns });
 
-  // 决策卡：三段都拿得到才生成。拿不到就不装样子。
-  const hasDecision = recommend.length > 0 && against.length > 0 && risks.length > 0;
+  // 决策卡：三段都要有**实质条目**才生成。拿不到就不装样子。
+  // 判据必须落在内容上而不是数组长度：extractList 已剔除标题残片与空壳，
+  // 这里再要求至少一条非空白条目，避免将来取料逻辑回退时又让空节蒙混过关。
+  const hasSubstance = (items: string[]) => items.some((x) => x.trim().length > 0);
+  const hasDecision = hasSubstance(recommend) && hasSubstance(against) && hasSubstance(risks);
   if (hasDecision) {
     blocks.push({
       type: "decision",

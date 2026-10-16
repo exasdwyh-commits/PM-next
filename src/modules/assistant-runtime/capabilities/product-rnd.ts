@@ -1,7 +1,7 @@
 import prisma from "@/shared/db";
 import type { SessionContext } from "@/modules/identity/session";
 import { getProductRndProgramStatus, startProductRndProgram } from "@/modules/product-rnd";
-import { labelAgentTaskStatus, labelWorkItemStatus } from "@/shared/status-labels";
+import { labelAgentRunStatus, labelAgentTaskStatus, labelArtifactReviewStatus, labelWorkItemStatus } from "@/shared/status-labels";
 import { buildReportUrl } from "@/shared/report-links";
 import type { ExecutiveReportConclusion } from "@/shared/executive-report-types";
 import {
@@ -118,9 +118,8 @@ export const handleProductRndCapability: KernCapabilityHandler = async (
             : "已启动真实 Product R&D 程序。",
           `项目：${project.title}`,
           `工作项：${started.workItem.title}`,
-          `父运行状态：${started.parentRun.status}`,
+          `父运行状态：${labelAgentRunStatus(started.parentRun.status)}`,
           `专业分工：${started.specialistTasks.length} 个数字员工任务`,
-          `ResearchRun：${started.researchRun.id}`,
           "",
           "现在只表示研发程序已真实启动/复用，不代表研发已经完成。最终结论必须等专业任务、Evidence 与独立 QA 完成后再生成 Executive Report。",
         ].join("\n"),
@@ -280,7 +279,7 @@ export const handleProductRndCapability: KernCapabilityHandler = async (
       const report = status.latestReport;
       const preview = report?.preview ?? null;
       const reportLine = report
-        ? `Executive Report：已生成 v${report.contentVersion}（${report.reviewStatus}）`
+        ? `Executive Report：已生成 v${report.contentVersion}（${labelArtifactReviewStatus(report.reviewStatus)}）`
         : "Executive Report：尚未生成";
 
       return {
@@ -470,11 +469,11 @@ export const handleProductRndCapability: KernCapabilityHandler = async (
       const lines = [
         `产品：${product.name}`,
         `项目：${project.title}`,
-        `Executive Report：v${report.contentVersion}（${report.reviewStatus}）`,
+        `Executive Report：v${report.contentVersion}（${labelArtifactReviewStatus(report.reviewStatus)}）`,
         "",
         `当前结论：${preview.summary || "报告没有提供总摘要。"}`,
         "",
-        `依据 ${conclusions.length} 条（已核实 ${verifiedCount} 条）· 风险 ${risks.length} 项 · UNKNOWN ${unknowns.length} 项 · 待决策 ${decisions.length} 项`,
+        `依据 ${conclusions.length} 条（已核实 ${verifiedCount} 条）· 风险 ${risks.length} 项 · 待验证 ${unknowns.length} 项 · 待决策 ${decisions.length} 项`,
         "",
         `完整报告：[在新页面查看](${buildReportUrl(report.id)})`,
       ];

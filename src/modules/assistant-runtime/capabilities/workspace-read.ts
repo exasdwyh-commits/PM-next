@@ -2,6 +2,7 @@ import type { SessionContext } from "@/modules/identity/session";
 import { getWorkspaceOverview } from "@/modules/workspace/overview";
 import { listProductBoard } from "@/modules/products/service";
 import { fmtDateTime } from "@/shared/datetime";
+import { labelProductLifecycleStage } from "@/shared/status-labels";
 import type {
   KernCapabilityContext,
   KernCapabilityHandler,
@@ -47,7 +48,7 @@ export const handleWorkspaceReadCapability: KernCapabilityHandler = async (
       return {
         toolKey: "products.board",
         text: `组织内共 ${board.length} 个产品。生命周期分布：${[...byStage.entries()]
-          .map(([k, v]) => `${k} ${v}`)
+          .map(([k, v]) => `${labelProductLifecycleStage(k)} ${v}`)
           .join("、")}。`,
         citations: board.slice(0, 10).map((p) => ({ kind: "product", ref: p.id, title: p.name })),
       };

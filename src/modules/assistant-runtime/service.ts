@@ -10,6 +10,7 @@ import type { SessionContext } from "@/modules/identity/session";
 import { executeKernConversationTurn } from "./conversation-engine";
 import { artifactCitations } from "@/modules/artifacts/protocol";
 import { hasRichContent } from "@/modules/artifacts/rich-blocks";
+import { labelAgentTaskStatus } from "@/shared/status-labels";
 
 /** kern-rich/v1: when a reply is superseded (brief), keep its artifact markers + citations so versions stay reachable. */
 /**
@@ -279,7 +280,7 @@ export async function sendDepartmentAssistantMessage(
         const expertName = specialistDispatch.agentName || specialistDispatch.agentCode;
         const dispatchNote = [
           `Kern 协作路由：已将这条低风险技术请求交给 ${expertName}。`,
-          `当前任务状态：${specialistDispatch.status}。专家完成后，回执会自动追加到本会话。`,
+          `当前任务状态：${labelAgentTaskStatus(specialistDispatch.status)}。专家完成后，回执会自动追加到本会话。`,
         ].join("\n");
         const originalContent = result.message.content;
         const nextContent = originalContent.includes("Kern 协作路由：")
@@ -298,7 +299,7 @@ export async function sendDepartmentAssistantMessage(
               {
                 kind: "agent-task",
                 ref: specialistDispatch.taskId,
-                title: `${expertName} · ${specialistDispatch.status}`,
+                title: `${expertName} · ${labelAgentTaskStatus(specialistDispatch.status)}`,
               },
             ] as Prisma.InputJsonValue,
           },
