@@ -19,6 +19,7 @@ import { assessMissionReportQuality, reportContentVersion, REPORT_QUALITY_VERSIO
 import { planMissionDelivery } from "../src/modules/supervisor/report-delivery";
 import { attachQuality, readQuality } from "../src/modules/supervisor/report-quality-store";
 import { reportTitle, type MissionReport } from "../src/modules/supervisor/report-format";
+import { takeawayGate } from "../src/modules/supervisor/takeaway";
 
 const SHOT_GOAL =
   "好，其实我们想开发一款红参胶原蛋白肽女士奶粉，主打新疆三峰包奶源。目标人群35-55岁女性。预算大概10万以内。";
@@ -165,6 +166,59 @@ test("接线守卫：导出路由必须在 Office 分支之前跑门禁，并在
   assert.ok(officeAt > gateAt, "门禁必须排在 Office 分支之前（否则正式导出绕过检查）");
   assert.ok(/if \(plan\.blocked\)/.test(src), "阻断态必须终止交付");
   assert.ok(/X-Kern-Quality/.test(src), "非可交付件应带质量状态响应头");
+});
+
+/* ---------- 带走结论：与导出同一个门禁口径 ---------- */
+
+test("带走：阻断态结论不能带走（与导出一致，此前这条路完全不看质量）", () => {
+  const report = withReviewedContent(
+    mk({ researchSources: [], conclusion: "## 结论：推荐做「高蛋白海苔脆」（示例）\n同价位下蛋白含量领先约 40%。" }),
+    false,
+  );
+  assert.equal(assessMissionReportQuality(report).status, "BLOCKED");
+  const gate = takeawayGate(report);
+  assert.notEqual(gate.blocked, null, "BLOCKED 必须拒绝带走——这是唯一能把不合格结论写进业务表的通路");
+  assert.match(gate.blocked!, /不能作为正式研究交付/);
+  assert.match(gate.blocked!, /研究对象|内容审校/, "拒绝理由要逐条说清问题");
+  assert.equal(gate.pendingNote, "", "被拒时不应再给「待补证」戳");
+});
+
+test("带走：待补证草稿放行，但带状态戳与问题清单（与导出「标题带戳」等价）", () => {
+  const report = mk({ researchSources: [], conclusion: `${COMPLIANT_CONCLUSION}\n- 该结论已核实。` });
+  assert.equal(assessMissionReportQuality(report).status, "DRAFT_UNVERIFIED");
+  const gate = takeawayGate(report);
+  assert.equal(gate.blocked, null, "草稿态应放行（与导出一致）");
+  assert.match(gate.pendingNote, /待补证/);
+  assert.ok(gate.pendingNote.includes("："), "问题清单要带出来，用户才看得到缺什么");
+});
+
+test("带走：非 NEW_PRODUCT 不做质量判定，既不拦也不加戳", () => {
+  const gate = takeawayGate(mk({ playbook: "GENERIC" }));
+  assert.equal(gate.blocked, null);
+  assert.equal(gate.quality, null);
+  assert.equal(gate.pendingNote, "");
+});
+
+test("带走与导出同进同退：同一个 planMissionDelivery，不许两套口径", () => {
+  const cases = [
+    withReviewedContent(mk({ conclusion: "## 结论：推荐做「高蛋白海苔脆」（示例）\n同价位下蛋白含量领先约 40%。" }), false),
+    mk({ researchSources: [], conclusion: `${COMPLIANT_CONCLUSION}\n- 该结论已核实。` }),
+    mk({ playbook: "GENERIC" }),
+  ];
+  for (const report of cases) {
+    const plan = planMissionDelivery(report);
+    const gate = takeawayGate(report);
+    assert.equal(gate.blocked !== null, plan.blocked, `口径漂移：${report.playbook}`);
+    if (plan.blocked) assert.equal(gate.blocked, plan.blockedReason, "拒绝理由必须与导出同文");
+  }
+});
+
+test("接线守卫：takeaway 必须复用同一个门禁，不能自己另写一套判据", () => {
+  const src = fs.readFileSync(new URL("../src/modules/supervisor/takeaway.ts", import.meta.url), "utf8");
+  assert.ok(/takeawayGate\(/.test(src), "takeaway 必须走共享门禁");
+  assert.ok(/planMissionDelivery/.test(src), "门禁必须复用导出的交付计划");
+  // demo / 未完成的前置判据仍要在，且必须排在门禁之前（便宜的先拒）。
+  assert.ok(src.indexOf("演示运行的数据不会写入业务") < src.indexOf("takeawayGate(report)"), "演示前置判据必须先于质量门禁");
 });
 
 /* ---------- 需求 §5：重复生成 / 交付请求（幂等） ---------- */

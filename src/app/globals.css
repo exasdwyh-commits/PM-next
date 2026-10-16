@@ -137,7 +137,10 @@ button,a { -webkit-tap-highlight-color:transparent; }
 .hermes-danger-btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:9px 13px; border:1px solid var(--block-line); border-radius:8px; background:var(--block-bg); color:var(--block-ink); font-size:14px; font-weight:600; cursor:pointer; transition:var(--m-tr-ui); }
 .hermes-danger-btn:hover { border-color:var(--block); background:var(--block-bg); box-shadow:0 4px 14px var(--shadow-block); }
 .hermes-primary-btn:disabled,.hermes-outline-btn:disabled,.hermes-ghost-btn:disabled,.hermes-danger-btn:disabled { opacity:.5; cursor:not-allowed; transform:none; }
-.hermes-btn-sm { padding:6px 10px!important; font-size:13px!important; }
+/* 此处原本带 important 标记，已移除：四个 hermes-*-btn 均在 71/135/137 行
+   （更早，同特异性 0,1,0），且 beautified-overrides.css 只覆盖 box-shadow/transition，
+   不设 padding/font-size → 源码顺序即已胜出，无需提权 */
+.hermes-btn-sm { padding:6px 10px; font-size:13px; }
 
 /* 顶栏身份切换 */
 .hermes-topbar-title { display:flex; align-items:center; gap:10px; }

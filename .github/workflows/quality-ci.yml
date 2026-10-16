@@ -24,6 +24,7 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npm run test:ci-contracts
+      - run: npm run test:tenant
       - name: Validate local Laya runtime syntax
         run: python3 -m py_compile services/judgment-runtime/service.py
       - run: npm run test:golden
