@@ -279,6 +279,18 @@ async function main() {
       "审计要能区分维度是手填还是编译"
     );
 
+    // 持续职责台账：没声明任何已接入数据源时，一条都不该是可派发的。
+    assert.ok(richResult.duties.length > 0, "必须产出持续职责清单");
+    assert.ok(
+      richResult.duties.every((duty) => duty.actionable === false),
+      "未声明数据源接入时不应有可自动派发的职责"
+    );
+    assert.equal(
+      richResult.delta.hasEffectiveChange,
+      true,
+      "首次评估必须交付一次"
+    );
+
     // ---------------------------------------------------------------------
     console.log("▶ PC2 只有模板与未核实资料：维度保持 UNKNOWN，并给出人工补证缺口");
     const thin = await createDevelopmentProduct(session, {
@@ -450,6 +462,61 @@ async function main() {
 
     // 编译器判定与落库前校验器判定必须一致：这条链路没有抛错本身就是断言。
     assert.ok(scopedResult.record.id, "路线级评估必须能落库");
+
+    // ---------------------------------------------------------------------
+    console.log("▶ PC4 没有有效变化时办公室待命；数据源接入后才派活");
+    // 同一批证据再评估一次：维度、缺口、结论都没变 → 办公室应保持待命。
+    const repeat = await assessAndSaveProductPotentialFromEvidence(
+      session,
+      scoped.product.id,
+      { productVersionId: scopedVersion.id, channelRouteId: route.id }
+    );
+    assert.equal(
+      repeat.delta.hasEffectiveChange,
+      false,
+      "证据没变时不应把办公室叫醒"
+    );
+    assert.ok(repeat.delta.reason.includes("待命"));
+
+    // 声明接入电商与渠道规则通道：对应缺口才变成可派发，人工项仍然不可自动派发。
+    const wired = await assessAndSaveProductPotentialFromEvidence(
+      session,
+      scoped.product.id,
+      {
+        productVersionId: scopedVersion.id,
+        channelRouteId: route.id,
+        availableSources: ["ecommerce", "channel_policy"],
+      }
+    );
+    const autoDuty = wired.duties.find(
+      (duty) => duty.sourceStatus === "AVAILABLE"
+    );
+    if (autoDuty) {
+      assert.equal(autoDuty.actionable, true);
+      assert.equal(autoDuty.requiresHumanInput, false);
+    }
+    assert.ok(
+      wired.duties
+        .filter((duty) => duty.requiresHumanInput)
+        .every((duty) => duty.sourceStatus === "HUMAN_ONLY"),
+      "需要人工提供的职责永远是 HUMAN_ONLY"
+    );
+
+    // 幂等：把上一轮全部职责键传回来，新增职责应当为空。
+    const noNew = await assessAndSaveProductPotentialFromEvidence(
+      session,
+      scoped.product.id,
+      {
+        productVersionId: scopedVersion.id,
+        channelRouteId: route.id,
+        knownDutyKeys: wired.duties.map((duty) => duty.key),
+      }
+    );
+    assert.equal(
+      noNew.newDuties.length,
+      0,
+      "同一批缺口不得被重复派发"
+    );
 
     console.log("\n✅ Potential compiler integration passed");
   } finally {

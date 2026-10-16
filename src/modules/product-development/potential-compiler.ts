@@ -610,11 +610,60 @@ export interface TemplateAssumption {
   origin: string;
 }
 
+/**
+ * 假设的两种来源。区分它们很重要：
+ * - `HYPOTHESIS`：有材料但未核实（未核实证据、或已核实证据上的假设断言）——**可能**通过补证升级。
+ * - `TEMPLATE`：规则模板 / 演示数据——**不可能**通过补证升级，只能被真实证据替换。
+ */
+export type AssumptionBasis = "HYPOTHESIS" | "TEMPLATE";
+
+/**
+ * 待核验假设台账（研发办公室持续职责之一）。
+ *
+ * 为什么要有这个台账：推断与模板值此前只会体现在「分数被压低」上，
+ * 但没有任何地方能回答「现在有哪些东西是我们**以为**的、还没验证过」。
+ * 持续办公需要把这件事列出来，才能决定下一步核验什么。
+ */
+export interface CompiledAssumption {
+  /** 幂等键：同一件事重复计算得到同一个键（办公室据此去重，不重复建任务）。 */
+  key: string;
+  dimension: PotentialDimensionKey | null;
+  fieldKey: string;
+  label: string;
+  basis: AssumptionBasis;
+  /** 被当作假设的内容（原值）。 */
+  statement: string;
+  /** 该假设依赖的证据（模板假设为空）。 */
+  evidenceIds: string[];
+  claimIds: string[];
+  /** 为什么它现在还不能算事实。 */
+  whyUnverified: string;
+  /** 建议怎么核验。 */
+  verificationSuggestion: string;
+}
+
+/** 待核验假设的幂等键。同维度 + 同字段 + 同内容 → 同一个键。 */
+export function assumptionKey(params: {
+  dimension: PotentialDimensionKey | null;
+  fieldKey: string;
+  statement: string;
+  basis: AssumptionBasis;
+}): string {
+  return `assumption:${params.basis}:${params.dimension ?? "GATE"}:${
+    params.fieldKey
+  }:${params.statement}`;
+}
+
 /** 可执行的证据缺口（P0-4）。 */
 export interface CompiledEvidenceGap {
   dimension: PotentialDimensionKey | null;
   /** 门槛缺口时给出 gate key，否则为 null。 */
   gateKey: string | null;
+  /**
+   * 缺口对应的业务字段（与 evidence-claims.ts 的 fieldKey 同一套口径）；
+   * 门槛缺口为 null。持续办公用它做**幂等键**，避免同一缺口重复建任务。
+   */
+  fieldKey: string | null;
   missingFact: string;
   whyItMatters: string;
   suggestedSource: string;
@@ -622,6 +671,17 @@ export interface CompiledEvidenceGap {
   priority: "HIGH" | "MEDIUM" | "LOW";
   canAutoResearch: boolean;
   requiresHumanInput: boolean;
+}
+
+/**
+ * 缺口的幂等键：同一维度 + 同一字段（或同一门槛）得到同一个键。
+ *
+ * 注意这里**不含** `priority` / `suggestedQuery` 等描述性字段——那些会随文案调整而变，
+ * 一旦进入键，同一条缺口就会被当成新缺口，办公室会重复建任务。
+ */
+export function evidenceGapKey(gap: CompiledEvidenceGap): string {
+  if (gap.gateKey) return `gap:GATE:${gap.gateKey}`;
+  return `gap:${gap.dimension ?? "GENERAL"}:${gap.fieldKey ?? gap.missingFact}`;
 }
 
 /** 带完整可追溯性的维度（Compiler 产出；`PotentialDimensionInput` 是其超集）。 */
@@ -662,6 +722,9 @@ export interface CompileProductPotentialResult {
   input: ProductPotentialInput;
   dimensions: CompiledDimension[];
   gaps: CompiledEvidenceGap[];
+  /** 待核验假设台账（HYPOTHESIS + TEMPLATE 全量）。 */
+  assumptions: CompiledAssumption[];
+  /** `assumptions` 里 `basis === "TEMPLATE"` 的展示视图（界面用，自带「假设」措辞）。 */
   templateAssumptions: TemplateAssumption[];
   /**
    * 防火墙拦截记录：描述哪些内容被拒绝升级为事实级证据。
@@ -739,6 +802,7 @@ function buildMissingGaps(
   return missing.map((item) => ({
     dimension,
     gateKey: null,
+    fieldKey: item.fieldKey,
     missingFact: `${rubric.label}：${item.label}（${item.fieldKey}）`,
     whyItMatters: item.whyItMatters,
     suggestedSource: item.suggestedSource,
@@ -761,7 +825,7 @@ export function compileProductPotentialInput(
   const hits = collectClaimHits(evidence);
   const now = (params.now ?? new Date()).toISOString();
 
-  const templateAssumptions: TemplateAssumption[] = [];
+  const assumptions: CompiledAssumption[] = [];
   const firewallRejections: string[] = [];
   const dimensions: CompiledDimension[] = [];
   const gaps: CompiledEvidenceGap[] = [];
@@ -797,23 +861,44 @@ export function compileProductPotentialInput(
     );
     const firewallClasses = unique(relevantHits.map((hit) => hit.firewallClass));
 
-    // 模板推断单独登记，并且**不计入**覆盖数（coveredKeys 已按 canScoreDimension 过滤）。
-    const templateHits = relevantHits.filter(
-      (hit) => hit.firewallClass === "TEMPLATE_ASSUMPTION"
+    // 假设台账：模板推断与未核实/假设级内容都要登记，并且**不计入**覆盖数
+    // （coveredKeys 已按 canScoreDimension 过滤）。
+    const assumptionHits = relevantHits.filter(
+      (hit) =>
+        hit.firewallClass === "TEMPLATE_ASSUMPTION" ||
+        hit.firewallClass === "HYPOTHESIS"
     );
-    const seenTemplate = new Set<string>();
-    for (const hit of templateHits) {
-      const dedupeKey = `${hit.fieldKey}|${hit.value}`;
-      if (seenTemplate.has(dedupeKey)) continue;
-      seenTemplate.add(dedupeKey);
-      templateAssumptions.push({
+    const seenAssumption = new Set<string>();
+    for (const hit of assumptionHits) {
+      const basis: AssumptionBasis =
+        hit.firewallClass === "TEMPLATE_ASSUMPTION" ? "TEMPLATE" : "HYPOTHESIS";
+      const assumptionId = assumptionKey({
+        dimension: key,
+        fieldKey: hit.fieldKey,
+        statement: hit.value,
+        basis,
+      });
+      if (seenAssumption.has(assumptionId)) continue;
+      seenAssumption.add(assumptionId);
+      assumptions.push({
+        key: assumptionId,
         dimension: key,
         fieldKey: hit.fieldKey,
         label:
           rubric.requiredFacts.find((f) => f.fieldKey === hit.fieldKey)?.label ??
           hit.fieldKey,
-        displayText: `假设值：${hit.value}（用于方案模拟，尚无真实来源支持）`,
-        origin: `evidence:${hit.evidenceId}`,
+        basis,
+        statement: hit.value,
+        evidenceIds: [hit.evidenceId],
+        claimIds: hit.claimId ? [hit.claimId] : [],
+        whyUnverified:
+          basis === "TEMPLATE"
+            ? "来自规则模板/演示数据，不是真实来源，补证也不能把它升级为事实，只能被真实证据替换"
+            : "材料尚未独立核实，或该条本身就是假设断言；在拿到事实级证据前不能当作已验证结论",
+        verificationSuggestion:
+          basis === "TEMPLATE"
+            ? `用真实来源替换该模板值（${hit.source}）`
+            : `核对该来源并补齐事实级证据：${hit.source}`,
       });
     }
 
@@ -939,6 +1024,7 @@ export function compileProductPotentialInput(
     gaps.push({
       dimension: null,
       gateKey: gate.key,
+      fieldKey: null,
       missingFact: `硬门槛未知：${gate.label}`,
       whyItMatters: gate.reason || "门槛未确认时不能用评分代替缺失事实",
       suggestedSource: "对应门槛的原始凭据（渠道规则 / 合规结论 / 成本核算）",
@@ -965,7 +1051,17 @@ export function compileProductPotentialInput(
     },
     dimensions,
     gaps,
-    templateAssumptions,
+    assumptions,
+    // 展示视图从台账派生，避免两处各存一份。
+    templateAssumptions: assumptions
+      .filter((item) => item.basis === "TEMPLATE")
+      .map((item) => ({
+        dimension: item.dimension,
+        fieldKey: item.fieldKey,
+        label: item.label,
+        displayText: `假设值：${item.statement}（用于方案模拟，尚无真实来源支持）`,
+        origin: item.evidenceIds.map((id) => `evidence:${id}`).join("、") || "rule",
+      })),
     firewallRejections,
   };
 }

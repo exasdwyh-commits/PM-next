@@ -32,6 +32,15 @@ import {
   type ProductPotentialAssessment,
 } from "./potential-assessment";
 import { compileProductPotentialInput } from "./potential-compiler";
+import {
+  assessEvidenceDelta,
+  buildStandingDuties,
+  selectNewDuties,
+  snapshotFromStoredRecord,
+  toJudgmentSnapshot,
+  type SourceChannel,
+  type StandingDuty,
+} from "./potential-ledger";
 import { labelChannelRuleRecordStatus, labelChannelSpecRouteStatus } from "@/shared/status-labels";
 
 const KEY_RE = /^[a-z0-9][a-z0-9_-]{1,63}$/;
@@ -975,6 +984,50 @@ export async function evaluateAndSaveChannelRoute(
   });
 }
 
+/** 已接入的数据源通道白名单（与 potential-ledger 的 SourceChannel 对齐）。 */
+const SOURCE_CHANNELS = new Set<string>([
+  "ecommerce",
+  "research_report",
+  "channel_policy",
+  "channel_feedback",
+  "supplier",
+  "internal",
+  "user_feedback",
+  "patent_db",
+  "compliance",
+]);
+
+/**
+ * 解析调用方声明的「已接入数据源」。
+ *
+ * 缺省为空 = 什么都没接入，这是**刻意保守**的默认：
+ * 宁可把职责显示成「未接入」，也不能凭空认为某个外部源可用、
+ * 从而创建监测任务或发出「已发送」式回执。
+ */
+function parseSourceChannels(value: unknown): SourceChannel[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  for (const item of value) {
+    if (typeof item !== "string") continue;
+    const key = item.trim();
+    if (SOURCE_CHANNELS.has(key)) seen.add(key);
+  }
+  return [...seen] as SourceChannel[];
+}
+
+/** 解析字符串数组（用于 knownDutyKeys 这类幂等去重入参）。 */
+function parseStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [
+    ...new Set(
+      value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    ),
+  ];
+}
+
 /** 参与证据指纹的证据行（只取指纹需要的字段）。 */
 interface FingerprintEvidenceRow {
   id: string;
@@ -1093,6 +1146,8 @@ async function persistPotentialAssessment(params: {
       assessment,
       marketValidationVerified: params.marketValidationVerified,
       evidenceFingerprint: fingerprint,
+      /** 上一轮记录（无则 null），供新证据影响评估使用。 */
+      previous,
     };
   });
 }
@@ -1371,7 +1426,10 @@ export async function assessAndSaveProductPotentialFromEvidence(
     productId,
     versionId: version.id,
     route: route ? { id: route.id, routeKey: route.routeKey } : null,
-    dimensions: compiled.input.dimensions,
+    // 落库存**完整**编译维度（含 evidenceIds / claimIds / missingEvidence），
+    // 而不是剥离过的入参版本：追溯信息一旦不落库，历史记录就无法回答
+    // 「这个分数当时依据什么」，下一轮的缺口对比也会失去基线。
+    dimensions: compiled.dimensions,
     gates,
     marketValidationVerified,
     assessment,
@@ -1379,14 +1437,47 @@ export async function assessAndSaveProductPotentialFromEvidence(
     dimensionSource: "EVIDENCE_COMPILER",
   });
 
+  // 持续职责台账：外部数据源没接入时只显示「未接入」，不派活、不发回执。
+  const availableSources = parseSourceChannels(input.availableSources);
+  const duties: StandingDuty[] = buildStandingDuties({
+    compiled,
+    availableSources,
+  });
+
+  // 新证据影响评估：与上一轮落库记录比。没有有效变化时办公室应当待命。
+  const previousSnapshot = saved.previous
+    ? snapshotFromStoredRecord({
+        verdict: saved.previous.verdict,
+        dimensions: saved.previous.dimensionSnapshot,
+        gates: saved.previous.gateSnapshot,
+      })
+    : null;
+  const delta = assessEvidenceDelta(
+    previousSnapshot,
+    toJudgmentSnapshot(compiled, assessment)
+  );
+
   return {
-    ...saved,
+    record: saved.record,
+    assessment,
+    marketValidationVerified: saved.marketValidationVerified,
+    evidenceFingerprint: saved.evidenceFingerprint,
     compiled: {
       dimensions: compiled.dimensions,
       gaps: compiled.gaps,
+      assumptions: compiled.assumptions,
       templateAssumptions: compiled.templateAssumptions,
       firewallRejections: compiled.firewallRejections,
     },
+    /** 办公室持续职责（缺口 + 待核验假设），带幂等键与来源状态。 */
+    duties,
+    /** 只挑出上一轮没有的职责，用于决定「要不要新建任务」。 */
+    newDuties: selectNewDuties(
+      duties,
+      parseStringList(input.knownDutyKeys)
+    ),
+    /** 新证据影响评估。`hasEffectiveChange === false` 时办公室保持待命。 */
+    delta,
   };
 }
 
