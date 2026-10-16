@@ -26,6 +26,7 @@ import {
   labelProductLifecycleStage,
   labelScoreDimension,
 } from "@/shared/status-labels";
+import { scorecardWeight } from "@/shared/score-dimensions";
 
 /**
  * 产品总览（2026-09-15 分层信息设计 · 第二层「按主题了解」样板页）
@@ -36,16 +37,10 @@ import {
  *
  * 与旧版差异：删除总览中的重复评分区、重复推荐动作条、全量定义字段与空里程碑面板；
  * 这些内容下沉到主题详情与对应页签，数据不删除。总览首屏不再出现 JSON 与评分明细。
+ *
+ * 权重不再在本文件定义：唯一来源是 `@/shared/score-dimensions`
+ * （此前这里手抄过一份，与后端 scoring.ts 不同步就会让同一产品出现两个综合分）。
  */
-
-const WEIGHTS: Record<string, number> = {
-  DEMAND_VALUE: 25,
-  DIFFERENTIATION: 20,
-  UNIT_ECONOMICS: 20,
-  COMPANY_FIT: 15,
-  DELIVERY_FEASIBILITY: 10,
-  LAUNCH_READINESS: 10,
-};
 
 type TabKey = "overview" | "analysis" | "version" | "channel" | "cost" | "validation" | "launch";
 const TAB_KEYS: TabKey[] = ["overview", "analysis", "version", "channel", "cost", "validation", "launch"];
@@ -593,7 +588,7 @@ export default function ProductOverviewClient({
                     key={d.dimension}
                     label={labelScoreDimension(d.dimension)}
                     value={d.score ?? null}
-                    note={`权重 ${WEIGHTS[d.dimension]}%`}
+                    note={`权重 ${scorecardWeight(d.dimension)}%`}
                   />
                 ))}
               </div>

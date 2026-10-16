@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/modules/identity/session";
 import {
   assessAndSaveProductPotential,
+  assessAndSaveProductPotentialFromEvidence,
   createChannelRuleProfile,
   evaluateAndSaveChannelRoute,
   listChannelRouteWorkspace,
@@ -51,6 +52,12 @@ export async function POST(
     if (action === "ASSESS_POTENTIAL") {
       return NextResponse.json(
         await assessAndSaveProductPotential(session, productId, body),
+        { status: 201 }
+      );
+    }
+    if (action === "ASSESS_POTENTIAL_FROM_EVIDENCE") {
+      return NextResponse.json(
+        await assessAndSaveProductPotentialFromEvidence(session, productId, body),
         { status: 201 }
       );
     }
