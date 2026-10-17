@@ -3,8 +3,74 @@
     "table": "claims",
     "schema": "../schema.json",
     "writeRule": "只允许经证据写入；未核对请用 status=unverified + verifiedAt=null",
-    "updatedAt": null
+    "updatedAt": null,
+    "note": "本表允许示例行（dataOrigin=synthetic-demo），但示例行不得给法规结论：allowed 只能是 pending_evidence，且不得带证据来源。"
   },
-  "rows": []
+  "rows": [
+    {
+      "id": "cl-1",
+      "source": "示例数据（synthetic-demo）",
+      "evidenceUrl": null,
+      "evidenceGrade": null,
+      "verifiedAt": null,
+      "status": "unverified",
+      "dataOrigin": "synthetic-demo",
+      "text": "低糖",
+      "category": "成分",
+      "efficacy": false,
+      "allowed": "pending_evidence",
+      "basis": "待人工核对适用法规原文及检测/配方资料；此处不提供法规结论。",
+      "alternative": null,
+      "note": "示例行：演示流程用，不是判定结论。"
+    },
+    {
+      "id": "cl-2",
+      "source": "示例数据（synthetic-demo）",
+      "evidenceUrl": null,
+      "evidenceGrade": null,
+      "verifiedAt": null,
+      "status": "unverified",
+      "dataOrigin": "synthetic-demo",
+      "text": "高蛋白",
+      "category": "成分",
+      "efficacy": false,
+      "allowed": "pending_evidence",
+      "basis": "待人工核对适用法规原文及检测/配方资料；此处不提供法规结论。",
+      "alternative": null,
+      "note": "示例行。"
+    },
+    {
+      "id": "cl-3",
+      "source": "示例数据（synthetic-demo）",
+      "evidenceUrl": null,
+      "evidenceGrade": null,
+      "verifiedAt": null,
+      "status": "unverified",
+      "dataOrigin": "synthetic-demo",
+      "text": "不添加蔗糖",
+      "category": "成分",
+      "efficacy": false,
+      "allowed": "pending_evidence",
+      "basis": "待人工核对适用法规原文及检测/配方资料；此处不提供法规结论。",
+      "alternative": null,
+      "note": "示例行。"
+    },
+    {
+      "id": "cl-4",
+      "source": "示例数据（synthetic-demo）",
+      "evidenceUrl": null,
+      "evidenceGrade": null,
+      "verifiedAt": null,
+      "status": "unverified",
+      "dataOrigin": "synthetic-demo",
+      "text": "提神 / 抗疲劳",
+      "category": "功能",
+      "efficacy": true,
+      "allowed": "pending_evidence",
+      "basis": "待人工核对适用法规原文及检测/配方资料；此处不提供法规结论。",
+      "alternative": "（建议改为成分/场景描述，待合规出替代表述）",
+      "note": "反面示例：本案例禁语；功效类只有 L1–L3 能判 allowed。"
+    }
+  ]
 }
 

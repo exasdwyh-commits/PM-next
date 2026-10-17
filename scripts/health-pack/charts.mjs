@@ -47,6 +47,12 @@ const empty = (w, h, msg) => `
 <text x="${w / 2}" y="${h / 2}" fill="${C.dim}" font-size="14" text-anchor="middle">${esc(msg)}</text>
 <text x="${w / 2}" y="${h / 2 + 22}" fill="${C.dim}" font-size="11" text-anchor="middle">空状态：不画假数据。按 schema 登记后重跑本脚本。</text>`;
 const stamp = (h, note) => `<text x="28" y="${h - 14}" fill="${C.dim}" font-size="10">${esc(note)}</text>`;
+/* ---------- 示例数据纪律（synthetic-demo 行不得冒充真实数据） ---------- */
+const SAMPLE = "synthetic-demo";
+const isSample = (rows) => Array.isArray(rows) && rows.some((r) => r && r.dataOrigin === SAMPLE);
+const demoBadge = (on) =>
+  on ? `<rect x="548" y="17" width="144" height="22" rx="11" fill="none" stroke="${C.amber}"/>
+     <text x="620" y="32" fill="${C.amber}" font-size="11" text-anchor="middle">示例数据 · 非真实</text>` : "";
 
 /* ---------- 1. 机会矩阵 ---------- */
 function chartOpportunityMatrix(opps) {
@@ -64,9 +70,10 @@ function chartOpportunityMatrix(opps) {
        <text x="370" y="362" fill="${C.dim}" font-size="11" text-anchor="middle">在案例 insight 阶段登记 opportunities 后重跑</text>` +
       stamp(H, "生成时间：" + new Date().toISOString()));
   }
-  const x = (v) => 90 + (v / 100) * 560;          // 竞争强度：左强右弱
+  const x = (v) => 90 + ((100 - v) / 100) * 560;          // 竞争强度：左强右弱
   const y = (v) => 490 - (v / 100) * 380;         // 需求强度：下弱上强
   let body = head("机会矩阵 · 人群需求 × 竞争强度", `来源：case.opportunities[]（共 ${opps.length} 项，空心=未验证假设）`) +
+    demoBadge(isSample(opps)) +
     `<rect x="90" y="110" width="560" height="380" fill="${C.panel}" stroke="${C.line}"/>
      <line x1="370" y1="110" x2="370" y2="490" stroke="${C.line}" stroke-dasharray="4 4"/>
      <line x1="90" y1="300" x2="650" y2="300" stroke="${C.line}" stroke-dasharray="4 4"/>
@@ -74,7 +81,7 @@ function chartOpportunityMatrix(opps) {
      <text x="370" y="475" fill="${C.dim}" font-size="11" text-anchor="middle">低需求 · 强竞争（避开）</text>`;
   opps.forEach((o, i) => {
     const px = x(o.competition ?? 50), py = y(o.demand ?? 50);
-    const verified = o.status === "verified";
+    const verified = o.status === "verified" && o.dataOrigin !== SAMPLE;
     body += `
      <circle cx="${px}" cy="${py}" r="9" fill="${verified ? C.cyan : "none"}" stroke="${C.cyan}" stroke-width="2"/>
      <text x="${px}" y="${py - 16}" fill="${C.text}" font-size="12" text-anchor="middle">${esc(o.name)}</text>
@@ -100,14 +107,15 @@ function chartCostWaterfall(model) {
     { label: "贡献毛利", value: margin, kind: "end" }];
   const max = price || 1;
   const bw = Math.min(86, MAXW / steps.length - 8);
-  let body = head("成本瀑布 · 到手价 → 贡献毛利", `到手价 ${price.toFixed(2)}｜总成本 ${cost.toFixed(2)}｜贡献毛利 ${margin.toFixed(2)}（${model.currency || "CNY"}）`);
+  let body = head("成本瀑布 · 到手价 → 贡献毛利", `到手价 ${price.toFixed(2)}｜总成本 ${cost.toFixed(2)}｜贡献毛利 ${margin.toFixed(2)}（${model.currency || "CNY"}）`) + demoBadge(model.dataOrigin === SAMPLE);
   let cursor = 0;
   steps.forEach((s, i) => {
     const x = X0 + i * (bw + 8);
-    const hTop = H0 + ((max - cursor) / max) * (H1 - H0);
+
     let hgt, top;
     if (s.kind === "start" || s.kind === "end") { hgt = (Math.abs(s.value) / max) * (H1 - H0); top = H1 - hgt; }
-    else { hgt = (Math.abs(s.value) / max) * (H1 - H0); top = H0 + ((max - cursor) / max) * (H1 - H0); cursor -= s.amount; }
+    else { hgt = (Math.abs(s.value) / max) * (H1 - H0); top = H1 - (cursor / max) * (H1 - H0); cursor += s.value; }
+    if (s.kind === "start") cursor = s.value;
     const color = s.kind === "start" ? C.blue : s.kind === "end" ? (s.value >= 0 ? C.green : C.red) : C.amber;
     body += `<rect x="${x}" y="${top}" width="${bw}" height="${Math.max(2, hgt)}" fill="${color}" opacity=".85"/>
       <text x="${x + bw / 2}" y="${H1 + 18}" fill="${C.dim}" font-size="10" text-anchor="middle">${esc(s.label).slice(0, 8)}</text>
@@ -132,10 +140,10 @@ function chartClaims(claims) {
   claims.forEach((c) => (buckets[c.allowed] || buckets.pending_evidence).push(c));
   const total = claims.length;
   const colorOf = { allowed: C.green, forbidden: C.red, pending_evidence: C.amber };
-  const labelOf = { allowed: "可直接用", forbidden: "禁止", pending_evidence: "待补证据" };
+  const labelOf = { allowed: "证据支持（仍须业务确认）", forbidden: "禁止", pending_evidence: "待补证据" };
   const y0 = 120, barH = 30;
   let x = 90;
-  let body = head("宣称合规红黄绿", `共 ${total} 条｜green ${buckets.allowed.length}｜amber ${buckets.pending_evidence.length}｜red ${buckets.forbidden.length}`);
+  let body = head("宣称合规红黄绿", `共 ${total} 条｜green ${buckets.allowed.length}｜amber ${buckets.pending_evidence.length}｜red ${buckets.forbidden.length}`) + demoBadge(isSample(claims));
   for (const k of ["allowed", "pending_evidence", "forbidden"]) {
     const w = (buckets[k].length / total) * 540;
     if (w > 0) body += `<rect x="${x}" y="${y0}" width="${w}" height="${barH}" fill="${colorOf[k]}" opacity=".9"/>
@@ -159,10 +167,10 @@ function chartClaims(claims) {
 
 /* ---------- 4. 内容日历 ---------- */
 function chartContentCalendar(plan) {
-  const W = 720, H = 560;
+  const W = 720, H = 650;
   const CW = 78, CH = 62, X0 = 90, Y0 = 110;
   const chanColor = { "抖音": C.red, "小红书": C.amber, "视频号": C.green, "私域": C.violet, "电商": C.blue };
-  let body = head("内容日历 · 28 天排期", `来源：case.contentPlan[]（共 ${plan.length} 条；每条须挂已判 allowed 的宣称）`);
+  let body = head("内容日历 · 28 天排期", `来源：case.contentPlan[]（共 ${plan.length} 条；每条须挂已判 allowed 的宣称）`) + demoBadge(isSample(plan));
   for (let w = 0; w < 4; w++) body += `<text x="${X0 + w * (CW + 8)}" y="${Y0 - 8}" fill="${C.dim}" font-size="11">第 ${w + 1} 周</text>`;
   for (let d = 0; d < 28; d++) {
     const cx = X0 + Math.floor(d / 7) * (CW + 8), cy = Y0 + (d % 7) * (CH + 6);
@@ -172,9 +180,11 @@ function chartContentCalendar(plan) {
     items.slice(0, 3).forEach((it, i) => {
       body += `<circle cx="${cx + 12}" cy="${cy + 30 + i * 13}" r="4" fill="${chanColor[it.channel] || C.dim}"/>
         <text x="${cx + 21}" y="${cy + 33 + i * 13}" fill="${C.text}" font-size="9">${esc(String(it.topic || "").slice(0, 7))}</text>`;
+      if (it.claimAllowed && it.claimAllowed !== "allowed")
+        body += `<text x="${cx + CW - 8}" y="${cy + 15}" fill="${C.amber}" font-size="11" text-anchor="end" font-weight="700">!</text>`;
     });
   }
-  return svg(W, H, body + stamp(H, "图例：红=抖音 黄=小红书 绿=视频号 紫=私域 蓝=电商｜空 = 无排期（不是没数据）"));
+  return svg(W, H, body + stamp(H, "图例：红=抖音 黄=小红书 绿=视频号 紫=私域 蓝=电商｜! = 该条挂的宣称尚未判 allowed，不得发布" + (isSample(plan) ? "｜本图为示例排期" : "")));
 }
 
 /* ---------- main ---------- */
@@ -213,6 +223,12 @@ const summary = {
     costModel: !(caseDoc.costModel && caseDoc.costModel.rows || []).length,
     claims: (claimsDoc.rows || []).length === 0,
     contentPlan: (caseDoc.contentPlan || []).length === 0,
+  },
+  sampleData: {
+    opportunities: isSample(caseDoc.opportunities || []),
+    costModel: !!(caseDoc.costModel && caseDoc.costModel.dataOrigin === SAMPLE),
+    claims: isSample(claimsDoc.rows || []),
+    contentPlan: isSample(caseDoc.contentPlan || []),
   },
   at: new Date().toISOString(),
 };

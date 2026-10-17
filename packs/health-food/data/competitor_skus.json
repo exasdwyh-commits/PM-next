@@ -3,8 +3,55 @@
     "table": "competitor_skus",
     "schema": "../schema.json",
     "writeRule": "只允许经证据写入；未核对请用 status=unverified + verifiedAt=null",
-    "updatedAt": null
+    "updatedAt": null,
+    "note": "示例行仅供跑通流程；品牌已匿名化，价格/配方为演示值。"
   },
-  "rows": []
+  "rows": [
+    {
+      "id": "sku-a",
+      "source": "示例数据（synthetic-demo）",
+      "evidenceUrl": null,
+      "evidenceGrade": null,
+      "verifiedAt": null,
+      "status": "unverified",
+      "dataOrigin": "synthetic-demo",
+      "brand": "竞品 A（示例）",
+      "sku": "50g×6 盒装",
+      "price": 39.9,
+      "channel": "天猫",
+      "formulaBrief": "示例：蛋白 8g/份、糖 5g/份",
+      "claimsBrief": "示例：「低糖」「高蛋白」"
+    },
+    {
+      "id": "sku-b",
+      "source": "示例数据（synthetic-demo）",
+      "evidenceUrl": null,
+      "evidenceGrade": null,
+      "verifiedAt": null,
+      "status": "unverified",
+      "dataOrigin": "synthetic-demo",
+      "brand": "竞品 B（示例）",
+      "sku": "45g×8 袋",
+      "price": 45.0,
+      "channel": "抖音",
+      "formulaBrief": "示例：蛋白 6g/份、糖 9g/份",
+      "claimsBrief": "示例：「高蛋白」「0 蔗糖」"
+    },
+    {
+      "id": "sku-c",
+      "source": "示例数据（synthetic-demo）",
+      "evidenceUrl": null,
+      "evidenceGrade": null,
+      "verifiedAt": null,
+      "status": "unverified",
+      "dataOrigin": "synthetic-demo",
+      "brand": "竞品 C（示例）",
+      "sku": "60g×5 盒",
+      "price": 29.9,
+      "channel": "天猫",
+      "formulaBrief": "示例：蛋白 10g/份、糖 3g/份",
+      "claimsBrief": "示例：「低糖」"
+    }
+  ]
 }
 

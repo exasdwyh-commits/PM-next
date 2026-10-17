@@ -3,8 +3,88 @@
     "table": "price_points",
     "schema": "../schema.json",
     "writeRule": "只允许经证据写入；未核对请用 status=unverified + verifiedAt=null",
-    "updatedAt": null
+    "updatedAt": null,
+    "note": "示例行：观测价全为演示值，不代表任何真实在售价。"
   },
-  "rows": []
+  "rows": [
+    {
+      "id": "pp-1",
+      "source": "示例数据（synthetic-demo）",
+      "evidenceUrl": null,
+      "evidenceGrade": null,
+      "verifiedAt": null,
+      "status": "unverified",
+      "dataOrigin": "synthetic-demo",
+      "subject": "sku-a",
+      "channel": "天猫",
+      "at": "2026-10-17",
+      "price": 39.9
+    },
+    {
+      "id": "pp-2",
+      "source": "示例数据（synthetic-demo）",
+      "evidenceUrl": null,
+      "evidenceGrade": null,
+      "verifiedAt": null,
+      "status": "unverified",
+      "dataOrigin": "synthetic-demo",
+      "subject": "sku-a",
+      "channel": "抖音",
+      "at": "2026-10-17",
+      "price": 42.9
+    },
+    {
+      "id": "pp-3",
+      "source": "示例数据（synthetic-demo）",
+      "evidenceUrl": null,
+      "evidenceGrade": null,
+      "verifiedAt": null,
+      "status": "unverified",
+      "dataOrigin": "synthetic-demo",
+      "subject": "sku-b",
+      "channel": "天猫",
+      "at": "2026-10-17",
+      "price": 45.0
+    },
+    {
+      "id": "pp-4",
+      "source": "示例数据（synthetic-demo）",
+      "evidenceUrl": null,
+      "evidenceGrade": null,
+      "verifiedAt": null,
+      "status": "unverified",
+      "dataOrigin": "synthetic-demo",
+      "subject": "sku-c",
+      "channel": "抖音",
+      "at": "2026-10-17",
+      "price": 29.9
+    },
+    {
+      "id": "pp-5",
+      "source": "示例数据（synthetic-demo）",
+      "evidenceUrl": null,
+      "evidenceGrade": null,
+      "verifiedAt": null,
+      "status": "unverified",
+      "dataOrigin": "synthetic-demo",
+      "subject": "sku-c",
+      "channel": "天猫",
+      "at": "2026-10-17",
+      "price": 31.9
+    },
+    {
+      "id": "pp-6",
+      "source": "示例数据（synthetic-demo）",
+      "evidenceUrl": null,
+      "evidenceGrade": null,
+      "verifiedAt": null,
+      "status": "unverified",
+      "dataOrigin": "synthetic-demo",
+      "subject": "self-sku-draft",
+      "channel": "目标价",
+      "at": "2026-10-17",
+      "price": 12.9
+    }
+  ]
 }
 

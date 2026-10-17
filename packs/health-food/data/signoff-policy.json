@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "status": "configuration_only_not_runtime_enforced",
+  "principle": "AI 出稿、人负责；项目负责人在授权范围内有较高决策权；领导知情与可追溯确认，不逐项前置审批。",
+  "roles": {
+    "business_pm": "产品经理",
+    "business_sales": "销售经理",
+    "project_owner": "获授权项目负责人",
+    "exec": "领导层",
+    "specialist": "合规/食品安全/法务/财务等对应责任人"
+  },
+  "routine": {
+    "eligibleSigners": [
+      "business_pm",
+      "business_sales",
+      "project_owner"
+    ],
+    "mode": "any",
+    "execAcknowledgementRequired": false,
+    "notify": [
+      "exec"
+    ],
+    "noResponse": "提醒，不自动签字，不将领导未读作为常规业务阻塞条件"
+  },
+  "protected": {
+    "triggers": [
+      "食品安全或科学证据不足",
+      "合规宣称争议",
+      "法律合同承诺",
+      "超授权预算或不可逆外部动作"
+    ],
+    "requires": "对应专业责任人及有权责任人确认；不得由项目负责人以职位代替证据或越权豁免",
+    "platformGates": [
+      "FORMAL_BUSINESS_GATE",
+      "LEGAL_OR_CONTRACT_COMMITMENT",
+      "PAYMENT_OR_FINANCIAL_COMMITMENT",
+      "EXTERNAL_PUBLISH_OR_SEND"
+    ]
+  },
+  "auditFields": [
+    "artifactVersion",
+    "actionHash",
+    "signedBy",
+    "role",
+    "at",
+    "decision",
+    "reason",
+    "notificationDeliveryStatus",
+    "acknowledgedAt"
+  ],
+  "executionBoundary": "本文件尚未接入 ApprovalService/notify；不授予真实权限、不产生有效签名或已送达通知。实际接线必须使用 identity 会话角色、组织权限、版本哈希和审计记录。",
+  "scientificBoundary": "业务签字不使假设变事实；synthetic-demo 不得 verified、不得作为正式过门证据；证据不足保留待验证。"
+}

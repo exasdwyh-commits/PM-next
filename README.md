@@ -397,3 +397,10 @@ npm run test:kern-project-map # 校验区域、关键依赖边与覆盖率
 8. `docs/FUSION_DELIVERY_2026-09-25.md`
 
 历史 release / fusion 分支文档仅作为演进记录，不再代表当前部署入口。
+
+## 大健康开品与营销助理 · 数据工作台
+
+- [Health Pack 导航](packs/health-food/README.md)：六表、技能接线、四张标准图与模拟案例。
+- [数据登记与示例边界](packs/health-food/data/README.md)：13 条 synthetic-demo，仅用于演示，非业务证据。
+- [轻量签字策略](packs/health-food/data/signoff-policy.json)：业务/项目负责人确认、领导知情；当前仅配置，审批与通知运行时接线未上线。
+- 运行：`node scripts/health-pack/validate-pack.mjs`、`node scripts/health-pack/test-pack.mjs`、`node scripts/health-pack/charts.mjs`。

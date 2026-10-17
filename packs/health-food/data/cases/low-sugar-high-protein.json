@@ -3,47 +3,374 @@
     "purpose": "开品案例容器：八阶段主线 + 门禁状态 + 产物清单 + 待决策项。字段为空＝尚未得出，不允许填猜测值。",
     "case": "低糖高蛋白零食（首个示范案例，与办公室动画同一目标）",
     "owner": "Kern（拆解/综合/门禁）、专员按 seat 执行",
-    "gatePolicy": "任一阶段 gate=blocked 时不得进入下一阶段；缺证即 pending_evidence，不得润色成肯定句。"
+    "gatePolicy": "任一阶段 gate=blocked 时不得进入下一阶段；缺证即 pending_evidence，不得润色成肯定句。",
+    "dataOrigin": "synthetic-demo",
+    "disclaimer": "本案例的 opportunities / costModel / contentPlan 为**示例数据**（dataOrigin=synthetic-demo），只用于跑通图表与门禁流程；不是真实调研、报价或法规结论。删除 dataOrigin 标记并补上证据之前，一律不得当作决策依据。"
   },
   "id": "case-low-sugar-high-protein",
   "createdAt": "2026-10-17",
   "status": "draft",
   "stages": [
     {
-      "id": "insight", "label": "洞察", "seat": "research_agent", "gate": "pending",
+      "id": "insight",
+      "label": "洞察",
+      "seat": "research_agent",
+      "gate": "pending",
       "hypotheses": [
-        { "id": "H1", "text": "下午三四点能量低谷的办公室人群愿意为「不靠糖提神」付溢价", "status": "hypothesis", "needsEvidence": "人群行为数据或一手访谈（L3）；竞品评价聚类（L5 仅线索）" },
-        { "id": "H2", "text": "低糖高蛋白零食在 30–45 元/盒价格带存在供应空档", "status": "hypothesis", "needsEvidence": "价格带地图（price_points 表，需真实在售价）" }
+        {
+          "id": "H1",
+          "text": "下午三四点能量低谷的办公室人群愿意为「不靠糖提神」付溢价",
+          "status": "hypothesis",
+          "needsEvidence": "人群行为数据或一手访谈（单列研究方法与样本，不等同同行评审 L3）；竞品评价聚类（L5 仅线索）"
+        },
+        {
+          "id": "H2",
+          "text": "低糖高蛋白零食在 30–45 元/盒价格带存在供应空档",
+          "status": "hypothesis",
+          "needsEvidence": "价格带地图（price_points 表，需真实在售价）"
+        }
       ],
-      "evidenceRequired": ["人群与场景（L1–L3）", "竞品配方与宣称摘要（competitor_skus 表）", "价格带（price_points 表）"],
-      "outputs": [], "evidence": [],
-      "openQuestions": ["目标人群与场景的证据在哪（L1–L3）？", "现有竞品在什么价位带、卖什么宣称？", "「不靠糖提神」这句话触不触功效宣称？（交 claims 阶段预判）"]
+      "evidenceRequired": [
+        "人群与场景（L1–L3）",
+        "竞品配方与宣称摘要（competitor_skus 表）",
+        "价格带（price_points 表）"
+      ],
+      "outputs": [],
+      "evidence": [],
+      "openQuestions": [
+        "目标人群与场景的证据在哪（L1–L3）？",
+        "现有竞品在什么价位带、卖什么宣称？",
+        "「不靠糖提神」这句话触不触功效宣称？（交 claims 阶段预判）"
+      ],
+      "signoffLevel": "routine",
+      "signoffPolicy": "../signoff-policy.json"
     },
     {
-      "id": "intake", "label": "立项", "seat": "product_agent", "gate": "pending",
+      "id": "intake",
+      "label": "立项",
+      "seat": "product_agent",
+      "gate": "pending",
       "draft": {
         "concept": "给下午能量低谷的办公室人群一个低糖、高蛋白的即食零食（未定稿）",
         "targetAudience": "25–35 岁办公室人群，下午 3–4 点（假设 H1）",
         "spec": "待定（单份蛋白 ≥ 8g 为目标，须配方阶段验证可行性）",
         "priceBand": "待定（H2 待价格带地图）",
-        "channels": ["抖音自播", "小红书种草"],
-        "forbidden": ["「提神」「抗疲劳」等功效表述（除非取得 L1–L3 证据并经人签字）"]
+        "channels": [
+          "抖音自播",
+          "小红书种草"
+        ],
+        "forbidden": [
+          "「提神」「抗疲劳」等功效表述（除非取得 L1–L3 证据并经人签字）"
+        ]
       },
       "requiresHumanSignoff": true,
-      "signoff": { "by": null, "at": null, "note": "intake 确认门：概念/规格/价格带/渠道四项经人确认后才能进入配方阶段" },
-      "outputs": [], "evidence": [],
-      "openQuestions": ["概念、规格、价格带、目标渠道（需 intake 确认门）", "首批渠道预算与止损线"]
+      "signoff": {
+        "policy": "../signoff-policy.json",
+        "level": "routine",
+        "mode": "any",
+        "candidates": [
+          "business_pm",
+          "business_sales",
+          "project_owner"
+        ],
+        "notify": [
+          "exec"
+        ],
+        "slaHours": null,
+        "onTimeout": "remind_only_no_auto_approval",
+        "producedBy": "ai",
+        "signedBy": null,
+        "role": null,
+        "at": null,
+        "how": null,
+        "note": "产品经理、销售经理或获授权项目负责人任一确认；领导知情不阻塞。未签不自动通过，专业红线不得代签。"
+      },
+      "outputs": [],
+      "evidence": [],
+      "openQuestions": [
+        "概念、规格、价格带、目标渠道（需 intake 确认门）",
+        "首批渠道预算与止损线"
+      ],
+      "signoffLevel": "routine",
+      "signoffPolicy": "../signoff-policy.json"
     },
-    { "id": "formula",  "label": "概念配方", "seat": "product_agent",    "gate": "pending", "outputs": [], "evidence": [], "openQuestions": ["蛋白来源与含量目标的可行性", "剂型/口感约束", "指标与检测方法"] },
-    { "id": "claims",   "label": "合规前置", "seat": "compliance_agent", "gate": "pending", "outputs": [], "evidence": [], "openQuestions": ["每句卖点对应哪条法规（L1）？", "红黄绿分级与替代表述"] },
-    { "id": "cost",     "label": "成本定价", "seat": "cost_bom_agent",   "gate": "pending", "outputs": [], "evidence": [], "openQuestions": ["BOM/包材/代工报价（L4 事实来源）", "渠道毛利与目标成本缺口"] },
-    { "id": "validate", "label": "打样验证", "seat": "research_agent",   "gate": "pending", "outputs": [], "evidence": [], "openQuestions": ["最小验证项与通过阈值", "货架期/稳定性试验安排"] },
-    { "id": "gtm",      "label": "上市内容", "seat": "marketing_agent",  "gate": "pending", "outputs": [], "evidence": [], "openQuestions": ["首批人群与渠道", "内容脚本（须过合规自检）"] },
-    { "id": "review",   "label": "复盘迭代", "seat": "qa_verifier",      "gate": "pending", "outputs": [], "evidence": [], "openQuestions": ["销售/评价/退货回流口径", "下一轮假设"] }
+    {
+      "id": "formula",
+      "label": "概念配方",
+      "seat": "product_agent",
+      "gate": "pending",
+      "outputs": [],
+      "evidence": [],
+      "openQuestions": [
+        "蛋白来源与含量目标的可行性",
+        "剂型/口感约束",
+        "指标与检测方法"
+      ],
+      "signoffLevel": "routine",
+      "signoffPolicy": "../signoff-policy.json"
+    },
+    {
+      "id": "claims",
+      "label": "合规前置",
+      "seat": "compliance_agent",
+      "gate": "pending",
+      "outputs": [],
+      "evidence": [],
+      "openQuestions": [
+        "每句卖点对应哪条法规（L1）？",
+        "红黄绿分级与替代表述"
+      ],
+      "signoffLevel": "protected",
+      "signoffPolicy": "../signoff-policy.json"
+    },
+    {
+      "id": "cost",
+      "label": "成本定价",
+      "seat": "cost_bom_agent",
+      "gate": "pending",
+      "outputs": [],
+      "evidence": [],
+      "openQuestions": [
+        "BOM/包材/代工报价（L4 事实来源）",
+        "渠道毛利与目标成本缺口"
+      ],
+      "signoffLevel": "routine",
+      "signoffPolicy": "../signoff-policy.json"
+    },
+    {
+      "id": "validate",
+      "label": "打样验证",
+      "seat": "research_agent",
+      "gate": "pending",
+      "outputs": [],
+      "evidence": [],
+      "openQuestions": [
+        "最小验证项与通过阈值",
+        "货架期/稳定性试验安排"
+      ],
+      "signoffLevel": "protected",
+      "signoffPolicy": "../signoff-policy.json"
+    },
+    {
+      "id": "gtm",
+      "label": "上市内容",
+      "seat": "marketing_agent",
+      "gate": "pending",
+      "outputs": [],
+      "evidence": [],
+      "openQuestions": [
+        "首批人群与渠道",
+        "内容脚本（须过合规自检）"
+      ],
+      "signoffLevel": "protected",
+      "signoffPolicy": "../signoff-policy.json"
+    },
+    {
+      "id": "review",
+      "label": "复盘迭代",
+      "seat": "qa_verifier",
+      "gate": "pending",
+      "outputs": [],
+      "evidence": [],
+      "openQuestions": [
+        "销售/评价/退货回流口径",
+        "下一轮假设"
+      ],
+      "signoffLevel": "routine",
+      "signoffPolicy": "../signoff-policy.json"
+    }
   ],
-  "opportunities": [],
-  "costModel": null,
-  "contentPlan": [],
+  "opportunities": [
+    {
+      "id": "O1",
+      "name": "办公室下午提神",
+      "segment": "25–35 岁办公室人群",
+      "demand": 78,
+      "competition": 42,
+      "status": "hypothesis",
+      "dataOrigin": "synthetic-demo",
+      "note": "示例分值，用于跑通图表；未做任何调研。",
+      "needsEvidence": "人群行为数据或访谈（单列样本与方法，不自动算 L3）；竞品评价聚类（L5 仅线索）"
+    },
+    {
+      "id": "O2",
+      "name": "健身人群加餐",
+      "segment": "力量训练 ≥3 次/周",
+      "demand": 71,
+      "competition": 66,
+      "status": "hypothesis",
+      "dataOrigin": "synthetic-demo",
+      "note": "示例分值。",
+      "needsEvidence": "训练人群消费数据（L3）；竞品配方对比"
+    },
+    {
+      "id": "O3",
+      "name": "控糖人群解馋",
+      "segment": "控糖/减脂人群",
+      "demand": 64,
+      "competition": 58,
+      "status": "hypothesis",
+      "dataOrigin": "synthetic-demo",
+      "note": "示例分值。",
+      "needsEvidence": "控糖人群规模与购买数据（L2/L3）"
+    },
+    {
+      "id": "O4",
+      "name": "学生课间加餐",
+      "segment": "高中生/大学生",
+      "demand": 46,
+      "competition": 34,
+      "status": "hypothesis",
+      "dataOrigin": "synthetic-demo",
+      "note": "示例分值。",
+      "needsEvidence": "校园渠道可得性；价格敏感度"
+    }
+  ],
+  "costModel": {
+    "currency": "CNY",
+    "price": 12.9,
+    "targetCost": 6.5,
+    "dataOrigin": "synthetic-demo",
+    "note": "示例口径：到手价 − 逐层费用 = 贡献毛利。金额全为演示值，未取得任何报价或合同；正式使用时每项须为 L4 文件（报价/合同）。",
+    "rows": [
+      {
+        "label": "渠道佣金",
+        "amount": 2.58
+      },
+      {
+        "label": "平台服务费",
+        "amount": 0.65
+      },
+      {
+        "label": "物流履约",
+        "amount": 1.2
+      },
+      {
+        "label": "包材",
+        "amount": 0.88
+      },
+      {
+        "label": "代工",
+        "amount": 2.1
+      },
+      {
+        "label": "原料",
+        "amount": 1.95
+      }
+    ]
+  },
+  "contentPlan": [
+    {
+      "id": "cp-1",
+      "day": 1,
+      "channel": "小红书",
+      "topic": "下午三点为什么饿",
+      "claimRef": "cl-2",
+      "claimAllowed": "pending_evidence",
+      "dataOrigin": "synthetic-demo",
+      "status": "draft",
+      "note": "示例排期：claimRef 指向的宣称当前均为 pending_evidence，未判 allowed 前不得发布。"
+    },
+    {
+      "id": "cp-2",
+      "day": 3,
+      "channel": "抖音",
+      "topic": "低糖零食怎么挑",
+      "claimRef": "cl-1",
+      "claimAllowed": "pending_evidence",
+      "dataOrigin": "synthetic-demo",
+      "status": "draft",
+      "note": "示例排期：claimRef 指向的宣称当前均为 pending_evidence，未判 allowed 前不得发布。"
+    },
+    {
+      "id": "cp-3",
+      "day": 5,
+      "channel": "小红书",
+      "topic": "配料表第一行看什么",
+      "claimRef": "cl-3",
+      "claimAllowed": "pending_evidence",
+      "dataOrigin": "synthetic-demo",
+      "status": "draft",
+      "note": "示例排期：claimRef 指向的宣称当前均为 pending_evidence，未判 allowed 前不得发布。"
+    },
+    {
+      "id": "cp-4",
+      "day": 8,
+      "channel": "抖音",
+      "topic": "办公室抽屉备什么",
+      "claimRef": "cl-2",
+      "claimAllowed": "pending_evidence",
+      "dataOrigin": "synthetic-demo",
+      "status": "draft",
+      "note": "示例排期：claimRef 指向的宣称当前均为 pending_evidence，未判 allowed 前不得发布。"
+    },
+    {
+      "id": "cp-5",
+      "day": 11,
+      "channel": "视频号",
+      "topic": "蛋白够不够一篇说清",
+      "claimRef": "cl-2",
+      "claimAllowed": "pending_evidence",
+      "dataOrigin": "synthetic-demo",
+      "status": "draft",
+      "note": "示例排期：claimRef 指向的宣称当前均为 pending_evidence，未判 allowed 前不得发布。"
+    },
+    {
+      "id": "cp-6",
+      "day": 14,
+      "channel": "小红书",
+      "topic": "0 蔗糖≠0 糖",
+      "claimRef": "cl-3",
+      "claimAllowed": "pending_evidence",
+      "dataOrigin": "synthetic-demo",
+      "status": "draft",
+      "note": "示例排期：claimRef 指向的宣称当前均为 pending_evidence，未判 allowed 前不得发布。"
+    },
+    {
+      "id": "cp-7",
+      "day": 17,
+      "channel": "抖音",
+      "topic": "试吃探店（内部号）",
+      "claimRef": "cl-1",
+      "claimAllowed": "pending_evidence",
+      "dataOrigin": "synthetic-demo",
+      "status": "draft",
+      "note": "示例排期：claimRef 指向的宣称当前均为 pending_evidence，未判 allowed 前不得发布。"
+    },
+    {
+      "id": "cp-8",
+      "day": 20,
+      "channel": "电商",
+      "topic": "详情页：成分表怎么读",
+      "claimRef": "cl-1",
+      "claimAllowed": "pending_evidence",
+      "dataOrigin": "synthetic-demo",
+      "status": "draft",
+      "note": "示例排期：claimRef 指向的宣称当前均为 pending_evidence，未判 allowed 前不得发布。"
+    },
+    {
+      "id": "cp-9",
+      "day": 23,
+      "channel": "私域",
+      "topic": "新品内测招募",
+      "claimRef": "cl-2",
+      "claimAllowed": "pending_evidence",
+      "dataOrigin": "synthetic-demo",
+      "status": "draft",
+      "note": "示例排期：claimRef 指向的宣称当前均为 pending_evidence，未判 allowed 前不得发布。"
+    },
+    {
+      "id": "cp-10",
+      "day": 26,
+      "channel": "小红书",
+      "topic": "复盘：哪条内容留得住人",
+      "claimRef": null,
+      "claimAllowed": null,
+      "dataOrigin": "synthetic-demo",
+      "status": "draft",
+      "note": "示例排期：claimRef 指向的宣称当前均为 pending_evidence，未判 allowed 前不得发布。"
+    }
+  ],
   "decisionLog": [],
   "blocked": []
 }
