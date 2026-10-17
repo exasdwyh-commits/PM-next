@@ -1,0 +1,56 @@
+{
+  "_meta": {
+    "purpose": "来源登记：能作为证据的官方入口。monitor=true 的条目由 scripts/health-pack/regwatch.mjs 定时抓取。",
+    "probedAt": "2026-10-17",
+    "probedFrom": "本机 PortableGit Bash，curl 带浏览器 UA，超时 15s",
+    "policy": "只有真实探测过的才填 reachable；未通达的注明原因，不得假装可用。"
+  },
+  "sources": [
+    {
+      "id": "samr",
+      "name": "国家市场监督管理总局",
+      "url": "https://www.samr.gov.cn",
+      "grade": "L1",
+      "monitor": true,
+      "roadmap": "公告公示 / 食品生产 / 特殊食品",
+      "probe": { "httpCode": 200, "bytes": 95508, "reachable": true, "needsBrowserUA": true, "note": "无 UA 会 403" }
+    },
+    {
+      "id": "cfsa",
+      "name": "国家食品安全风险评估中心",
+      "url": "https://www.cfsa.net.cn",
+      "grade": "L2",
+      "monitor": true,
+      "roadmap": "标准动态 / 风险评估 / 数据检索入口",
+      "probe": { "httpCode": 200, "bytes": 57100, "reachable": true, "needsBrowserUA": false, "note": "直接可达" }
+    },
+    {
+      "id": "std-samr",
+      "name": "全国标准信息公共服务平台",
+      "url": "https://std.samr.gov.cn",
+      "grade": "L1",
+      "monitor": true,
+      "roadmap": "国家标准 / 行业标准检索",
+      "probe": { "httpCode": 200, "bytes": 109145, "reachable": true, "needsBrowserUA": true, "note": "标题含「首页 - 全国标准信息公共服务平台」" }
+    },
+    {
+      "id": "nhc",
+      "name": "国家卫生健康委员会",
+      "url": "http://www.nhc.gov.cn",
+      "grade": "L1",
+      "monitor": false,
+      "roadmap": "标准与公告 / 食品安全标准",
+      "probe": { "httpCode": 412, "bytes": 3693, "reachable": false, "needsBrowserUA": true, "note": "412 反爬（需 JS/ Cookie 挑战），regwatch 不抓；改走浏览器上下文或人工" }
+    },
+    {
+      "id": "nmpa",
+      "name": "国家药品监督管理局",
+      "url": "https://www.nmpa.gov.cn",
+      "grade": "L1",
+      "monitor": false,
+      "roadmap": "特殊食品 / 保健食品查询",
+      "probe": { "httpCode": 412, "bytes": 2471, "reachable": false, "needsBrowserUA": true, "note": "412 反爬，同上" }
+    }
+  ]
+}
+

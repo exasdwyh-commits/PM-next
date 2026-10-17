@@ -1,0 +1,12 @@
+{
+  "id": "std-samr",
+  "name": "全国标准信息公共服务平台",
+  "url": "https://std.samr.gov.cn",
+  "finalUrl": "https://std.samr.gov.cn/",
+  "httpCode": 200,
+  "bytes": 109145,
+  "sha256": "7be840aab0b0384adbfbde33b660083802ba3e0156d854db35d757357cf9a5fb",
+  "title": "首页 - 全国标准信息公共服务平台",
+  "fetchedAt": "2026-10-17T00:41:51.830Z",
+  "changed": false
+}

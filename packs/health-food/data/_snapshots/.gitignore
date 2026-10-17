@@ -1,0 +1,2 @@
+# 快照原件为本地审计物，不入库；保留 latest.json(哈希) 与 changes.md(报告)
+*/*.html

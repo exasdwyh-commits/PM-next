@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "updatedAt": "2026-10-17",
+  "evidenceGrades": {
+    "L1": "法规原文 / 国标 / 公告",
+    "L2": "官方数据库（原料目录、检测方法、查询平台）",
+    "L3": "同行评审文献",
+    "L4": "供应商 / 工厂一手文件（只作事实来源）",
+    "L5": "媒体 / 自媒体（只作线索）"
+  },
+  "commonFields": {
+    "id": "string, 表内唯一",
+    "source": "string, 人可读来源名",
+    "evidenceUrl": "string, http(s) 链接",
+    "evidenceGrade": "enum L1|L2|L3|L4|L5",
+    "verifiedAt": "ISO 日期或 null",
+    "status": "enum unverified|verified|pending_evidence|rejected",
+    "note": "string, 可选"
+  },
+  "tables": {
+    "ingredients": {
+      "file": "ingredients.json",
+      "row": { "name": "原料/配料名", "spec": "规格或含量", "supplier": "供应商(可空)", "costRange": "价格区间(可空)", "restricted": "禁用/限用场景(可空)" }
+    },
+    "claims": {
+      "file": "claims.json",
+      "row": { "text": "宣称原文", "category": "功能|成分|比较|情感", "efficacy": "boolean, 是否功效类", "allowed": "enum allowed|forbidden|pending_evidence", "basis": "法规依据(可空)", "alternative": "替代表述(可空)" }
+    },
+    "regulatory_rules": {
+      "file": "regulatory_rules.json",
+      "row": { "title": "法规/标准/公告名", "docNo": "文号(可空)", "effectiveAt": "生效日(可空)", "scope": "适用类目/范围", "impact": "对本品影响一句话" }
+    },
+    "competitor_skus": {
+      "file": "competitor_skus.json",
+      "row": { "brand": "品牌", "sku": "规格", "price": "现价(可空)", "channel": "渠道", "formulaBrief": "配方摘要", "claimsBrief": "宣称摘要" }
+    },
+    "price_points": {
+      "file": "price_points.json",
+      "row": { "subject": "对象(自有或竞品 id)", "channel": "渠道", "at": "观测时点", "price": "价格" }
+    },
+    "reviews": {
+      "file": "reviews.json",
+      "row": { "platform": "平台", "skuId": "对象 id", "rating": "评分", "text": "评价原文片段", "tag": "聚类标签" }
+    }
+  }
+}
+

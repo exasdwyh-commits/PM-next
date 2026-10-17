@@ -1,0 +1,10 @@
+{
+  "_meta": {
+    "table": "claims",
+    "schema": "../schema.json",
+    "writeRule": "只允许经证据写入；未核对请用 status=unverified + verifiedAt=null",
+    "updatedAt": null
+  },
+  "rows": []
+}
+

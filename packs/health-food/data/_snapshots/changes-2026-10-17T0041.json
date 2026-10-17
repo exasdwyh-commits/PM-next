@@ -1,0 +1,47 @@
+{
+  "at": "2026-10-17T00:41:49.722Z",
+  "changed": [
+    {
+      "id": "samr",
+      "ok": true,
+      "name": "国家市场监督管理总局",
+      "url": "https://www.samr.gov.cn",
+      "finalUrl": "https://www.samr.gov.cn/",
+      "httpCode": 200,
+      "bytes": 95508,
+      "sha256": "5aa4a72c8ab7c69fa930380934d6db972614644c8e21c654b578102cb17f348e",
+      "title": "国家市场监督管理总局",
+      "fetchedAt": "2026-10-17T00:41:49.012Z",
+      "changed": true,
+      "prevSha": null
+    },
+    {
+      "id": "cfsa",
+      "ok": true,
+      "name": "国家食品安全风险评估中心",
+      "url": "https://www.cfsa.net.cn",
+      "finalUrl": "https://www.cfsa.net.cn/",
+      "httpCode": 200,
+      "bytes": 57100,
+      "sha256": "90601b7f0e2daf6483ddd59522c25cbd3186fc5ec90c5fff019f2d983c79a25d",
+      "title": "国家食品安全风险评估中心",
+      "fetchedAt": "2026-10-17T00:41:49.380Z",
+      "changed": true,
+      "prevSha": null
+    },
+    {
+      "id": "std-samr",
+      "ok": true,
+      "name": "全国标准信息公共服务平台",
+      "url": "https://std.samr.gov.cn",
+      "finalUrl": "https://std.samr.gov.cn/",
+      "httpCode": 200,
+      "bytes": 109145,
+      "sha256": "7be840aab0b0384adbfbde33b660083802ba3e0156d854db35d757357cf9a5fb",
+      "title": "首页 - 全国标准信息公共服务平台",
+      "fetchedAt": "2026-10-17T00:41:49.720Z",
+      "changed": true,
+      "prevSha": null
+    }
+  ]
+}

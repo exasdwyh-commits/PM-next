@@ -1,0 +1,24 @@
+{
+  "_meta": {
+    "purpose": "开品案例容器：八阶段主线 + 门禁状态 + 产物清单 + 待决策项。字段为空＝尚未得出，不允许填猜测值。",
+    "case": "低糖高蛋白零食（首个示范案例，与办公室动画同一目标）",
+    "owner": "Kern（拆解/综合/门禁）、专员按 seat 执行",
+    "gatePolicy": "任一阶段 gate=blocked 时不得进入下一阶段；缺证即 pending_evidence，不得润色成肯定句。"
+  },
+  "id": "case-low-sugar-high-protein",
+  "createdAt": "2026-10-17",
+  "status": "draft",
+  "stages": [
+    { "id": "insight",  "label": "洞察",     "seat": "research_agent",   "gate": "pending", "outputs": [], "evidence": [], "openQuestions": ["目标人群与场景的证据在哪（L1–L3）？", "现有竞品在什么价位带、卖什么宣称？"] },
+    { "id": "intake",   "label": "立项",     "seat": "product_agent",    "gate": "pending", "outputs": [], "evidence": [], "openQuestions": ["概念、规格、价格带、目标渠道（需 intake 确认门）"] },
+    { "id": "formula",  "label": "概念配方", "seat": "product_agent",    "gate": "pending", "outputs": [], "evidence": [], "openQuestions": ["蛋白来源与含量目标的可行性", "剂型/口感约束", "指标与检测方法"] },
+    { "id": "claims",   "label": "合规前置", "seat": "compliance_agent", "gate": "pending", "outputs": [], "evidence": [], "openQuestions": ["每句卖点对应哪条法规（L1）？", "红黄绿分级与替代表述"] },
+    { "id": "cost",     "label": "成本定价", "seat": "cost_bom_agent",   "gate": "pending", "outputs": [], "evidence": [], "openQuestions": ["BOM/包材/代工报价（L4 事实来源）", "渠道毛利与目标成本缺口"] },
+    { "id": "validate", "label": "打样验证", "seat": "research_agent",   "gate": "pending", "outputs": [], "evidence": [], "openQuestions": ["最小验证项与通过阈值", "货架期/稳定性试验安排"] },
+    { "id": "gtm",      "label": "上市内容", "seat": "marketing_agent",  "gate": "pending", "outputs": [], "evidence": [], "openQuestions": ["首批人群与渠道", "内容脚本（须过合规自检）"] },
+    { "id": "review",   "label": "复盘迭代", "seat": "qa_verifier",      "gate": "pending", "outputs": [], "evidence": [], "openQuestions": ["销售/评价/退货回流口径", "下一轮假设"] }
+  ],
+  "decisionLog": [],
+  "blocked": []
+}
+
