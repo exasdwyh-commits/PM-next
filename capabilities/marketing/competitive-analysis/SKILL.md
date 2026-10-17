@@ -32,3 +32,8 @@ version: 1
 ## 红线
 - 不得在没有数据时写「市场份额约 XX%」；
 - 不得把「没人做」直接等同于「有机会」。
+
+## 数据接线（health-pack v1）
+- 读：`packs/health-food/data/` 的六张表（`claims.json` / `regulatory_rules.json` / `competitor_skus.json` / `price_points.json` …）。
+- 写：结论必须落回表并带 `evidenceUrl` + `evidenceGrade`(L1–L5) + `verifiedAt`；竞品行落 `competitor_skus.json`、价格落 `price_points.json`；机会结论以 `status=hypothesis` 写入案例 `opportunities[]`。
+- 红线：本技能产出的是**待签稿**——`status=verified` 只能由人核对 L1 原文后设置（AI 出稿，人签字）。

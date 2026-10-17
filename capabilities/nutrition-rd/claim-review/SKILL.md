@@ -32,3 +32,8 @@ version: 1
 ## 红线
 - 不得用「建议优化」掩盖「禁用」；
 - 比较宣称没有对比数据一律禁用。
+
+## 数据接线（health-pack v1）
+- 读：`packs/health-food/data/` 的六张表（`claims.json` / `regulatory_rules.json` / `competitor_skus.json` / `price_points.json` …）。
+- 写：结论必须落回表并带 `evidenceUrl` + `evidenceGrade`(L1–L5) + `verifiedAt`；功效类（`efficacy: true`）只有 L1–L3 能判 `allowed`，判 `forbidden` 必须给法规原文出处。
+- 红线：本技能产出的是**待签稿**——`status=verified` 只能由人核对 L1 原文后设置（AI 出稿，人签字）。

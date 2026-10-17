@@ -32,3 +32,8 @@ version: 1
 ## 红线
 - 不得先想选题再找人群；
 - 不得把「发得多」当策略。
+
+## 数据接线（health-pack v1）
+- 读：`packs/health-food/data/` 的六张表（`claims.json` / `regulatory_rules.json` / `competitor_skus.json` / `price_points.json` …）。
+- 写：结论必须落回表并带 `evidenceUrl` + `evidenceGrade`(L1–L5) + `verifiedAt`；每条内容必须挂 `claimRef`，且该宣称在 `claims.json` 里已判 `allowed`；排期写回案例 `contentPlan[]`。
+- 红线：本技能产出的是**待签稿**——`status=verified` 只能由人核对 L1 原文后设置（AI 出稿，人签字）。

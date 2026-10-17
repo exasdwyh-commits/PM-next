@@ -32,3 +32,8 @@ version: 1
 ## 红线
 - 不得用「毛利 60%」这类只扣货成本的口径；
 - 未取得的费率必须标为拟定值，不得当作已确认。
+
+## 数据接线（health-pack v1）
+- 读：`packs/health-food/data/` 的六张表（`claims.json` / `regulatory_rules.json` / `competitor_skus.json` / `price_points.json` …）。
+- 写：结论必须落回表并带 `evidenceUrl` + `evidenceGrade`(L1–L5) + `verifiedAt`；报价/合同为 L4 事实来源；`costModel` 写进案例文件，缺「工厂报价 + 零售价」两事实时整体判 blocked。
+- 红线：本技能产出的是**待签稿**——`status=verified` 只能由人核对 L1 原文后设置（AI 出稿，人签字）。
